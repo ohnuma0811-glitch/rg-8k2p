@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=9162d0e';
-import { buildTrackMesh } from './trackMesh.js?v=9162d0e';
+import * as THREE from '../../vendor/three.module.min.js?v=8c91c11';
+import { buildTrackMesh } from './trackMesh.js?v=8c91c11';
 
 const SKY = 0x8fd3ff;
 
@@ -44,24 +44,22 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
   camera.updateProjectionMatrix();
 }
 
-// マリオカート64 のように、低い位置からキャラのすぐ後ろを追いかける。キャラは画面の下の真ん中に大きく映り、
-// その上に先の道が見える
-// 向きと位置は少しずつ合わせる。視野は速いほど少し広げ、加速中はさらに広げる
-const CAM_BACK = 8.5; // 車の何m後ろ
-const CAM_HEIGHT = 3.6; // 車から何m上（キャラの頭より上から、先の道が見えるように）
-const CAM_AHEAD = 10; // 車の何m先を見るか
+// マリオカート64 のように、少し遠く低い所から追いかける。車は画面の真ん中より少し下に映る
+// カメラは車の「進む向き」に遅れて回るので、カーブやドリフトでは車の横腹が見える
+const CAM_BACK = 9; // 車の何m後ろ
+const CAM_HEIGHT = 3.2; // 車から何m上
+const CAM_AHEAD = 6; // 車の何m先を見るか
+const CAM_TURN = 3; // カメラが車の進む向きに追いつく速さ（1/秒。小さいほど遅れる）
 const FOV_BASE = 58;
 const _pos = new THREE.Vector3();
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
   const st = camera.userData;
-  const drift = kart.drift.active ? kart.drift.dir * 0.25 : 0;
-  const yaw = kart.heading - drift;
   if (st.h === undefined) {
-    st.h = yaw;
+    st.h = kart.move;
     st.fov = FOV_BASE;
     st.pos = new THREE.Vector3();
   }
-  st.h += Math.atan2(Math.sin(yaw - st.h), Math.cos(yaw - st.h)) * Math.min(1, 5 * dt);
+  st.h += Math.atan2(Math.sin(kart.move - st.h), Math.cos(kart.move - st.h)) * Math.min(1, CAM_TURN * dt);
   const fx = Math.cos(st.h);
   const fz = Math.sin(st.h);
   _pos.set(kart.x - fx * CAM_BACK, kart.y + CAM_HEIGHT, kart.z - fz * CAM_BACK);
@@ -75,7 +73,7 @@ export function updateChaseCamera(camera, kart, topSpeed, dt) {
   camera.fov = st.fov;
   camera.updateProjectionMatrix();
   camera.position.copy(st.pos);
-  camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + 1.5, kart.z + fz * CAM_AHEAD);
+  camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + 1.2, kart.z + fz * CAM_AHEAD);
 }
 
 // 確かめ用: 車を前から見る（キャラの顔を見るため）

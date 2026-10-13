@@ -1,17 +1,17 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=9162d0e';
-import { COURSE1 } from './data/tracks.js?v=9162d0e';
-import { buildTrack } from './game/track.js?v=9162d0e';
-import { createKart, stepKart } from './game/kart.js?v=9162d0e';
-import { kartParams } from './game/stats.js?v=9162d0e';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=9162d0e';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=9162d0e';
-import { createKartModel, syncKartModel } from './render/models.js?v=9162d0e';
-import { createEffects } from './render/effects.js?v=9162d0e';
-import { nextQuality, pixelRatio } from './render/quality.js?v=9162d0e';
+import { startLoop } from './loop.js?v=8c91c11';
+import { COURSE1 } from './data/tracks.js?v=8c91c11';
+import { buildTrack } from './game/track.js?v=8c91c11';
+import { createKart, stepKart } from './game/kart.js?v=8c91c11';
+import { kartParams } from './game/stats.js?v=8c91c11';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=8c91c11';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=8c91c11';
+import { createKartModel, syncKartModel } from './render/models.js?v=8c91c11';
+import { createEffects } from './render/effects.js?v=8c91c11';
+import { nextQuality, pixelRatio } from './render/quality.js?v=8c91c11';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '9162d0e';
+const VERSION = '8c91c11';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');

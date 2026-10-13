@@ -1,9 +1,9 @@
-// ドリフトの火花（青・オレンジ）と、ダートの砂ぼこり
-import * as THREE from '../../vendor/three.module.min.js?v=9162d0e';
-import { driftLevel } from '../game/kart.js?v=9162d0e';
+// ドリフトの煙（白 → 黄 → 赤。マリオカート64 のように）と、ダートの砂ぼこり
+import * as THREE from '../../vendor/three.module.min.js?v=8c91c11';
+import { driftLevel } from '../game/kart.js?v=8c91c11';
 
 const MAX = 200;
-const SPARK = [null, new THREE.Color(0x3fa9ff), new THREE.Color(0xff8a00)];
+const SMOKE = [new THREE.Color(0xf4f4f4), new THREE.Color(0xffd84a), new THREE.Color(0xff3b2f)];
 const DUST = new THREE.Color(0xd9b98a);
 
 export function createEffects(scene) {
@@ -13,7 +13,7 @@ export function createEffects(scene) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.3, vertexColors: true }));
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.45, vertexColors: true }));
   points.frustumCulled = false;
   scene.add(points);
   let next = 0;
@@ -30,11 +30,11 @@ export function createEffects(scene) {
       const fz = Math.sin(kart.heading);
       const rx = -fz;
       const rz = fx;
-      const lv = driftLevel(kart);
-      if (lv > 0) {
+      if (kart.drift.active && !kart.airborne) {
+        const c = SMOKE[driftLevel(kart)];
         for (const side of [-1, 1]) {
-          emit(kart.x - fx * 1 + rx * side * 0.8, kart.y + 0.2, kart.z - fz * 1 + rz * side * 0.8,
-            (Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.5) * 3, SPARK[lv], 0.25);
+          emit(kart.x - fx * 1 + rx * side * 0.9, kart.y + 0.3, kart.z - fz * 1 + rz * side * 0.9,
+            (Math.random() - 0.5) * 2, 1 + Math.random() * 1.5, (Math.random() - 0.5) * 2, c, 0.35);
         }
       }
       if (kart.surface === 'dirt' && !kart.airborne && Math.abs(kart.speed) > 5) {
