@@ -44,13 +44,13 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
   camera.updateProjectionMatrix();
 }
 
-// 車の後ろ上から追いかける。数字は KENTA が別のチャットで作ったレースゲーム（Penguin GP）を参考にする:
-// 車の7.8m後ろ・高さ3.3mから、車の5m先を見る。人物は小さめに映るが、先の道がよく見える
+// マリオカート64 のように、低い位置からキャラのすぐ後ろを追いかける。キャラは画面の下の真ん中に大きく映り、
+// その上に先の道が見える
 // 向きと位置は少しずつ合わせる。視野は速いほど少し広げ、加速中はさらに広げる
-const CAM_BACK = 7.8; // 車の何m後ろ
-const CAM_HEIGHT = 3.3; // 車から何m上
-const CAM_AHEAD = 5; // 車の何m先を見るか
-const FOV_BASE = 62;
+const CAM_BACK = 8.5; // 車の何m後ろ
+const CAM_HEIGHT = 3.6; // 車から何m上（キャラの頭より上から、先の道が見えるように）
+const CAM_AHEAD = 10; // 車の何m先を見るか
+const FOV_BASE = 58;
 const _pos = new THREE.Vector3();
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
   const st = camera.userData;
@@ -69,13 +69,13 @@ export function updateChaseCamera(camera, kart, topSpeed, dt) {
     st.pos.copy(_pos);
     st.placed = true;
   }
-  st.pos.lerp(_pos, 1 - Math.exp(-9 * dt));
+  st.pos.lerp(_pos, 1 - Math.exp(-20 * dt)); // 遅れは小さく（速くても遠ざかりすぎない）
   const fov = FOV_BASE + Math.max(0, kart.speed) * 0.08 + (kart.boost > 0 ? 9 : 0);
   st.fov += (fov - st.fov) * Math.min(1, 4 * dt);
   camera.fov = st.fov;
   camera.updateProjectionMatrix();
   camera.position.copy(st.pos);
-  camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + 1.3, kart.z + fz * CAM_AHEAD);
+  camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + 1.5, kart.z + fz * CAM_AHEAD);
 }
 
 // 確かめ用: 車を前から見る（キャラの顔を見るため）
