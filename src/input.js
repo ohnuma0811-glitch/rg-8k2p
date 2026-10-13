@@ -194,17 +194,30 @@ function screenAngle() {
   return ((a % 360) + 360) % 360;
 }
 
+// 画面の上向きの重力の成分（ふつうに持っていれば、上向きは正のはず）
+function screenUp(ax, ay, screenAngle) {
+  const a = (screenAngle * Math.PI) / 180;
+  return ax * Math.sin(a) + ay * Math.cos(a);
+}
+
 // 傾きで曲がるようにする。timeoutMs たってもセンサーの値が来なければ onNoSensor を呼ぶ
 // （http で開いたとき・センサーがない端末では値が来ないので、ボタン操作に戻すため）
+// 重力の向きを反対の符号で出す端末（iPhone や一部の Android）があるので、
+// 最初にふつうに持っているときの値で、その端末の符号を決める
 export function startTilt(controls, { timeoutMs = 1000, onNoSensor = () => {} } = {}) {
-  // iPhone は重力の向きが Android と逆に出る
-  const invert = typeof window.DeviceMotionEvent?.requestPermission === 'function';
   let got = false;
+  let invert = null;
   window.addEventListener('devicemotion', (e) => {
     const g = e.accelerationIncludingGravity;
     if (!g || g.x === null || g.y === null) return;
     got = true;
-    controls.setTilt(tiltSteer(g.x, g.y, screenAngle(), invert));
+    const angle = screenAngle();
+    if (invert === null) {
+      const up = screenUp(g.x, g.y, angle);
+      if (Math.abs(up) < TILT_FLAT) return;
+      invert = up < 0;
+    }
+    controls.setTilt(tiltSteer(g.x, g.y, angle, invert));
   });
   setTimeout(() => {
     if (!got) onNoSensor();

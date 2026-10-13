@@ -165,3 +165,19 @@ test('傾き: センサーの値が来れば、知らせずに傾きで曲がる
   c.tick();
   near(c.steer, (20 - 3) / 22);
 });
+
+test('傾き: 重力の向きを反対の符号で出す端末（一部の Android）でも、時計回りに回すと右', async () => {
+  const w = fakeWindow();
+  const c = new Controls();
+  c.setMode('tilt');
+  startTilt(c, { timeoutMs: 1000 });
+  const send = (x, y) => {
+    const e = new Event('devicemotion');
+    e.accelerationIncludingGravity = { x, y, z: 0 };
+    w.dispatchEvent(e);
+  };
+  send(-9.81, 0); // まっすぐ持っている（符号が反対）
+  send(-g20.ax, -g20.ay); // 時計回りに20度
+  c.tick();
+  near(c.steer, (20 - 3) / 22);
+});
