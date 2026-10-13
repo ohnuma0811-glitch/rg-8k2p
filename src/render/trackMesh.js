@@ -182,17 +182,17 @@ function roadside(track) {
   const start = samples[track.startIndex];
   const trees = [];
   const signs = [];
-  for (let i = 0; i < samples.length; i += 9) {
+  for (let i = 0; i < samples.length; i += 5) {
     const p = samples[i];
     if (p.y !== 0) continue;
     const [rx, rz] = rightOf(p);
     for (const side of [-1, 1]) {
-      const d = p.wall + 3 + ((i * 7) % 5);
+      const d = p.wall + 2 + ((i * 7) % 3);
       const x = p.x + rx * side * d;
       const z = p.z + rz * side * d;
       if (distToTrack(samples, x, z) < p.wall + 2.5) continue;
       if (Math.hypot(x - start.x, z - start.z) < 45) continue;
-      if ((i / 9 + (side > 0 ? 1 : 0)) % 4 === 0) signs.push({ x, z, h: p.h });
+      if ((i / 5 + (side > 0 ? 1 : 0)) % 4 === 0) signs.push({ x, z, h: p.h });
       else trees.push({ x, z });
     }
   }
@@ -237,10 +237,10 @@ export function buildTrackMesh(track) {
     g.fillRect(2, 0, 2, h);
     g.fillRect(w - 4, 0, 2, h);
   });
-  group.add(ribbon(samples, -roadHalf, roadHalf, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 8 }));
+  group.add(ribbon(samples, -roadHalf, roadHalf, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 4 }));
   // 縁石（赤白）
-  group.add(ribbon(samples, -roadHalf - 1, -roadHalf, (p) => p.y + 0.04, hasGround, { colorOf: stripes(3) }));
-  group.add(ribbon(samples, roadHalf, roadHalf + 1, (p) => p.y + 0.04, hasGround, { colorOf: stripes(3) }));
+  group.add(ribbon(samples, -roadHalf - 1, -roadHalf, (p) => p.y + 0.04, hasGround, { colorOf: stripes(2) }));
+  group.add(ribbon(samples, roadHalf, roadHalf + 1, (p) => p.y + 0.04, hasGround, { colorOf: stripes(2) }));
   group.add(ribbon(samples, -roadHalf - dirt, -roadHalf - 1, () => 0.02, flat, { color: COLORS.dirt }));
   group.add(ribbon(samples, roadHalf + 1, roadHalf + dirt, () => 0.02, flat, { color: COLORS.dirt }));
 

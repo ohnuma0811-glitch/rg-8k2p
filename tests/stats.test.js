@@ -10,8 +10,8 @@ test('数字が大きいほど、最高速・加速・曲がる速さが上が�
   }
 });
 
-test('万能タイプ（3・3・3）は最高速36m/s（時速約130km）', () => {
-  assert.equal(kartParams({ accel: 3, top: 3, handling: 3 }).topSpeed, 36);
+test('万能タイプ（3・3・3）は最高速41m/s（時速約148km。レースらしいスピード感）', () => {
+  assert.equal(kartParams({ accel: 3, top: 3, handling: 3 }).topSpeed, 41);
 });
 
 test('1〜5以外の数字はまちがいとして止める', () => {

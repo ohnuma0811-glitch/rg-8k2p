@@ -99,7 +99,8 @@ startLoop({
     effects.update(kart, dt);
     if (dev.has('front')) updateFrontCamera(camera, kart);
     else updateChaseCamera(camera, kart, params.topSpeed, dt);
-    speedLines.classList.toggle('show', kart.boost > 0);
+    // 画面の端を流れる線: 加速中ははっきり、最高速の近くでは薄く
+    speedLines.style.opacity = kart.boost > 0 ? 1 : Math.max(0, (kart.speed / params.topSpeed - 0.85) / 0.15) * 0.5;
     renderer.render(scene, camera);
     hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },
