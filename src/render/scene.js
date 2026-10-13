@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=655abab';
-import { buildTrackMesh } from './trackMesh.js?v=655abab';
+import * as THREE from '../../vendor/three.module.min.js?v=24d43e0';
+import { buildTrackMesh } from './trackMesh.js?v=24d43e0';
 
 const SKY = 0x8fd3ff;
 
@@ -46,6 +46,9 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
 
 // 車のすぐ後ろの低い所から追いかける（キャラが大きく見えるように）。速いほど視野を広げ、加速中はさらに広げる（スピード感）
 // 車との距離はいつも同じにして（速くても遠ざからない）、向きだけを少しずつ合わせる
+const CAM_BACK = 5; // 車の何m後ろ
+const CAM_HEIGHT = 3.4; // 地面から何mの高さ
+const CAM_AHEAD = 14; // 車の何m先を見るか
 const _pos = new THREE.Vector3();
 const _look = new THREE.Vector3();
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
@@ -60,8 +63,9 @@ export function updateChaseCamera(camera, kart, topSpeed, dt) {
   st.y += (kart.y - st.y) * (1 - Math.exp(-dt * 8));
   const fx = Math.cos(st.h);
   const fz = Math.sin(st.h);
-  _pos.set(kart.x - fx * 4.2, st.y + 2, kart.z - fz * 4.2);
-  _look.set(kart.x + fx * 5, st.y + 1, kart.z + fz * 5);
+  // キャラの頭（高さ約2.3m）より上から、遠くを見下ろす。キャラは画面の下の方に映り、進む方向が見える
+  _pos.set(kart.x - fx * CAM_BACK, st.y + CAM_HEIGHT, kart.z - fz * CAM_BACK);
+  _look.set(kart.x + fx * CAM_AHEAD, st.y + 0.5, kart.z + fz * CAM_AHEAD);
   const fast = Math.max(0, Math.min(1, (kart.speed - topSpeed * 0.5) / (topSpeed * 0.5)));
   const fov = 66 + fast * 6 + (kart.boost > 0 ? 6 : 0);
   st.fov += (fov - st.fov) * (1 - Math.exp(-dt * 4));
