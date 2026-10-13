@@ -1,7 +1,7 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // 反対へ切って戻すたびに煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=87675a6';
+import { locate, respawnIndex } from './track.js?v=4f752ed';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合

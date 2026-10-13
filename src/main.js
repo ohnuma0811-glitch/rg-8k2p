@@ -1,17 +1,18 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=87675a6';
-import { COURSE1 } from './data/tracks.js?v=87675a6';
-import { buildTrack } from './game/track.js?v=87675a6';
-import { createKart, stepKart } from './game/kart.js?v=87675a6';
-import { kartParams } from './game/stats.js?v=87675a6';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=87675a6';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=87675a6';
-import { createKartModel, syncKartModel } from './render/models.js?v=87675a6';
-import { createEffects } from './render/effects.js?v=87675a6';
-import { nextQuality, pixelRatio } from './render/quality.js?v=87675a6';
+import { startLoop } from './loop.js?v=4f752ed';
+import { COURSE1 } from './data/tracks.js?v=4f752ed';
+import { buildTrack } from './game/track.js?v=4f752ed';
+import { createKart, stepKart } from './game/kart.js?v=4f752ed';
+import { kartParams } from './game/stats.js?v=4f752ed';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=4f752ed';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=4f752ed';
+import { createKartModel, syncKartModel } from './render/models.js?v=4f752ed';
+import { createEffects } from './render/effects.js?v=4f752ed';
+import { nextQuality, pixelRatio } from './render/quality.js?v=4f752ed';
+import { blendPose, poseOf } from './render/interp.js?v=4f752ed';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '87675a6';
+const VERSION = '4f752ed';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
@@ -73,12 +74,15 @@ let frames = 0;
 let fpsTime = 0;
 let fps = 60;
 let last = performance.now();
+// 1つ前の計算での車の位置（描くときに、今の計算とのあいだをつなぐ）
+let prevPose = poseOf(kart);
 startLoop({
   update(dt) {
     controls.tick();
+    prevPose = poseOf(kart);
     stepKart(kart, controls, track, params, dt);
   },
-  render() {
+  render(alpha) {
     const now = performance.now();
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
@@ -95,12 +99,16 @@ startLoop({
       }
     }
     for (const n of BUTTONS) els[n].classList.toggle('active', controls.touch[n]);
-    syncKartModel(model, kart);
-    effects.update(kart, dt);
-    if (dev.has('front')) updateFrontCamera(camera, kart);
-    else updateChaseCamera(camera, kart, params.topSpeed, dt);
-    // 画面の端を流れる線: 加速中ははっきり、最高速の近くでは薄く
-    speedLines.style.opacity = kart.boost > 0 ? 1 : Math.max(0, (kart.speed / params.topSpeed - 0.85) / 0.15) * 0.5;
+    // 前の計算と今の計算のあいだに車を置く（コースに戻したときのような大きな移動はつながない）
+    const cur = poseOf(kart);
+    const jumped = Math.hypot(cur.x - prevPose.x, cur.z - prevPose.z) > 10;
+    const view = { ...kart, ...(jumped ? cur : blendPose(prevPose, cur, alpha)) };
+    syncKartModel(model, view);
+    effects.update(view, dt);
+    if (dev.has('front')) updateFrontCamera(camera, view);
+    else updateChaseCamera(camera, view, params.topSpeed, dt);
+    // 画面の端を流れる線は、加速中だけ
+    speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
     renderer.render(scene, camera);
     hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },

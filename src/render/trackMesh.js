@@ -1,5 +1,5 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=87675a6';
+import * as THREE from '../../vendor/three.module.min.js?v=4f752ed';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -145,7 +145,7 @@ function grandstand(track) {
   const rx = r0x * side;
   const rz = r0z * side;
   const length = 50;
-  const steps = 6;
+  const steps = 10; // 段の数（マリオカート64 のように高い観客席）
   const stand = new THREE.MeshLambertMaterial({ color: 0x9aa3ad });
   for (let k = 0; k < steps; k++) {
     const box = new THREE.Mesh(new THREE.BoxGeometry(length, 1 + k * 1.2, 2), stand);
@@ -176,8 +176,61 @@ function grandstand(track) {
   return group;
 }
 
-// 柵の外に、木と看板を並べる（流れていく物があると速く感じる）。ほかの道や観客席には置かない
-function roadside(track) {
+// 柵の外の高い土手（マリオカート64 のように、道の両側を高く囲む）。ほかの道・交わる所・観客席の前には作らない
+const BANK_FROM = 3; // 柵から土手のふもとまで（m）。間に看板を立てる
+const BANK_WIDTH = 14; // 土手の幅（m）
+const BANK_HEIGHT = 7; // 土手の高さ（m）
+
+// 点 i の左右（-1 / 1）に土手を作れるか
+function bankSides(track) {
+  const { samples } = track;
+  const start = samples[track.startIndex];
+  return samples.map((p) => {
+    const ok = {};
+    for (const side of [-1, 1]) {
+      const [rx, rz] = rightOf(p);
+      const d = p.wall + BANK_FROM + BANK_WIDTH + 2;
+      const x = p.x + rx * side * d;
+      const z = p.z + rz * side * d;
+      ok[side] = p.y === 0 && !p.noWall && !p.ramp
+        && distToTrack(samples, x, z) > p.wall + 2
+        && Math.hypot(p.x - start.x, p.z - start.z) > 40;
+    }
+    return ok;
+  });
+}
+
+// ふもと（高さ0）から上（高さ BANK_HEIGHT）へ上がる土手。明るい緑と濃い緑のしま（流れていくのが見える）
+function bank(track, sides, side) {
+  const { samples } = track;
+  const pos = [];
+  const col = [];
+  const c = new THREE.Color();
+  const n = samples.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    if (!sides[i][side] || !sides[j][side]) continue;
+    const p = samples[i];
+    const q = samples[j];
+    const [rpx, rpz] = rightOf(p);
+    const [rqx, rqz] = rightOf(q);
+    const p0 = (p.wall + BANK_FROM) * side;
+    const p1 = (p.wall + BANK_FROM + BANK_WIDTH) * side;
+    const q0 = (q.wall + BANK_FROM) * side;
+    const q1 = (q.wall + BANK_FROM + BANK_WIDTH) * side;
+    const a = [p.x + rpx * p0, 0, p.z + rpz * p0];
+    const b = [p.x + rpx * p1, BANK_HEIGHT, p.z + rpz * p1];
+    const cc = [q.x + rqx * q0, 0, q.z + rqz * q0];
+    const d = [q.x + rqx * q1, BANK_HEIGHT, q.z + rqz * q1];
+    pos.push(...a, ...cc, ...b, ...b, ...cc, ...d);
+    c.setHex(Math.floor(p.s / 4) % 2 ? 0x4f9a3f : 0x62b350);
+    for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
+  }
+  return mesh(pos, { colors: col });
+}
+
+// 木（土手の上、土手がない所は柵の外）と看板（柵と土手の間）。高く大きく（マリオカート64 のように）
+function roadside(track, sides) {
   const { samples } = track;
   const start = samples[track.startIndex];
   const trees = [];
@@ -187,34 +240,41 @@ function roadside(track) {
     if (p.y !== 0) continue;
     const [rx, rz] = rightOf(p);
     for (const side of [-1, 1]) {
-      const d = p.wall + 2 + ((i * 7) % 3);
+      if (Math.hypot(p.x - start.x, p.z - start.z) < 45) continue;
+      if ((i / 5 + (side > 0 ? 1 : 0)) % 4 === 0) {
+        const d = p.wall + 1.5;
+        signs.push({ x: p.x + rx * side * d, z: p.z + rz * side * d, h: p.h });
+        continue;
+      }
+      const onBank = sides[i][side];
+      const d = onBank ? p.wall + BANK_FROM + BANK_WIDTH + 2 + ((i * 7) % 4) : p.wall + 3 + ((i * 7) % 3);
       const x = p.x + rx * side * d;
       const z = p.z + rz * side * d;
       if (distToTrack(samples, x, z) < p.wall + 2.5) continue;
-      if (Math.hypot(x - start.x, z - start.z) < 45) continue;
-      if ((i / 5 + (side > 0 ? 1 : 0)) % 4 === 0) signs.push({ x, z, h: p.h });
-      else trees.push({ x, z });
+      trees.push({ x, z, y: onBank ? BANK_HEIGHT : 0, s: 1.6 + ((i * 13) % 5) * 0.15 });
     }
   }
   const group = new THREE.Group();
   const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const one = new THREE.Vector3(1, 1, 1);
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.3, 0.4, 2, 6), new THREE.MeshLambertMaterial({ color: 0x7a4b25 }), trees.length);
   const leaves = new THREE.InstancedMesh(new THREE.ConeGeometry(2.2, 5, 7), new THREE.MeshLambertMaterial({ color: 0x2f7d32 }), trees.length);
   trees.forEach((t, k) => {
-    trunk.setMatrixAt(k, m.makeTranslation(t.x, 1, t.z));
-    leaves.setMatrixAt(k, m.makeTranslation(t.x, 4.2, t.z));
+    const sc = new THREE.Vector3(t.s, t.s, t.s);
+    trunk.setMatrixAt(k, m.compose(new THREE.Vector3(t.x, t.y + 1 * t.s, t.z), q, sc));
+    leaves.setMatrixAt(k, m.compose(new THREE.Vector3(t.x, t.y + 4.2 * t.s, t.z), q, sc));
   });
-  const board = new THREE.InstancedMesh(new THREE.BoxGeometry(4, 2, 0.2), new THREE.MeshLambertMaterial(), signs.length);
-  const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.12, 2.5, 5), new THREE.MeshLambertMaterial({ color: 0xdddddd }), signs.length);
+  const board = new THREE.InstancedMesh(new THREE.BoxGeometry(6, 3, 0.2), new THREE.MeshLambertMaterial(), signs.length);
+  const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.15, 4, 5), new THREE.MeshLambertMaterial({ color: 0xdddddd }), signs.length);
   const c = new THREE.Color();
   const palette = [0xffd84a, 0x3fa9ff, 0xff5a5f, 0x7bd389];
-  const q = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
   signs.forEach((s, k) => {
     q.setFromAxisAngle(up, -s.h);
-    board.setMatrixAt(k, m.compose(new THREE.Vector3(s.x, 3.3, s.z), q, new THREE.Vector3(1, 1, 1)));
+    board.setMatrixAt(k, m.compose(new THREE.Vector3(s.x, 5.2, s.z), q, one));
     board.setColorAt(k, c.setHex(palette[k % palette.length]));
-    pole.setMatrixAt(k, m.makeTranslation(s.x, 1.25, s.z));
+    pole.setMatrixAt(k, m.makeTranslation(s.x, 2, s.z));
   });
   group.add(trunk, leaves, board, pole);
   return group;
@@ -247,7 +307,7 @@ export function buildTrackMesh(track) {
   // 柵（交わる所のまわりは開ける）。ジャンプ台は道のすぐ横に側面と柵
   const fenceOk = (p) => p.y === 0 && !p.noWall && !p.ramp;
   for (const side of [-1, 1]) {
-    group.add(fence(samples, side * (roadHalf + dirt), () => 0, () => 1, fenceOk, stripes(4)));
+    group.add(fence(samples, side * (roadHalf + dirt), () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     group.add(fence(samples, side * roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, () => COLORS.rampSide));
     group.add(fence(samples, side * roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
@@ -285,6 +345,8 @@ export function buildTrackMesh(track) {
   }
 
   group.add(grandstand(track));
-  group.add(roadside(track));
+  const sides = bankSides(track);
+  group.add(bank(track, sides, -1), bank(track, sides, 1));
+  group.add(roadside(track, sides));
   return group;
 }
