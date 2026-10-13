@@ -113,16 +113,20 @@ test('スタートラインは横の道の、交わる所の手前', () => {
   near(cross.sB - p.s, COURSE1.startBeforeCross, 1.5, 'スタートから交わる所まで');
 });
 
-test('右・左のきついカーブ（20mで60度以上曲がる所）が15か所以上ある', () => {
-  let count = 0;
-  let inCurve = false;
-  for (let i = 0; i < n; i += 2) {
+test('きついカーブ（20mで60度以上曲がる所）はちょうど3か所で、どれも大きく（80度以上）曲がる', () => {
+  const curves = [];
+  let start = null;
+  for (let i = 0; i < n; i++) {
     const turn = deg(wrap(samples[(i + 20) % n].h - samples[i].h));
-    if (turn >= 60 && !inCurve) {
-      count++;
-      inCurve = true;
+    if (turn >= 60 && start === null) start = i;
+    if (turn < 40 && start !== null) {
+      curves.push([start, i]);
+      start = null;
     }
-    if (turn < 40) inCurve = false;
   }
-  assert.ok(count >= 15, `${count}か所`);
+  assert.equal(curves.length, 3, `${curves.length}か所`);
+  for (const [a, b] of curves) {
+    const total = deg(wrap(samples[(b + 30) % n].h - samples[(a - 30 + n) % n].h));
+    assert.ok(total >= 80, `s=${a} で ${total.toFixed(0)}度`);
+  }
 });

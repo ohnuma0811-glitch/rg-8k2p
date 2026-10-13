@@ -1,11 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeButtonLayout, resolveTouches, tiltSteer, Controls, startTilt, TILT_DEAD, TILT_FULL } from '../src/input.js';
+import { computeButtonLayout, resolveTouches, Controls } from '../src/input.js';
 
 const W = 1280;
 const H = 800;
 const L = computeButtonLayout(W, H);
-const T = computeButtonLayout(W, H, undefined, 'tilt');
 const K = computeButtonLayout(W, H, undefined, 'keyboard');
 const at = (b) => ({ x: b.x, y: b.y });
 const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
@@ -64,16 +63,6 @@ test('通知などでタッチが取り消されたら（touchcancel / clear）�
   assert.equal(c.drift, false);
 });
 
-test('傾き操作のときは ◀ ▶ の場所を押してもハンドルにならず、傾きで曲がる', () => {
-  const c = new Controls();
-  c.setMode('tilt');
-  c.setTilt(0.4);
-  c.setTouches([at(L.right)], T);
-  c.tick();
-  assert.equal(c.steer, 0.4);
-  assert.ok(resolveTouches([at(T.brake)], T).brake);
-});
-
 test('キーボード: ← → でハンドル、↓ でブレーキ、0 でドリフト、Enter でアイテム', () => {
   const c = new Controls();
   c.setMode('keyboard');
@@ -106,91 +95,4 @@ test('キーを押しっぱなし（くり返し）でもアイテムは1回', (
   c.keyDown('Enter', true);
   c.tick();
   assert.equal(c.itemPressed, false);
-});
-
-// 横向き（画面の回転90度）で、ハンドルのように時計回りに20度回したときの重力（Android の向き）
-const g20 = { ax: 9.81 * Math.cos((20 * Math.PI) / 180), ay: 9.81 * Math.sin((20 * Math.PI) / 180) };
-
-test('傾き: まっすぐ持てば0、時計回りに回すと右、反対は左', () => {
-  near(tiltSteer(9.81, 0, 90), 0);
-  near(tiltSteer(g20.ax, g20.ay, 90), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-  near(tiltSteer(g20.ax, -g20.ay, 90), -(20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-});
-
-test('傾き: 反対の横向き（270度）でも、時計回りは右', () => {
-  near(tiltSteer(-g20.ax, -g20.ay, 270), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-});
-
-// 子どもは大きく傾けるので、あそびを広く、ハンドルいっぱいになる角度を深くする
-const rot = (d) => [9.81 * Math.cos((d * Math.PI) / 180), 9.81 * Math.sin((d * Math.PI) / 180)];
-
-test('傾き: 5度までは0（少し傾いても曲がらない）', () => {
-  assert.equal(tiltSteer(...rot(5), 90), 0);
-});
-
-test('傾き: 30度ではまだ半分くらい、45度でハンドルいっぱい', () => {
-  const s30 = tiltSteer(...rot(30), 90);
-  assert.ok(s30 > 0.5 && s30 < 0.75, `${s30}`);
-  assert.ok(tiltSteer(...rot(45), 90) > 0.999);
-  assert.equal(tiltSteer(...rot(70), 90), 1);
-});
-
-test('傾き: 向きが逆に出る端末（iPhone）は invert で同じ向きになる', () => {
-  near(tiltSteer(-g20.ax, -g20.ay, 90, true), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-});
-
-test('傾き: 端末を後ろに60度寝かせて持っても、同じ回し方で同じだけ曲がる', () => {
-  const half = 0.5;
-  near(tiltSteer(g20.ax * half, g20.ay * half, 90), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-});
-
-test('傾き: 端末を平らに置いたときは0（向きが決まらない）', () => {
-  assert.equal(tiltSteer(0.5, 0.3, 90), 0);
-});
-
-// 傾きセンサーを試すための、ブラウザのかわり
-function fakeWindow() {
-  const w = new EventTarget();
-  globalThis.window = w;
-  globalThis.screen = { orientation: { angle: 90 } };
-  return w;
-}
-
-test('傾き: 1秒たってもセンサーの値が来なければ、知らせる（ボタン操作に戻すため）', async () => {
-  fakeWindow();
-  let failed = false;
-  startTilt(new Controls(), { timeoutMs: 20, onNoSensor: () => { failed = true; } });
-  await new Promise((r) => setTimeout(r, 60));
-  assert.ok(failed);
-});
-
-test('傾き: センサーの値が来れば、知らせずに傾きで曲がる', async () => {
-  const w = fakeWindow();
-  let failed = false;
-  const c = new Controls();
-  c.setMode('tilt');
-  startTilt(c, { timeoutMs: 40, onNoSensor: () => { failed = true; } });
-  const e = new Event('devicemotion');
-  e.accelerationIncludingGravity = { x: g20.ax, y: g20.ay, z: 0 };
-  w.dispatchEvent(e);
-  await new Promise((r) => setTimeout(r, 80));
-  assert.equal(failed, false);
-  c.tick();
-  near(c.steer, (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-});
-
-test('傾き: 重力の向きを反対の符号で出す端末（一部の Android）でも、時計回りに回すと右', async () => {
-  const w = fakeWindow();
-  const c = new Controls();
-  c.setMode('tilt');
-  startTilt(c, { timeoutMs: 1000 });
-  const send = (x, y) => {
-    const e = new Event('devicemotion');
-    e.accelerationIncludingGravity = { x, y, z: 0 };
-    w.dispatchEvent(e);
-  };
-  send(-9.81, 0); // まっすぐ持っている（符号が反対）
-  send(-g20.ax, -g20.ay); // 時計回りに20度
-  c.tick();
-  near(c.steer, (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });

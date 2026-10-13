@@ -45,26 +45,28 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
 }
 
 // 車のすぐ後ろの低い所から追いかける（キャラが大きく見えるように）。速いほど視野を広げ、加速中はさらに広げる（スピード感）
-// 急に動かないよう、少しずつ近づける
+// 車との距離はいつも同じにして（速くても遠ざからない）、向きだけを少しずつ合わせる
+const _pos = new THREE.Vector3();
+const _look = new THREE.Vector3();
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
-  const fx = Math.cos(kart.heading);
-  const fz = Math.sin(kart.heading);
-  const want = new THREE.Vector3(kart.x - fx * 4.2, kart.y + 2, kart.z - fz * 4.2);
-  const look = new THREE.Vector3(kart.x + fx * 5, kart.y + 1, kart.z + fz * 5);
   const st = camera.userData;
-  if (!st.pos) {
-    st.pos = want.clone();
-    st.look = look.clone();
+  if (st.h === undefined) {
+    st.h = kart.heading;
+    st.y = kart.y;
     st.fov = camera.fov;
   }
-  const k = 1 - Math.exp(-dt * 8);
-  st.pos.lerp(want, k);
-  st.look.lerp(look, k);
+  const k = 1 - Math.exp(-dt * 6);
+  st.h += Math.atan2(Math.sin(kart.heading - st.h), Math.cos(kart.heading - st.h)) * k;
+  st.y += (kart.y - st.y) * (1 - Math.exp(-dt * 8));
+  const fx = Math.cos(st.h);
+  const fz = Math.sin(st.h);
+  _pos.set(kart.x - fx * 4.2, st.y + 2, kart.z - fz * 4.2);
+  _look.set(kart.x + fx * 5, st.y + 1, kart.z + fz * 5);
   const fast = Math.max(0, Math.min(1, (kart.speed - topSpeed * 0.5) / (topSpeed * 0.5)));
-  const fov = 68 + fast * 12 + (kart.boost > 0 ? 8 : 0);
+  const fov = 66 + fast * 6 + (kart.boost > 0 ? 6 : 0);
   st.fov += (fov - st.fov) * (1 - Math.exp(-dt * 4));
   camera.fov = st.fov;
   camera.updateProjectionMatrix();
-  camera.position.copy(st.pos);
-  camera.lookAt(st.look);
+  camera.position.copy(_pos);
+  camera.lookAt(_look);
 }
