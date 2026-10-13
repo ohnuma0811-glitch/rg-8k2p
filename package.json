@@ -1,0 +1,8 @@
+{
+  "name": "race-game",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
