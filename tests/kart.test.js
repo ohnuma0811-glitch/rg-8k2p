@@ -187,15 +187,27 @@ function timeTo90(ctl, warm, before = []) {
   return { t, kart };
 }
 
-test('ふつうに曲がる: いっぱいに切ると、最高速でも90度を0.5〜0.8秒で曲がる', () => {
+test('ふつうに曲がる: 最高速でいっぱいに切ると、90度を0.9〜1.3秒で曲がる', () => {
   const { t } = timeTo90({ ...NONE, steer: 1 }, 4);
-  assert.ok(t >= 0.5 && t <= 0.8, `${t.toFixed(2)}秒`);
+  assert.ok(t >= 0.9 && t <= 1.3, `${t.toFixed(2)}秒`);
 });
 
-test('ドリフトで曲がる: いっぱいに切ると、90度を0.3〜0.5秒で曲がる', () => {
+test('ドリフトで曲がる: 最高速でいっぱいに切ると、ふつうより少しきつく、90度を0.75〜1.1秒で曲がる', () => {
   const { t, kart } = timeTo90(D(1), 4, [[D(1), PHYS.HOP_TIME + 0.02]]);
   assert.ok(kart.drift.active);
-  assert.ok(t >= 0.3 && t <= 0.5, `${t.toFixed(2)}秒`);
+  assert.ok(t >= 0.75 && t <= 1.1, `${t.toFixed(2)}秒`);
+  assert.ok(t < timeTo90({ ...NONE, steer: 1 }, 4).t);
+});
+
+test('ドリフトでいっぱいに切っても、最高速では半径20m以上（道幅24mの中で円を描けない）', () => {
+  const kart = createKart(WIDE, WIDE_START);
+  run(WIDE, kart, NONE, 4);
+  run(WIDE, kart, D(1), PHYS.HOP_TIME + 0.02);
+  const h = kart.heading;
+  stepKart(kart, D(1), WIDE, params, DT);
+  const rate = Math.abs(kart.heading - h) / DT;
+  const radius = kart.speed / rate;
+  assert.ok(radius >= 20, `半径 ${radius.toFixed(1)}m`);
 });
 
 test('ドリフト中、車の向きは進む向きから30〜45度くらい内側を向く', () => {
