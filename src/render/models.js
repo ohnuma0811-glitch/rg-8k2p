@@ -1,6 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
 import * as THREE from '../../vendor/three.module.min.js';
+import { PHYS } from '../game/kart.js';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -147,10 +148,11 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo' } = {}) {
 }
 
 export function syncKartModel(model, kart) {
-  model.position.set(kart.x, kart.y, kart.z);
+  // ドリフトボタンで小さく跳ねる
+  const hop = kart.hop > 0 ? Math.sin((1 - kart.hop / PHYS.HOP_TIME) * Math.PI) * PHYS.HOP_HEIGHT : 0;
+  model.position.set(kart.x, kart.y + hop, kart.z);
   model.rotation.y = -kart.heading;
-  // ドリフト中は少し横を向く
-  model.rotation.y -= kart.drift.active ? kart.drift.dir * 0.35 : 0;
+  // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
   model.visible = kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0;
   for (const w of model.userData.wheels) w.rotation.z -= kart.speed * 0.05;
   // ハンドルを切る向きに、頭を少しかたむける
