@@ -1,16 +1,16 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=69f4667';
-import { COURSE1 } from './data/tracks.js?v=69f4667';
-import { buildTrack } from './game/track.js?v=69f4667';
-import { createKart, stepKart } from './game/kart.js?v=69f4667';
-import { kartParams } from './game/stats.js?v=69f4667';
-import { Controls, attachControls, computeButtonLayout, startTilt } from './input.js?v=69f4667';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera } from './render/scene.js?v=69f4667';
-import { createKartModel, syncKartModel } from './render/models.js?v=69f4667';
-import { createEffects } from './render/effects.js?v=69f4667';
-import { nextQuality, pixelRatio } from './render/quality.js?v=69f4667';
-import { chooseControls } from './screens/controls.js?v=69f4667';
-import { load, save } from './settings.js?v=69f4667';
+import { startLoop } from './loop.js?v=638de51';
+import { COURSE1 } from './data/tracks.js?v=638de51';
+import { buildTrack } from './game/track.js?v=638de51';
+import { createKart, stepKart } from './game/kart.js?v=638de51';
+import { kartParams } from './game/stats.js?v=638de51';
+import { Controls, attachControls, computeButtonLayout, startTilt } from './input.js?v=638de51';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera } from './render/scene.js?v=638de51';
+import { createKartModel, syncKartModel } from './render/models.js?v=638de51';
+import { createEffects } from './render/effects.js?v=638de51';
+import { nextQuality, pixelRatio } from './render/quality.js?v=638de51';
+import { chooseControls } from './screens/controls.js?v=638de51';
+import { load, save } from './settings.js?v=638de51';
 
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');

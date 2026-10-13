@@ -1,5 +1,5 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
-import { locate, respawnIndex } from './track.js?v=69f4667';
+import { locate, respawnIndex } from './track.js?v=638de51';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合

@@ -1,5 +1,5 @@
 // 操作の選択（ボタン / 傾き）。パソコンでは出さずに 'keyboard'
-import { canTilt, requestTiltPermission } from '../input.js?v=69f4667';
+import { canTilt, requestTiltPermission } from '../input.js?v=638de51';
 
 export async function chooseControls(root, previous) {
   if (!canTilt()) return 'keyboard';
