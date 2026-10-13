@@ -1,5 +1,5 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
-import { locate, respawnIndex } from './track.js?v=954d714';
+import { locate, respawnIndex } from './track.js?v=69f4667';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -20,7 +20,8 @@ export const PHYS = {
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
-  WALL_KEEP: 0.6, // 柵にぶつかったときに残る速さの割合
+  WALL_KEEP: 0.6, // 柵にまっすぐぶつかったときに残る速さの割合
+  WALL_FULL_ANGLE: 0.5, // この角度（rad）以上でぶつかると、WALL_KEEP まで落ちる
   FALL_Y: -2, // これより下に落ちたらコースに戻す
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
 };
@@ -46,6 +47,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.surface = 'road';
   kart.respawn = 0;
   kart.respawnAt = i;
+  kart.onWall = false;
   kart.prevGround = kart.y;
 }
 
@@ -151,17 +153,22 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.y = loc.ground;
   }
 
-  // 柵: 外に出ようとしたら押し戻し、コースの向きにそろえて、スピードを落とす
+  // 柵: 外に出ようとしたら押し戻す。地面ではコースの向きにそろえる
+  // スピードを落とすのはぶつかった最初の1回だけで、角度が大きいほど落とす（こすっている間は柵ぞいに走れる）
+  // 空中では押し戻すだけ（ジャンプ中にハンドルを切っても落ちないように）
   const a = Math.abs(loc.lateral);
+  let touching = false;
   if (a > loc.wall) {
+    touching = true;
     const side = Math.sign(loc.lateral);
     const excess = loc.lateral - side * loc.wall;
     kart.x -= -Math.sin(loc.heading) * excess;
     kart.z -= Math.cos(loc.heading) * excess;
     const out = Math.sin(wrapAngle(kart.heading - loc.heading)) * side * Math.sign(kart.speed);
-    if (out > 0) {
+    if (out > 0 && !kart.airborne) {
+      if (!kart.onWall) kart.speed *= 1 - (1 - PHYS.WALL_KEEP) * Math.min(1, out / Math.sin(PHYS.WALL_FULL_ANGLE));
       kart.heading = loc.heading;
-      kart.speed *= PHYS.WALL_KEEP;
     }
   }
+  kart.onWall = touching;
 }

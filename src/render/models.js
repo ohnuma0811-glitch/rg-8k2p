@@ -1,5 +1,5 @@
 // カートと運転するキャラの形（M1 は Kyugo の仮の形。M3 で8キャラにする）
-import * as THREE from 'three';
+import * as THREE from '../../vendor/three.module.min.js?v=69f4667';
 
 const mat = (color) => new THREE.MeshLambertMaterial({ color });
 
