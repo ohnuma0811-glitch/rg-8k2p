@@ -1,17 +1,17 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=3c86206';
-import { COURSE1 } from './data/tracks.js?v=3c86206';
-import { buildTrack } from './game/track.js?v=3c86206';
-import { createKart, stepKart } from './game/kart.js?v=3c86206';
-import { kartParams } from './game/stats.js?v=3c86206';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=3c86206';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=3c86206';
-import { createKartModel, syncKartModel } from './render/models.js?v=3c86206';
-import { createEffects } from './render/effects.js?v=3c86206';
-import { nextQuality, pixelRatio } from './render/quality.js?v=3c86206';
+import { startLoop } from './loop.js?v=705bfe0';
+import { COURSE1 } from './data/tracks.js?v=705bfe0';
+import { buildTrack } from './game/track.js?v=705bfe0';
+import { createKart, stepKart } from './game/kart.js?v=705bfe0';
+import { kartParams } from './game/stats.js?v=705bfe0';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=705bfe0';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=705bfe0';
+import { createKartModel, syncKartModel } from './render/models.js?v=705bfe0';
+import { createEffects } from './render/effects.js?v=705bfe0';
+import { nextQuality, pixelRatio } from './render/quality.js?v=705bfe0';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '3c86206';
+const VERSION = '705bfe0';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
@@ -99,7 +99,8 @@ startLoop({
     effects.update(kart, dt);
     if (dev.has('front')) updateFrontCamera(camera, kart);
     else updateChaseCamera(camera, kart, params.topSpeed, dt);
-    speedLines.classList.toggle('show', kart.boost > 0);
+    // 画面の端を流れる線: 加速中ははっきり、最高速の近くでは薄く
+    speedLines.style.opacity = kart.boost > 0 ? 1 : Math.max(0, (kart.speed / params.topSpeed - 0.85) / 0.15) * 0.5;
     renderer.render(scene, camera);
     hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },

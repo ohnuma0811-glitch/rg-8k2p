@@ -31,9 +31,6 @@ html, body {
   -webkit-mask-image: radial-gradient(ellipse at 50% 45%, transparent 45%, #000 85%);
   mask-image: radial-gradient(ellipse at 50% 45%, transparent 45%, #000 85%);
 }
-#speed-lines.show {
-  opacity: 1;
-}
 #touch-layer {
   position: fixed;
   inset: 0;

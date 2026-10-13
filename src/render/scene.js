@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=3c86206';
-import { buildTrackMesh } from './trackMesh.js?v=3c86206';
+import * as THREE from '../../vendor/three.module.min.js?v=705bfe0';
+import { buildTrackMesh } from './trackMesh.js?v=705bfe0';
 
 const SKY = 0x8fd3ff;
 
@@ -46,11 +46,13 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
 
 // マリオカート64 のように、少し遠く低い所から追いかける。車は画面の真ん中より少し下に映る
 // カメラは車の「進む向き」に遅れて回るので、カーブやドリフトでは車の横腹が見える
-const CAM_BACK = 10; // 車の何m後ろ（カートの約4台分）
-const CAM_HEIGHT = 3.6; // 車から何m上（カートの約1.4台分）
+const CAM_BACK = 8; // 車の何m後ろ（カートの約3台分。近いほど、まわりの物が速く流れて見える）
+const CAM_HEIGHT = 2.9; // 車から何m上（カートの約1.1台分）
 const CAM_AHEAD = 12; // 車の何m先を見るか（車が画面の上から65〜70%に映るように）
 const CAM_TURN = 3; // カメラが車の進む向きに追いつく速さ（1/秒。小さいほど遅れる）
 const FOV_BASE = 58;
+const FOV_FAST = 16; // 最高速のとき、視野をこれだけ広げる（スピード感）
+const FOV_BOOST = 8; // 加速中は、さらに広げる
 const _pos = new THREE.Vector3();
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
   const st = camera.userData;
@@ -68,7 +70,8 @@ export function updateChaseCamera(camera, kart, topSpeed, dt) {
     st.placed = true;
   }
   st.pos.lerp(_pos, 1 - Math.exp(-20 * dt)); // 遅れは小さく（速くても遠ざかりすぎない）
-  const fov = FOV_BASE + Math.max(0, kart.speed) * 0.08 + (kart.boost > 0 ? 9 : 0);
+  const fast = Math.max(0, Math.min(1, kart.speed / topSpeed));
+  const fov = FOV_BASE + fast * fast * FOV_FAST + (kart.boost > 0 ? FOV_BOOST : 0);
   st.fov += (fov - st.fov) * Math.min(1, 4 * dt);
   camera.fov = st.fov;
   camera.updateProjectionMatrix();
