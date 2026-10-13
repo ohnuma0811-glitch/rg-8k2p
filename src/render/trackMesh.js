@@ -1,5 +1,5 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=8c91c11';
+import * as THREE from '../../vendor/three.module.min.js?v=3c86206';
 
 const COLORS = {
   dirt: 0xb08850,
