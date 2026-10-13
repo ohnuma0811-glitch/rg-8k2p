@@ -65,6 +65,7 @@ GAME CODE 入力（4けた、数字ボタン）※その端末で有効なコー
 | Ready? | じゅんび できた？ |
 | Let's go! | いくよ！ |
 | Wait a sec! | ちょっと まって！ |
+| Don't press START yet! | まだ STARTは おさないで！ |
 | One more! | もう いっかい！ |
 | Good game! | いいしょうぶだった！ |
 | Nice! | ナイス！ |
