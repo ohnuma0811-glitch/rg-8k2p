@@ -77,3 +77,13 @@ export function updateChaseCamera(camera, kart, topSpeed, dt) {
   camera.position.copy(st.pos);
   camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + 1.3, kart.z + fz * CAM_AHEAD);
 }
+
+// 確かめ用: 車を前から見る（キャラの顔を見るため）
+export function updateFrontCamera(camera, kart) {
+  const fx = Math.cos(kart.heading);
+  const fz = Math.sin(kart.heading);
+  camera.fov = 50;
+  camera.updateProjectionMatrix();
+  camera.position.set(kart.x + fx * 4.5, kart.y + 2.2, kart.z + fz * 4.5);
+  camera.lookAt(kart.x, kart.y + 1.4, kart.z);
+}
