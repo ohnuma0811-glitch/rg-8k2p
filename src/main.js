@@ -16,6 +16,7 @@ const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
 const speedLines = document.getElementById('speed-lines');
+const toast = document.getElementById('toast');
 const probe = document.getElementById('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
 const els = Object.fromEntries(BUTTONS.map((n) => [n, document.getElementById(`btn-${n}`)]));
@@ -68,7 +69,16 @@ attachControls(controls, document.getElementById('touch-layer'), () => layout);
 const mode = await chooseControls(document.getElementById('menu'), load('controls', 'buttons'));
 if (mode !== 'keyboard') save('controls', mode);
 controls.setMode(mode);
-if (mode === 'tilt') startTilt(controls);
+// 傾きセンサーの値が来ない端末では、ボタン操作に戻して知らせる
+function useButtons() {
+  controls.setMode('buttons');
+  save('controls', 'buttons');
+  resize();
+  toast.textContent = 'Tilt is not working. Using BUTTONS.';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+if (mode === 'tilt') startTilt(controls, { onNoSensor: useButtons });
 resize();
 
 let frames = 0;

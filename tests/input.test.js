@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeButtonLayout, resolveTouches, tiltSteer, Controls } from '../src/input.js';
+import { computeButtonLayout, resolveTouches, tiltSteer, Controls, startTilt } from '../src/input.js';
 
 const W = 1280;
 const H = 800;
@@ -124,4 +124,44 @@ test('傾き: 3度より小さい傾きは0、25度より大きいとハンド�
 
 test('傾き: 向きが逆に出る端末（iPhone）は invert で同じ向きになる', () => {
   near(tiltSteer(-g20.ax, -g20.ay, 90, true), (20 - 3) / 22);
+});
+
+test('傾き: 端末を後ろに60度寝かせて持っても、同じ回し方で同じだけ曲がる', () => {
+  const half = 0.5;
+  near(tiltSteer(g20.ax * half, g20.ay * half, 90), (20 - 3) / 22);
+});
+
+test('傾き: 端末を平らに置いたときは0（向きが決まらない）', () => {
+  assert.equal(tiltSteer(0.5, 0.3, 90), 0);
+});
+
+// 傾きセンサーを試すための、ブラウザのかわり
+function fakeWindow() {
+  const w = new EventTarget();
+  globalThis.window = w;
+  globalThis.screen = { orientation: { angle: 90 } };
+  return w;
+}
+
+test('傾き: 1秒たってもセンサーの値が来なければ、知らせる（ボタン操作に戻すため）', async () => {
+  fakeWindow();
+  let failed = false;
+  startTilt(new Controls(), { timeoutMs: 20, onNoSensor: () => { failed = true; } });
+  await new Promise((r) => setTimeout(r, 60));
+  assert.ok(failed);
+});
+
+test('傾き: センサーの値が来れば、知らせずに傾きで曲がる', async () => {
+  const w = fakeWindow();
+  let failed = false;
+  const c = new Controls();
+  c.setMode('tilt');
+  startTilt(c, { timeoutMs: 40, onNoSensor: () => { failed = true; } });
+  const e = new Event('devicemotion');
+  e.accelerationIncludingGravity = { x: g20.ax, y: g20.ay, z: 0 };
+  w.dispatchEvent(e);
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(failed, false);
+  c.tick();
+  near(c.steer, (20 - 3) / 22);
 });

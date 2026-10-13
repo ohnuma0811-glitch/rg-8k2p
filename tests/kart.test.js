@@ -186,3 +186,31 @@ test('自動運転で2周しても、コースから落ちない。万能タイ�
   const lap = time / 2;
   assert.ok(lap > 30 && lap < 50, `1周 ${lap.toFixed(1)}秒`);
 });
+
+test('柵に向かってハンドルを切り続けても、止まらずに柵ぞいに走れる（スピードは半分より上）', () => {
+  const kart = createKart(OVAL, START);
+  run(OVAL, kart, NONE, 3);
+  run(OVAL, kart, { ...NONE, steer: 1 }, 4);
+  assert.ok(kart.speed > params.topSpeed * 0.5, `${kart.speed}`);
+});
+
+test('空中でハンドルを切り続けても、地面がない所に落ちず向こう側に着地する', () => {
+  for (const handling of [1, 3, 5]) {
+    for (const steer of [-1, 1]) {
+      const p = kartParams({ accel: 3, top: 3, handling });
+      const kart = createKart(course, indexAt(course, CROSS_S + J.boost.from - 5));
+      const ap = autopilot(course);
+      let landed = false;
+      let wasAir = false;
+      for (let t = 0; t < 6 && !landed; t += DT) {
+        const c = kart.airborne ? { steer, brake: false, drift: false } : ap(kart);
+        stepKart(kart, c, course, p, DT);
+        assert.equal(kart.respawn, 0, `ハンドル${handling} steer${steer} で落ちた`);
+        if (wasAir && !kart.airborne) landed = true;
+        wasAir = kart.airborne;
+      }
+      assert.ok(landed, `ハンドル${handling} steer${steer}`);
+      assert.ok(course.samples[kart.seg].s > CROSS_S + J.gap.to);
+    }
+  }
+});

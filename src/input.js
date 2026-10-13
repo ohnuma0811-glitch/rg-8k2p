@@ -57,14 +57,21 @@ export function resolveTouches(points, layout) {
 
 // 傾きセンサー（重力をふくむ加速度、端末の向きの x・y）から steer を求める
 // screenAngle は画面の回転（0 / 90 / 180 / 270）。invert は符号が逆に出る端末（iPhone）用
+// 画面の中での重力の向きから回した角度を求めるので、端末を後ろに寝かせて持っても同じだけ曲がる
 export const TILT_DEAD = 3; // これより小さい傾きは0（度）
 export const TILT_FULL = 25; // この傾きでハンドルいっぱい（度）
+export const TILT_FLAT = 2; // 画面の中の重力がこれより小さい（平らに置いている）ときは0（m/s²）
 export function tiltSteer(ax, ay, screenAngle, invert = false) {
   const a = (screenAngle * Math.PI) / 180;
-  // 画面の右向きの成分
+  // 画面の右向き・上向きの成分
   let sx = ax * Math.cos(a) - ay * Math.sin(a);
-  if (invert) sx = -sx;
-  const deg = (Math.asin(Math.max(-1, Math.min(1, -sx / 9.81))) * 180) / Math.PI;
+  let sy = ax * Math.sin(a) + ay * Math.cos(a);
+  if (invert) {
+    sx = -sx;
+    sy = -sy;
+  }
+  if (Math.hypot(sx, sy) < TILT_FLAT) return 0;
+  const deg = (Math.atan2(-sx, sy) * 180) / Math.PI;
   const mag = Math.abs(deg);
   if (mag < TILT_DEAD) return 0;
   return Math.sign(deg) * Math.min(1, (mag - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
@@ -183,16 +190,23 @@ export async function requestTiltPermission() {
 }
 
 function screenAngle() {
-  const a = screen.orientation?.angle ?? window.orientation ?? 0;
+  const a = globalThis.screen?.orientation?.angle ?? window.orientation ?? 0;
   return ((a % 360) + 360) % 360;
 }
 
-export function startTilt(controls) {
+// 傾きで曲がるようにする。timeoutMs たってもセンサーの値が来なければ onNoSensor を呼ぶ
+// （http で開いたとき・センサーがない端末では値が来ないので、ボタン操作に戻すため）
+export function startTilt(controls, { timeoutMs = 1000, onNoSensor = () => {} } = {}) {
   // iPhone は重力の向きが Android と逆に出る
   const invert = typeof window.DeviceMotionEvent?.requestPermission === 'function';
+  let got = false;
   window.addEventListener('devicemotion', (e) => {
     const g = e.accelerationIncludingGravity;
     if (!g || g.x === null || g.y === null) return;
+    got = true;
     controls.setTilt(tiltSteer(g.x, g.y, screenAngle(), invert));
   });
+  setTimeout(() => {
+    if (!got) onNoSensor();
+  }, timeoutMs);
 }
