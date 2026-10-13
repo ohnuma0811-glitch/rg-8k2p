@@ -1,17 +1,19 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=638de51';
-import { COURSE1 } from './data/tracks.js?v=638de51';
-import { buildTrack } from './game/track.js?v=638de51';
-import { createKart, stepKart } from './game/kart.js?v=638de51';
-import { kartParams } from './game/stats.js?v=638de51';
-import { Controls, attachControls, computeButtonLayout, startTilt } from './input.js?v=638de51';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera } from './render/scene.js?v=638de51';
-import { createKartModel, syncKartModel } from './render/models.js?v=638de51';
-import { createEffects } from './render/effects.js?v=638de51';
-import { nextQuality, pixelRatio } from './render/quality.js?v=638de51';
-import { chooseControls } from './screens/controls.js?v=638de51';
-import { load, save } from './settings.js?v=638de51';
+import { startLoop } from './loop.js?v=19845fe';
+import { COURSE1 } from './data/tracks.js?v=19845fe';
+import { buildTrack } from './game/track.js?v=19845fe';
+import { createKart, stepKart } from './game/kart.js?v=19845fe';
+import { kartParams } from './game/stats.js?v=19845fe';
+import { Controls, attachControls, computeButtonLayout, startTilt } from './input.js?v=19845fe';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera } from './render/scene.js?v=19845fe';
+import { createKartModel, syncKartModel } from './render/models.js?v=19845fe';
+import { createEffects } from './render/effects.js?v=19845fe';
+import { nextQuality, pixelRatio } from './render/quality.js?v=19845fe';
+import { chooseControls } from './screens/controls.js?v=19845fe';
+import { load, save } from './settings.js?v=19845fe';
 
+// 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
+const VERSION = '19845fe';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
@@ -112,6 +114,6 @@ startLoop({
     updateChaseCamera(camera, kart, params.topSpeed, dt);
     speedLines.classList.toggle('show', kart.boost > 0);
     renderer.render(scene, camera);
-    hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${mode}`;
+    hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },
 });

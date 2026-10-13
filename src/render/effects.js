@@ -1,6 +1,6 @@
 // ドリフトの火花（青・オレンジ）と、ダートの砂ぼこり
-import * as THREE from '../../vendor/three.module.min.js?v=638de51';
-import { driftLevel } from '../game/kart.js?v=638de51';
+import * as THREE from '../../vendor/three.module.min.js?v=19845fe';
+import { driftLevel } from '../game/kart.js?v=19845fe';
 
 const MAX = 200;
 const SPARK = [null, new THREE.Color(0x3fa9ff), new THREE.Color(0xff8a00)];
