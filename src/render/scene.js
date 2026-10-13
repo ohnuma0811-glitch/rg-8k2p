@@ -46,9 +46,9 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
 
 // マリオカート64 のように、少し遠く低い所から追いかける。車は画面の真ん中より少し下に映る
 // カメラは車の「進む向き」に遅れて回るので、カーブやドリフトでは車の横腹が見える
-const CAM_BACK = 9; // 車の何m後ろ
-const CAM_HEIGHT = 3.2; // 車から何m上
-const CAM_AHEAD = 6; // 車の何m先を見るか
+const CAM_BACK = 10; // 車の何m後ろ（カートの約4台分）
+const CAM_HEIGHT = 3.6; // 車から何m上（カートの約1.4台分）
+const CAM_AHEAD = 12; // 車の何m先を見るか（車が画面の上から65〜70%に映るように）
 const CAM_TURN = 3; // カメラが車の進む向きに追いつく速さ（1/秒。小さいほど遅れる）
 const FOV_BASE = 58;
 const _pos = new THREE.Vector3();

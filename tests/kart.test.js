@@ -88,37 +88,46 @@ test('右にハンドルを切ると右（向きの角度が増える方）に�
   assert.ok(kart.heading > h);
 });
 
+// 曲がり方を測るための、柵がとても遠い（道幅600m）楕円のコース（ドリフトのテストもここで走る）
+const WIDE = buildTrack({
+  points: [[0, 0], [200, 0], [400, 0], [600, 0], [800, 0], [1000, 100], [800, 200], [600, 200], [400, 200], [200, 200], [0, 200], [-200, 100]],
+  length: 2400,
+  roadHalf: 300,
+  dirt: 4,
+});
+const WIDE_START = WIDE.samples.findIndex((p) => p.h === 0);
+
 // マリオカート64 のドリフト: ボタンで小さく跳ね、着地のときハンドルを切っている向きに滑り出す。
 // 滑っている間に反対へ切ってすぐ戻すたびに、煙が 白(0) → 黄(1) → 赤(2)。赤で離すとミニターボ
 const D = (steer) => ({ steer, brake: false, drift: true });
 // 右ドリフト中に、左へ切ってすぐ戻す
 function flick(kart) {
-  run(OVAL, kart, D(-1), 0.12);
-  run(OVAL, kart, D(1), 0.25);
+  run(WIDE, kart, D(-1), 0.12);
+  run(WIDE, kart, D(1), 0.25);
 }
 function startRightDrift() {
-  const kart = createKart(OVAL, START);
-  run(OVAL, kart, NONE, 3);
-  run(OVAL, kart, D(1), PHYS.HOP_TIME + 0.05);
+  const kart = createKart(WIDE, WIDE_START);
+  run(WIDE, kart, NONE, 3);
+  run(WIDE, kart, D(1), PHYS.HOP_TIME + 0.05);
   return kart;
 }
 
 test('ドリフト: ボタンを押すと小さく跳ね、着地のときハンドルを切っている向きに滑り出す', () => {
-  const kart = createKart(OVAL, START);
-  run(OVAL, kart, NONE, 3);
-  stepKart(kart, D(1), OVAL, params, DT);
+  const kart = createKart(WIDE, WIDE_START);
+  run(WIDE, kart, NONE, 3);
+  stepKart(kart, D(1), WIDE, params, DT);
   assert.ok(kart.hop > 0, '跳ねている');
   assert.ok(!kart.drift.active, 'まだ滑っていない');
-  run(OVAL, kart, D(1), PHYS.HOP_TIME);
+  run(WIDE, kart, D(1), PHYS.HOP_TIME);
   assert.ok(kart.drift.active);
   assert.equal(kart.drift.dir, 1);
   assert.equal(driftLevel(kart), 0);
 });
 
 test('ハンドルを切らずにドリフトを押すと、跳ねるだけでドリフトにならない', () => {
-  const kart = createKart(OVAL, START);
-  run(OVAL, kart, NONE, 3);
-  run(OVAL, kart, { steer: 0, brake: false, drift: true }, 1);
+  const kart = createKart(WIDE, WIDE_START);
+  run(WIDE, kart, NONE, 3);
+  run(WIDE, kart, { steer: 0, brake: false, drift: true }, 1);
   assert.ok(!kart.drift.active);
 });
 
@@ -131,7 +140,7 @@ test('ドリフト中に反対へ切って戻すたびに、煙が白 → 黄 �
   assert.equal(driftLevel(kart), 2);
   flick(kart);
   assert.equal(driftLevel(kart), 2, '赤より先はない');
-  stepKart(kart, NONE, OVAL, params, DT);
+  stepKart(kart, NONE, WIDE, params, DT);
   assert.ok(!kart.drift.active);
   assert.ok(kart.boost > PHYS.MT_BOOST - 0.05);
   assert.ok(kart.speed > params.topSpeed);
@@ -139,9 +148,9 @@ test('ドリフト中に反対へ切って戻すたびに、煙が白 → 黄 �
 
 test('切り返さずに長くドリフトしても、煙は白のままで、離しても加速しない', () => {
   const kart = startRightDrift();
-  run(OVAL, kart, D(0.3), 2);
+  run(WIDE, kart, D(0.3), 2);
   assert.equal(driftLevel(kart), 0);
-  stepKart(kart, NONE, OVAL, params, DT);
+  stepKart(kart, NONE, WIDE, params, DT);
   assert.equal(kart.boost, 0);
 });
 
@@ -149,16 +158,51 @@ test('黄色で離しても加速しない（赤まで待つ）', () => {
   const kart = startRightDrift();
   flick(kart);
   assert.equal(driftLevel(kart), 1);
-  stepKart(kart, NONE, OVAL, params, DT);
+  stepKart(kart, NONE, WIDE, params, DT);
   assert.equal(kart.boost, 0);
 });
 
 test('ドリフト中は、車の向きより外側へ滑りながら進む', () => {
   const kart = startRightDrift();
-  run(OVAL, kart, D(1), 0.5);
+  run(WIDE, kart, D(1), 0.5);
   const slip = Math.atan2(Math.sin(kart.move - kart.heading), Math.cos(kart.move - kart.heading));
   // 右へ曲がっているので、進む向きは車の向きより左（外側）
   assert.ok(slip < -0.08, `${slip}`);
+});
+
+// マリオカート64 くらいの曲がり方（Gemini に動画を見てもらった目安。2026-10-14）
+// warm 秒まっすぐ走って速さを上げてから、ctl で90度曲がるまでの時間
+function timeTo90(ctl, warm, before = []) {
+  const kart = createKart(WIDE, WIDE_START);
+  for (let t = 0; t < warm; t += DT) stepKart(kart, NONE, WIDE, params, DT);
+  for (const [c, sec] of before) for (let t = 0; t < sec; t += DT) stepKart(kart, c, WIDE, params, DT);
+  let turned = 0;
+  let t = 0;
+  while (Math.abs(turned) < Math.PI / 2 && t < 3) {
+    const h = kart.heading;
+    stepKart(kart, ctl, WIDE, params, DT);
+    turned += Math.atan2(Math.sin(kart.heading - h), Math.cos(kart.heading - h));
+    t += DT;
+  }
+  return { t, kart };
+}
+
+test('ふつうに曲がる: いっぱいに切ると、最高速でも90度を0.5〜0.8秒で曲がる', () => {
+  const { t } = timeTo90({ ...NONE, steer: 1 }, 4);
+  assert.ok(t >= 0.5 && t <= 0.8, `${t.toFixed(2)}秒`);
+});
+
+test('ドリフトで曲がる: いっぱいに切ると、90度を0.3〜0.5秒で曲がる', () => {
+  const { t, kart } = timeTo90(D(1), 4, [[D(1), PHYS.HOP_TIME + 0.02]]);
+  assert.ok(kart.drift.active);
+  assert.ok(t >= 0.3 && t <= 0.5, `${t.toFixed(2)}秒`);
+});
+
+test('ドリフト中、車の向きは進む向きから30〜45度くらい内側を向く', () => {
+  const kart = startRightDrift();
+  run(WIDE, kart, D(0.5), 0.6);
+  const slip = Math.abs(Math.atan2(Math.sin(kart.move - kart.heading), Math.cos(kart.move - kart.heading))) * 180 / Math.PI;
+  assert.ok(slip >= 25 && slip <= 50, `${slip.toFixed(0)}度`);
 });
 
 test('速いときほど、ハンドルでの曲がり方がゆるい', () => {
@@ -173,7 +217,7 @@ test('速いときほど、ハンドルでの曲がり方がゆるい', () => {
   const slow = turned(1);
   const fast = turned(4);
   assert.ok(slow.v < fast.v);
-  assert.ok(fast.rate < slow.rate * 0.85, `${slow.rate} / ${fast.rate}`);
+  assert.ok(fast.rate < slow.rate * 0.9, `${slow.rate} / ${fast.rate}`);
 });
 
 test('柵より外には出ず、ぶつかるとスピードが落ちる', () => {

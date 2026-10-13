@@ -81,9 +81,9 @@ test('道・ダート・コースの外を、中心線からの距離で分け�
   const p = samples[i];
   const at = (lat) => locate(track, p.x - Math.sin(p.h) * lat, p.z + Math.cos(p.h) * lat, i);
   assert.equal(at(0).surface, 'road');
-  assert.equal(at(8.9).surface, 'road');
-  assert.equal(at(-11).surface, 'dirt');
-  assert.equal(at(14).surface, 'out');
+  assert.equal(at(11.9).surface, 'road');
+  assert.equal(at(-14).surface, 'dirt');
+  assert.equal(at(17).surface, 'out');
   near(at(5).lateral, 5, 1e-6, '右へ5m');
   near(at(-5).lateral, -5, 1e-6, '左へ5m');
 });
@@ -91,7 +91,7 @@ test('道・ダート・コースの外を、中心線からの距離で分け�
 test('ジャンプ台の上にはダートがない（道の外はすぐ柵）', () => {
   const i = indexAt(cross.sA + J.ramp.from + 10);
   const p = samples[i];
-  const loc = locate(track, p.x - Math.sin(p.h) * 10, p.z + Math.cos(p.h) * 10, i);
+  const loc = locate(track, p.x - Math.sin(p.h) * 13, p.z + Math.cos(p.h) * 13, i);
   assert.equal(loc.surface, 'out');
 });
 
@@ -129,4 +129,8 @@ test('きついカーブ（20mで60度以上曲がる所）はちょうど3か�
     const total = deg(wrap(samples[(b + 30) % n].h - samples[(a - 30 + n) % n].h));
     assert.ok(total >= 80, `s=${a} で ${total.toFixed(0)}度`);
   }
+});
+
+test('道幅はカートの長さ（約2.6m）の9倍くらい（24m）。マリオカート64 くらいの広さ', () => {
+  assert.equal(COURSE1.roadHalf * 2, 24);
 });
