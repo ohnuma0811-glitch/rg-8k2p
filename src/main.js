@@ -9,6 +9,7 @@ import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateF
 import { createKartModel, syncKartModel } from './render/models.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
+import { blendPose, poseOf } from './render/interp.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
@@ -73,12 +74,15 @@ let frames = 0;
 let fpsTime = 0;
 let fps = 60;
 let last = performance.now();
+// 1つ前の計算での車の位置（描くときに、今の計算とのあいだをつなぐ）
+let prevPose = poseOf(kart);
 startLoop({
   update(dt) {
     controls.tick();
+    prevPose = poseOf(kart);
     stepKart(kart, controls, track, params, dt);
   },
-  render() {
+  render(alpha) {
     const now = performance.now();
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
@@ -95,12 +99,16 @@ startLoop({
       }
     }
     for (const n of BUTTONS) els[n].classList.toggle('active', controls.touch[n]);
-    syncKartModel(model, kart);
-    effects.update(kart, dt);
-    if (dev.has('front')) updateFrontCamera(camera, kart);
-    else updateChaseCamera(camera, kart, params.topSpeed, dt);
-    // 画面の端を流れる線: 加速中ははっきり、最高速の近くでは薄く
-    speedLines.style.opacity = kart.boost > 0 ? 1 : Math.max(0, (kart.speed / params.topSpeed - 0.85) / 0.15) * 0.5;
+    // 前の計算と今の計算のあいだに車を置く（コースに戻したときのような大きな移動はつながない）
+    const cur = poseOf(kart);
+    const jumped = Math.hypot(cur.x - prevPose.x, cur.z - prevPose.z) > 10;
+    const view = { ...kart, ...(jumped ? cur : blendPose(prevPose, cur, alpha)) };
+    syncKartModel(model, view);
+    effects.update(view, dt);
+    if (dev.has('front')) updateFrontCamera(camera, view);
+    else updateChaseCamera(camera, view, params.topSpeed, dt);
+    // 画面の端を流れる線は、加速中だけ
+    speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
     renderer.render(scene, camera);
     hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },

@@ -20,7 +20,8 @@ export function startLoop({ update, render, step = STEP }) {
     const r = advance(acc, dt, step);
     acc = r.acc;
     for (let i = 0; i < r.steps; i++) update(step);
-    render();
+    // 描くときに、前の計算から何割進んだか（0〜1）を渡す
+    render(acc / step);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

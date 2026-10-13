@@ -26,9 +26,9 @@ export function createWorld(track) {
   const mountain = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
   for (let k = 0; k < 14; k++) {
     const a = (k / 14) * Math.PI * 2;
-    const h = 80 + ((k * 37) % 5) * 30;
+    const h = 150 + ((k * 37) % 5) * 40;
     const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), mountain);
-    cone.position.set(Math.cos(a) * 1000, h / 2 - 2, Math.sin(a) * 1000);
+    cone.position.set(Math.cos(a) * 700, h / 2 - 2, Math.sin(a) * 700);
     scene.add(cone);
   }
 
