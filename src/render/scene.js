@@ -44,13 +44,13 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
   camera.updateProjectionMatrix();
 }
 
-// 車の後ろの低い所から追いかける。速いほど視野を広げ、加速中はさらに広げる（スピード感）
+// 車のすぐ後ろの低い所から追いかける（キャラが大きく見えるように）。速いほど視野を広げ、加速中はさらに広げる（スピード感）
 // 急に動かないよう、少しずつ近づける
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
   const fx = Math.cos(kart.heading);
   const fz = Math.sin(kart.heading);
-  const want = new THREE.Vector3(kart.x - fx * 6, kart.y + 2.6, kart.z - fz * 6);
-  const look = new THREE.Vector3(kart.x + fx * 6, kart.y + 1, kart.z + fz * 6);
+  const want = new THREE.Vector3(kart.x - fx * 4.2, kart.y + 2, kart.z - fz * 4.2);
+  const look = new THREE.Vector3(kart.x + fx * 5, kart.y + 1, kart.z + fz * 5);
   const st = camera.userData;
   if (!st.pos) {
     st.pos = want.clone();

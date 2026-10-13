@@ -15,6 +15,9 @@ ver="$(git rev-parse --short HEAD)"
 cd "$tmp"
 sed -i -E "s#(src=\"src/main\.js)\"#\1?v=$ver\"#; s#(href=\"style\.css)\"#\1?v=$ver\"#" index.html
 find src -name '*.js' -exec sed -i -E "s#(from '\.[^']+\.js)'#\1?v=$ver'#g" {} +
+# 画面の左上に出す版番号
+sed -i -E "s#^const VERSION = 'dev';#const VERSION = '$ver';#" src/main.js
+grep -q "const VERSION = '$ver'" src/main.js
 git add -A
 if git diff --cached --quiet; then
   echo "変更なし"

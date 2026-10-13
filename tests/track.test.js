@@ -112,3 +112,17 @@ test('スタートラインは横の道の、交わる所の手前', () => {
   const p = samples[track.startIndex];
   near(cross.sB - p.s, COURSE1.startBeforeCross, 1.5, 'スタートから交わる所まで');
 });
+
+test('右・左のきついカーブ（20mで60度以上曲がる所）が15か所以上ある', () => {
+  let count = 0;
+  let inCurve = false;
+  for (let i = 0; i < n; i += 2) {
+    const turn = deg(wrap(samples[(i + 20) % n].h - samples[i].h));
+    if (turn >= 60 && !inCurve) {
+      count++;
+      inCurve = true;
+    }
+    if (turn < 40) inCurve = false;
+  }
+  assert.ok(count >= 15, `${count}か所`);
+});

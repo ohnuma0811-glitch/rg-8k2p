@@ -10,8 +10,8 @@ const HANDLED = new Set(Object.values(KEYS).flat());
 
 // mode: 'buttons'（◀ ▶ を出す）/ 'tilt'（◀ ▶ を出さない）/ 'keyboard'（ボタンを出さない）
 export function computeButtonLayout(winW, winH, safe = { left: 0, right: 0, bottom: 0 }, mode = 'buttons') {
-  // 半径は画面の短い辺の9%、34〜56px（約1〜1.5cm）
-  const r = Math.max(34, Math.min(56, Math.min(winW, winH) * 0.09));
+  // 半径は画面の短い辺の11%、44〜72px（約1.2〜2cm。子どもの指でも押しやすく）
+  const r = Math.max(44, Math.min(72, Math.min(winW, winH) * 0.11));
   const margin = 16;
   const y = winH - safe.bottom - margin - r;
   const left = { x: safe.left + 8 + r, y, r };
@@ -58,8 +58,9 @@ export function resolveTouches(points, layout) {
 // 傾きセンサー（重力をふくむ加速度、端末の向きの x・y）から steer を求める
 // screenAngle は画面の回転（0 / 90 / 180 / 270）。invert は符号が逆に出る端末（iPhone）用
 // 画面の中での重力の向きから回した角度を求めるので、端末を後ろに寝かせて持っても同じだけ曲がる
-export const TILT_DEAD = 3; // これより小さい傾きは0（度）
-export const TILT_FULL = 25; // この傾きでハンドルいっぱい（度）
+// 子どもは大きく傾けるので、あそびを広く、ハンドルいっぱいになる角度を深くする
+export const TILT_DEAD = 6; // これより小さい傾きは0（度）
+export const TILT_FULL = 45; // この傾きでハンドルいっぱい（度）
 export const TILT_FLAT = 2; // 画面の中の重力がこれより小さい（平らに置いている）ときは0（m/s²）
 export function tiltSteer(ax, ay, screenAngle, invert = false) {
   const a = (screenAngle * Math.PI) / 180;

@@ -12,6 +12,8 @@ import { nextQuality, pixelRatio } from './render/quality.js';
 import { chooseControls } from './screens/controls.js';
 import { load, save } from './settings.js';
 
+// 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
+const VERSION = 'dev';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
@@ -112,6 +114,6 @@ startLoop({
     updateChaseCamera(camera, kart, params.topSpeed, dt);
     speedLines.classList.toggle('show', kart.boost > 0);
     renderer.render(scene, camera);
-    hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${mode}`;
+    hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },
 });

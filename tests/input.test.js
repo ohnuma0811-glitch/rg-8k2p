@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeButtonLayout, resolveTouches, tiltSteer, Controls, startTilt } from '../src/input.js';
+import { computeButtonLayout, resolveTouches, tiltSteer, Controls, startTilt, TILT_DEAD, TILT_FULL } from '../src/input.js';
 
 const W = 1280;
 const H = 800;
@@ -9,6 +9,11 @@ const T = computeButtonLayout(W, H, undefined, 'tilt');
 const K = computeButtonLayout(W, H, undefined, 'keyboard');
 const at = (b) => ({ x: b.x, y: b.y });
 const near = (a, b, eps = 0.02) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
+
+test('ボタンは大きめ（タブレット横向き 1280×800 で半径60px以上）', () => {
+  for (const name of ['left', 'right']) assert.ok(L[name].r >= 60, `${L[name].r}`);
+  assert.ok(L.drift.r >= 75);
+});
 
 test('ボタンは画面の中に収まり、重ならない', () => {
   for (const name of ['left', 'right', 'brake', 'drift', 'item']) {
@@ -108,27 +113,35 @@ const g20 = { ax: 9.81 * Math.cos((20 * Math.PI) / 180), ay: 9.81 * Math.sin((20
 
 test('傾き: まっすぐ持てば0、時計回りに回すと右、反対は左', () => {
   near(tiltSteer(9.81, 0, 90), 0);
-  near(tiltSteer(g20.ax, g20.ay, 90), (20 - 3) / 22);
-  near(tiltSteer(g20.ax, -g20.ay, 90), -(20 - 3) / 22);
+  near(tiltSteer(g20.ax, g20.ay, 90), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
+  near(tiltSteer(g20.ax, -g20.ay, 90), -(20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });
 
 test('傾き: 反対の横向き（270度）でも、時計回りは右', () => {
-  near(tiltSteer(-g20.ax, -g20.ay, 270), (20 - 3) / 22);
+  near(tiltSteer(-g20.ax, -g20.ay, 270), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });
 
-test('傾き: 3度より小さい傾きは0、25度より大きいとハンドルいっぱい', () => {
-  const g2 = Math.sin((2 * Math.PI) / 180) * 9.81;
-  assert.equal(tiltSteer(9.8, g2, 90), 0);
-  assert.equal(tiltSteer(5, 9, 90), 1);
+// 子どもは大きく傾けるので、あそびを広く、ハンドルいっぱいになる角度を深くする
+const rot = (d) => [9.81 * Math.cos((d * Math.PI) / 180), 9.81 * Math.sin((d * Math.PI) / 180)];
+
+test('傾き: 5度までは0（少し傾いても曲がらない）', () => {
+  assert.equal(tiltSteer(...rot(5), 90), 0);
+});
+
+test('傾き: 30度ではまだ半分くらい、45度でハンドルいっぱい', () => {
+  const s30 = tiltSteer(...rot(30), 90);
+  assert.ok(s30 > 0.5 && s30 < 0.75, `${s30}`);
+  assert.ok(tiltSteer(...rot(45), 90) > 0.999);
+  assert.equal(tiltSteer(...rot(70), 90), 1);
 });
 
 test('傾き: 向きが逆に出る端末（iPhone）は invert で同じ向きになる', () => {
-  near(tiltSteer(-g20.ax, -g20.ay, 90, true), (20 - 3) / 22);
+  near(tiltSteer(-g20.ax, -g20.ay, 90, true), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });
 
 test('傾き: 端末を後ろに60度寝かせて持っても、同じ回し方で同じだけ曲がる', () => {
   const half = 0.5;
-  near(tiltSteer(g20.ax * half, g20.ay * half, 90), (20 - 3) / 22);
+  near(tiltSteer(g20.ax * half, g20.ay * half, 90), (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });
 
 test('傾き: 端末を平らに置いたときは0（向きが決まらない）', () => {
@@ -163,7 +176,7 @@ test('傾き: センサーの値が来れば、知らせずに傾きで曲がる
   await new Promise((r) => setTimeout(r, 80));
   assert.equal(failed, false);
   c.tick();
-  near(c.steer, (20 - 3) / 22);
+  near(c.steer, (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });
 
 test('傾き: 重力の向きを反対の符号で出す端末（一部の Android）でも、時計回りに回すと右', async () => {
@@ -179,5 +192,5 @@ test('傾き: 重力の向きを反対の符号で出す端末（一部の Andro
   send(-9.81, 0); // まっすぐ持っている（符号が反対）
   send(-g20.ax, -g20.ay); // 時計回りに20度
   c.tick();
-  near(c.steer, (20 - 3) / 22);
+  near(c.steer, (20 - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
 });
