@@ -1,6 +1,6 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=c43748c';
+import * as THREE from '../../vendor/three.module.min.js?v=9162d0e';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -111,25 +111,35 @@ function driver(look) {
 }
 
 // 前は +x 向き。kart.heading に合わせて rotation.y = -heading にする
-// 車の形と大きさは KENTA が別のチャットで作ったレースゲーム（Penguin GP）を参考にする:
-// 車体は長さ2.8m・幅1.8m、鼻先と黒い後ろの羽
+// マリオカート64 のような、低くて細いゴーカート。太いタイヤが目立ち、キャラは車に対して大きい（頭が車の幅くらい）
+const DRIVER_SCALE = 1.6;
 export function createKartModel({ body = 0xc11f0a, character = 'kyugo' } = {}) {
   const g = new THREE.Group();
-  g.add(box(2.8, 0.6, 1.8, body, 0, 0.6, 0)); // 車体
-  g.add(box(0.8, 0.4, 1.4, body, 1.6, 0.5, 0)); // 鼻先
-  g.add(box(0.5, 0.15, 2, DARK, -1.35, 1.15, 0)); // 後ろの羽
-  g.add(box(0.9, 0.08, 1.1, DARK, -0.3, 0.92, 0)); // 座席
+  g.add(box(2.1, 0.18, 1.1, DARK, 0, 0.32, 0)); // 骨組み（低くて細い）
+  g.add(box(0.7, 0.32, 1.2, body, 1.0, 0.45, 0)); // 前のカバー
+  g.add(box(0.25, 0.2, 1.7, body, 1.35, 0.35, 0)); // 前のバンパー
+  for (const z of [-0.62, 0.62]) g.add(box(1.0, 0.28, 0.22, body, -0.25, 0.42, z)); // 横のカバー
+  g.add(box(0.25, 0.22, 1.6, DARK, -1.15, 0.45, 0)); // 後ろのバンパー
+  g.add(box(0.7, 0.1, 0.9, DARK, -0.4, 0.5, 0)); // 座席
   const wheels = [];
-  const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.4, 10);
-  wheelGeo.rotateX(Math.PI / 2);
-  for (const [x, z] of [[0.95, 1], [0.95, -1], [-0.95, 1], [-0.95, -1]]) {
-    const w = new THREE.Mesh(wheelGeo, mat(DARK));
-    w.position.set(x, 0.42, z);
+  const front = new THREE.CylinderGeometry(0.38, 0.38, 0.38, 12);
+  front.rotateX(Math.PI / 2);
+  const rear = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 12);
+  rear.rotateX(Math.PI / 2);
+  for (const [x, z, geo] of [[0.85, 0.85, front], [0.85, -0.85, front], [-0.85, 0.9, rear], [-0.85, -0.9, rear]]) {
+    const w = new THREE.Mesh(geo, mat(DARK));
+    w.position.set(x, geo === rear ? 0.45 : 0.38, z);
     g.add(w);
+    // ホイールの色（タイヤの外側の丸）
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.02, 10), mat(0xf1c453));
+    hub.rotation.x = Math.PI / 2;
+    hub.position.set(x, geo === rear ? 0.45 : 0.38, z + Math.sign(z) * (geo === rear ? 0.26 : 0.2));
+    g.add(hub);
     wheels.push(w);
   }
   const d = driver(CHARACTERS[character]);
-  d.position.set(-0.3, 0.92, 0);
+  d.scale.setScalar(DRIVER_SCALE);
+  d.position.set(-0.45, 0.5, 0);
   g.add(d);
   g.userData.wheels = wheels;
   g.userData.head = d.userData.head;
