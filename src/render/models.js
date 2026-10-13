@@ -10,23 +10,27 @@ function box(w, h, d, color, x, y, z) {
 }
 
 // 前は +x 向き。kart.heading に合わせて rotation.y = -heading にする
+// 形と大きさは KENTA が別のチャットで作ったレースゲーム（Penguin GP）を参考にする:
+// 車体は長さ2.8m・幅1.8m、鼻先と黒い後ろの羽。運転する人は小さく、車体から頭と肩が出る程度
 export function createKartModel({ body = 0xc11f0a, shirt = 0xc11f0a } = {}) {
   const g = new THREE.Group();
-  g.add(box(2.4, 0.45, 1.5, body, 0, 0.55, 0));
-  g.add(box(0.6, 0.3, 1.3, 0x222222, 1.1, 0.5, 0));
+  const dark = 0x1d2430;
+  g.add(box(2.8, 0.6, 1.8, body, 0, 0.6, 0)); // 車体
+  g.add(box(0.8, 0.4, 1.4, body, 1.6, 0.5, 0)); // 鼻先
+  g.add(box(0.5, 0.15, 2, dark, -1.35, 1.15, 0)); // 後ろの羽
   const wheels = [];
-  const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.35, 10);
+  const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.4, 10);
   wheelGeo.rotateX(Math.PI / 2);
-  for (const [x, z] of [[0.8, 0.8], [0.8, -0.8], [-0.8, 0.8], [-0.8, -0.8]]) {
-    const w = new THREE.Mesh(wheelGeo, mat(0x111111));
-    w.position.set(x, 0.38, z);
+  for (const [x, z] of [[0.95, 1], [0.95, -1], [-0.95, 1], [-0.95, -1]]) {
+    const w = new THREE.Mesh(wheelGeo, mat(dark));
+    w.position.set(x, 0.42, z);
     g.add(w);
     wheels.push(w);
   }
-  // 運転する人（シャツ、顔、黒い髪）
-  g.add(box(0.7, 0.8, 0.9, shirt, -0.3, 1.15, 0));
-  g.add(box(0.75, 0.7, 0.75, 0xf2c9a0, -0.25, 1.9, 0));
-  g.add(box(0.8, 0.25, 0.8, 0x1a1a1a, -0.3, 2.3, 0));
+  // 運転する人（小さく。シャツの肩、顔、黒い髪）
+  g.add(box(0.55, 0.35, 0.8, shirt, -0.25, 1.05, 0));
+  g.add(box(0.7, 0.62, 0.7, 0xf2c9a0, -0.25, 1.5, 0));
+  g.add(box(0.76, 0.22, 0.76, 0x1a1a1a, -0.28, 1.88, 0));
   g.userData.wheels = wheels;
   return g;
 }

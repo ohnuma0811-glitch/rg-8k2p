@@ -44,33 +44,36 @@ export function resizeRenderer(renderer, camera, w, h, ratio) {
   camera.updateProjectionMatrix();
 }
 
-// 車のすぐ後ろの低い所から追いかける（キャラが大きく見えるように）。速いほど視野を広げ、加速中はさらに広げる（スピード感）
-// 車との距離はいつも同じにして（速くても遠ざからない）、向きだけを少しずつ合わせる
-const CAM_BACK = 5; // 車の何m後ろ
-const CAM_HEIGHT = 3.4; // 地面から何mの高さ
-const CAM_AHEAD = 14; // 車の何m先を見るか
+// 車の後ろ上から追いかける。数字は KENTA が別のチャットで作ったレースゲーム（Penguin GP）を参考にする:
+// 車の7.8m後ろ・高さ3.3mから、車の5m先を見る。人物は小さめに映るが、先の道がよく見える
+// 向きと位置は少しずつ合わせる。視野は速いほど少し広げ、加速中はさらに広げる
+const CAM_BACK = 7.8; // 車の何m後ろ
+const CAM_HEIGHT = 3.3; // 車から何m上
+const CAM_AHEAD = 5; // 車の何m先を見るか
+const FOV_BASE = 62;
 const _pos = new THREE.Vector3();
-const _look = new THREE.Vector3();
 export function updateChaseCamera(camera, kart, topSpeed, dt) {
   const st = camera.userData;
+  const drift = kart.drift.active ? kart.drift.dir * 0.25 : 0;
+  const yaw = kart.heading - drift;
   if (st.h === undefined) {
-    st.h = kart.heading;
-    st.y = kart.y;
-    st.fov = camera.fov;
+    st.h = yaw;
+    st.fov = FOV_BASE;
+    st.pos = new THREE.Vector3();
   }
-  const k = 1 - Math.exp(-dt * 6);
-  st.h += Math.atan2(Math.sin(kart.heading - st.h), Math.cos(kart.heading - st.h)) * k;
-  st.y += (kart.y - st.y) * (1 - Math.exp(-dt * 8));
+  st.h += Math.atan2(Math.sin(yaw - st.h), Math.cos(yaw - st.h)) * Math.min(1, 5 * dt);
   const fx = Math.cos(st.h);
   const fz = Math.sin(st.h);
-  // キャラの頭（高さ約2.3m）より上から、遠くを見下ろす。キャラは画面の下の方に映り、進む方向が見える
-  _pos.set(kart.x - fx * CAM_BACK, st.y + CAM_HEIGHT, kart.z - fz * CAM_BACK);
-  _look.set(kart.x + fx * CAM_AHEAD, st.y + 0.5, kart.z + fz * CAM_AHEAD);
-  const fast = Math.max(0, Math.min(1, (kart.speed - topSpeed * 0.5) / (topSpeed * 0.5)));
-  const fov = 66 + fast * 6 + (kart.boost > 0 ? 6 : 0);
-  st.fov += (fov - st.fov) * (1 - Math.exp(-dt * 4));
+  _pos.set(kart.x - fx * CAM_BACK, kart.y + CAM_HEIGHT, kart.z - fz * CAM_BACK);
+  if (!st.placed) {
+    st.pos.copy(_pos);
+    st.placed = true;
+  }
+  st.pos.lerp(_pos, 1 - Math.exp(-9 * dt));
+  const fov = FOV_BASE + Math.max(0, kart.speed) * 0.08 + (kart.boost > 0 ? 9 : 0);
+  st.fov += (fov - st.fov) * Math.min(1, 4 * dt);
   camera.fov = st.fov;
   camera.updateProjectionMatrix();
-  camera.position.copy(_pos);
-  camera.lookAt(_look);
+  camera.position.copy(st.pos);
+  camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + 1.3, kart.z + fz * CAM_AHEAD);
 }
