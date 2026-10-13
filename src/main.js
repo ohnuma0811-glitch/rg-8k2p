@@ -1,24 +1,21 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=19845fe';
-import { COURSE1 } from './data/tracks.js?v=19845fe';
-import { buildTrack } from './game/track.js?v=19845fe';
-import { createKart, stepKart } from './game/kart.js?v=19845fe';
-import { kartParams } from './game/stats.js?v=19845fe';
-import { Controls, attachControls, computeButtonLayout, startTilt } from './input.js?v=19845fe';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera } from './render/scene.js?v=19845fe';
-import { createKartModel, syncKartModel } from './render/models.js?v=19845fe';
-import { createEffects } from './render/effects.js?v=19845fe';
-import { nextQuality, pixelRatio } from './render/quality.js?v=19845fe';
-import { chooseControls } from './screens/controls.js?v=19845fe';
-import { load, save } from './settings.js?v=19845fe';
+import { startLoop } from './loop.js?v=655abab';
+import { COURSE1 } from './data/tracks.js?v=655abab';
+import { buildTrack } from './game/track.js?v=655abab';
+import { createKart, stepKart } from './game/kart.js?v=655abab';
+import { kartParams } from './game/stats.js?v=655abab';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=655abab';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera } from './render/scene.js?v=655abab';
+import { createKartModel, syncKartModel } from './render/models.js?v=655abab';
+import { createEffects } from './render/effects.js?v=655abab';
+import { nextQuality, pixelRatio } from './render/quality.js?v=655abab';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '19845fe';
+const VERSION = '655abab';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
 const speedLines = document.getElementById('speed-lines');
-const toast = document.getElementById('toast');
 const probe = document.getElementById('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
 const els = Object.fromEntries(BUTTONS.map((n) => [n, document.getElementById(`btn-${n}`)]));
@@ -32,6 +29,8 @@ const model = createKartModel();
 scene.add(model);
 const effects = createEffects(scene);
 const controls = new Controls();
+// タッチできる端末はボタン、パソコンはキーボード
+controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
 let quality = 1;
 let layout;
 
@@ -48,8 +47,7 @@ function placeButtons() {
   for (const n of BUTTONS) {
     const b = layout[n];
     const el = els[n];
-    const hidden = controls.mode === 'keyboard' || (controls.mode === 'tilt' && (n === 'left' || n === 'right'));
-    el.classList.toggle('hidden', hidden);
+    el.classList.toggle('hidden', controls.mode === 'keyboard');
     Object.assign(el.style, { left: `${b.x - b.r}px`, top: `${b.y - b.r}px`, width: `${b.r * 2}px`, height: `${b.r * 2}px` });
   }
 }
@@ -68,20 +66,6 @@ window.addEventListener('resize', resize);
 resize();
 attachControls(controls, document.getElementById('touch-layer'), () => layout);
 
-const mode = await chooseControls(document.getElementById('menu'), load('controls', 'buttons'));
-if (mode !== 'keyboard') save('controls', mode);
-controls.setMode(mode);
-// 傾きセンサーの値が来ない端末では、ボタン操作に戻して知らせる
-function useButtons() {
-  controls.setMode('buttons');
-  save('controls', 'buttons');
-  resize();
-  toast.textContent = 'Tilt is not working. Using BUTTONS.';
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
-}
-if (mode === 'tilt') startTilt(controls, { onNoSensor: useButtons });
-resize();
 
 let frames = 0;
 let fpsTime = 0;

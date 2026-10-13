@@ -1,6 +1,6 @@
 // ドリフトの火花（青・オレンジ）と、ダートの砂ぼこり
-import * as THREE from '../../vendor/three.module.min.js?v=19845fe';
-import { driftLevel } from '../game/kart.js?v=19845fe';
+import * as THREE from '../../vendor/three.module.min.js?v=655abab';
+import { driftLevel } from '../game/kart.js?v=655abab';
 
 const MAX = 200;
 const SPARK = [null, new THREE.Color(0x3fa9ff), new THREE.Color(0xff8a00)];
@@ -13,7 +13,7 @@ export function createEffects(scene) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.5, vertexColors: true }));
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.3, vertexColors: true }));
   points.frustumCulled = false;
   scene.add(points);
   let next = 0;
@@ -38,7 +38,7 @@ export function createEffects(scene) {
         }
       }
       if (kart.surface === 'dirt' && !kart.airborne && Math.abs(kart.speed) > 5) {
-        emit(kart.x - fx * 1.2 + rx * (Math.random() - 0.5) * 1.6, kart.y + 0.3, kart.z - fz * 1.2 + rz * (Math.random() - 0.5) * 1.6,
+        emit(kart.x - fx * 2 + rx * (Math.random() - 0.5) * 1.6, kart.y + 0.3, kart.z - fz * 2 + rz * (Math.random() - 0.5) * 1.6,
           -fx * 2 + (Math.random() - 0.5) * 2, 1 + Math.random() * 2, -fz * 2 + (Math.random() - 0.5) * 2, DUST, 0.6);
       }
       for (let i = 0; i < MAX; i++) {
