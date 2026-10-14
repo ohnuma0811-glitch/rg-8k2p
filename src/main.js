@@ -428,15 +428,34 @@ async function seeYouTomorrow(name) {
 async function flow() {
   for (;;) {
     music.play('title'); // タイトル・名前・キャラ選びの間ずっと（同じ曲が流れていれば何もしない）
-    await screens.title(menu, audio);
-    const recent = cleanRecent(load('recent', []));
-    const name = await screens.askName(menu, recent);
-    save('recent', addRecent(recent, name));
-    if (remainingSec(playStore(), name, Date.now()) <= 0) {
-      await seeYouTomorrow(name);
-      continue;
+    // タイトル → 名前 → キャラ選び。BACK で1つ前の画面へ戻る
+    let screen = 'title';
+    let name = null;
+    let charId = null;
+    while (!charId) {
+      if (screen === 'title') {
+        await screens.title(menu, audio);
+        screen = 'name';
+      } else if (screen === 'name') {
+        const recent = cleanRecent(load('recent', []));
+        name = await screens.askName(menu, recent);
+        if (name === screens.BACK) {
+          screen = screens.prevScreen('name');
+          continue;
+        }
+        save('recent', addRecent(recent, name));
+        if (remainingSec(playStore(), name, Date.now()) <= 0) {
+          await seeYouTomorrow(name);
+          screen = 'title';
+          continue;
+        }
+        screen = 'character';
+      } else {
+        const pick = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
+        if (pick === screens.BACK) screen = screens.prevScreen('character');
+        else charId = pick;
+      }
     }
-    const charId = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
     // 大会（5レースの合計ポイントで優勝を決める）
     let cup = createCup(CPU_COUNT + 1);
     for (;;) {

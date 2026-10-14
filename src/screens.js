@@ -4,6 +4,14 @@ import { TITLE_ART, faceSvg } from './titleArt.js';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
+// 前の画面に戻る（名前入力とキャラ選びの左上の ◀ BACK、パソコンでは Esc。2026-10-15 のユーザー依頼）
+export const BACK = 'back';
+const SCREENS = ['title', 'name', 'character'];
+export function prevScreen(screen) {
+  return SCREENS[Math.max(0, SCREENS.indexOf(screen) - 1)];
+}
+const BACK_BUTTON = '<button type="button" class="back-btn" data-pick="back" data-back="1">◀ BACK</button>';
+
 function show(root, html) {
   root.innerHTML = `<div class="panel">${html}</div>`;
   root.classList.add('show');
@@ -90,6 +98,7 @@ export function askName(root, recent) {
     let name = '';
     const keys = ROWS.map((row) => `<div class="keyrow">${[...row].map((c) => `<button type="button" class="key" data-key="${c}">${c}</button>`).join('')}</div>`).join('');
     show(root, `
+      ${BACK_BUTTON}
       <h1>What's your name?</h1>
       <div class="recent">${recent.map((n) => `<button type="button" class="chip" data-name="${n}">${n}</button>`).join('')}</div>
       <div class="name-box"><span class="name"></span><span class="caret">_</span></div>
@@ -117,6 +126,7 @@ export function askName(root, recent) {
       update();
     };
     root.onclick = (e) => {
+      if (e.target.closest('[data-back]')) return done(BACK);
       const chip = e.target.closest('[data-name]');
       if (chip) return done(chip.dataset.name);
       const key = e.target.closest('[data-key]');
@@ -127,6 +137,7 @@ export function askName(root, recent) {
       if (/^Key[A-Z]$/.test(e.code)) press(e.code.slice(3));
       else if (e.code === 'Backspace') press('DEL');
       else if (e.code === 'Enter' || e.code === 'NumpadEnter') press('OK');
+      else if (e.code === 'Escape') done(BACK);
     };
     window.addEventListener('keydown', onKey);
     update();
@@ -136,10 +147,21 @@ export function askName(root, recent) {
 // キャラ選び（M2 は Kyugo と Soki。M3 で8人）。note は残り時間など
 export async function chooseCharacter(root, chars, note) {
   show(root, `
+    ${BACK_BUTTON}
     <h1>Choose your racer</h1>
     <div class="choices">${chars.map((c) => `<button type="button" data-pick="${c.id}" style="background:${c.color}"><span class="icon">${c.icon}</span>${c.name}</button>`).join('')}</div>
     <p class="note">${note}</p>`);
-  const pick = await waitPick(root);
+  // パソコンでは Esc でも戻る
+  let onKey;
+  const esc = new Promise((resolve) => {
+    onKey = (e) => {
+      if (e.code === 'Escape') resolve(BACK);
+    };
+    window.addEventListener('keydown', onKey);
+  });
+  const pick = await Promise.race([waitPick(root), esc]);
+  window.removeEventListener('keydown', onKey);
+  root.onclick = null;
   hide(root);
   return pick;
 }
