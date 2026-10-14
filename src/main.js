@@ -26,7 +26,7 @@ import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { createAudio } from './audio/audio.js';
 import { createSfx } from './audio/sfx.js';
-import { soundState, soundEvents } from './audio/events.js';
+import { soundState, soundEvents, finishMusic } from './audio/events.js';
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
 import { createMusic, FINAL_LAP_RATE } from './audio/music.js';
@@ -103,7 +103,7 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
       audio.unlock();
       if (!first || !audio.ctx) return;
       // 曲を作るのに少し時間がかかるので、タイトルの曲から順に作っておく
-      music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('victory')).then(() => music.prepare('results'));
+      music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('victory')).then(() => music.prepare('consolation')).then(() => music.prepare('results'));
       if (!game) music.play('title');
     },
     { passive: true },
@@ -529,11 +529,16 @@ function renderGame(alpha, dt) {
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
-    else sfx.play(name);
+    else if (name !== 'finish') sfx.play(name);
     if (name === 'finalLap' || name === 'finish') crowd.excite(3);
     if (name === 'go') music.play(COURSE1.music);
     if (name === 'finalLap') music.setRate(FINAL_LAP_RATE);
-    if (name === 'finish') music.play('victory', { delay: 1.5 }); // コースの曲を止め、ファンファーレのあとに勝利の曲
+    if (name === 'finish') {
+      // 順位で音を変える: 1〜3位は明るいファンファーレと勝利の曲、4位以下はちょっと悲しいファンファーレと別の曲
+      const fm = finishMusic(order.indexOf(g.me) + 1);
+      sfx.play(fm.sfx);
+      music.play(fm.song, { delay: 1.5 }); // コースの曲を止め、ファンファーレのあとに流す
+    }
   }
   g.sound = now;
   sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);

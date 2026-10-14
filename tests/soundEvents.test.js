@@ -55,3 +55,11 @@ test('自分（k 番）が新しくぶつかった数を数える', () => {
   assert.equal(newBumps(prev, now, 1), 1);
   assert.equal(newBumps(prev, now, 0), 0);
 });
+
+test('ゴールの音: 1〜3位は明るいファンファーレと勝利の曲、4位以下はちょっと悲しいファンファーレと別の曲（2026-10-15 のユーザー依頼）', async () => {
+  const { finishMusic } = await import('../src/audio/events.js');
+  for (const place of [1, 2, 3]) assert.deepEqual(finishMusic(place), { sfx: 'finish', song: 'victory' });
+  for (const place of [4, 5, 8]) assert.deepEqual(finishMusic(place), { sfx: 'finishSad', song: 'consolation' });
+  const { SONGS } = await import('../src/audio/songs.js');
+  assert.ok(SONGS.consolation, '4位以下の曲');
+});
