@@ -23,6 +23,7 @@ import { addRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
@@ -287,9 +288,11 @@ function resultRows(g) {
   });
 }
 
-async function runRace(name, charId) {
-  // スタートの前に、コースを回って映しながら、コースの名前を出す（タイトルと同じカメラ）
-  await screens.courseIntro(menu, COURSE1.name, COURSE_INTRO);
+// 大会の1レース。'next'（次へ）、'title'（タイトルへ）、'newcup'（新しい大会）を返す
+async function runRace(name, charId, cup) {
+  const label = `RACE ${cup.done + 1}/${CUP_RACES}`;
+  // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
+  await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
   game = createGame(name, charId);
   camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
@@ -306,13 +309,29 @@ async function runRace(name, charId) {
     placeButtons();
     return 'title';
   }
-  const rows = resultRows(game);
+  const g = game;
+  const rows = resultRows(g);
+  addRace(cup, ranking(g.race, track));
   removeGame();
   placeButtons();
-  return screens.results(menu, rows, [
-    { id: 'again', label: '↻ RACE AGAIN' },
+  // そのレースの結果 → 大会の順位（合計ポイント）
+  const first = await screens.results(menu, rows, label, [
+    { id: 'next', label: 'NEXT ▶' },
     { id: 'title', label: '⌂ TITLE' },
   ]);
+  if (first === 'title') return 'title';
+  const over = isOver(cup);
+  const table = standings(cup).map((k, n) => ({
+    place: ordinal(n + 1),
+    name: g.names[k],
+    total: cup.totals[k],
+    gained: cup.gained[k],
+    face: g.faces[k],
+    me: k === g.me,
+  }));
+  return screens.standings(menu, table, label, over, over
+    ? [{ id: 'newcup', label: '↻ NEW CUP' }, { id: 'title', label: '⌂ TITLE' }]
+    : [{ id: 'next', label: `▶ RACE ${cup.done + 1}/${CUP_RACES}` }, { id: 'title', label: '⌂ TITLE' }]);
 }
 
 // 一時停止（SOLO だけ）: つづける / タイトルへ
@@ -347,13 +366,16 @@ async function flow() {
       continue;
     }
     const charId = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
+    // 大会（5レースの合計ポイントで優勝を決める）
+    let cup = createCup(CPU_COUNT + 1);
     for (;;) {
-      const pick = await runRace(name, charId);
+      const pick = await runRace(name, charId, cup);
       if (remainingSec(playStore(), name, Date.now()) <= 0) {
         await seeYouTomorrow(name);
         break;
       }
-      if (pick !== 'again') break;
+      if (pick === 'title') break;
+      if (pick === 'newcup') cup = createCup(CPU_COUNT + 1);
     }
   }
 }
