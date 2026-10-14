@@ -1,6 +1,6 @@
 // 音のおおもと: 最初のタップで AudioContext を作る、ON/OFF（端末に覚える）、全体の音量、裏に回ったら止める
 // 音が使えない端末では ctx が null のまま。ほかの音の部品は、ctx がなければ何もしない
-import { load, save } from '../storage.js?v=c65f4a8';
+import { load, save } from '../storage.js?v=39f75c5';
 
 export const MUSIC_VOLUME = 0.45; // 曲の音量（全体を 1 として。0.55 から気持ち下げた: 2026-10-15 のユーザー依頼）
 

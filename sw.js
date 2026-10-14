@@ -1,7 +1,7 @@
 // ゲームのファイルを端末に取っておく。電波があるときは、いつも新しいファイルを使って取っておき、
 // 電波がないときだけ、取っておいたファイルを使う（古い版が残り続けないように）
 // ほかのサイト（Google Fonts など）と、GET 以外はさわらない
-const CACHE = 'ks-kart-c65f4a8'; // 公開のとき scripts/deploy.sh がコミットの番号に置き換える
+const CACHE = 'ks-kart-39f75c5'; // 公開のとき scripts/deploy.sh がコミットの番号に置き換える
 
 self.addEventListener('install', () => self.skipWaiting());
 // 新しい版になったら、このゲームの古い版の入れ物を消す（同じ GitHub の、ほかのゲームの入れ物は消さない）
