@@ -86,6 +86,13 @@ export function driftLevel(kart) {
   return kart.drift.active ? kart.drift.stage : 0;
 }
 
+// スタートダッシュ: 加速の数字（1〜5）が大きいほど長く加速する
+export const DASH_BASE = 0.5;
+export const DASH_PER_ACCEL = 0.15;
+export function startDash(kart, params, accelLevel) {
+  startBoost(kart, params, DASH_BASE + DASH_PER_ACCEL * accelLevel);
+}
+
 function startBoost(kart, params, time) {
   kart.boost = Math.max(kart.boost, time);
   kart.speed = Math.max(kart.speed, params.topSpeed * PHYS.BOOST_FACTOR);

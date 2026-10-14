@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, locate } from '../src/game/track.js';
 import { COURSE1 } from '../src/data/tracks.js';
-import { createKart, stepKart, driftLevel, PHYS } from '../src/game/kart.js';
+import { createKart, stepKart, driftLevel, startDash, PHYS, DASH_BASE, DASH_PER_ACCEL } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 
 // 動きを確かめるための、長い直線がある楕円のコース（ジャンプなし）
@@ -488,4 +488,14 @@ test('逆走が30秒続くと、スピンして正しい向きに戻る（スピ
   assert.ok(Math.cos(kart.heading - loc.heading) > 0.95, '正しい向きに戻っていない');
   assert.equal(kart.wrongWay, false);
   assert.ok(Math.abs(h0) >= 0);
+});
+
+test('スタートダッシュ: 止まっていても一気に速くなる。加速の数字が大きいほど長く続く', () => {
+  const a = createKart(OVAL, START);
+  startDash(a, params, 1);
+  assert.ok(a.speed > params.topSpeed);
+  const b = createKart(OVAL, START);
+  startDash(b, params, 5);
+  assert.ok(b.boost > a.boost);
+  assert.ok(Math.abs(a.boost - (DASH_BASE + DASH_PER_ACCEL)) < 1e-9);
 });
