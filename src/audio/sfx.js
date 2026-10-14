@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=ea82c67';
-import { engineParams } from './mix.js?v=ea82c67';
+import { midiToHz } from './notes.js?v=cd956e0';
+import { engineParams } from './mix.js?v=cd956e0';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
