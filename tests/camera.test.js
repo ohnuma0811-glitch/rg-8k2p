@@ -101,20 +101,28 @@ test('Soki の髪は、頭の後ろの下（耳より下）までおおう（202
   const ray = new THREE.Raycaster(center.clone().add(new THREE.Vector3(-3, -0.25, 0)), new THREE.Vector3(1, 0, 0));
   const hits = ray.intersectObject(model, true);
   assert.ok(hits.length > 0, '何にも当たらない');
-  assert.equal(hits[0].object.material.color.getHex(), CHARACTERS.soki.hairColor, `最初に当たったのが髪でない（${hits[0].object.material.color.getHexString()}）`);
+  const c = hits[0].object.material.color.getHex();
+  assert.ok(c === CHARACTERS.soki.hairColor || c === CHARACTERS.soki.capColor, `最初に当たったのが髪か帽子でない（${hits[0].object.material.color.getHexString()}）`);
 });
 
-test('Soki の髪は帽子に見えないように: こげ茶で、前髪は長さのちがう毛の束が並び、上につやがある（2026-10-15 の実機確認）', () => {
-  const hair = CHARACTERS.soki.hairColor;
-  assert.notEqual(hair, 0x1a1a1a, '真っ黒でない');
-  const strands = [];
-  let shine = 0;
-  createKartModel({ character: 'soki' }).traverse((o) => {
-    if (o.userData.strand === 'fringe') strands.push(o);
-    if (o.userData.shine) shine++;
+test('Soki は赤い野球帽をかぶる: 頭をおおう赤い帽子と、顔より前に出るつば（2026-10-15 のユーザー依頼「髪の毛が不自然なので、赤い野球帽をかぶせて」）', () => {
+  const model = createKartModel({ character: 'soki' });
+  model.updateMatrixWorld(true);
+  const parts = { crown: null, brim: null, face: null };
+  model.traverse((o) => {
+    if (o.userData.cap) parts[o.userData.cap] = o;
+    if (o.isMesh && o.geometry.type === 'SphereGeometry' && Math.abs(o.geometry.parameters.radius - 0.42) < 1e-6) parts.face = o;
   });
-  assert.ok(strands.length >= 7, `前髪の束 ${strands.length}`);
-  assert.ok(new Set(strands.map((o) => o.scale.y.toFixed(2))).size >= 3, '長さがそろいすぎ');
-  assert.ok(strands.every((o) => o.material.color.getHex() === hair));
-  assert.ok(shine >= 1, 'つや');
+  assert.ok(parts.crown && parts.brim, '帽子とつば');
+  assert.equal(parts.crown.material.color.getHex(), CHARACTERS.soki.capColor);
+  const red = new THREE.Color(CHARACTERS.soki.capColor);
+  assert.ok(red.r > 0.6 && red.g < 0.3 && red.b < 0.3, '赤');
+  const brim = new THREE.Box3().setFromObject(parts.brim);
+  const face = new THREE.Box3().setFromObject(parts.face);
+  assert.ok(brim.max.x > face.max.x + 0.1, `つばが顔より前に出る（${brim.max.x.toFixed(2)} / ${face.max.x.toFixed(2)}）`);
+  let strands = 0;
+  model.traverse((o) => {
+    if (o.userData.strand) strands++;
+  });
+  assert.equal(strands, 0, '毛の束はやめた');
 });

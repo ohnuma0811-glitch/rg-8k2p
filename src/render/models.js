@@ -34,7 +34,8 @@ const DARK = 0x1d2430;
 // キャラの見た目。前は +x 向き。座席に座った形で、原点は座面
 export const CHARACTERS = {
   kyugo: { hair: 'spiky', shirt: 0xc11f0a, face: 'human' }, // 顔は人間らしく（2026-10-14 のユーザー依頼）
-  soki: { hair: 'bowl', shirt: 0x1c3c88, hairColor: 0x2b1d16 }, // 髪はこげ茶（真っ黒だと帽子に見えた: 2026-10-15）
+  // 赤い野球帽をかぶる。帽子の下から、こげ茶の髪が少しのぞく（2026-10-15 のユーザー依頼）
+  soki: { hair: 'cap', shirt: 0x1c3c88, hairColor: 0x2b1d16, capColor: 0xd7261b },
 };
 
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
@@ -113,47 +114,31 @@ function head(look) {
       g.add(s);
     }
   } else {
-    // おわん形（坊ちゃん刈り）: 頭の上半分をおおい、ふちに長さのちがう毛の束を並べて、毛先をギザギザにする
-    // （まっすぐなふちだと黒い帽子に見えた: 2026-10-15 の実機確認）
+    // 赤い野球帽（2026-10-15 のユーザー依頼「髪の毛が不自然なので、赤い野球帽をかぶせて」）
     const HC = look.hairColor || HAIR;
-    const bowl = new THREE.Mesh(new THREE.SphereGeometry(R * 1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(HC));
-    bowl.position.set(-0.02, 0.06, 0);
-    g.add(bowl);
-    // 後ろの下の髪: 頭の後ろ半分を、耳の下の高さまでおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）
+    const CAP = look.capColor || 0xd7261b;
+    // 帽子の下からのぞく髪: 後ろと横を、耳の下の高さまで
     // （球の向き: phi が -90°〜90° のところが頭の後ろ（-x）。theta は真上 0 から真下 180°）
-    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 16, 8, -Math.PI / 2, Math.PI, Math.PI * 0.45, Math.PI * 0.32), mat(HC));
+    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.06, 16, 8, -Math.PI * 0.6, Math.PI * 1.2, Math.PI * 0.4, Math.PI * 0.37), mat(HC));
     back.position.set(-0.02, 0.06, 0);
     g.add(back);
-    // 毛の束（細長い玉）。a は頭のまわりの向き（0 が前、+ が右）、len は長さ、y は束の真ん中の高さ
-    const strandGeo = new THREE.SphereGeometry(0.06, 8, 6);
-    const strand = (a, len, y, kind) => {
-      const r = R * 1.07;
-      const m = new THREE.Mesh(strandGeo, mat(HC));
-      m.position.set(-0.02 + Math.cos(a) * r, y, Math.sin(a) * r);
-      m.scale.set(0.7, len, 1);
-      m.rotation.y = -a;
-      m.rotation.z = -0.15; // 毛先が少し前に出る
-      m.userData.strand = kind;
-      g.add(m);
-    };
-    // 前髪: 9つの束。長さを少しずつ変えて毛先をギザギザに（目にはかからない）
-    const fringe = [1.0, 1.35, 1.1, 1.3, 1.05, 1.3, 1.1, 1.35, 1.0];
-    fringe.forEach((len, k) => strand((k - 4) * 0.2, len, 0.12, 'fringe'));
-    // 横と後ろのふち: 耳の上にかかる束と、後ろの毛先
-    for (const a of [1.15, 1.45, 1.75, -1.15, -1.45, -1.75]) strand(a, 1.6, 0.05, 'side');
-    for (const a of [2.2, 2.6, 3.0, 3.4, 3.8, 4.1]) strand(a, 1.4, -0.08, 'back');
-    // つや: 頭の上の前の方を横に走る、明るい茶色の弧（タイトルの絵と同じ）
-    // 真上から35°下がった高さの輪の一部（前を真ん中に、左右に約46°ずつ）
-    const SHINE_ARC = 1.6;
-    const lat = (35 * Math.PI) / 180;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(R * 1.11 * Math.sin(lat), 0.014, 4, 16, SHINE_ARC), mat(0x6b5040));
-    ring.rotation.x = Math.PI / 2; // 横向きの輪にする
-    const shine = new THREE.Group();
-    shine.add(ring);
-    shine.position.set(-0.02, 0.06 + R * 1.11 * Math.cos(lat), 0);
-    shine.rotation.y = SHINE_ARC / 2; // 弧の真ん中を前（+x）に
-    ring.userData.shine = true;
-    g.add(shine);
+    // 帽子の上（頭の上半分より少し深くかぶる）
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(R * 1.12, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.46), mat(CAP));
+    crown.position.set(-0.02, 0.06, 0);
+    crown.userData.cap = 'crown';
+    g.add(crown);
+    // つば: 前（+x）に突き出した半円の板。少し下を向く
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.035, 20, 1, false, 0, Math.PI), mat(CAP));
+    brim.position.set(R * 0.62, 0.13, 0);
+    brim.rotation.z = -0.18;
+    brim.userData.cap = 'brim';
+    g.add(brim);
+    // てっぺんのボタンと、正面の白い丸いマーク
+    g.add(ball(0.045, 0xa51b12, -0.02, 0.06 + R * 1.12, 0, 8));
+    const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.012, 16), mat(WHITE));
+    mark.position.set(R * 0.93, 0.3, 0);
+    mark.rotation.z = Math.PI / 2 - 0.55; // 帽子の前の面に沿わせる
+    g.add(mark);
   }
   return g;
 }

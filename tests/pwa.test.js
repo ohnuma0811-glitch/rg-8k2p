@@ -99,3 +99,9 @@ test('sw: 新しい版になったら、このゲームの古い版の取って�
   await done;
   assert.deepEqual([...names].sort(), ['ks-c90d32a', 'ks-kart-dev']);
 });
+
+test('開いたばかり（ゲームを読みこんでいる間）は、スピード計と操作ボタンを出さない（2026-10-15 の実機確認）', () => {
+  const html = read('index.html').toString();
+  assert.match(html, /<div id="speedo" class="hidden">/);
+  for (const n of ['left', 'right', 'brake', 'drift', 'item']) assert.match(html, new RegExp(`<div id="btn-${n}" class="btn hidden">`), n);
+});

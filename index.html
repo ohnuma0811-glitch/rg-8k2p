@@ -20,12 +20,13 @@
   <canvas id="game"></canvas>
   <div id="speed-lines"></div>
   <div id="touch-layer"></div>
-  <div id="btn-left" class="btn">◀</div>
-  <div id="btn-right" class="btn">▶</div>
-  <div id="btn-brake" class="btn">▼</div>
-  <div id="btn-drift" class="btn">DRIFT</div>
-  <div id="btn-item" class="btn">ITEM</div>
-  <div id="speedo"><span class="ghost">888</span><span class="num">  0</span><span class="unit">km/h</span></div>
+  <!-- スピード計と操作ボタンは、ゲームを読みこんでレースが始まるまで隠しておく（開いたときに一瞬出ないように） -->
+  <div id="btn-left" class="btn hidden">◀</div>
+  <div id="btn-right" class="btn hidden">▶</div>
+  <div id="btn-brake" class="btn hidden">▼</div>
+  <div id="btn-drift" class="btn hidden">DRIFT</div>
+  <div id="btn-item" class="btn hidden">ITEM</div>
+  <div id="speedo" class="hidden"><span class="ghost">888</span><span class="num">  0</span><span class="unit">km/h</span></div>
   <div id="wrongway">↺ WRONG WAY!</div>
   <div id="race-hud">
     <div id="lap-box"><div id="lap">LAP 1/3</div><div id="race-time">0:00.00</div></div>
