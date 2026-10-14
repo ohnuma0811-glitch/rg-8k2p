@@ -1,5 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=2402770';
+import { typeLetter, isValidName } from './names.js?v=1224a1a';
+import { TITLE_ART } from './titleArt.js?v=1224a1a';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -33,6 +34,7 @@ export async function title(root, gameName) {
         <button type="button" data-pick="versus"><span class="icon">👥</span>VERSUS<small>2〜8 players</small></button>
       </div>
       <p class="note"></p>`);
+    root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
     const pick = await waitPick(root);
     if (pick === 'solo') {
       hide(root);

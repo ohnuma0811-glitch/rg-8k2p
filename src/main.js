@@ -1,29 +1,30 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=2402770';
-import { startLoop } from './loop.js?v=2402770';
-import { COURSE1 } from './data/tracks.js?v=2402770';
-import { buildTrack } from './game/track.js?v=2402770';
-import { createKart, stepKart, startDash } from './game/kart.js?v=2402770';
-import { kartParams } from './game/stats.js?v=2402770';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=2402770';
-import { pushApart } from './game/collide.js?v=2402770';
+import * as THREE from '../vendor/three.module.min.js?v=1224a1a';
+import { startLoop } from './loop.js?v=1224a1a';
+import { COURSE1 } from './data/tracks.js?v=1224a1a';
+import { buildTrack } from './game/track.js?v=1224a1a';
+import { createKart, stepKart, startDash } from './game/kart.js?v=1224a1a';
+import { kartParams } from './game/stats.js?v=1224a1a';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=1224a1a';
+import { pushApart } from './game/collide.js?v=1224a1a';
 import {
   LAPS, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
-} from './game/race.js?v=2402770';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=2402770';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=2402770';
-import { createKartModel, syncKartModel } from './render/models.js?v=2402770';
-import { createEffects } from './render/effects.js?v=2402770';
-import { nextQuality, pixelRatio } from './render/quality.js?v=2402770';
-import { blendPose, poseOf } from './render/interp.js?v=2402770';
-import { speedText } from './hud.js?v=2402770';
-import { addRecent } from './names.js?v=2402770';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=2402770';
-import { load, save } from './storage.js?v=2402770';
-import * as screens from './screens.js?v=2402770';
+} from './game/race.js?v=1224a1a';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=1224a1a';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera } from './render/scene.js?v=1224a1a';
+import { createMinimap } from './render/minimap.js?v=1224a1a';
+import { createKartModel, syncKartModel } from './render/models.js?v=1224a1a';
+import { createEffects } from './render/effects.js?v=1224a1a';
+import { nextQuality, pixelRatio } from './render/quality.js?v=1224a1a';
+import { blendPose, poseOf } from './render/interp.js?v=1224a1a';
+import { speedText } from './hud.js?v=1224a1a';
+import { addRecent } from './names.js?v=1224a1a';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=1224a1a';
+import { load, save } from './storage.js?v=1224a1a';
+import * as screens from './screens.js?v=1224a1a';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '2402770';
+const VERSION = '1224a1a';
 const GAME_NAME = 'Super Kyugo &amp; Soki Kart';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
@@ -40,7 +41,8 @@ const CPU_LOOKS = [
 const CPU_COUNT = 4;
 const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
 const PLAY_SAVE_EVERY = 5; // 遊んだ時間を記録する間かく（秒）
-const END_WAIT = 3; // ゴールしてから結果を出すまで（秒）
+const END_WAIT = 7; // ゴールしてから結果を出すまで（秒。カメラが前に回って、顔が見えてから）
+const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
@@ -58,6 +60,9 @@ const rankEl = $('rank');
 const countEl = $('countdown');
 const leftEl = $('time-left');
 const pauseBtn = $('btn-pause');
+const lapBox = $('lap-box');
+const sideEl = $('side');
+const top3El = $('top3');
 const probe = $('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
 const els = Object.fromEntries(BUTTONS.map((n) => [n, $(`btn-${n}`)]));
@@ -67,6 +72,7 @@ const track = buildTrack(COURSE1);
 const renderer = createRenderer(canvas);
 const { scene, camera } = createWorld(track);
 const effects = createEffects(scene);
+const minimap = createMinimap($('minimap'), track);
 const controls = new Controls();
 // タッチできる端末はボタン、パソコンはキーボード
 controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
@@ -94,6 +100,25 @@ function placeButtons() {
   // 順位は ◀ ▶ ▼ の上（左下）
   rankEl.style.left = `${layout.left.x - layout.left.r}px`;
   rankEl.style.bottom = `${window.innerHeight - (layout.brake.y - layout.brake.r) + 8}px`;
+  placeSide();
+}
+
+// コースマップは、右上の周回とタイムの下。ITEM ボタンにかかるときは、ボタンの左に寄せる。
+// 上位3人は、左上の速度計の下
+function placeSide() {
+  if (!game) return;
+  const sp = speedo.getBoundingClientRect();
+  top3El.style.left = `${sp.left}px`;
+  top3El.style.top = `${sp.bottom + 2}px`;
+  const w = window.innerWidth;
+  const safe = safeArea();
+  const top = Math.max(lapBox.getBoundingClientRect().bottom, pauseBtn.getBoundingClientRect().bottom) + 6;
+  sideEl.style.top = `${top}px`;
+  sideEl.style.width = `${Math.round(Math.min(190, Math.max(120, w * 0.19)))}px`;
+  let right = 10 + safe.right;
+  const item = layout.item;
+  if (controls.mode !== 'keyboard' && top + sideEl.offsetHeight > item.y - item.r - 6) right = w - (item.x - item.r) + 8;
+  sideEl.style.right = `${right}px`;
 }
 
 function resize() {
@@ -149,6 +174,13 @@ function createGame(name, charId) {
     models,
     cpus,
     names: karts.map((_, k) => (k === PLAYER_SLOT ? name : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1].name)),
+    // マップの点と、上位3人のアイコン（体の色と、キャラのしるし）
+    faces: karts.map((_, k) => {
+      const look = k === PLAYER_SLOT ? { body: me.body, character: me.id } : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1];
+      const ch = PLAYER_CHARS.find((c) => c.id === look.character);
+      return { color: `#${look.body.toString(16).padStart(6, '0')}`, icon: ch.icon };
+    }),
+    top3Key: '',
     me: PLAYER_SLOT,
     prev: karts.map(poseOf),
     contacts: new Set(),
@@ -180,6 +212,8 @@ function stepGame(dt) {
   if (race.phase === 'countdown') return;
   if (went) countEl.classList.add('go');
   if (takeDash(race, me)) startDash(karts[me], g.base, 3);
+  // CPU のうち何台かは、GO と同時にスタートダッシュ
+  if (went) karts.forEach((kart, k) => k !== me && g.cpus[k].dash && startDash(kart, g.base, 3));
   const L = track.length;
   const myProgress = progress(race, me, track);
   karts.forEach((kart, k) => {
@@ -204,7 +238,8 @@ function stepGame(dt) {
   } else if (g.endAt === null) {
     g.endAt = race.t + END_WAIT;
   }
-  if (g.endAt !== null && (race.t >= g.endAt || race.entries.every((e) => e.finished)) && g.onEnd) {
+  // 最後にゴールしても、カメラが前に回って顔が見えるまで待つ
+  if (g.endAt !== null && race.t >= g.endAt && g.onEnd) {
     const end = g.onEnd;
     g.onEnd = null;
     end('finish');
@@ -226,6 +261,7 @@ async function runRace(name, charId) {
   game = createGame(name, charId);
   camera.userData.h = undefined;
   raceHud.classList.add('show');
+  speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
   countEl.classList.remove('go');
   placeButtons();
   const why = await new Promise((resolve) => {
@@ -319,21 +355,36 @@ function renderGame(alpha, dt) {
   const mine = views[g.me];
   const kart = g.karts[g.me];
   effects.update(mine, dt);
+  const { race } = g;
+  const e = race.entries[g.me];
   if (dev.has('front')) updateFrontCamera(camera, mine);
+  else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 表示
-  const { race } = g;
-  const e = race.entries[g.me];
   speedNum.textContent = speedText(kart.speed);
   speedo.classList.toggle('boost', kart.boost > 0);
   lapEl.textContent = `LAP ${Math.min(LAPS, e.lap + 1)}/${LAPS}`;
   timeEl.textContent = timeText(Math.max(0, e.finished ? e.time : race.t));
-  rankEl.textContent = ordinal(ranking(race, track).indexOf(g.me) + 1);
-  countEl.textContent = e.finished ? 'FINISH!' : countdownText(race);
+  const order = ranking(race, track);
+  rankEl.textContent = ordinal(order.indexOf(g.me) + 1);
+  countEl.textContent = e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race);
+  minimap.draw(views.map((v, k) => ({ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me })));
+  showTop3(g, order.slice(0, 3));
   const left = remainingSec(playStore(), g.name, Date.now()) - g.playSec;
   leftEl.textContent = remainingText(Math.max(0, left));
   return { mine, kart };
+}
+
+// 上位3人（順位が変わったときだけ書きかえる）
+function showTop3(g, top) {
+  const key = top.join(',');
+  if (key === g.top3Key) return;
+  g.top3Key = key;
+  top3El.innerHTML = top
+    .map((k, n) => `<li class="${k === g.me ? 'me' : ''}"><span class="place">${ordinal(n + 1)}</span><span class="face" style="background:${g.faces[k].color}">${g.faces[k].icon}</span>${g.names[k]}</li>`)
+    .join('');
+  placeSide(); // 行の数が変わると高さが変わる
 }
 
 startLoop({

@@ -1,8 +1,8 @@
 // レースの決まり: スタートの並び、カウント、スタートダッシュ、周回、順位
 export const LAPS = 3; // 周回
 export const COUNTDOWN = 3; // 3, 2, 1 のあと GO（秒）
-export const DASH_FROM = -0.3; // GO の何秒前から押せばスタートダッシュになるか
-export const DASH_TO = 0.1; // GO の何秒後まで押せばスタートダッシュになるか
+export const DASH_FROM = -0.2; // GO の何秒前から押せばスタートダッシュになるか
+export const DASH_TO = 0.05; // GO の何秒後まで押せばスタートダッシュになるか
 export const GRID_GAP = 7; // スタートの並びの、前後の間（m）
 export const GRID_SIDE = 4.5; // スタートの並びの、左右の間（中心線から、m）
 

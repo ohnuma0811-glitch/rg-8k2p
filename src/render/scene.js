@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=2402770';
-import { buildTrackMesh } from './trackMesh.js?v=2402770';
+import * as THREE from '../../vendor/three.module.min.js?v=1224a1a';
+import { buildTrackMesh } from './trackMesh.js?v=1224a1a';
 
 const SKY = 0x8fd3ff;
 
@@ -80,12 +80,55 @@ export function updateChaseCamera(camera, kart, topSpeed, dt) {
   camera.lookAt(kart.x + fx * CAM_AHEAD, kart.y + CAM_LOOK_Y, kart.z + fz * CAM_AHEAD);
 }
 
+const FRONT_DIST = 4.5; // 前から見るとき、車の何m前
+const FRONT_HEIGHT = 2.2; // 前から見るとき、車から何m上
+const FRONT_LOOK_Y = 1.4; // 前から見るとき、見る所の高さ（キャラの顔）
+const FRONT_FOV = 50;
+
 // 確かめ用: 車を前から見る（キャラの顔を見るため）
 export function updateFrontCamera(camera, kart) {
   const fx = Math.cos(kart.heading);
   const fz = Math.sin(kart.heading);
-  camera.fov = 50;
+  camera.fov = FRONT_FOV;
   camera.updateProjectionMatrix();
-  camera.position.set(kart.x + fx * 4.5, kart.y + 2.2, kart.z + fz * 4.5);
-  camera.lookAt(kart.x, kart.y + 1.4, kart.z);
+  camera.position.set(kart.x + fx * FRONT_DIST, kart.y + FRONT_HEIGHT, kart.z + fz * FRONT_DIST);
+  camera.lookAt(kart.x, kart.y + FRONT_LOOK_Y, kart.z);
+}
+
+// ゴールのあと: 後ろから横を回って前へ、この秒数でゆっくり回り、前で止まる（2026-10-14 のユーザー依頼）
+export const FINISH_ORBIT_TIME = 4;
+const FINISH_DIST = 5.5; // 前で止まったとき、車の何m前（頭にぶつからず、車とキャラ全体が入る）
+const FINISH_HEIGHT = 2.4; // 前で止まったとき、車から何m上
+const FINISH_LOOK_Y = 2.0; // 前で止まったとき、見る所の高さ（キャラの顔）
+const FINISH_AIM = 0.35; // 回り始めてから、この割合までに、見る所を車の先から車へ移す（横から見るとき、車が画面の真ん中に来るように）
+
+// ゴールから t 秒のカメラ。angle は真後ろ 0 → 真正面 π。dist・height は車からの距離と高さ、
+// ahead は見る所が車の何m先か、lookY は見る所の高さ
+export function finishOrbit(t) {
+  const x = Math.max(0, Math.min(1, t / FINISH_ORBIT_TIME));
+  const u = x * x * (3 - 2 * x); // ゆっくり動き出して、ゆっくり止まる
+  const mix = (a, b) => a + (b - a) * u;
+  return {
+    angle: Math.PI * u,
+    dist: mix(CAM_BACK, FINISH_DIST),
+    height: mix(CAM_HEIGHT, FINISH_HEIGHT),
+    ahead: CAM_AHEAD * Math.max(0, 1 - u / FINISH_AIM),
+    lookY: mix(CAM_LOOK_Y, FINISH_LOOK_Y),
+    fov: mix(FOV_BASE, FRONT_FOV),
+  };
+}
+
+// ゴールのあとのカメラ（t はゴールからの秒）。車の向きには、走っているときと同じように少し遅れてついていく
+export function updateFinishCamera(camera, kart, t, dt) {
+  const st = camera.userData;
+  if (st.h === undefined) st.h = kart.move;
+  st.h += Math.atan2(Math.sin(kart.move - st.h), Math.cos(kart.move - st.h)) * Math.min(1, CAM_TURN * dt);
+  const o = finishOrbit(t);
+  const fx = Math.cos(st.h);
+  const fz = Math.sin(st.h);
+  const a = st.h + Math.PI + o.angle; // 車から見たカメラの方向（真後ろから回る）
+  camera.fov = o.fov;
+  camera.updateProjectionMatrix();
+  camera.position.set(kart.x + Math.cos(a) * o.dist, kart.y + o.height, kart.z + Math.sin(a) * o.dist);
+  camera.lookAt(kart.x + fx * o.ahead, kart.y + o.lookY, kart.z + fz * o.ahead);
 }
