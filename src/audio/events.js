@@ -1,7 +1,15 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
 
+// ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
+// （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
+export const LAND_LEAD = 0.08;
+// 壁の音は、この秒数以上壁から離れていたあとにぶつかったときだけ鳴らす
+// （壁にこすりながら走ると、ついたり離れたりをくり返して鳴り続けた: 2026-10-15 の実機確認）
+export const WALL_QUIET = 0.5;
+
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
-export function soundState({ count, lap, finished, kart, bumps }) {
+// wallQuiet: 壁から離れている秒数（前のフレームまで）
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity }) {
   return {
     count,
     lap,
@@ -10,9 +18,12 @@ export function soundState({ count, lap, finished, kart, bumps }) {
     stage: kart.drift.active ? kart.drift.stage : 0,
     boost: kart.boost > 0,
     airborne: kart.airborne,
+    // もうすぐ着地する（落ちている途中で、いまの速さのままなら LAND_LEAD 秒以内に高さ 0 に着く）
+    landingSoon: !!kart.airborne && (kart.vy || 0) < 0 && (kart.y || 0) / -kart.vy <= LAND_LEAD,
     hop: (kart.hop || 0) > 0, // ドリフトのボタンで跳ねている
     onWall: kart.onWall,
     bumps,
+    wallQuiet,
   };
 }
 
@@ -35,8 +46,10 @@ export function soundEvents(prev, cur, laps) {
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');
   if (cur.boost && !prev.boost) ev.push('boost');
-  if (cur.onWall && !prev.onWall && !cur.airborne) ev.push('wall');
-  if (!cur.airborne && prev.airborne) ev.push('land');
+  if (cur.onWall && !prev.onWall && !cur.airborne && prev.wallQuiet >= WALL_QUIET) ev.push('wall');
+  // 着地: もうすぐ着くと分かったときに鳴らす。分からないまま着いたときは、着いたときに鳴らす
+  if (cur.landingSoon && !prev.landingSoon) ev.push('land');
+  else if (!cur.airborne && prev.airborne && !prev.landingSoon) ev.push('land');
   if (cur.bumps > prev.bumps) ev.push('bump');
   return ev;
 }
