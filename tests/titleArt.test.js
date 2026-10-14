@@ -17,3 +17,11 @@ test('Kyugo の顔にはピンクのほっぺがない（タイトルの絵・�
   const hero = TITLE_ART.slice(0, TITLE_ART.indexOf('hero-kid soki'));
   assert.ok(!hero.includes('#ff8a8a'), 'タイトルの Kyugo にほっぺがある');
 });
+
+test('タイトルの Kyugo: 目は水平（両はしが同じ高さ）で、目の上の線はない（2026-10-14 のユーザー依頼。レース中の顔とそろえる）', () => {
+  const svg = faceSvg('kyugo');
+  const shapes = [...svg.matchAll(/<clipPath id="kyugo-eye[^"]*"><path d="M([\d.]+) ([\d.]+) Q[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)/g)];
+  assert.equal(shapes.length, 2);
+  for (const m of shapes) assert.equal(m[2], m[4], `目のはしの高さ ${m[2]} / ${m[4]}`);
+  assert.ok(!svg.includes('stroke="#1b1b22"'), '目の上の線がある');
+});

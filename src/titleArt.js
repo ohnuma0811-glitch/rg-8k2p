@@ -19,23 +19,23 @@ function face(cheeks = true) {
   }`;
 }
 
-// きりっとした目（Kyugo）: 外側が少し上がった横長の目に、黒いまぶたの線。黒目は目の形で切り抜く
+// Kyugo の目: 少し横長で水平（垂れず、つり上がらず。目の上の線もなし: 2026-10-14 のユーザー依頼）。黒目は目の形で切り抜く
 // clip は絵ごとにちがう id（同じ id がいくつもあると、隠れている方を使われる）
 function sharpEyes(clip) {
   return [1, -1]
     .map((m, i) => {
       // m = 1 は左の目（x = 76）、-1 は右の目（左右反転）
       const X = (x) => (m === 1 ? x : 200 - x);
-      const shape = `M${X(61)} 126 Q${X(73)} 112 ${X(91)} 119 Q${X(79)} 133 ${X(61)} 126 Z`;
+      const shape = `M${X(61)} 124 Q${X(76)} 110 ${X(91)} 124 Q${X(76)} 136 ${X(61)} 124 Z`;
       const id = `${clip}-${i}`;
       return `
   <clipPath id="${id}"><path d="${shape}"/></clipPath>
   <path d="${shape}" fill="#fff"/>
   <g clip-path="url(#${id})">
-    <circle cx="${X(77)}" cy="123" r="7" fill="#1b1b22"/>
-    <circle cx="${X(79)}" cy="120" r="2.4" fill="#fff"/>
+    <circle cx="${X(76)}" cy="123" r="7.5" fill="#1b1b22"/>
+    <circle cx="${X(78.5)}" cy="120" r="2.4" fill="#fff"/>
   </g>
-  <path d="M${X(59)} 126 Q${X(72)} 109 ${X(93)} 118" fill="none" stroke="#1b1b22" stroke-width="4.5" stroke-linecap="round"/>`;
+  <path d="${shape}" fill="none" stroke="${LINE}" stroke-width="2"/>`;
     })
     .join('');
 }
