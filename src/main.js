@@ -1,4 +1,5 @@
 // 起動。M1 は「1人でコースを走る」だけ
+import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSE1 } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
@@ -19,6 +20,7 @@ const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
 const speedLines = document.getElementById('speed-lines');
 const speedo = document.getElementById('speedo');
+const wrongWayEl = document.getElementById('wrongway');
 const speedNum = speedo.querySelector('.num');
 const probe = document.getElementById('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
@@ -30,6 +32,11 @@ const devStart = new Set(location.hash.slice(1).split('&')).has('jump')
   ? Math.round(track.cross.sA + track.def.jump.boost.from - 25 + track.length) % track.length
   : track.startIndex;
 const kart = createKart(track, devStart);
+// 確かめ用: #reverse を付けると、逆向きで走り出す（逆走の警告を見る）
+if (location.hash.includes('reverse')) {
+  kart.heading += Math.PI;
+  kart.move = kart.heading;
+}
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
 const renderer = createRenderer(canvas);
 const { scene, camera } = createWorld(track);
@@ -90,6 +97,9 @@ function showRamp() {
   camera.lookAt(mid.x, mid.y, mid.z);
 }
 
+// 逆走の警告を出す場所（キャラの頭の上）を計算するための入れ物
+const overHead = new THREE.Vector3();
+
 // 1つ前の計算での車の位置（描くときに、今の計算とのあいだをつなぐ）
 let prevPose = poseOf(kart);
 startLoop({
@@ -127,6 +137,13 @@ startLoop({
     // 画面の端を流れる線は、加速中だけ
     speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
     renderer.render(scene, camera);
+    // 逆走の警告: キャラの頭の上の画面の位置に出す
+    wrongWayEl.classList.toggle('show', kart.wrongWay);
+    if (kart.wrongWay) {
+      overHead.set(view.x, view.y + 3.6, view.z).project(camera);
+      wrongWayEl.style.left = `${((overHead.x + 1) / 2) * window.innerWidth}px`;
+      wrongWayEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
+    }
     speedNum.textContent = speedText(kart.speed);
     speedo.classList.toggle('boost', kart.boost > 0);
     hud.textContent = `${fps}fps  ${kart.surface}  ${controls.mode}  v:${VERSION}`;

@@ -57,6 +57,31 @@ html, body {
 .btn.hidden {
   display: none;
 }
+/* 逆走の警告。キャラの頭の上に点滅させる（位置は main.js が毎回決める） */
+#wrongway {
+  position: fixed;
+  z-index: 3;
+  display: none;
+  transform: translate(-50%, -100%);
+  padding: 4px 12px;
+  border: 3px solid #fff;
+  border-radius: 10px;
+  background: #d8262b;
+  color: #fff;
+  font: italic 900 clamp(20px, 5vh, 34px) system-ui, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: wrongway-blink 0.5s steps(2, jump-none) infinite;
+}
+#wrongway.show {
+  display: block;
+}
+@keyframes wrongway-blink {
+  50% {
+    background: #ffd800;
+    color: #d8262b;
+  }
+}
 /* 確かめ用の小さな表示（fps・版番号）。画面の下の真ん中 */
 #hud {
   position: fixed;

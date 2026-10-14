@@ -438,3 +438,54 @@ test('逆走して柵にこすっても、車がくるっと前向きに戻さ�
   const diff = Math.abs(Math.atan2(Math.sin(kart.heading - h0), Math.cos(kart.heading - h0)));
   assert.ok(diff < Math.PI / 2, `向きが ${(diff * 180 / Math.PI).toFixed(0)}度 変わった`);
 });
+
+// 逆走: コースと逆向きに走っているかを調べ、警告を出す。30秒続いたら、スピンして正しい向きに戻す
+function reverseAutopilot(track) {
+  return (kart) => {
+    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const back = loc.heading + Math.PI;
+    const err = wrap(kart.heading - back);
+    return { steer: Math.max(-1, Math.min(1, loc.lateral * 0.15 - err * 2)), brake: false, drift: false };
+  };
+}
+function turnAround(track, i) {
+  const kart = createKart(track, i);
+  kart.heading = wrap(kart.heading + Math.PI);
+  kart.move = kart.heading;
+  return kart;
+}
+
+test('コースと逆向きに1秒以上走ると、逆走の警告が出る。前向きに戻ると消える', () => {
+  const kart = turnAround(OVAL, START + 300);
+  const ap = reverseAutopilot(OVAL);
+  run(OVAL, kart, ap, 0.5);
+  assert.equal(kart.wrongWay, false, '0.5秒ではまだ出ない');
+  run(OVAL, kart, ap, 1.5);
+  assert.equal(kart.wrongWay, true);
+  // 前向きに戻す
+  kart.heading = wrap(kart.heading + Math.PI);
+  kart.move = kart.heading;
+  run(OVAL, kart, autopilot(OVAL), 1.5);
+  assert.equal(kart.wrongWay, false);
+});
+
+test('逆走が30秒続くと、スピンして正しい向きに戻る（スピン中はハンドルが効かない）', () => {
+  const kart = turnAround(OVAL, START + 300);
+  const ap = reverseAutopilot(OVAL);
+  let spun = false;
+  let t = 0;
+  while (t < 32 && !spun) {
+    stepKart(kart, ap(kart), OVAL, params, DT);
+    if (kart.spin > 0) spun = true;
+    t += DT;
+  }
+  assert.ok(spun, 'スピンしない');
+  assert.ok(t > 29 && t < 32, `${t.toFixed(1)}秒でスピン`);
+  const h0 = kart.heading;
+  stepKart(kart, { steer: 1, brake: false, drift: false }, OVAL, params, DT);
+  run(OVAL, kart, { steer: 1, brake: false, drift: false }, PHYS.SPIN_TIME);
+  const loc = locate(OVAL, kart.x, kart.z, kart.seg);
+  assert.ok(Math.cos(kart.heading - loc.heading) > 0.95, '正しい向きに戻っていない');
+  assert.equal(kart.wrongWay, false);
+  assert.ok(Math.abs(h0) >= 0);
+});
