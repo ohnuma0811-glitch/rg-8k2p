@@ -153,8 +153,33 @@ html, body {
   display: flex;
 }
 #menu .panel {
+  position: relative;
+  z-index: 1;
   margin: auto;
   text-align: center;
+}
+/* タイトルの絵（Kyugo と Soki）: 左右に大きく、文字のうしろ */
+#menu .hero {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  overflow: hidden;
+  pointer-events: none;
+}
+#menu .hero-kid {
+  height: min(92%, 62vw);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  animation: bob 2.4s ease-in-out infinite;
+}
+#menu .hero-kid.soki {
+  animation-delay: -1.2s;
+}
+@keyframes bob {
+  50% {
+    transform: translateY(-2.5%);
+  }
 }
 #menu h1 {
   margin: 0 0 16px;
@@ -300,6 +325,63 @@ html, body {
   background: rgba(10, 20, 30, 0.55);
   color: #fff;
   font: bold 18px system-ui, sans-serif;
+}
+/* 右上: コースマップ。上位3人は左（速度計の下。右がごちゃごちゃしないように: 2026-10-14 のユーザー依頼） */
+#side {
+  position: fixed;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+#minimap {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1.15;
+  border-radius: 10px;
+  background: rgba(10, 20, 30, 0.45);
+}
+#top3 {
+  position: fixed;
+  z-index: 3;
+  margin: 0;
+  pointer-events: none;
+  padding: 0;
+  list-style: none;
+}
+#top3 li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 1px 8px 1px 2px;
+  width: max-content;
+  border-radius: 999px;
+  background: rgba(10, 20, 30, 0.55);
+  color: #fff;
+  font: bold clamp(11px, 3.2vh, 16px) / 1.2 system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#top3 li.me {
+  background: rgba(200, 140, 0, 0.8);
+}
+#top3 .place {
+  width: 1.9em;
+  color: #ffd84a;
+  font-style: italic;
+  text-align: right;
+}
+#top3 .face {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.45em;
+  height: 1.45em;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  font-size: 0.9em;
 }
 #rank {
   position: fixed;
