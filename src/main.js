@@ -1,32 +1,32 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=cc20c4d';
-import { startLoop } from './loop.js?v=cc20c4d';
-import { COURSE1 } from './data/tracks.js?v=cc20c4d';
-import { buildTrack } from './game/track.js?v=cc20c4d';
-import { createKart, stepKart, startDash } from './game/kart.js?v=cc20c4d';
-import { kartParams } from './game/stats.js?v=cc20c4d';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=cc20c4d';
-import { pushApart } from './game/collide.js?v=cc20c4d';
+import * as THREE from '../vendor/three.module.min.js?v=6aeb751';
+import { startLoop } from './loop.js?v=6aeb751';
+import { COURSE1 } from './data/tracks.js?v=6aeb751';
+import { buildTrack } from './game/track.js?v=6aeb751';
+import { createKart, stepKart, startDash } from './game/kart.js?v=6aeb751';
+import { kartParams } from './game/stats.js?v=6aeb751';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=6aeb751';
+import { pushApart } from './game/collide.js?v=6aeb751';
 import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=cc20c4d';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=cc20c4d';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=cc20c4d';
-import { createMinimap } from './render/minimap.js?v=cc20c4d';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=cc20c4d';
-import { faceSvg } from './titleArt.js?v=cc20c4d';
-import { createEffects } from './render/effects.js?v=cc20c4d';
-import { nextQuality, pixelRatio } from './render/quality.js?v=cc20c4d';
-import { blendPose, poseOf } from './render/interp.js?v=cc20c4d';
-import { speedText } from './hud.js?v=cc20c4d';
-import { addRecent } from './names.js?v=cc20c4d';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=cc20c4d';
-import { load, save } from './storage.js?v=cc20c4d';
-import * as screens from './screens.js?v=cc20c4d';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=cc20c4d';
+} from './game/race.js?v=6aeb751';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=6aeb751';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=6aeb751';
+import { createMinimap } from './render/minimap.js?v=6aeb751';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=6aeb751';
+import { faceSvg } from './titleArt.js?v=6aeb751';
+import { createEffects } from './render/effects.js?v=6aeb751';
+import { nextQuality, pixelRatio } from './render/quality.js?v=6aeb751';
+import { blendPose, poseOf } from './render/interp.js?v=6aeb751';
+import { speedText } from './hud.js?v=6aeb751';
+import { addRecent } from './names.js?v=6aeb751';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=6aeb751';
+import { load, save } from './storage.js?v=6aeb751';
+import * as screens from './screens.js?v=6aeb751';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=6aeb751';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'cc20c4d';
+const VERSION = '6aeb751';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
@@ -43,6 +43,7 @@ const CPU_COUNT = 4;
 const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
 const PLAY_SAVE_EVERY = 5; // 遊んだ時間を記録する間かく（秒）
 const END_WAIT = 7; // ゴールしてから結果を出すまで（秒。カメラが前に回って、顔が見えてから）
+const TOP3_HOLD = 0.25; // 上位3人の並びは、新しい並びがこの秒数続いたら変える
 const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に、名前の札を出す
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
@@ -294,6 +295,7 @@ async function runRace(name, charId, cup) {
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
   game = createGame(name, charId);
+  buildTop3(game);
   camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
   speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
@@ -430,21 +432,50 @@ function renderGame(alpha, dt) {
   rankEl.textContent = ordinal(order.indexOf(g.me) + 1);
   countEl.textContent = flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race);
   minimap.draw(views.map((v, k) => ({ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me })));
-  showTop3(g, order.slice(0, 3));
+  showTop3(g, order.slice(0, 3), dt);
   const left = remainingSec(playStore(), g.name, Date.now()) - g.playSec;
   leftEl.textContent = remainingText(Math.max(0, left));
   return { mine, kart };
 }
 
 // 上位3人（順位が変わったときだけ書きかえる）
-function showTop3(g, top) {
+// 顔と名前は、レースの最初に車ごとに1回だけ作る。並びが変わったら、作ってあるものを入れかえるだけ
+// （並びは横に並んだ車どうしで1秒に2回ほど入れかわる。そのたびに顔の絵を作り直すと重く、レースがカクついた）
+function buildTop3(g) {
+  g.top3Items = g.names.map((name, k) => {
+    const item = document.createElement('span');
+    item.className = 'who';
+    item.innerHTML = `<span class="face" style="background:${g.faces[k].color}">${faceSvg(g.faces[k].character)}</span>${name}`;
+    return item;
+  });
+  top3El.innerHTML = [1, 2, 3].map((n) => `<li><span class="place">${ordinal(n)}</span></li>`).join('');
+  g.top3Rows = [...top3El.children];
+}
+
+function showTop3(g, top, dt) {
   const key = top.join(',');
-  if (key === g.top3Key) return;
+  if (key === g.top3Key) {
+    g.top3Wait = 0;
+    return;
+  }
+  // 横に並んだ車どうしで並びが行ったり来たりするので、新しい並びが少し続いたときだけ変える
+  // （最初の1回はすぐに出す）
+  if (g.top3Key !== '' && key === g.top3Next) g.top3Wait += dt;
+  else g.top3Wait = 0;
+  g.top3Next = key;
+  if (g.top3Key !== '' && g.top3Wait < TOP3_HOLD) return;
   g.top3Key = key;
-  top3El.innerHTML = top
-    .map((k, n) => `<li class="${k === g.me ? 'me' : ''}"><span class="place">${ordinal(n + 1)}</span><span class="face" style="background:${g.faces[k].color}">${faceSvg(g.faces[k].character)}</span>${g.names[k]}</li>`)
-    .join('');
-  placeSide(); // 行の数が変わると高さが変わる
+  g.top3Wait = 0;
+  top.forEach((k, n) => {
+    const row = g.top3Rows[n];
+    if (row.lastChild !== g.top3Items[k]) row.replaceChildren(row.firstChild, g.top3Items[k]);
+    row.classList.toggle('me', k === g.me);
+  });
+  // 置き場所は、最初に3人がそろったときだけ決める（行の高さは変わらない）
+  if (!g.top3Placed) {
+    g.top3Placed = true;
+    placeSide();
+  }
 }
 
 startLoop({

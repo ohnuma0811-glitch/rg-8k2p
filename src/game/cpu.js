@@ -1,6 +1,6 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate } from './track.js?v=cc20c4d';
+import { locate } from './track.js?v=6aeb751';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
