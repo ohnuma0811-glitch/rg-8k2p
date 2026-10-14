@@ -29,6 +29,7 @@ import { createSfx } from './audio/sfx.js';
 import { soundState, soundEvents } from './audio/events.js';
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js';
 import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
@@ -91,8 +92,23 @@ const controls = new Controls();
 const audio = createAudio();
 const sfx = createSfx(audio);
 const crowd = createCrowd(audio);
+const music = createMusic(audio);
 // 最初のタップ・クリック・キーで音を有効にする（iPhone・Android は、さわるまで音を出せない）
-for (const type of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(type, () => audio.unlock(), { passive: true });
+// 有効になった最初の1回だけ、曲を作り始めて、タイトルの曲を流す
+for (const type of ['pointerdown', 'touchend', 'keydown']) {
+  window.addEventListener(
+    type,
+    () => {
+      const first = !audio.ctx;
+      audio.unlock();
+      if (!first || !audio.ctx) return;
+      // 曲を作るのに少し時間がかかるので、タイトルの曲から順に作っておく
+      music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('results'));
+      if (!game) music.play('title');
+    },
+    { passive: true },
+  );
+}
 // 画面が見えなくなったら音を止める
 document.addEventListener('visibilitychange', () => (document.hidden ? audio.pause() : audio.resume()));
 // タッチできる端末はボタン、パソコンはキーボード
@@ -353,6 +369,7 @@ async function runRace(name, charId, cup) {
   removeGame();
   placeButtons();
   // そのレースの結果 → 大会の順位（合計ポイント）
+  music.play('results');
   const first = await screens.results(menu, rows, label, [
     { id: 'next', label: 'NEXT ▶' },
     { id: 'title', label: '⌂ TITLE' },
@@ -410,6 +427,7 @@ async function seeYouTomorrow(name) {
 
 async function flow() {
   for (;;) {
+    music.play('title'); // タイトル・名前・キャラ選びの間ずっと（同じ曲が流れていれば何もしない）
     await screens.title(menu, audio);
     const recent = cleanRecent(load('recent', []));
     const name = await screens.askName(menu, recent);
@@ -492,6 +510,9 @@ function renderGame(alpha, dt) {
     else if (name === 'driftEnd') sfx.drift(false);
     else sfx.play(name);
     if (name === 'finalLap' || name === 'finish') crowd.excite(3);
+    if (name === 'go') music.play(COURSE1.music);
+    if (name === 'finalLap') music.setRate(FINAL_LAP_RATE);
+    if (name === 'finish') music.stop(0.3);
   }
   g.sound = now;
   sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);

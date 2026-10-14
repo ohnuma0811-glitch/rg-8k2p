@@ -43,3 +43,19 @@ test('残響の余りを曲の頭に重ねる（ループのつなぎ目が切�
   const [out] = wrapTail([ch], 4);
   assert.deepEqual([...out], [11, 22, 3, 4]);
 });
+
+import { renderSong, createMusic, FINAL_LAP_RATE } from '../src/audio/music.js';
+
+test('曲を作れない端末（OfflineAudioContext がない）では null を返し、止まらない', async () => {
+  const buf = await renderSong(SONGS.title, { makeOffline: () => { throw new Error('no offline'); } });
+  assert.equal(buf, null);
+});
+
+test('曲が作れなくても、流す・速さを変える・止めるを呼んで止まらない', async () => {
+  const audio = { ctx: null, musicOut: null };
+  const m = createMusic(audio, { render: async () => null });
+  await m.play('kenta');
+  m.setRate(FINAL_LAP_RATE);
+  m.stop();
+  assert.equal(FINAL_LAP_RATE, 1.12);
+});
