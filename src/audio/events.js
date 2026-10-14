@@ -10,6 +10,7 @@ export function soundState({ count, lap, finished, kart, bumps }) {
     stage: kart.drift.active ? kart.drift.stage : 0,
     boost: kart.boost > 0,
     airborne: kart.airborne,
+    hop: (kart.hop || 0) > 0, // ドリフトのボタンで跳ねている
     onWall: kart.onWall,
     bumps,
   };
@@ -29,6 +30,7 @@ export function soundEvents(prev, cur, laps) {
   }
   if (cur.lap > prev.lap && !cur.finished) ev.push(cur.lap === laps - 1 ? 'finalLap' : 'lap');
   if (cur.finished && !prev.finished) ev.push('finish');
+  if (cur.hop && !prev.hop) ev.push('hop');
   if (cur.drift && !prev.drift) ev.push('driftStart');
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');
