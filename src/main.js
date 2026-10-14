@@ -1,32 +1,32 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=59a9c33';
-import { startLoop } from './loop.js?v=59a9c33';
-import { COURSE1 } from './data/tracks.js?v=59a9c33';
-import { buildTrack } from './game/track.js?v=59a9c33';
-import { createKart, stepKart, startDash } from './game/kart.js?v=59a9c33';
-import { kartParams } from './game/stats.js?v=59a9c33';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=59a9c33';
-import { pushApart } from './game/collide.js?v=59a9c33';
+import * as THREE from '../vendor/three.module.min.js?v=6e85977';
+import { startLoop } from './loop.js?v=6e85977';
+import { COURSE1 } from './data/tracks.js?v=6e85977';
+import { buildTrack } from './game/track.js?v=6e85977';
+import { createKart, stepKart, startDash } from './game/kart.js?v=6e85977';
+import { kartParams } from './game/stats.js?v=6e85977';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=6e85977';
+import { pushApart } from './game/collide.js?v=6e85977';
 import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=59a9c33';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=59a9c33';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=59a9c33';
-import { createMinimap } from './render/minimap.js?v=59a9c33';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=59a9c33';
-import { faceSvg } from './titleArt.js?v=59a9c33';
-import { createEffects } from './render/effects.js?v=59a9c33';
-import { nextQuality, pixelRatio } from './render/quality.js?v=59a9c33';
-import { blendPose, poseOf } from './render/interp.js?v=59a9c33';
-import { speedText } from './hud.js?v=59a9c33';
-import { addRecent } from './names.js?v=59a9c33';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=59a9c33';
-import { load, save } from './storage.js?v=59a9c33';
-import * as screens from './screens.js?v=59a9c33';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=59a9c33';
+} from './game/race.js?v=6e85977';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=6e85977';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=6e85977';
+import { createMinimap } from './render/minimap.js?v=6e85977';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=6e85977';
+import { faceSvg } from './titleArt.js?v=6e85977';
+import { createEffects } from './render/effects.js?v=6e85977';
+import { nextQuality, pixelRatio } from './render/quality.js?v=6e85977';
+import { blendPose, poseOf } from './render/interp.js?v=6e85977';
+import { speedText } from './hud.js?v=6e85977';
+import { addRecent } from './names.js?v=6e85977';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=6e85977';
+import { load, save } from './storage.js?v=6e85977';
+import * as screens from './screens.js?v=6e85977';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=6e85977';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '59a9c33';
+const VERSION = '6e85977';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },

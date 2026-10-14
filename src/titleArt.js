@@ -19,28 +19,7 @@ function face(cheeks = true) {
   }`;
 }
 
-// Kyugo の目: 切れ長でない普通の目で、水平（垂れず、つり上がらず。目の上の線もなし: 2026-10-14 のユーザー依頼）。黒目は目の形で切り抜く
-// clip は絵ごとにちがう id（同じ id がいくつもあると、隠れている方を使われる）
-function sharpEyes(clip) {
-  return [1, -1]
-    .map((m, i) => {
-      // m = 1 は左の目（x = 76）、-1 は右の目（左右反転）
-      const X = (x) => (m === 1 ? x : 200 - x);
-      const shape = `M${X(62)} 124 Q${X(76)} 105 ${X(90)} 124 Q${X(76)} 143 ${X(62)} 124 Z`; // 切れ長でない、普通の目
-      const id = `${clip}-${i}`;
-      return `
-  <clipPath id="${id}"><path d="${shape}"/></clipPath>
-  <path d="${shape}" fill="#fff"/>
-  <g clip-path="url(#${id})">
-    <circle cx="${X(76)}" cy="124" r="8" fill="#1b1b22"/>
-    <circle cx="${X(79)}" cy="120.5" r="2.6" fill="#fff"/>
-  </g>
-  <path d="${shape}" fill="none" stroke="${LINE}" stroke-width="2"/>`;
-    })
-    .join('');
-}
-
-// 目（大きな黒目に、白い光）
+// 目（大きな黒目に、白い光）。Kyugo も Soki も同じかわいい丸い目（2026-10-14 のユーザー依頼）
 function eyes(y) {
   return [76, 124]
     .map((x) => `
@@ -61,7 +40,7 @@ function shirt(color, dark) {
 let clipNo = 0;
 
 // cls と viewBox を変えて、タイトルの大きな絵にも、レース中の顔のアイコンにも使う
-const KYUGO = (cls, box, clip = `kyugo-eye-${++clipNo}`) => `
+const KYUGO = (cls, box) => `
 <svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   ${shirt('#d7261b', '#9e160e')}
   ${face(false)}
@@ -70,7 +49,7 @@ const KYUGO = (cls, box, clip = `kyugo-eye-${++clipNo}`) => `
         fill="#1d1d24" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
   <path d="M72 24 L86 44 M108 12 L114 36 M140 24 L140 46" stroke="#4a4a5a" stroke-width="4" stroke-linecap="round"/>
   <path d="M58 95 L92 107 M142 95 L108 107" stroke="#1d1d24" stroke-width="8" stroke-linecap="round"/>
-  ${sharpEyes(clip)}
+  ${eyes(124)}
   <path d="M76 148 Q100 176 124 148 Z" fill="#7a1f1f" stroke="${LINE}" stroke-width="3" stroke-linejoin="round"/>
   <path d="M80 149 L120 149 L118 155 L82 155 Z" fill="#fff"/>
   <ellipse cx="100" cy="163" rx="10" ry="4.5" fill="#e0605a"/>
@@ -98,7 +77,7 @@ const SOKI = (cls, box, clip = `soki-mouth-${++clipNo}`) => `
 </svg>`;
 
 const HERO_BOX = '0 -12 200 274';
-const FACE_BOX = '14 -10 172 196'; // 頭だけ
+const FACE_BOX = '18 36 164 164'; // 顔だけ。顔の真ん中（目と口のあたり）が、丸のアイコンの真ん中に来る
 
 export const TITLE_ART = `<div class="hero" aria-hidden="true">${KYUGO('hero-kid kyugo', HERO_BOX)}${SOKI('hero-kid soki', HERO_BOX)}</div>`;
 
