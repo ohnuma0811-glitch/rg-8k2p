@@ -1,39 +1,39 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=1c640b0';
-import { startLoop } from './loop.js?v=1c640b0';
-import { COURSE1 } from './data/tracks.js?v=1c640b0';
-import { buildTrack } from './game/track.js?v=1c640b0';
-import { createKart, stepKart, startDash } from './game/kart.js?v=1c640b0';
-import { kartParams } from './game/stats.js?v=1c640b0';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=1c640b0';
-import { pushApart, newBumps } from './game/collide.js?v=1c640b0';
+import * as THREE from '../vendor/three.module.min.js?v=d46dc3b';
+import { startLoop } from './loop.js?v=d46dc3b';
+import { COURSE1 } from './data/tracks.js?v=d46dc3b';
+import { buildTrack } from './game/track.js?v=d46dc3b';
+import { createKart, stepKart, startDash } from './game/kart.js?v=d46dc3b';
+import { kartParams } from './game/stats.js?v=d46dc3b';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=d46dc3b';
+import { pushApart, newBumps } from './game/collide.js?v=d46dc3b';
 import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=1c640b0';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=1c640b0';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=1c640b0';
-import { createMinimap } from './render/minimap.js?v=1c640b0';
-import { grandstandSpot } from './render/trackMesh.js?v=1c640b0';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=1c640b0';
-import { faceSvg } from './titleArt.js?v=1c640b0';
-import { createEffects } from './render/effects.js?v=1c640b0';
-import { nextQuality, pixelRatio } from './render/quality.js?v=1c640b0';
-import { blendPose, poseOf } from './render/interp.js?v=1c640b0';
-import { speedText } from './hud.js?v=1c640b0';
-import { addRecent, cleanRecent } from './names.js?v=1c640b0';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=1c640b0';
-import { load, save } from './storage.js?v=1c640b0';
-import * as screens from './screens.js?v=1c640b0';
-import { createAudio } from './audio/audio.js?v=1c640b0';
-import { createSfx } from './audio/sfx.js?v=1c640b0';
-import { soundState, soundEvents, finishMusic } from './audio/events.js?v=1c640b0';
-import { createCrowd } from './audio/crowd.js?v=1c640b0';
-import { crowdMix } from './audio/mix.js?v=1c640b0';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=1c640b0';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=1c640b0';
+} from './game/race.js?v=d46dc3b';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=d46dc3b';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=d46dc3b';
+import { createMinimap } from './render/minimap.js?v=d46dc3b';
+import { grandstandSpot } from './render/trackMesh.js?v=d46dc3b';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=d46dc3b';
+import { faceSvg } from './titleArt.js?v=d46dc3b';
+import { createEffects } from './render/effects.js?v=d46dc3b';
+import { nextQuality, pixelRatio } from './render/quality.js?v=d46dc3b';
+import { blendPose, poseOf } from './render/interp.js?v=d46dc3b';
+import { speedText } from './hud.js?v=d46dc3b';
+import { addRecent, cleanRecent } from './names.js?v=d46dc3b';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=d46dc3b';
+import { load, save } from './storage.js?v=d46dc3b';
+import * as screens from './screens.js?v=d46dc3b';
+import { createAudio } from './audio/audio.js?v=d46dc3b';
+import { createSfx } from './audio/sfx.js?v=d46dc3b';
+import { soundState, soundEvents, finishMusic } from './audio/events.js?v=d46dc3b';
+import { createCrowd } from './audio/crowd.js?v=d46dc3b';
+import { crowdMix } from './audio/mix.js?v=d46dc3b';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=d46dc3b';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=d46dc3b';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '1c640b0';
+const VERSION = 'd46dc3b';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
