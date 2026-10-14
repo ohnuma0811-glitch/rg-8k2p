@@ -223,13 +223,13 @@ test('ドリフトで曲がる: 最高速で同じ向きにいっぱいに切る
   assert.ok(radius >= 20 && radius <= 25, `半径 ${radius.toFixed(1)}m`);
 });
 
-test('ドリフト中、反対に切ると大回り、切らなければその間（ハンドルで曲がり方を調整できる）', () => {
+test('ドリフト中、反対に切るとほとんど曲がらず、ほぼまっすぐ進む。切らなければその間', () => {
   const r = (steer) => radiusAtTop(D(steer), [[D(1), PHYS.HOP_TIME + 0.02]]).radius;
   const tight = r(1);
   const mid = r(0);
-  const wide = r(-1);
-  assert.ok(tight < mid && mid < wide, `${tight} / ${mid} / ${wide}`);
-  assert.ok(wide > 40, `${wide}`);
+  const straight = r(-1);
+  assert.ok(tight < mid && mid < straight, `${tight} / ${mid} / ${straight}`);
+  assert.ok(straight >= 200, `反対に切ったときの半径 ${straight.toFixed(0)}m`);
 });
 
 test('遅いときも、ふつうのハンドルは最高速のときの1.5倍までしか速く曲がらない（小回りしすぎない）', () => {
