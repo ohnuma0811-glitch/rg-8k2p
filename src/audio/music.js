@@ -1,6 +1,6 @@
 // 曲: 楽譜のデータから音の並びを作り（テストできる）、OfflineAudioContext で一度だけ音にして、ループで流す
-import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=0a28e6d';
-import { SONGS } from './songs.js?v=0a28e6d';
+import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=683bd87';
+import { SONGS } from './songs.js?v=683bd87';
 
 // 16分音符1つの秒数と、曲1回分の秒数
 export const stepSec = (song) => 60 / song.bpm / 4;
@@ -62,6 +62,17 @@ export const LEAD_VOICES = {
     attack: 0.005,
     sustain: 0.6,
     release: 0.06,
+  },
+  // Kenta Circuit: はじく弦（ギターふう。ポンと鳴って短く消える。細かい音でスピード感。2026-10-15 のユーザー依頼）
+  pluck: {
+    layers: [{ type: 'sawtooth', detune: 0, gain: 1 }, { type: 'square', detune: 0, gain: 0.5 }],
+    gain: 0.1,
+    cutoff: { base: 400, peak: 5000, decay: 0.08, q: 2 },
+    vibrato: 0,
+    attack: 0.002,
+    sustain: 0.15,
+    release: 0.15,
+    decay: 0.2,
   },
   // 勝利: 金管楽器ふう（出だしが少しやわらかい）
   brass: {
