@@ -1,7 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=a742c76';
-import { PHYS } from '../game/kart.js?v=a742c76';
+import * as THREE from '../../vendor/three.module.min.js?v=ea2b2f2';
+import { PHYS } from '../game/kart.js?v=ea2b2f2';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -40,24 +40,32 @@ export const CHARACTERS = {
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
 const MOUTH_MAT = new THREE.MeshLambertMaterial({ color: MOUTH, side: THREE.DoubleSide }); // 口は裏からも見える（使い回す）
 
-// 人間らしい顔（タイトルの絵のように）: 白目と黒目と光、太いまゆ、小さな鼻、歯の見える笑った口
+// 人間らしい顔（タイトルの絵のように）: きりっとした目とまゆ、小さな鼻、歯の見える笑った口（ほっぺのピンクはなし）
 function humanFace(g, R) {
   const BROW = 0x1d1d24;
   for (const side of [-1, 1]) {
     const z = side * 0.14;
+    // 目: 横長で、外側が少し上がった、きりっとした目（2026-10-14 のユーザー依頼）
+    const tilt = -side * 0.22; // 外側を上げる向き
     const white = ball(0.075, WHITE, R * 0.8, 0.04, z, 10); // 横から見て、顔から飛び出さないように少し奥に
-    white.scale.set(0.55, 1.2, 1);
+    white.scale.set(0.5, 0.75, 1.15);
+    white.rotation.x = tilt;
     g.add(white);
-    const iris = ball(0.05, 0x3a2412, R * 0.8 + 0.03, 0.03, z * 0.97, 10);
-    iris.scale.set(0.5, 1.15, 1);
+    const iris = ball(0.045, 0x3a2412, R * 0.8 + 0.028, 0.035, z, 10);
+    iris.scale.set(0.5, 0.95, 0.95);
     g.add(iris);
-    const pupil = ball(0.028, EYE, R * 0.8 + 0.05, 0.03, z * 0.97, 8);
-    pupil.scale.set(0.5, 1.1, 1);
+    const pupil = ball(0.026, EYE, R * 0.8 + 0.047, 0.035, z, 8);
+    pupil.scale.set(0.5, 1, 1);
     g.add(pupil);
-    g.add(ball(0.016, WHITE, R * 0.8 + 0.065, 0.07, z * 0.97 + 0.015, 6));
-    // まゆ（外側が少し上がった、きりっとしたまゆ）
-    const brow = box(0.03, 0.04, 0.13, BROW, R * 0.84, 0.165, z);
-    brow.rotation.x = side * 0.25;
+    g.add(ball(0.014, WHITE, R * 0.8 + 0.06, 0.06, z + 0.012, 6));
+    // まぶたの線（目の上の黒い線）
+    const lid = box(0.03, 0.022, 0.17, EYE, R * 0.82, 0.095, z);
+    lid.rotation.x = tilt;
+    g.add(lid);
+    // まゆ: 太く、内側が下がって外側が上がった、きりっとしたまゆ
+    const brow = box(0.035, 0.05, 0.15, BROW, R * 0.84, 0.175, z);
+    brow.rotation.x = -side * 0.45;
+    brow.userData.brow = true;
     g.add(brow);
   }
   // 鼻（小さなふくらみ）
@@ -71,12 +79,6 @@ function humanFace(g, R) {
   mouth.rotation.y = Math.PI / 2;
   g.add(mouth);
   g.add(box(0.012, 0.035, 0.17, WHITE, R * 0.9 + 0.006, -0.145, 0)); // 上の歯
-  // ほっぺ（うすい赤）
-  for (const z of [-0.22, 0.22]) {
-    const cheek = ball(0.05, 0xf3a0a0, R * 0.78, -0.08, z, 8);
-    cheek.scale.set(0.4, 0.7, 1);
-    g.add(cheek);
-  }
 }
 
 // 簡単な顔: たて長の黒い目と白い光、にっこりした口（半分の輪）
