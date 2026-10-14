@@ -38,7 +38,7 @@ test('カウントは 3 → 2 → 1 → GO!。GO になったときだけ知ら�
   for (const s of ['3', '2', '1', 'GO!', '']) assert.ok(seen.has(s), s);
 });
 
-test('スタートダッシュ: GO の0.3秒前〜0.1秒後に押せば成功。早すぎ・遅すぎ・押さないは失敗。決まるのは1回だけ', () => {
+test('スタートダッシュ: GO の0.2秒前〜0.05秒後に押せば成功（2026-10-14 の実機確認「判定が甘い」）。早すぎ・遅すぎ・押さないは失敗。決まるのは1回だけ', () => {
   const tryAt = (pressT) => {
     const race = createRace(1);
     let result = null;
@@ -52,10 +52,10 @@ test('スタートダッシュ: GO の0.3秒前〜0.1秒後に押せば成功。
     }
     return result;
   };
-  assert.equal(tryAt(-0.2), true);
-  assert.equal(tryAt(0.05), true);
-  assert.equal(tryAt(-1), false, '早すぎ');
-  assert.equal(tryAt(0.3), false, '遅すぎ');
+  assert.equal(tryAt(-0.15), true);
+  assert.equal(tryAt(0.03), true);
+  assert.equal(tryAt(-0.27), false, '早すぎ');
+  assert.equal(tryAt(0.1), false, '遅すぎ');
   assert.equal(tryAt(null), false, '押さない');
 });
 

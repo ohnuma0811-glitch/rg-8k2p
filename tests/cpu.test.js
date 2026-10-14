@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack } from '../src/game/track.js';
 import { COURSE1 } from '../src/data/tracks.js';
-import { createKart, stepKart } from '../src/game/kart.js';
+import { createKart, stepKart, startDash } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 import { createCpu, cpuControl, rubberFactor, cpuParams, CPU } from '../src/game/cpu.js';
-import { createRace, raceTick, updateProgress, gridSlot, ranking, LAPS } from '../src/game/race.js';
+import { createRace, raceTick, updateProgress, gridSlot, ranking, progress, LAPS } from '../src/game/race.js';
 import { pushApart } from '../src/game/collide.js';
 
 const track = buildTrack(COURSE1);
@@ -57,7 +57,7 @@ test('CPU どうしの差は大きすぎない（1位と4位の差が10秒以内
   assert.equal(ranking(race, track).length, 4);
 });
 
-test('プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（8%まで）', () => {
+test('プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（12%まで）', () => {
   const L = track.length;
   assert.ok(rubberFactor(500, 0, L) < 1, '前にいる');
   assert.ok(rubberFactor(0, 500, L) > 1, '後ろにいる');
@@ -71,6 +71,45 @@ test('CPU の最高速は、キャラの数字より少し遅い（プレイヤ�
   assert.ok(p.topSpeed < params.topSpeed);
   assert.equal(p.turnRate, params.turnRate);
   assert.ok(cpuParams(params, 1.08).topSpeed > p.topSpeed);
+  assert.equal(CPU.RUBBER_MAX, 0.12);
+});
+
+test('CPU のうち2台は、スタートダッシュをする', () => {
+  const dash = [0, 1, 2, 3].filter((k) => createCpu(k).dash);
+  assert.equal(dash.length, 2);
+});
+
+// プレイヤーの代わりに、CPU と同じ運転で、キャラの数字そのまま＋スタートダッシュの車を走らせる
+test('CPU が弱すぎない: CPU と同じ運転のプレイヤーが、スタートダッシュしても、ずっと1位のままにはならない（2026-10-14 の実機確認）', () => {
+  const me = 4;
+  const race = createRace(5);
+  race.t = 0;
+  race.phase = 'racing';
+  const karts = [0, 1, 2, 3, 4].map((k) => {
+    const s = gridSlot(track, k);
+    return createKart(track, s.i, s.lateral);
+  });
+  const cpus = karts.map((_, k) => createCpu(k === me ? 7 : k));
+  karts.forEach((kart, k) => {
+    if (k === me || cpus[k].dash) startDash(kart, params, 3);
+  });
+  let contacts = new Set();
+  let lead = 0;
+  let t = 0;
+  for (; t < 240 && !race.entries[me].finished; t += DT) {
+    raceTick(race, DT);
+    const mp = progress(race, me, track);
+    karts.forEach((kart, k) => {
+      if (race.entries[k].finished) return;
+      const p = k === me ? params : cpuParams(params, rubberFactor(progress(race, k, track), mp, track.length));
+      stepKart(kart, cpuControl(cpus[k], kart, track, race.t), track, p, DT);
+    });
+    contacts = pushApart(karts, contacts);
+    karts.forEach((kart, k) => updateProgress(race, k, track, kart.seg));
+    if (ranking(race, track)[0] === me) lead += DT;
+  }
+  assert.ok(race.entries[me].finished);
+  assert.ok(lead < t * 0.7, `1位だった時間 ${lead.toFixed(1)} / ${t.toFixed(1)} 秒`);
 });
 
 test('レースの最初で、まだ進んだ距離が分からない（-Infinity）ときも、速さの倍率は 1（NaN にならない）', () => {
