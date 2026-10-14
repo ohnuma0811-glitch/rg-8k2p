@@ -48,10 +48,12 @@ const KYUGO = (cls, box) => `
   <ellipse cx="100" cy="163" rx="10" ry="4.5" fill="#e0605a"/>
 </svg>`;
 
-const SOKI = (cls, box) => `
+// 口の切り抜きの id は、絵ごとに変える（同じ id がいくつもあると、隠れている方を使われて歯がはみ出す）
+let clipNo = 0;
+const SOKI = (cls, box, clip = `soki-mouth-${++clipNo}`) => `
 <svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
-    <clipPath id="soki-mouth"><path d="M72 142 Q100 182 128 142 Z"/></clipPath>
+    <clipPath id="${clip}"><path d="M72 142 Q100 182 128 142 Z"/></clipPath>
   </defs>
   ${shirt('#2a62c9', '#173f8a')}
   ${face()}
@@ -61,7 +63,7 @@ const SOKI = (cls, box) => `
   <path d="M58 104 Q74 98 88 104 M112 104 Q126 98 142 104" fill="none" stroke="#2b1d16" stroke-width="5" stroke-linecap="round"/>
   ${eyes(124)}
   <path d="M72 142 Q100 182 128 142 Z" fill="#7a1f1f" stroke="${LINE}" stroke-width="3" stroke-linejoin="round"/>
-  <g clip-path="url(#soki-mouth)">
+  <g clip-path="url(#${clip})">
     <rect x="70" y="141" width="60" height="11" fill="#fff"/>
     <rect x="100.5" y="140" width="10" height="13" fill="#7a1f1f"/>
     <path d="M90 141 L90 152 M120 141 L120 151" stroke="#d9d0c8" stroke-width="1.5"/>
