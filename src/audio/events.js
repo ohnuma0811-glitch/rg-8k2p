@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=4883771';
+import { locate } from '../game/track.js?v=78d6fa5';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -45,6 +45,12 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
 // ゴールしたときの音（順位で変える。2026-10-15 のユーザー依頼）: 1〜3位は明るく、4位以下はちょっと悲しく
 export function finishMusic(place) {
   return place <= 3 ? { sfx: 'finish', song: 'victory' } : { sfx: 'finishSad', song: 'consolation' };
+}
+
+// 一時停止で鳴りつづける音（ドリフトのキュルキュル）を止めたあとの「前の様子」。ドリフトしていないことにして、
+// つづけたとき、まだドリフトしていれば driftStart でまた鳴らす（M5 のレビュー: つづけたあと鳴らなかった）
+export function afterPause(state) {
+  return state && { ...state, drift: false };
 }
 
 export function soundEvents(prev, cur, laps) {
