@@ -103,7 +103,7 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
       audio.unlock();
       if (!first || !audio.ctx) return;
       // 曲を作るのに少し時間がかかるので、タイトルの曲から順に作っておく
-      music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('results'));
+      music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('victory')).then(() => music.prepare('results'));
       if (!game) music.play('title');
     },
     { passive: true },
@@ -533,7 +533,7 @@ function renderGame(alpha, dt) {
     if (name === 'finalLap' || name === 'finish') crowd.excite(3);
     if (name === 'go') music.play(COURSE1.music);
     if (name === 'finalLap') music.setRate(FINAL_LAP_RATE);
-    if (name === 'finish') music.stop(0.3);
+    if (name === 'finish') music.play('victory', { delay: 1.5 }); // コースの曲を止め、ファンファーレのあとに勝利の曲
   }
   g.sound = now;
   sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);

@@ -195,7 +195,8 @@ export function createMusic(audio, { render = renderSong } = {}) {
     current = null;
   }
 
-  async function play(name) {
+  // delay: 何秒あとから流すか（ゴールのファンファーレのあとから、など）
+  async function play(name, { delay = 0 } = {}) {
     if (current && current.name === name) return;
     stop();
     const my = token;
@@ -206,10 +207,11 @@ export function createMusic(audio, { render = renderSong } = {}) {
     src.buffer = buf;
     src.loop = true;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.setTargetAtTime(1, ctx.currentTime, 0.1);
+    const t0 = ctx.currentTime + delay;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.setTargetAtTime(1, t0, 0.1);
     src.connect(gain).connect(audio.musicOut);
-    src.start();
+    src.start(t0);
     current = { name, src, gain };
   }
 

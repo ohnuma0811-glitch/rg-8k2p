@@ -73,7 +73,7 @@ function fakeMusicContext() {
       connect(n) {
         return n;
       },
-      start: () => log.push('start'),
+      start: (t = 0) => log.push(t ? `start@${t.toFixed(1)}` : 'start'),
       stop: (t) => log.push(`stop@${t.toFixed(1)}`),
     }),
     createGain: () => ({
@@ -94,7 +94,7 @@ test('曲を止めるときは、だんだん小さくして（フェードア�
   const audio = { ctx, musicOut: {} };
   const m = createMusic(audio, { render: async () => ({ duration: 15 }) });
   await m.play('title');
-  assert.ok(ctx.log.includes('start'));
+  assert.ok(ctx.log.includes('start@10.0'), 'すぐに流す');
   m.stop(1.5);
   assert.ok(ctx.log.some((l) => l.startsWith('gain 0 from 10')), 'だんだん小さくする');
   assert.ok(ctx.log.includes('stop@11.6'), '小さくなってから止める');
@@ -107,4 +107,12 @@ test('曲を止めるときは、だんだん小さくして（フェードア�
 test('タイトルの曲は、タイトル専用（どのコースの曲ともちがう）', () => {
   assert.notEqual(SONGS.title, SONGS.kenta);
   assert.notEqual(SONGS.title.lead, SONGS.results.lead);
+});
+
+test('勝利の曲がある。ゴールのファンファーレのあとから流せる（少しあとから始める）（2026-10-15 のユーザー依頼）', async () => {
+  assert.ok(SONGS.victory, '勝利の曲');
+  const ctx = fakeMusicContext();
+  const m = createMusic({ ctx, musicOut: {} }, { render: async () => ({ duration: 12.8 }) });
+  await m.play('victory', { delay: 1.5 });
+  assert.ok(ctx.log.includes('start@11.5'), ctx.log.join(' / '));
 });
