@@ -8,7 +8,7 @@ import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart } from './game/collide.js';
 import {
-  LAPS, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
+  LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera } from './render/scene.js';
@@ -275,6 +275,8 @@ function resultRows(g) {
 }
 
 async function runRace(name, charId) {
+  // スタートの前に、コースを回って映しながら、コースの名前を出す（タイトルと同じカメラ）
+  await screens.courseIntro(menu, COURSE1.name, COURSE_INTRO);
   game = createGame(name, charId);
   camera.userData.h = undefined;
   raceHud.classList.add('show');

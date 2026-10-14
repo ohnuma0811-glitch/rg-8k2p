@@ -129,3 +129,10 @@ test('並んで走り続けても、スピードが落ちるのはぶつかっ�
   pushApart([c, d]);
   assert.equal(c.speed, 30);
 });
+
+test('レースの前に、コースを回って映し、コースの名前を3秒出す（2026-10-14 のユーザー依頼）。いまのコースは Kenta Circuit', async () => {
+  const { COURSE_INTRO } = await import('../src/game/race.js');
+  const { COURSE1 } = await import('../src/data/tracks.js');
+  assert.equal(COURSE_INTRO, 3);
+  assert.equal(COURSE1.name, 'Kenta Circuit');
+});

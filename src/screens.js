@@ -51,6 +51,15 @@ export async function title(root, gameName) {
   }
 }
 
+// レースの前: コースの名前を大きく出す（うしろはコースを回って映す）。seconds 秒で消える
+export async function courseIntro(root, courseName, seconds) {
+  root.innerHTML = `<div class="course-intro"><small>COURSE</small>${courseName}</div>`;
+  root.classList.add('show', 'intro');
+  await new Promise((r) => setTimeout(r, seconds * 1000));
+  root.classList.remove('intro');
+  hide(root);
+}
+
 // 名前入力: A〜Z のボタン（パソコンのキーボードと同じ並び）、消す、OK。最近の名前はボタンで選べる
 export function askName(root, recent) {
   return new Promise((resolve) => {

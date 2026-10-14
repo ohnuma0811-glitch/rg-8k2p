@@ -152,6 +152,31 @@ html, body {
 #menu.show {
   display: flex;
 }
+/* レースの前のコースの名前（うしろのコースが見えるよう、暗くしない） */
+#menu.intro {
+  background: transparent;
+}
+#menu .course-intro {
+  margin: auto;
+  color: #ffd84a;
+  font: italic 900 clamp(36px, 12vh, 80px) / 1.1 system-ui, sans-serif;
+  text-align: center;
+  text-shadow: 0 4px 0 #c11f0a, 0 0 18px rgba(0, 0, 0, 0.5);
+  animation: intro-in 0.5s ease-out;
+}
+#menu .course-intro small {
+  display: block;
+  color: #fff;
+  font-size: 0.35em;
+  letter-spacing: 0.3em;
+  text-shadow: 0 2px 4px #000;
+}
+@keyframes intro-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
 #menu .panel {
   position: relative;
   z-index: 1;
