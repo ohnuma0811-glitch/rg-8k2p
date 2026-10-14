@@ -33,33 +33,82 @@ const DARK = 0x1d2430;
 
 // キャラの見た目。前は +x 向き。座席に座った形で、原点は座面
 export const CHARACTERS = {
-  kyugo: { hair: 'spiky', shirt: 0xc11f0a },
+  kyugo: { hair: 'spiky', shirt: 0xc11f0a, face: 'human' }, // 顔は人間らしく（2026-10-14 のユーザー依頼）
   soki: { hair: 'bowl', shirt: 0x1c3c88 },
 };
 
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
-function head(look) {
-  const g = new THREE.Group();
-  const R = 0.42;
-  g.add(ball(R, SKIN, 0, 0, 0, 16));
-  // 目（たて長の黒い丸）と白い光
+const MOUTH_MAT = new THREE.MeshLambertMaterial({ color: MOUTH, side: THREE.DoubleSide }); // 口は裏からも見える（使い回す）
+
+// 人間らしい顔（タイトルの絵のように）: 白目と黒目と光、太いまゆ、小さな鼻、歯の見える笑った口
+function humanFace(g, R) {
+  const BROW = 0x1d1d24;
+  for (const side of [-1, 1]) {
+    const z = side * 0.14;
+    const white = ball(0.075, WHITE, R * 0.8, 0.04, z, 10); // 横から見て、顔から飛び出さないように少し奥に
+    white.scale.set(0.55, 1.2, 1);
+    g.add(white);
+    const iris = ball(0.05, 0x3a2412, R * 0.8 + 0.03, 0.03, z * 0.97, 10);
+    iris.scale.set(0.5, 1.15, 1);
+    g.add(iris);
+    const pupil = ball(0.028, EYE, R * 0.8 + 0.05, 0.03, z * 0.97, 8);
+    pupil.scale.set(0.5, 1.1, 1);
+    g.add(pupil);
+    g.add(ball(0.016, WHITE, R * 0.8 + 0.065, 0.07, z * 0.97 + 0.015, 6));
+    // まゆ（外側が少し上がった、きりっとしたまゆ）
+    const brow = box(0.03, 0.04, 0.13, BROW, R * 0.84, 0.165, z);
+    brow.rotation.x = side * 0.25;
+    g.add(brow);
+  }
+  // 鼻（小さなふくらみ）
+  const nose = ball(0.045, 0xe9b98e, R * 0.98, -0.04, 0, 8);
+  nose.scale.set(0.8, 0.9, 1);
+  g.add(nose);
+  // 歯の見える、笑った口（下半分の円）
+  const mouthGeo = new THREE.CircleGeometry(0.11, 14, Math.PI, Math.PI);
+  const mouth = new THREE.Mesh(mouthGeo, MOUTH_MAT);
+  mouth.position.set(R * 0.9, -0.13, 0);
+  mouth.rotation.y = Math.PI / 2;
+  g.add(mouth);
+  g.add(box(0.012, 0.035, 0.17, WHITE, R * 0.9 + 0.006, -0.145, 0)); // 上の歯
+  // ほっぺ（うすい赤）
+  for (const z of [-0.22, 0.22]) {
+    const cheek = ball(0.05, 0xf3a0a0, R * 0.78, -0.08, z, 8);
+    cheek.scale.set(0.4, 0.7, 1);
+    g.add(cheek);
+  }
+}
+
+// 簡単な顔: たて長の黒い目と白い光、にっこりした口（半分の輪）
+function simpleFace(g, R) {
   for (const z of [-0.14, 0.14]) {
     const eye = ball(0.065, EYE, R * 0.88, 0.04, z, 8);
     eye.scale.set(0.6, 1.4, 1);
     g.add(eye);
     g.add(ball(0.022, WHITE, R * 0.92 + 0.02, 0.08, z + 0.02, 6));
   }
-  // にっこりした口（半分の輪）
   const smile = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 6, 12, Math.PI), mat(MOUTH));
   smile.position.set(R * 0.93, -0.12, 0);
   smile.rotation.set(0, Math.PI / 2, Math.PI);
   g.add(smile);
+}
+
+function head(look) {
+  const g = new THREE.Group();
+  const R = 0.42;
+  const skull = ball(R, SKIN, 0, 0, 0, 16);
+  if (look.face === 'human') skull.scale.set(0.97, 1.05, 0.95); // 少したまご形に
+  g.add(skull);
+  if (look.face === 'human') humanFace(g, R);
+  else simpleFace(g, R);
   // 耳
   for (const z of [-R, R]) g.add(ball(0.09, SKIN, 0, 0, z, 8));
   if (look.hair === 'spiky') {
     // ツンツン頭: 頭の上と後ろをおおう髪に、とがった房をいくつも
     const cap = new THREE.Mesh(new THREE.SphereGeometry(R * 1.06, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), mat(HAIR));
     cap.position.set(-0.03, 0.02, 0);
+    // 人間らしい顔のときは、前の髪を上げて、おでこと目が見えるように
+    if (look.face === 'human') cap.rotation.z = 0.62;
     g.add(cap);
     const spike = new THREE.ConeGeometry(0.11, 0.32, 6);
     const spikes = [
