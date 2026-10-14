@@ -4,15 +4,40 @@
 const SKIN = '#f6cfa6';
 const LINE = '#3a1a10';
 
-// 顔と首と耳（2人で同じ）
-function face() {
+// 顔と首と耳（2人で同じ）。cheeks: ピンクのほっぺ（Kyugo にはつけない: 2026-10-14 のユーザー依頼）
+function face(cheeks = true) {
   return `
   <rect x="86" y="160" width="28" height="40" rx="10" fill="${SKIN}" stroke="${LINE}" stroke-width="4"/>
   <circle cx="38" cy="114" r="14" fill="${SKIN}" stroke="${LINE}" stroke-width="4"/>
   <circle cx="162" cy="114" r="14" fill="${SKIN}" stroke="${LINE}" stroke-width="4"/>
-  <ellipse cx="100" cy="110" rx="62" ry="64" fill="${SKIN}" stroke="${LINE}" stroke-width="4"/>
+  <ellipse cx="100" cy="110" rx="62" ry="64" fill="${SKIN}" stroke="${LINE}" stroke-width="4"/>${
+    cheeks
+      ? `
   <ellipse cx="62" cy="142" rx="11" ry="7" fill="#ff8a8a" opacity="0.55"/>
-  <ellipse cx="138" cy="142" rx="11" ry="7" fill="#ff8a8a" opacity="0.55"/>`;
+  <ellipse cx="138" cy="142" rx="11" ry="7" fill="#ff8a8a" opacity="0.55"/>`
+      : ''
+  }`;
+}
+
+// きりっとした目（Kyugo）: 外側が少し上がった横長の目に、黒いまぶたの線。黒目は目の形で切り抜く
+// clip は絵ごとにちがう id（同じ id がいくつもあると、隠れている方を使われる）
+function sharpEyes(clip) {
+  return [1, -1]
+    .map((m, i) => {
+      // m = 1 は左の目（x = 76）、-1 は右の目（左右反転）
+      const X = (x) => (m === 1 ? x : 200 - x);
+      const shape = `M${X(61)} 126 Q${X(73)} 112 ${X(91)} 119 Q${X(79)} 133 ${X(61)} 126 Z`;
+      const id = `${clip}-${i}`;
+      return `
+  <clipPath id="${id}"><path d="${shape}"/></clipPath>
+  <path d="${shape}" fill="#fff"/>
+  <g clip-path="url(#${id})">
+    <circle cx="${X(77)}" cy="123" r="7" fill="#1b1b22"/>
+    <circle cx="${X(79)}" cy="120" r="2.4" fill="#fff"/>
+  </g>
+  <path d="M${X(59)} 126 Q${X(72)} 109 ${X(93)} 118" fill="none" stroke="#1b1b22" stroke-width="4.5" stroke-linecap="round"/>`;
+    })
+    .join('');
 }
 
 // 目（大きな黒目に、白い光）
@@ -32,24 +57,25 @@ function shirt(color, dark) {
   <path d="M78 199 Q100 222 122 199" fill="none" stroke="${dark}" stroke-width="7" stroke-linecap="round"/>`;
 }
 
+// 切り抜き（clipPath）の id は、絵ごとに変える（同じ id がいくつもあると、隠れている方を使われて歯がはみ出す）
+let clipNo = 0;
+
 // cls と viewBox を変えて、タイトルの大きな絵にも、レース中の顔のアイコンにも使う
-const KYUGO = (cls, box) => `
+const KYUGO = (cls, box, clip = `kyugo-eye-${++clipNo}`) => `
 <svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   ${shirt('#d7261b', '#9e160e')}
-  ${face()}
+  ${face(false)}
   <path d="M36 102 L18 72 L42 70 L32 34 L60 46 L66 4 L88 36 L104 -6 L118 34 L144 8 L146 46 L178 34 L162 70 L184 78 L164 102
            C150 76 130 66 100 66 C70 66 50 76 36 102 Z"
         fill="#1d1d24" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
   <path d="M72 24 L86 44 M108 12 L114 36 M140 24 L140 46" stroke="#4a4a5a" stroke-width="4" stroke-linecap="round"/>
-  <path d="M62 100 L88 106 M138 100 L112 106" stroke="#1d1d24" stroke-width="6" stroke-linecap="round"/>
-  ${eyes(124)}
+  <path d="M58 95 L92 107 M142 95 L108 107" stroke="#1d1d24" stroke-width="8" stroke-linecap="round"/>
+  ${sharpEyes(clip)}
   <path d="M76 148 Q100 176 124 148 Z" fill="#7a1f1f" stroke="${LINE}" stroke-width="3" stroke-linejoin="round"/>
   <path d="M80 149 L120 149 L118 155 L82 155 Z" fill="#fff"/>
   <ellipse cx="100" cy="163" rx="10" ry="4.5" fill="#e0605a"/>
 </svg>`;
 
-// 口の切り抜きの id は、絵ごとに変える（同じ id がいくつもあると、隠れている方を使われて歯がはみ出す）
-let clipNo = 0;
 const SOKI = (cls, box, clip = `soki-mouth-${++clipNo}`) => `
 <svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>

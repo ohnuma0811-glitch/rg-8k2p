@@ -9,3 +9,11 @@ test('Soki の口の切り抜き（clipPath）の id は、絵ごとにちがい
   assert.equal(new Set(ids).size, 3, ids.join(' '));
   svgs.forEach((s, i) => assert.ok(s.includes(`clip-path="url(#${ids[i]})"`), ids[i]));
 });
+
+test('Kyugo の顔にはピンクのほっぺがない（タイトルの絵・顔のアイコン。2026-10-14 のユーザー依頼）。Soki はそのまま', () => {
+  const kyugo = faceSvg('kyugo');
+  assert.ok(!kyugo.includes('#ff8a8a'), 'Kyugo にほっぺがある');
+  assert.ok(faceSvg('soki').includes('#ff8a8a'), 'Soki のほっぺがない');
+  const hero = TITLE_ART.slice(0, TITLE_ART.indexOf('hero-kid soki'));
+  assert.ok(!hero.includes('#ff8a8a'), 'タイトルの Kyugo にほっぺがある');
+});

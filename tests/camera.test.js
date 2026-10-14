@@ -53,3 +53,22 @@ test('スタートの前: カメラはコースの前から、正面を向いた
   assert.ok(Math.abs(end.d + CAM_BACK) < 1e-9 && Math.abs(end.lat) < 1e-9 && Math.abs(end.y - CAM_HEIGHT) < 1e-9, '走るときのカメラの位置');
   assert.deepEqual(startFly(START_FLY_TIME + 5), end, '止まる');
 });
+
+test('レース中の Kyugo の顔にはピンクのほっぺがない。まゆは外側が上がった、きりっとした向き（2026-10-14 のユーザー依頼）', () => {
+  const colors = new Set();
+  const brows = [];
+  createKartModel({ character: 'kyugo' }).traverse((o) => {
+    if (o.material && o.material.color) colors.add(o.material.color.getHex());
+    if (o.userData.brow) brows.push(o);
+  });
+  assert.ok(!colors.has(0xf3a0a0), 'ほっぺがある');
+  assert.equal(brows.length, 2);
+  for (const b of brows) {
+    // まゆの外側の端（顔の中心から遠い方）が、内側の端より高い
+    b.updateWorldMatrix(true, false);
+    const side = Math.sign(b.position.z);
+    const outer = new THREE.Vector3(0, 0, side * 0.07).applyMatrix4(b.matrixWorld);
+    const inner = new THREE.Vector3(0, 0, -side * 0.07).applyMatrix4(b.matrixWorld);
+    assert.ok(outer.y > inner.y + 0.02, `外 ${outer.y.toFixed(3)} / 内 ${inner.y.toFixed(3)}`);
+  }
+});
