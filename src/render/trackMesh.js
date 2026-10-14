@@ -1,9 +1,8 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=c2d83cb';
+import * as THREE from '../../vendor/three.module.min.js?v=b35453e';
 
 const COLORS = {
   dirt: 0xb08850,
-  rampSide: 0x8a6d4a,
   red: 0xd8262b,
   white: 0xffffff,
 };
@@ -91,8 +90,28 @@ function canvasTexture(w, h, draw) {
   return t;
 }
 
-// コースを横切る板（スタートライン、加速板）。from〜to は s（m）
-function strip(track, from, to, y, material) {
+// 進む方向（前）を指す矢印の模様。前は模様の上（v が大きい方）
+function chevrons(bg, fg) {
+  return canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = fg;
+    for (let k = 0; k < 2; k++) {
+      const y0 = k * 32;
+      g.beginPath();
+      g.moveTo(8, y0 + 28);
+      g.lineTo(w / 2, y0 + 4);
+      g.lineTo(w - 8, y0 + 28);
+      g.lineTo(w - 20, y0 + 28);
+      g.lineTo(w / 2, y0 + 14);
+      g.lineTo(20, y0 + 28);
+      g.fill();
+    }
+  });
+}
+
+// コースを横切る板（スタートライン、加速板、ジャンプ台の模様）。from〜to は s（m）。tiles は模様をくり返す回数
+export function strip(track, from, to, y, material, tiles = 1) {
   const { samples, roadHalf } = track;
   const pos = [];
   const uv = [];
@@ -102,14 +121,15 @@ function strip(track, from, to, y, material) {
     const q = list[k + 1];
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
-    const v0 = k / (list.length - 1);
-    const v1 = (k + 1) / (list.length - 1);
+    const v0 = (k / (list.length - 1)) * tiles;
+    const v1 = ((k + 1) / (list.length - 1)) * tiles;
     const a = [p.x - rpx * roadHalf, y(p), p.z - rpz * roadHalf];
     const b = [p.x + rpx * roadHalf, y(p), p.z + rpz * roadHalf];
     const c = [q.x - rqx * roadHalf, y(q), q.z - rqz * roadHalf];
     const d = [q.x + rqx * roadHalf, y(q), q.z + rqz * roadHalf];
-    pos.push(...a, ...c, ...b, ...b, ...c, ...d);
-    uv.push(0, v0, 0, v1, 1, v0, 1, v0, 0, v1, 1, v1);
+    // 表が上を向く並び（上から見える）
+    pos.push(...a, ...b, ...c, ...b, ...d, ...c);
+    uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -177,12 +197,12 @@ function grandstand(track) {
 }
 
 // 柵の外の高い土手（マリオカート64 のように、道の両側を高く囲む）。ほかの道・交わる所・観客席の前には作らない
-const BANK_FROM = 3; // 柵から土手のふもとまで（m）。間に看板を立てる
-const BANK_WIDTH = 14; // 土手の幅（m）
+export const BANK_FROM = 3; // 柵から土手のふもとまで（m）。間に看板を立てる
+export const BANK_WIDTH = 14; // 土手の幅（m）
 const BANK_HEIGHT = 7; // 土手の高さ（m）
 
 // 点 i の左右（-1 / 1）に土手を作れるか
-function bankSides(track) {
+export function bankSides(track) {
   const { samples } = track;
   const start = samples[track.startIndex];
   return samples.map((p) => {
@@ -308,7 +328,8 @@ export function buildTrackMesh(track) {
   const fenceOk = (p) => p.y === 0 && !p.noWall && !p.ramp;
   for (const side of [-1, 1]) {
     group.add(fence(samples, side * (roadHalf + dirt), () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
-    group.add(fence(samples, side * roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, () => COLORS.rampSide));
+    // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
+    group.add(fence(samples, side * roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
     group.add(fence(samples, side * roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
 
@@ -324,24 +345,14 @@ export function buildTrackMesh(track) {
   group.add(strip(track, startS - 1, startS + 2, () => 0.05, new THREE.MeshBasicMaterial({ map: checker })));
 
   if (track.cross) {
-    const arrows = canvasTexture(64, 64, (g, w, h) => {
-      g.fillStyle = '#ff8a00';
-      g.fillRect(0, 0, w, h);
-      g.fillStyle = '#fff36b';
-      for (let k = 0; k < 2; k++) {
-        const y0 = k * 32;
-        g.beginPath();
-        g.moveTo(8, y0 + 4);
-        g.lineTo(w / 2, y0 + 28);
-        g.lineTo(w - 8, y0 + 4);
-        g.lineTo(w - 20, y0 + 4);
-        g.lineTo(w / 2, y0 + 18);
-        g.lineTo(20, y0 + 4);
-        g.fill();
-      }
-    });
     const b = track.def.jump.boost;
-    group.add(strip(track, track.cross.sA + b.from, track.cross.sA + b.to, () => 0.06, new THREE.MeshBasicMaterial({ map: arrows })));
+    const r = track.def.jump.ramp;
+    // 加速板: オレンジに黄色の矢印
+    group.add(strip(track, track.cross.sA + b.from, track.cross.sA + b.to, () => 0.06,
+      new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') }), 1));
+    // ジャンプ台: 赤に黄色の矢印をくり返し（飛び出す方向を指す）
+    group.add(strip(track, track.cross.sA + r.from, track.cross.sA + r.to, (p) => p.y + 0.06,
+      new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
 
   group.add(grandstand(track));
