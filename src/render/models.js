@@ -1,7 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=2d90991';
-import { PHYS } from '../game/kart.js?v=2d90991';
+import * as THREE from '../../vendor/three.module.min.js?v=768ca75';
+import { PHYS } from '../game/kart.js?v=768ca75';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -40,16 +40,15 @@ export const CHARACTERS = {
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
 const MOUTH_MAT = new THREE.MeshLambertMaterial({ color: MOUTH, side: THREE.DoubleSide }); // 口は裏からも見える（使い回す）
 
-// 人間らしい顔（タイトルの絵のように）: きりっとした目とまゆ、小さな鼻、歯の見える笑った口（ほっぺのピンクはなし）
+// 人間らしい顔（タイトルの絵のように）: きりっとしたまゆ、少し横長の目、小さな鼻、歯の見える笑った口（ほっぺのピンクはなし）
 function humanFace(g, R) {
   const BROW = 0x1d1d24;
   for (const side of [-1, 1]) {
     const z = side * 0.14;
-    // 目: 横長で、外側が少し上がった、きりっとした目（2026-10-14 のユーザー依頼）
-    const tilt = -side * 0.22; // 外側を上げる向き
+    // 目: 少し横長の目（つり上げない。2026-10-14 のユーザー依頼）
     const white = ball(0.075, WHITE, R * 0.8, 0.04, z, 10); // 横から見て、顔から飛び出さないように少し奥に
     white.scale.set(0.5, 0.75, 1.15);
-    white.rotation.x = tilt;
+    white.userData.eyeWhite = true;
     g.add(white);
     const iris = ball(0.045, 0x3a2412, R * 0.8 + 0.028, 0.035, z, 10);
     iris.scale.set(0.5, 0.95, 0.95);
@@ -58,10 +57,6 @@ function humanFace(g, R) {
     pupil.scale.set(0.5, 1, 1);
     g.add(pupil);
     g.add(ball(0.014, WHITE, R * 0.8 + 0.06, 0.06, z + 0.012, 6));
-    // まぶたの線（目の上の黒い線）
-    const lid = box(0.03, 0.022, 0.17, EYE, R * 0.82, 0.095, z);
-    lid.rotation.x = tilt;
-    g.add(lid);
     // まゆ: 太く、内側が下がって外側が上がった、きりっとしたまゆ
     const brow = box(0.035, 0.05, 0.15, BROW, R * 0.84, 0.175, z);
     brow.rotation.x = -side * 0.45;
