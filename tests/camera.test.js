@@ -72,3 +72,15 @@ test('レース中の Kyugo の顔にはピンクのほっぺがない。まゆ�
     assert.ok(outer.y > inner.y + 0.02, `外 ${outer.y.toFixed(3)} / 内 ${inner.y.toFixed(3)}`);
   }
 });
+
+test('レース中の Kyugo: 目の上の黒い線（2本目のまゆに見える）はなく、目はつり上げない（2026-10-14 のユーザー依頼）', () => {
+  const lids = [];
+  const whites = [];
+  createKartModel({ character: 'kyugo' }).traverse((o) => {
+    if (o.isMesh && o.geometry.type === 'BoxGeometry' && o.material.color.getHex() === 0x1a1a1a) lids.push(o);
+    if (o.userData.eyeWhite) whites.push(o);
+  });
+  assert.equal(lids.length, 0, '目の上の線がある');
+  assert.equal(whites.length, 2);
+  for (const w of whites) assert.equal(w.rotation.x, 0, '目が傾いている');
+});
