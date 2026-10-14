@@ -63,3 +63,9 @@ test('ゴールの音: 1〜3位は明るいファンファーレと勝利の曲�
   const { SONGS } = await import('../src/audio/songs.js');
   assert.ok(SONGS.consolation, '4位以下の曲');
 });
+
+test('ドリフトのボタンで跳ねたとき「ピヨン」（hop）。跳ねている間はくり返さない（2026-10-15 のユーザー依頼）', () => {
+  assert.deepEqual(soundEvents(st(), st({}, { hop: 0.2 }), 3), ['hop']);
+  assert.deepEqual(soundEvents(st({}, { hop: 0.2 }), st({}, { hop: 0.1 }), 3), []);
+  assert.deepEqual(soundEvents(st({}, { hop: 0.1 }), st({}, { hop: 0 }), 3), []);
+});

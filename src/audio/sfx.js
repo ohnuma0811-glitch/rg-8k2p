@@ -67,6 +67,26 @@ export function createSfx(audio) {
     tone('triangle', midiToHz(top) * 1.004, hold, 0.08, { at });
   }
 
+  // 「ピヨン」: 高さを一気に上げて、少し戻す
+  function boing() {
+    const ctx = audio.ctx;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(500, t);
+    o.frequency.exponentialRampToValueAtTime(1400, t + 0.07);
+    o.frequency.exponentialRampToValueAtTime(950, t + 0.18);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 3000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.13, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(f).connect(g).connect(audio.sfxOut);
+    o.start(t);
+    o.stop(t + 0.25);
+  }
+
   const SOUNDS = {
     count: () => tone('square', 880, 0.3, 0.25),
     go: () => tone('square', 1760, 0.8, 0.25),
@@ -96,10 +116,18 @@ export function createSfx(audio) {
       burst('lowpass', 400, 80, 0.2, 0.8);
       tone('sine', 90, 0.15, 0.3, { to: 50 });
     },
-    bump: () => tone('square', 320, 0.09, 0.15, { to: 160 }),
+    // 車どうしでぶつかったとき「バン」: 短くはじける音（2026-10-15 のユーザー依頼）
+    bump: () => {
+      burst('lowpass', 2400, 200, 0.18, 0.8);
+      tone('square', 200, 0.12, 0.18, { to: 90 });
+    },
+    // ドリフトのボタンで跳ねたとき「ピヨン」: 高く上がって、少し戻る（2026-10-15 のユーザー依頼）
+    hop: () => boing(),
+    // ジャンプ台から着地したとき「バーン」: 低く響く大きな音（2026-10-15 のユーザー依頼）
     land: () => {
-      tone('sine', 130, 0.14, 0.35, { to: 60 });
-      burst('lowpass', 500, 120, 0.12, 0.4);
+      burst('lowpass', 1600, 70, 0.6, 1.0);
+      tone('sine', 90, 0.5, 0.6, { to: 35 });
+      burst('highpass', 3000, 1500, 0.15, 0.25);
     },
   };
 
