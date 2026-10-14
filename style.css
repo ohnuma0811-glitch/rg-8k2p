@@ -549,6 +549,9 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
 }
+#top3 .who {
+  display: contents; /* 顔と名前を、行（li）の中にそのまま並べる */
+}
 #top3 li.me {
   background: rgba(200, 140, 0, 0.8);
 }

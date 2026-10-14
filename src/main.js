@@ -43,6 +43,7 @@ const CPU_COUNT = 4;
 const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
 const PLAY_SAVE_EVERY = 5; // 遊んだ時間を記録する間かく（秒）
 const END_WAIT = 7; // ゴールしてから結果を出すまで（秒。カメラが前に回って、顔が見えてから）
+const TOP3_HOLD = 0.25; // 上位3人の並びは、新しい並びがこの秒数続いたら変える
 const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に、名前の札を出す
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
@@ -294,6 +295,7 @@ async function runRace(name, charId, cup) {
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
   game = createGame(name, charId);
+  buildTop3(game);
   camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
   speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
@@ -430,21 +432,50 @@ function renderGame(alpha, dt) {
   rankEl.textContent = ordinal(order.indexOf(g.me) + 1);
   countEl.textContent = flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race);
   minimap.draw(views.map((v, k) => ({ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me })));
-  showTop3(g, order.slice(0, 3));
+  showTop3(g, order.slice(0, 3), dt);
   const left = remainingSec(playStore(), g.name, Date.now()) - g.playSec;
   leftEl.textContent = remainingText(Math.max(0, left));
   return { mine, kart };
 }
 
 // 上位3人（順位が変わったときだけ書きかえる）
-function showTop3(g, top) {
+// 顔と名前は、レースの最初に車ごとに1回だけ作る。並びが変わったら、作ってあるものを入れかえるだけ
+// （並びは横に並んだ車どうしで1秒に2回ほど入れかわる。そのたびに顔の絵を作り直すと重く、レースがカクついた）
+function buildTop3(g) {
+  g.top3Items = g.names.map((name, k) => {
+    const item = document.createElement('span');
+    item.className = 'who';
+    item.innerHTML = `<span class="face" style="background:${g.faces[k].color}">${faceSvg(g.faces[k].character)}</span>${name}`;
+    return item;
+  });
+  top3El.innerHTML = [1, 2, 3].map((n) => `<li><span class="place">${ordinal(n)}</span></li>`).join('');
+  g.top3Rows = [...top3El.children];
+}
+
+function showTop3(g, top, dt) {
   const key = top.join(',');
-  if (key === g.top3Key) return;
+  if (key === g.top3Key) {
+    g.top3Wait = 0;
+    return;
+  }
+  // 横に並んだ車どうしで並びが行ったり来たりするので、新しい並びが少し続いたときだけ変える
+  // （最初の1回はすぐに出す）
+  if (g.top3Key !== '' && key === g.top3Next) g.top3Wait += dt;
+  else g.top3Wait = 0;
+  g.top3Next = key;
+  if (g.top3Key !== '' && g.top3Wait < TOP3_HOLD) return;
   g.top3Key = key;
-  top3El.innerHTML = top
-    .map((k, n) => `<li class="${k === g.me ? 'me' : ''}"><span class="place">${ordinal(n + 1)}</span><span class="face" style="background:${g.faces[k].color}">${faceSvg(g.faces[k].character)}</span>${g.names[k]}</li>`)
-    .join('');
-  placeSide(); // 行の数が変わると高さが変わる
+  g.top3Wait = 0;
+  top.forEach((k, n) => {
+    const row = g.top3Rows[n];
+    if (row.lastChild !== g.top3Items[k]) row.replaceChildren(row.firstChild, g.top3Items[k]);
+    row.classList.toggle('me', k === g.me);
+  });
+  // 置き場所は、最初に3人がそろったときだけ決める（行の高さは変わらない）
+  if (!g.top3Placed) {
+    g.top3Placed = true;
+    placeSide();
+  }
 }
 
 startLoop({
