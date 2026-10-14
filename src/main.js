@@ -23,6 +23,7 @@ import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
+import { createAudio } from './audio/audio.js';
 import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
@@ -81,6 +82,11 @@ const { scene, camera } = createWorld(track);
 const effects = createEffects(scene);
 const minimap = createMinimap($('minimap'), track);
 const controls = new Controls();
+const audio = createAudio();
+// 最初のタップ・クリック・キーで音を有効にする（iPhone・Android は、さわるまで音を出せない）
+for (const type of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(type, () => audio.unlock(), { passive: true });
+// 画面が見えなくなったら音を止める
+document.addEventListener('visibilitychange', () => (document.hidden ? audio.pause() : audio.resume()));
 // タッチできる端末はボタン、パソコンはキーボード
 controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
 let quality = 1;
@@ -358,10 +364,17 @@ async function runRace(name, charId, cup) {
 pauseBtn.addEventListener('click', async () => {
   if (!game || game.paused) return;
   game.paused = true;
-  const pick = await screens.message(menu, 'Paused', '', [
-    { id: 'go', label: '▶ CONTINUE' },
-    { id: 'title', label: '⌂ TITLE' },
-  ]);
+  // SOUND を押したら、一時停止のまま文字だけ変える
+  let pick;
+  for (;;) {
+    pick = await screens.message(menu, 'Paused', '', [
+      { id: 'go', label: '▶ CONTINUE' },
+      { id: 'sound', label: audio.isOn() ? '🔊 SOUND: ON' : '🔇 SOUND: OFF' },
+      { id: 'title', label: '⌂ TITLE' },
+    ]);
+    if (pick !== 'sound') break;
+    audio.setOn(!audio.isOn());
+  }
   if (!game) return;
   game.paused = false;
   if (pick === 'title' && game.onEnd) {
@@ -377,7 +390,7 @@ async function seeYouTomorrow(name) {
 
 async function flow() {
   for (;;) {
-    await screens.title(menu);
+    await screens.title(menu, audio);
     const recent = cleanRecent(load('recent', []));
     const name = await screens.askName(menu, recent);
     save('recent', addRecent(recent, name));

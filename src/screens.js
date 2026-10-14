@@ -41,13 +41,22 @@ const LOGO = `
     <span class="logo-main">Kyugo <span class="logo-amp">&amp;</span> Soki <span class="logo-kart">KART</span></span>
   </h1>`;
 
-export async function title(root) {
+// タイトル: 遊び方を選ぶ（2×2 に並べる）。選んだ遊び方の id を返す
+// 左上の 🔊/🔇 で音の ON/OFF（sound = { isOn, setOn }）
+export async function title(root, sound) {
   show(root, `
+      <button type="button" class="sound-btn" aria-label="Sound">${sound.isOn() ? '🔊' : '🔇'}</button>
       ${LOGO}
       <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small>${m.code ? '<span class="need-code">🔒 GAME CODE</span>' : ''}</button>`).join('')}</div>
       <p class="note"></p>`);
   root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
   const note = root.querySelector('.note');
+  // 音のボタン（data-pick を付けないので、遊び方の選択には混ざらない）
+  const soundBtn = root.querySelector('.sound-btn');
+  soundBtn.addEventListener('click', () => {
+    sound.setOn(!sound.isOn());
+    soundBtn.textContent = sound.isOn() ? '🔊' : '🔇';
+  });
   let clear = null;
   for (;;) {
     const pick = await waitPick(root);
