@@ -74,3 +74,18 @@ test('観客席の真ん中は、スタートラインの横の柵の外（道�
   const d = Math.hypot(spot.x - p.x, spot.z - p.z);
   assert.ok(d > 20 && d < 40, `${d.toFixed(1)}m`);
 });
+
+test('看板は、ほかの道（ジャンプ台・飛び越える所・横の道）の上や、その柵のすぐ外には立てない（2026-10-15 の実機確認「ジャンプ台の導線上に看板が2枚」）', async () => {
+  const { signSpots } = await import('../src/render/trackMesh.js');
+  const { samples } = track;
+  const spots = signSpots(track);
+  assert.ok(spots.length > 20, `看板 ${spots.length} 枚`);
+  for (const s of spots) {
+    samples.forEach((q, j) => {
+      const dj = Math.min(Math.abs(j - s.i), samples.length - Math.abs(j - s.i));
+      if (dj < 60) return; // 自分の道
+      const d = Math.hypot(q.x - s.x, q.z - s.z);
+      assert.ok(d >= q.wall + 3, `点 ${s.i} の看板が、点 ${j} の道から ${d.toFixed(1)}m（柵 ${q.wall}m）`);
+    });
+  }
+});

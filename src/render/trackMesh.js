@@ -316,23 +316,48 @@ function bank(track, sides, side) {
   return mesh(pos, { colors: col });
 }
 
+// 看板の場所（柵と土手の間）。i はどの点の横か
+// ほかの道（ジャンプ台・飛び越える所・横の道）の上や、その柵のすぐ外（3m 以内）には立てない
+// （ジャンプで飛ぶ道すじに看板が立っていた: 2026-10-15 の実機確認）
+export function signSpots(track) {
+  const { samples } = track;
+  const n = samples.length;
+  const start = samples[track.startIndex];
+  const spots = [];
+  for (let i = 0; i < n; i += 5) {
+    const p = samples[i];
+    if (p.y !== 0) continue;
+    if (Math.hypot(p.x - start.x, p.z - start.z) < 45) continue;
+    const [rx, rz] = rightOf(p);
+    for (const side of [-1, 1]) {
+      if ((i / 5 + (side > 0 ? 1 : 0)) % 4 !== 0) continue;
+      const d = p.wall + 1.5;
+      const x = p.x + rx * side * d;
+      const z = p.z + rz * side * d;
+      const onOtherRoad = samples.some((q, j) => {
+        const dj = Math.min(Math.abs(j - i), n - Math.abs(j - i));
+        return dj >= 60 && Math.hypot(q.x - x, q.z - z) < q.wall + 3;
+      });
+      if (!onOtherRoad) spots.push({ i, x, z, h: p.h });
+    }
+  }
+  return spots;
+}
+
 // 木（土手の上、土手がない所は柵の外）と看板（柵と土手の間）。高く大きく（マリオカート64 のように）
 function roadside(track, sides) {
   const { samples } = track;
   const start = samples[track.startIndex];
   const trees = [];
-  const signs = [];
+  const signs = signSpots(track);
   for (let i = 0; i < samples.length; i += 5) {
     const p = samples[i];
     if (p.y !== 0) continue;
     const [rx, rz] = rightOf(p);
     for (const side of [-1, 1]) {
       if (Math.hypot(p.x - start.x, p.z - start.z) < 45) continue;
-      if ((i / 5 + (side > 0 ? 1 : 0)) % 4 === 0) {
-        const d = p.wall + 1.5;
-        signs.push({ x: p.x + rx * side * d, z: p.z + rz * side * d, h: p.h });
-        continue;
-      }
+      // 看板を立てる場所（立てなかった所も）には、木は植えない
+      if ((i / 5 + (side > 0 ? 1 : 0)) % 4 === 0) continue;
       const onBank = sides[i][side];
       const d = onBank ? p.wall + BANK_FROM + BANK_WIDTH + 2 + ((i * 7) % 4) : p.wall + 3 + ((i * 7) % 3);
       const x = p.x + rx * side * d;
