@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=e00431b';
-import { TITLE_ART } from './titleArt.js?v=e00431b';
+import { typeLetter, isValidName } from './names.js?v=a6792aa';
+import { TITLE_ART } from './titleArt.js?v=a6792aa';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -49,6 +49,15 @@ export async function title(root, gameName) {
     root.querySelector('.note').textContent = `${mode.label} is coming soon!`;
     await new Promise((r) => setTimeout(r, 1500));
   }
+}
+
+// レースの前: コースの名前を大きく出す（うしろはコースを回って映す）。seconds 秒で消える
+export async function courseIntro(root, courseName, seconds) {
+  root.innerHTML = `<div class="course-intro"><small>COURSE</small>${courseName}</div>`;
+  root.classList.add('show', 'intro');
+  await new Promise((r) => setTimeout(r, seconds * 1000));
+  root.classList.remove('intro');
+  hide(root);
 }
 
 // 名前入力: A〜Z のボタン（パソコンのキーボードと同じ並び）、消す、OK。最近の名前はボタンで選べる
