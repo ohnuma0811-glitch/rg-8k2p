@@ -1,24 +1,26 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=c4efd1b';
-import { COURSE1 } from './data/tracks.js?v=c4efd1b';
-import { buildTrack } from './game/track.js?v=c4efd1b';
-import { createKart, stepKart } from './game/kart.js?v=c4efd1b';
-import { kartParams } from './game/stats.js?v=c4efd1b';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=c4efd1b';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=c4efd1b';
-import { createKartModel, syncKartModel } from './render/models.js?v=c4efd1b';
-import { createEffects } from './render/effects.js?v=c4efd1b';
-import { nextQuality, pixelRatio } from './render/quality.js?v=c4efd1b';
-import { blendPose, poseOf } from './render/interp.js?v=c4efd1b';
-import { speedText } from './hud.js?v=c4efd1b';
+import * as THREE from '../vendor/three.module.min.js?v=8a27b62';
+import { startLoop } from './loop.js?v=8a27b62';
+import { COURSE1 } from './data/tracks.js?v=8a27b62';
+import { buildTrack } from './game/track.js?v=8a27b62';
+import { createKart, stepKart } from './game/kart.js?v=8a27b62';
+import { kartParams } from './game/stats.js?v=8a27b62';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=8a27b62';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=8a27b62';
+import { createKartModel, syncKartModel } from './render/models.js?v=8a27b62';
+import { createEffects } from './render/effects.js?v=8a27b62';
+import { nextQuality, pixelRatio } from './render/quality.js?v=8a27b62';
+import { blendPose, poseOf } from './render/interp.js?v=8a27b62';
+import { speedText } from './hud.js?v=8a27b62';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'c4efd1b';
+const VERSION = '8a27b62';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
 const speedLines = document.getElementById('speed-lines');
 const speedo = document.getElementById('speedo');
+const wrongWayEl = document.getElementById('wrongway');
 const speedNum = speedo.querySelector('.num');
 const probe = document.getElementById('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
@@ -30,6 +32,11 @@ const devStart = new Set(location.hash.slice(1).split('&')).has('jump')
   ? Math.round(track.cross.sA + track.def.jump.boost.from - 25 + track.length) % track.length
   : track.startIndex;
 const kart = createKart(track, devStart);
+// 確かめ用: #reverse を付けると、逆向きで走り出す（逆走の警告を見る）
+if (location.hash.includes('reverse')) {
+  kart.heading += Math.PI;
+  kart.move = kart.heading;
+}
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
 const renderer = createRenderer(canvas);
 const { scene, camera } = createWorld(track);
@@ -90,6 +97,9 @@ function showRamp() {
   camera.lookAt(mid.x, mid.y, mid.z);
 }
 
+// 逆走の警告を出す場所（キャラの頭の上）を計算するための入れ物
+const overHead = new THREE.Vector3();
+
 // 1つ前の計算での車の位置（描くときに、今の計算とのあいだをつなぐ）
 let prevPose = poseOf(kart);
 startLoop({
@@ -127,6 +137,13 @@ startLoop({
     // 画面の端を流れる線は、加速中だけ
     speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
     renderer.render(scene, camera);
+    // 逆走の警告: キャラの頭の上の画面の位置に出す
+    wrongWayEl.classList.toggle('show', kart.wrongWay);
+    if (kart.wrongWay) {
+      overHead.set(view.x, view.y + 3.6, view.z).project(camera);
+      wrongWayEl.style.left = `${((overHead.x + 1) / 2) * window.innerWidth}px`;
+      wrongWayEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
+    }
     speedNum.textContent = speedText(kart.speed);
     speedo.classList.toggle('boost', kart.boost > 0);
     hud.textContent = `${fps}fps  ${kart.surface}  ${controls.mode}  v:${VERSION}`;

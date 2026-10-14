@@ -1,7 +1,7 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=c4efd1b';
+import { locate, respawnIndex } from './track.js?v=8a27b62';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -34,6 +34,10 @@ export const PHYS = {
   AIR_TURN: 0.3, // 空中で曲がれる割合
   WALL_KEEP: 0.6, // 柵にまっすぐぶつかったときに残る速さの割合
   WALL_FULL_ANGLE: 0.5, // この角度（rad）以上でぶつかると、WALL_KEEP まで落ちる
+  WRONG_WARN: 1, // 逆向きにこの秒数走ると、逆走の警告を出す
+  WRONG_CLEAR: 0.5, // 前向きにこの秒数走ると、逆走の数えを0に戻す
+  WRONG_FIX: 30, // 逆走がこの秒数続いたら、スピンして正しい向きに戻す
+  SPIN_TIME: 1, // スピンしている時間（秒。ハンドルは効かない）
   FALL_Y: -2, // これより下に落ちたらコースに戻す
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
 };
@@ -64,6 +68,11 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.respawnAt = i;
   kart.onWall = false;
   kart.prevGround = kart.y;
+  kart.wrongWay = false; // 逆走の警告を出しているか
+  kart.wrongTime = 0; // 逆向きに走っている秒数
+  kart.rightTime = 0; // 前向きに走っている秒数
+  kart.spin = 0; // スピンの残り秒数
+  kart.spinTo = p.h; // スピンのあとに向く向き
 }
 
 export function createKart(track, i, lateral = 0) {
@@ -93,6 +102,22 @@ export function stepKart(kart, ctl, track, params, dt) {
   if (kart.respawn > 0) {
     kart.respawn -= dt;
     if (kart.respawn <= 0) placeAt(kart, track, kart.respawnAt);
+    return;
+  }
+  // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
+  if (kart.spin > 0) {
+    kart.spin -= dt;
+    kart.speed = Math.max(0, kart.speed - 20 * dt);
+    kart.x += Math.cos(kart.move) * kart.speed * dt;
+    kart.z += Math.sin(kart.move) * kart.speed * dt;
+    kart.seg = locate(track, kart.x, kart.z, kart.seg).i;
+    if (kart.spin <= 0) {
+      kart.spin = 0;
+      kart.heading = kart.spinTo;
+      kart.move = kart.spinTo;
+    } else {
+      kart.heading = wrapAngle(kart.spinTo + 2 * Math.PI * 2 * (kart.spin / PHYS.SPIN_TIME));
+    }
     return;
   }
   const here = locate(track, kart.x, kart.z, kart.seg);
@@ -223,4 +248,23 @@ export function stepKart(kart, ctl, track, params, dt) {
     }
   }
   kart.onWall = touching;
+
+  // 逆走: コースの向きと逆に走っている時間を数える。1秒で警告、30秒続いたらスピンして正しい向きに戻す
+  const along = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed;
+  if (along < -2) {
+    kart.wrongTime += dt;
+    kart.rightTime = 0;
+  } else if (along > 2) {
+    kart.rightTime += dt;
+    if (kart.rightTime >= PHYS.WRONG_CLEAR) kart.wrongTime = 0;
+  }
+  if (kart.wrongTime >= PHYS.WRONG_FIX && !kart.airborne) {
+    if (kart.drift.active) endDrift(kart, params, false);
+    kart.hop = 0;
+    kart.spin = PHYS.SPIN_TIME;
+    kart.spinTo = loc.heading;
+    kart.speed *= 0.3;
+    kart.wrongTime = 0;
+  }
+  kart.wrongWay = kart.wrongTime >= PHYS.WRONG_WARN;
 }
