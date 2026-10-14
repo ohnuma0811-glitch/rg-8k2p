@@ -40,7 +40,7 @@ test('公開のとき、manifest・sw・アイコンも載せ、sw の版を付�
 });
 
 // sw.js を、ブラウザのかわりの物の中で動かす
-function loadSw({ online }) {
+function loadSw({ online, status = 200 }) {
   const handlers = {};
   const cache = new Map();
   const self = { addEventListener: (type, fn) => (handlers[type] = fn), skipWaiting() {}, clients: { claim() {} } };
@@ -50,7 +50,7 @@ function loadSw({ online }) {
   };
   const fetch = async (req) => {
     if (!online) throw new Error('offline');
-    return { body: `new ${req.url}`, clone() { return this; } };
+    return { ok: status >= 200 && status < 300, status, body: `new ${req.url}`, clone() { return this; } };
   };
   const location = { origin: 'https://example.com' };
   new Function('self', 'caches', 'fetch', 'location', read('sw.js').toString())(self, caches, fetch, location);
@@ -76,4 +76,14 @@ test('sw: 電波がなければ、取っておいたファイルを使う。ほ�
   assert.equal((await sw.respond('https://example.com/index.html')).body, 'old');
   assert.equal(await sw.respond('https://fonts.googleapis.com/css2'), null);
   assert.equal(await sw.respond('https://example.com/x', 'POST'), null);
+});
+
+test('sw: サーバーがエラー（503 など）を返したら、取っておいたファイルを使い、エラーは取っておかない（2026-10-15 の公開で 503 が出た）', async () => {
+  const sw = loadSw({ online: true, status: 503 });
+  sw.cache.set('https://example.com/src/game/race.js?v=abc', { body: 'old', ok: true });
+  assert.equal((await sw.respond('https://example.com/src/game/race.js?v=abc')).body, 'old');
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(sw.cache.get('https://example.com/src/game/race.js?v=abc').body, 'old', 'エラーで上書きしない');
+  // 取っておいたものがなければ、エラーをそのまま返す
+  assert.equal((await sw.respond('https://example.com/new.js')).status, 503);
 });

@@ -11,7 +11,9 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || !req.url.startsWith(location.origin)) return;
   e.respondWith(
     fetch(req)
-      .then((res) => {
+      .then(async (res) => {
+        // サーバーがエラー（503 など）を返したときは取っておかず、取っておいたものがあればそれを使う
+        if (!res.ok) return (await caches.match(req)) || res;
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(req, copy));
         return res;
