@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=a6792aa';
-import { TITLE_ART } from './titleArt.js?v=a6792aa';
+import { typeLetter, isValidName } from './names.js?v=73275c4';
+import { TITLE_ART } from './titleArt.js?v=73275c4';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -33,10 +33,17 @@ export const MODES = [
 ];
 
 // タイトル: 遊び方を選ぶ（2×2 に並べる）。選んだ遊び方の id を返す
-export async function title(root, gameName) {
+// タイトルのロゴ（白い文字のロゴ風。2026-10-14 のユーザー依頼）: SUPER / Kyugo & Soki / KART
+const LOGO = `
+  <h1 class="title logo" aria-label="Super Kyugo &amp; Soki Kart">
+    <span class="logo-super">SUPER</span>
+    <span class="logo-main">Kyugo <span class="logo-amp">&amp;</span> Soki <span class="logo-kart">KART</span></span>
+  </h1>`;
+
+export async function title(root) {
   for (;;) {
     show(root, `
-      <h1 class="title">${gameName}</h1>
+      ${LOGO}
       <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small></button>`).join('')}</div>
       <p class="note"></p>`);
     root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
