@@ -87,3 +87,15 @@ test('sw: サーバーがエラー（503 など）を返したら、取ってお
   // 取っておいたものがなければ、エラーをそのまま返す
   assert.equal((await sw.respond('https://example.com/new.js')).status, 503);
 });
+
+test('sw: 新しい版になったら、このゲームの古い版の取っておいたファイルを消す。ほかのゲーム（同じ GitHub の 09 のゲーム）のものは消さない', async () => {
+  const handlers = {};
+  const names = new Set(['ks-kart-old1', 'ks-kart-dev', 'ks-c90d32a', 'ks-kart-old2']);
+  const self = { addEventListener: (type, fn) => (handlers[type] = fn), skipWaiting() {}, clients: { claim: async () => {} } };
+  const caches = { keys: async () => [...names], delete: async (k) => names.delete(k) };
+  new Function('self', 'caches', 'fetch', 'location', read('sw.js').toString())(self, caches, null, { origin: 'https://example.com' });
+  let done = null;
+  handlers.activate({ waitUntil: (p) => (done = p) });
+  await done;
+  assert.deepEqual([...names].sort(), ['ks-c90d32a', 'ks-kart-dev']);
+});

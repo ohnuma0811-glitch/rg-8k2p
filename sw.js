@@ -4,7 +4,15 @@
 const CACHE = 'ks-kart-dev'; // 公開のとき scripts/deploy.sh がコミットの番号に置き換える
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil && e.waitUntil(self.clients.claim()));
+// 新しい版になったら、このゲームの古い版の入れ物を消す（同じ GitHub の、ほかのゲームの入れ物は消さない）
+self.addEventListener('activate', (e) =>
+  e.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('ks-kart-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  ),
+);
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
