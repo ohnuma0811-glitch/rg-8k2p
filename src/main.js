@@ -1,22 +1,25 @@
 // 起動。M1 は「1人でコースを走る」だけ
-import { startLoop } from './loop.js?v=75401e9';
-import { COURSE1 } from './data/tracks.js?v=75401e9';
-import { buildTrack } from './game/track.js?v=75401e9';
-import { createKart, stepKart } from './game/kart.js?v=75401e9';
-import { kartParams } from './game/stats.js?v=75401e9';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=75401e9';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=75401e9';
-import { createKartModel, syncKartModel } from './render/models.js?v=75401e9';
-import { createEffects } from './render/effects.js?v=75401e9';
-import { nextQuality, pixelRatio } from './render/quality.js?v=75401e9';
-import { blendPose, poseOf } from './render/interp.js?v=75401e9';
+import { startLoop } from './loop.js?v=7504445';
+import { COURSE1 } from './data/tracks.js?v=7504445';
+import { buildTrack } from './game/track.js?v=7504445';
+import { createKart, stepKart } from './game/kart.js?v=7504445';
+import { kartParams } from './game/stats.js?v=7504445';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=7504445';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js?v=7504445';
+import { createKartModel, syncKartModel } from './render/models.js?v=7504445';
+import { createEffects } from './render/effects.js?v=7504445';
+import { nextQuality, pixelRatio } from './render/quality.js?v=7504445';
+import { blendPose, poseOf } from './render/interp.js?v=7504445';
+import { speedText } from './hud.js?v=7504445';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '75401e9';
+const VERSION = '7504445';
 const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
 const speedLines = document.getElementById('speed-lines');
+const speedo = document.getElementById('speedo');
+const speedNum = speedo.querySelector('.num');
 const probe = document.getElementById('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
 const els = Object.fromEntries(BUTTONS.map((n) => [n, document.getElementById(`btn-${n}`)]));
@@ -124,6 +127,8 @@ startLoop({
     // 画面の端を流れる線は、加速中だけ
     speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
     renderer.render(scene, camera);
-    hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
+    speedNum.textContent = speedText(kart.speed);
+    speedo.classList.toggle('boost', kart.boost > 0);
+    hud.textContent = `${fps}fps  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },
 });
