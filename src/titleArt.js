@@ -40,8 +40,11 @@ function shirt(color, dark) {
 let clipNo = 0;
 
 // cls と viewBox を変えて、タイトルの大きな絵にも、レース中の顔のアイコンにも使う
-const KYUGO = (cls, box) => `
+const KYUGO = (cls, box, clip = `kyugo-mouth-${++clipNo}`) => `
 <svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <clipPath id="${clip}"><path d="M76 148 Q100 176 124 148 Z"/></clipPath>
+  </defs>
   ${shirt('#d7261b', '#9e160e')}
   ${face(false)}
   <path d="M36 102 L18 72 L42 70 L32 34 L60 46 L66 4 L88 36 L104 -6 L118 34 L144 8 L146 46 L178 34 L162 70 L184 78 L164 102
@@ -51,8 +54,11 @@ const KYUGO = (cls, box) => `
   <path d="M58 95 L92 107 M142 95 L108 107" stroke="#1d1d24" stroke-width="8" stroke-linecap="round"/>
   ${eyes(124)}
   <path d="M76 148 Q100 176 124 148 Z" fill="#7a1f1f" stroke="${LINE}" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M80 149 L120 149 L118 155 L82 155 Z" fill="#fff"/>
-  <ellipse cx="100" cy="163" rx="10" ry="4.5" fill="#e0605a"/>
+  <!-- 歯と舌は口の形で切り抜く（口からはみ出さないように） -->
+  <g clip-path="url(#${clip})">
+    <path d="M80 149 L120 149 L118 155 L82 155 Z" fill="#fff"/>
+    <ellipse cx="100" cy="162" rx="10" ry="4.5" fill="#e0605a"/>
+  </g>
 </svg>`;
 
 const SOKI = (cls, box, clip = `soki-mouth-${++clipNo}`) => `

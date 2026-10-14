@@ -1,5 +1,5 @@
 // 大会（2026-10-14 のユーザー依頼）: 5レースのポイントの合計で優勝を決める
-import { racePoints } from './race.js?v=6e85977';
+import { racePoints } from './race.js?v=cc20c4d';
 
 export const CUP_RACES = 5;
 
