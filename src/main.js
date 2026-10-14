@@ -604,4 +604,7 @@ startLoop({
   },
 });
 
+// ホーム画面に追加したときに使う（https のときだけ。手元の http://localhost では使わない）
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
 flow();
