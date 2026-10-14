@@ -28,3 +28,11 @@ test('歓声: 観客席がある側から聞こえる（右にあれば右、左
   assert.ok(crowdMix(kart, { x: 0, z: -40 }).pan < -0.9);
   assert.ok(Math.abs(crowdMix(kart, { x: 40, z: 0 }).pan) < 1e-9);
 });
+
+test('音量の決まり: BGM は気持ち小さく（0.45）、ドリフトのキュルキュルは大きく（0.22）（2026-10-15 のユーザー依頼）', async () => {
+  const { MUSIC_VOLUME } = await import('../src/audio/audio.js');
+  const { DRIFT_VOLUME, WALL_VOLUME } = await import('../src/audio/mix.js');
+  assert.equal(MUSIC_VOLUME, 0.45);
+  assert.equal(DRIFT_VOLUME, 0.22);
+  assert.ok(WALL_VOLUME >= 1.5, `壁の音 ${WALL_VOLUME}`);
+});

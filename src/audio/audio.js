@@ -2,7 +2,7 @@
 // 音が使えない端末では ctx が null のまま。ほかの音の部品は、ctx がなければ何もしない
 import { load, save } from '../storage.js';
 
-export const MUSIC_VOLUME = 0.55; // 曲の音量（全体を 1 として）
+export const MUSIC_VOLUME = 0.45; // 曲の音量（全体を 1 として。0.55 から気持ち下げた: 2026-10-15 のユーザー依頼）
 
 function defaultContext() {
   const AC = window.AudioContext || window.webkitAudioContext;

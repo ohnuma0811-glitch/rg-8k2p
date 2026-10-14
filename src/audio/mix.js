@@ -1,5 +1,9 @@
 // 音の大きさ・高さ・左右の計算（テストできるように、Web Audio とは分けてある）
 
+// 効果音の音量（2026-10-15 のユーザー依頼で大きくした）
+export const DRIFT_VOLUME = 0.22; // ドリフトのキュルキュル（最高速のとき。0.12 から）
+export const WALL_VOLUME = 1.6; // 壁にぶつかった音の大きさの倍率
+
 // エンジン音: 速いほど高く大きく。加速中はさらに少し高く
 export function engineParams(speed, topSpeed, boosting) {
   const r = Math.max(0, Math.min(1, speed / topSpeed));
