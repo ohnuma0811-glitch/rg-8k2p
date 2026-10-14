@@ -1,7 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=7d92c6d';
-import { PHYS } from '../game/kart.js?v=7d92c6d';
+import * as THREE from '../../vendor/three.module.min.js?v=1c640b0';
+import { PHYS } from '../game/kart.js?v=1c640b0';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -34,7 +34,7 @@ const DARK = 0x1d2430;
 // キャラの見た目。前は +x 向き。座席に座った形で、原点は座面
 export const CHARACTERS = {
   kyugo: { hair: 'spiky', shirt: 0xc11f0a, face: 'human' }, // 顔は人間らしく（2026-10-14 のユーザー依頼）
-  soki: { hair: 'bowl', shirt: 0x1c3c88 },
+  soki: { hair: 'bowl', shirt: 0x1c3c88, hairColor: 0x2b1d16 }, // 髪はこげ茶（真っ黒だと帽子に見えた: 2026-10-15）
 };
 
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
@@ -113,16 +113,47 @@ function head(look) {
       g.add(s);
     }
   } else {
-    // おわん形: 頭の上半分をすっぽりおおい、前髪は横一直線
-    const bowl = new THREE.Mesh(new THREE.SphereGeometry(R * 1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(HAIR));
+    // おわん形（坊ちゃん刈り）: 頭の上半分をおおい、ふちに長さのちがう毛の束を並べて、毛先をギザギザにする
+    // （まっすぐなふちだと黒い帽子に見えた: 2026-10-15 の実機確認）
+    const HC = look.hairColor || HAIR;
+    const bowl = new THREE.Mesh(new THREE.SphereGeometry(R * 1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(HC));
     bowl.position.set(-0.02, 0.06, 0);
     g.add(bowl);
     // 後ろの下の髪: 頭の後ろ半分を、耳の下の高さまでおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）
     // （球の向き: phi が -90°〜90° のところが頭の後ろ（-x）。theta は真上 0 から真下 180°）
-    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 16, 8, -Math.PI / 2, Math.PI, Math.PI * 0.45, Math.PI * 0.32), mat(HAIR));
+    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 16, 8, -Math.PI / 2, Math.PI, Math.PI * 0.45, Math.PI * 0.32), mat(HC));
     back.position.set(-0.02, 0.06, 0);
     g.add(back);
-    g.add(box(0.12, 0.12, R * 1.9, HAIR, R * 0.82, 0.14, 0));
+    // 毛の束（細長い玉）。a は頭のまわりの向き（0 が前、+ が右）、len は長さ、y は束の真ん中の高さ
+    const strandGeo = new THREE.SphereGeometry(0.06, 8, 6);
+    const strand = (a, len, y, kind) => {
+      const r = R * 1.07;
+      const m = new THREE.Mesh(strandGeo, mat(HC));
+      m.position.set(-0.02 + Math.cos(a) * r, y, Math.sin(a) * r);
+      m.scale.set(0.7, len, 1);
+      m.rotation.y = -a;
+      m.rotation.z = -0.15; // 毛先が少し前に出る
+      m.userData.strand = kind;
+      g.add(m);
+    };
+    // 前髪: 9つの束。長さを少しずつ変えて毛先をギザギザに（目にはかからない）
+    const fringe = [1.0, 1.35, 1.1, 1.3, 1.05, 1.3, 1.1, 1.35, 1.0];
+    fringe.forEach((len, k) => strand((k - 4) * 0.2, len, 0.12, 'fringe'));
+    // 横と後ろのふち: 耳の上にかかる束と、後ろの毛先
+    for (const a of [1.15, 1.45, 1.75, -1.15, -1.45, -1.75]) strand(a, 1.6, 0.05, 'side');
+    for (const a of [2.2, 2.6, 3.0, 3.4, 3.8, 4.1]) strand(a, 1.4, -0.08, 'back');
+    // つや: 頭の上の前の方を横に走る、明るい茶色の弧（タイトルの絵と同じ）
+    // 真上から35°下がった高さの輪の一部（前を真ん中に、左右に約46°ずつ）
+    const SHINE_ARC = 1.6;
+    const lat = (35 * Math.PI) / 180;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R * 1.11 * Math.sin(lat), 0.014, 4, 16, SHINE_ARC), mat(0x6b5040));
+    ring.rotation.x = Math.PI / 2; // 横向きの輪にする
+    const shine = new THREE.Group();
+    shine.add(ring);
+    shine.position.set(-0.02, 0.06 + R * 1.11 * Math.cos(lat), 0);
+    shine.rotation.y = SHINE_ARC / 2; // 弧の真ん中を前（+x）に
+    ring.userData.shine = true;
+    g.add(shine);
   }
   return g;
 }
