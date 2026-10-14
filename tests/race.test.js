@@ -136,3 +136,9 @@ test('レースの前に、コースを回って映し、コースの名前を3�
   assert.equal(COURSE_INTRO, 3);
   assert.equal(COURSE1.name, 'Kenta Circuit');
 });
+
+test('ポイント: 1位から 10, 8, 6, 5, 4, 3, 2, 1。5台なら5位は4ポイント（2026-10-14 のユーザー依頼）', async () => {
+  const { racePoints } = await import('../src/game/race.js');
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(racePoints), [10, 8, 6, 5, 4, 3, 2, 1]);
+  assert.equal(racePoints(5), 4, '5台のレースの5位');
+});

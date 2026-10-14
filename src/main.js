@@ -8,7 +8,7 @@ import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart } from './game/collide.js';
 import {
-  LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
+  LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
@@ -276,7 +276,14 @@ function resultRows(g) {
   return ranking(race, track).map((k, n) => {
     const e = race.entries[k];
     const est = e.finished ? e.time : race.t + (LAPS * track.length - progress(race, k, track)) / avg;
-    return { place: ordinal(n + 1), name: g.names[k], time: (e.finished ? '' : '~') + timeText(est), me: k === g.me };
+    return {
+      place: ordinal(n + 1),
+      name: g.names[k],
+      time: (e.finished ? '' : '~') + timeText(est),
+      points: racePoints(n + 1),
+      face: g.faces[k],
+      me: k === g.me,
+    };
   });
 }
 
