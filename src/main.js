@@ -11,7 +11,7 @@ import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera } from './render/scene.js';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { createKartModel, syncKartModel, createNameTag } from './render/models.js';
 import { faceSvg } from './titleArt.js';
@@ -199,6 +199,7 @@ function createGame(name, charId) {
     sinceSave: 0,
     driftWas: false,
     endAt: null,
+    flyT: 0, // スタートの前のカメラが動いた秒数
     paused: false,
     onEnd: null,
   };
@@ -218,10 +219,16 @@ function removeGame() {
 function stepGame(dt) {
   const g = game;
   const { race, karts, me } = g;
-  const went = raceTick(race, dt);
   karts.forEach((kart, k) => {
     g.prev[k] = poseOf(kart);
   });
+  // スタートの前に、カメラが車たちの上を通って回る。その間はカウントを始めない（DRIFT もスタートダッシュに数えない）
+  if (g.flyT < START_FLY_TIME) {
+    g.flyT += dt;
+    g.driftWas = controls.drift;
+    return;
+  }
+  const went = raceTick(race, dt);
   // スタートダッシュは DRIFT ボタン（押した瞬間だけ）
   if (controls.drift && !g.driftWas) pressDash(race, me);
   g.driftWas = controls.drift;
@@ -277,7 +284,7 @@ async function runRace(name, charId) {
   // スタートの前に、コースを回って映しながら、コースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, COURSE1.name, COURSE_INTRO);
   game = createGame(name, charId);
-  camera.userData.h = undefined;
+  camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
   speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
   countEl.classList.remove('go');
@@ -379,7 +386,9 @@ function renderGame(alpha, dt) {
   effects.update(mine, dt);
   const { race } = g;
   const e = race.entries[g.me];
+  const flying = g.flyT < START_FLY_TIME;
   if (dev.has('front')) updateFrontCamera(camera, mine);
+  else if (flying) updateStartCamera(camera, mine, g.flyT);
   else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
@@ -390,7 +399,7 @@ function renderGame(alpha, dt) {
   timeEl.textContent = timeText(Math.max(0, e.finished ? e.time : race.t));
   const order = ranking(race, track);
   rankEl.textContent = ordinal(order.indexOf(g.me) + 1);
-  countEl.textContent = e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race);
+  countEl.textContent = flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race);
   minimap.draw(views.map((v, k) => ({ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me })));
   showTop3(g, order.slice(0, 3));
   const left = remainingSec(playStore(), g.name, Date.now()) - g.playSec;

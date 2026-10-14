@@ -95,6 +95,44 @@ export function updateFrontCamera(camera, kart) {
   camera.lookAt(kart.x, kart.y + FRONT_LOOK_Y, kart.z);
 }
 
+// スタートの前（2026-10-14 のユーザー依頼）: カメラはコースの前から、正面を向いた車たちを見て、
+// 横へふくらみながら上を通りすぎ、向きを変えて、走るときのカメラの位置で止まる。そのあとカウントが始まる
+export const START_FLY_TIME = 4;
+const FLY_FROM = 34; // 最初、自分の車の何m前か（前の列の車より15mほど前）
+const FLY_SIDE = 10; // 途中で横へふくらむ幅（m。真下を見て向きが急に変わらないように）
+const FLY_UP = 6; // 途中で高く上がる分（m）
+
+// t 秒のカメラ。自分の車から見て、d は前へ、lat は右へ、y は上へ（m）。見る所は td（前へ）、ty（上へ）
+export function startFly(t) {
+  const x = Math.max(0, Math.min(1, t / START_FLY_TIME));
+  const e = x * x * (3 - 2 * x);
+  const mix = (a, b) => a + (b - a) * e;
+  return {
+    d: mix(FLY_FROM, -CAM_BACK),
+    lat: FLY_SIDE * Math.sin(Math.PI * e),
+    y: mix(3, CAM_HEIGHT) + FLY_UP * Math.sin(Math.PI * e),
+    td: mix(0, CAM_AHEAD),
+    ty: mix(1.5, CAM_LOOK_Y),
+  };
+}
+
+// スタートの前のカメラ。終わりの位置は走るときのカメラと同じなので、そのまま走るときのカメラにつながる
+export function updateStartCamera(camera, kart, t) {
+  const f = startFly(t);
+  const fx = Math.cos(kart.heading);
+  const fz = Math.sin(kart.heading);
+  camera.fov = FOV_BASE;
+  camera.updateProjectionMatrix();
+  camera.position.set(kart.x + fx * f.d - fz * f.lat, kart.y + f.y, kart.z + fz * f.d + fx * f.lat);
+  camera.lookAt(kart.x + fx * f.td, kart.y + f.ty, kart.z + fz * f.td);
+  // 走るときのカメラが、ここから続けて動くように
+  const st = camera.userData;
+  st.h = kart.heading;
+  st.fov = FOV_BASE;
+  st.pos = camera.position.clone();
+  st.placed = true;
+}
+
 // ゴールのあと: 後ろから横を回って前へ、この秒数でゆっくり回り、前で止まる（2026-10-14 のユーザー依頼）
 export const FINISH_ORBIT_TIME = 4;
 const FINISH_DIST = 5.5; // 前で止まったとき、車の何m前（頭にぶつからず、車とキャラ全体が入る）

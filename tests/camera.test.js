@@ -34,3 +34,22 @@ test('ゴールのあと: カメラは後ろから、ゆっくり横を回って
   assert.equal(mid.ahead, 0, '横から見るときは、車を真ん中に');
   for (let t = 0; t <= FINISH_ORBIT_TIME; t += 0.1) assert.ok(finishOrbit(t).dist >= 5, '頭にぶつかるほど近づかない');
 });
+
+test('スタートの前: カメラはコースの前から、正面を向いた車たちの上を通って回り、走るときのカメラの位置で止まる（2026-10-14 のユーザー依頼）', async () => {
+  const { startFly, START_FLY_TIME, CAM_BACK } = await import('../src/render/scene.js');
+  const first = startFly(0);
+  assert.ok(first.d > 20, '最初は車たちの前');
+  assert.ok(first.td < first.d, '最初は後ろ（車たちの顔）を見る');
+  let over = false;
+  for (let t = 0; t <= START_FLY_TIME; t += 0.02) {
+    const f = startFly(t);
+    if (Math.abs(f.d) < 3 && f.y > 5) over = true;
+    // 真下を見ない（向きが急に変わらない）: カメラと見る所は、横から見て3m以上はなれている
+    assert.ok(Math.hypot(f.td - f.d, f.lat) > 3, `t=${t.toFixed(2)}`);
+  }
+  assert.ok(over, '自分の車の上を通る');
+  const end = startFly(START_FLY_TIME);
+  assert.ok(START_FLY_TIME >= 3 && START_FLY_TIME <= 5);
+  assert.ok(Math.abs(end.d + CAM_BACK) < 1e-9 && Math.abs(end.lat) < 1e-9 && Math.abs(end.y - CAM_HEIGHT) < 1e-9, '走るときのカメラの位置');
+  assert.deepEqual(startFly(START_FLY_TIME + 5), end, '止まる');
+});
