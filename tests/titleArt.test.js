@@ -34,3 +34,14 @@ test('顔のアイコンは、丸の真ん中に顔（目と口のあたり）�
     assert.equal(w, h, '正方形');
   }
 });
+
+test('Kyugo の舌と歯は、口の形で切り抜く（口からはみ出さない）。切り抜きの id は絵ごとにちがう（2026-10-14 の実機確認）', () => {
+  const svgs = [faceSvg('kyugo'), faceSvg('kyugo'), TITLE_ART];
+  const ids = svgs.map((s) => (s.match(/clipPath id="(kyugo-mouth[^"]*)"/) || [])[1]);
+  assert.ok(ids.every(Boolean), 'Kyugo の口の切り抜きがない');
+  assert.equal(new Set(ids).size, 3, ids.join(' '));
+  svgs.forEach((s, i) => {
+    const g = s.slice(s.indexOf(`clip-path="url(#${ids[i]})"`));
+    assert.ok(g.indexOf('#e0605a') > 0 && g.indexOf('#e0605a') < g.indexOf('</g>'), '舌が切り抜きの中にない');
+  });
+});
