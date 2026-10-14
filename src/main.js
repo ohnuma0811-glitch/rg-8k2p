@@ -1,39 +1,39 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=ed66b62';
-import { startLoop } from './loop.js?v=ed66b62';
-import { COURSE1 } from './data/tracks.js?v=ed66b62';
-import { buildTrack } from './game/track.js?v=ed66b62';
-import { createKart, stepKart, startDash } from './game/kart.js?v=ed66b62';
-import { kartParams } from './game/stats.js?v=ed66b62';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=ed66b62';
-import { pushApart, newBumps } from './game/collide.js?v=ed66b62';
+import * as THREE from '../vendor/three.module.min.js?v=aba8629';
+import { startLoop } from './loop.js?v=aba8629';
+import { COURSE1 } from './data/tracks.js?v=aba8629';
+import { buildTrack } from './game/track.js?v=aba8629';
+import { createKart, stepKart, startDash } from './game/kart.js?v=aba8629';
+import { kartParams } from './game/stats.js?v=aba8629';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=aba8629';
+import { pushApart, newBumps } from './game/collide.js?v=aba8629';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=ed66b62';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=ed66b62';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=ed66b62';
-import { createMinimap } from './render/minimap.js?v=ed66b62';
-import { grandstandSpot } from './render/trackMesh.js?v=ed66b62';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=ed66b62';
-import { faceSvg } from './titleArt.js?v=ed66b62';
-import { createEffects } from './render/effects.js?v=ed66b62';
-import { nextQuality, pixelRatio } from './render/quality.js?v=ed66b62';
-import { blendPose, poseOf } from './render/interp.js?v=ed66b62';
-import { speedText } from './hud.js?v=ed66b62';
-import { addRecent, cleanRecent } from './names.js?v=ed66b62';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=ed66b62';
-import { load, save } from './storage.js?v=ed66b62';
-import * as screens from './screens.js?v=ed66b62';
-import { createAudio } from './audio/audio.js?v=ed66b62';
-import { createSfx } from './audio/sfx.js?v=ed66b62';
-import { soundState, soundEvents, finishMusic } from './audio/events.js?v=ed66b62';
-import { createCrowd } from './audio/crowd.js?v=ed66b62';
-import { crowdMix } from './audio/mix.js?v=ed66b62';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=ed66b62';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=ed66b62';
+} from './game/race.js?v=aba8629';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=aba8629';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=aba8629';
+import { createMinimap } from './render/minimap.js?v=aba8629';
+import { grandstandSpot } from './render/trackMesh.js?v=aba8629';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=aba8629';
+import { faceSvg } from './titleArt.js?v=aba8629';
+import { createEffects } from './render/effects.js?v=aba8629';
+import { nextQuality, pixelRatio } from './render/quality.js?v=aba8629';
+import { blendPose, poseOf } from './render/interp.js?v=aba8629';
+import { speedText } from './hud.js?v=aba8629';
+import { addRecent, cleanRecent } from './names.js?v=aba8629';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=aba8629';
+import { load, save } from './storage.js?v=aba8629';
+import * as screens from './screens.js?v=aba8629';
+import { createAudio } from './audio/audio.js?v=aba8629';
+import { createSfx } from './audio/sfx.js?v=aba8629';
+import { soundState, soundEvents, finishMusic } from './audio/events.js?v=aba8629';
+import { createCrowd } from './audio/crowd.js?v=aba8629';
+import { crowdMix } from './audio/mix.js?v=aba8629';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=aba8629';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=aba8629';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'ed66b62';
+const VERSION = 'aba8629';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
@@ -54,6 +54,14 @@ const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に�
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
 const $ = (id) => document.getElementById(id);
+// 画面を暗くする・明るくする（to: 1 で真っ黒、0 で元どおり）。FADE_SEC 秒かけて変え、終わったら次へ
+const FADE_SEC = 0.8;
+function fade(to) {
+  const el = $('fade');
+  el.style.transition = `opacity ${FADE_SEC}s`;
+  el.style.opacity = String(to);
+  return new Promise((r) => setTimeout(r, FADE_SEC * 1000));
+}
 // 画面の文字は、変わったときだけ書きかえる（毎フレーム書くと、ブラウザが毎回並べ直して重い）
 function setText(el, text) {
   if (el.textContent !== text) el.textContent = text;
@@ -359,12 +367,16 @@ async function runRace(name, charId, cup) {
     game.onEnd = resolve;
   });
   commitPlay();
-  raceHud.classList.remove('show');
   if (why === 'title') {
+    raceHud.classList.remove('show');
     removeGame();
     placeButtons();
     return 'title';
   }
+  // ゴールのあと結果の画面へは、画面をだんだん暗く・曲をだんだん小さくしてから切りかえる（急に切りかわらないように）
+  music.stop(FADE_SEC);
+  await fade(1);
+  raceHud.classList.remove('show');
   const g = game;
   const rows = resultRows(g);
   addRace(cup, ranking(g.race, track));
@@ -372,10 +384,12 @@ async function runRace(name, charId, cup) {
   placeButtons();
   // そのレースの結果 → 大会の順位（合計ポイント）
   music.play('results');
-  const first = await screens.results(menu, rows, label, [
+  const shown = screens.results(menu, rows, label, [
     { id: 'next', label: 'NEXT ▶' },
     { id: 'title', label: '⌂ TITLE' },
   ]);
+  fade(0); // 結果の画面を出してから、だんだん明るく
+  const first = await shown;
   if (first === 'title') return 'title';
   const over = isOver(cup);
   const table = standings(cup).map((k, n) => ({
