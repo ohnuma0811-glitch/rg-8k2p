@@ -1,4 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
+import { locate } from '../game/track.js';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -6,10 +7,23 @@ export const LAND_LEAD = 0.08;
 // 壁の音は、この秒数以上壁から離れていたあとにぶつかったときだけ鳴らす
 // （壁にこすりながら走ると、ついたり離れたりをくり返して鳴り続けた: 2026-10-15 の実機確認）
 export const WALL_QUIET = 0.5;
+// ジャンプ台で叫ぶ声は、飛び出すこの秒数前に鳴らし始める（2026-10-15 の実機確認「飛び出す直前くらいに」）
+export const JUMP_LEAD = 0.3;
+
+// もうすぐジャンプ台から飛び出す（いまの速さのまま JUMP_LEAD 秒進んだ所に地面がない）
+export function jumpAhead(track, kart, lead = JUMP_LEAD) {
+  if (kart.airborne || !(kart.speed > 0)) return false;
+  // 逆走で、着地する側のふちへ向かっているときは飛ばない（ふちで止まる）ので鳴らさない
+  const here = locate(track, kart.x, kart.z, kart.seg);
+  if (Math.cos(kart.move - here.heading) <= 0) return false;
+  const d = kart.speed * lead;
+  return locate(track, kart.x + Math.cos(kart.move) * d, kart.z + Math.sin(kart.move) * d, kart.seg).ground === null;
+}
 
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity }) {
+// jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false }) {
   return {
     count,
     lap,
@@ -24,6 +38,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     onWall: kart.onWall,
     bumps,
     wallQuiet,
+    jumpSoon,
   };
 }
 
@@ -42,7 +57,10 @@ export function soundEvents(prev, cur, laps) {
   if (cur.lap > prev.lap && !cur.finished) ev.push(cur.lap === laps - 1 ? 'finalLap' : 'lap');
   if (cur.finished && !prev.finished) ev.push('finish');
   if (cur.hop && !prev.hop) ev.push('hop');
-  if (cur.airborne && !prev.airborne) ev.push('jump'); // ジャンプ台から飛び出した（ドリフトの跳ねは airborne にならない）
+  // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
+  // （ドリフトの跳ねは airborne にならない）
+  if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');
+  else if (cur.airborne && !prev.airborne && !prev.jumpSoon) ev.push('jump');
   if (cur.drift && !prev.drift) ev.push('driftStart');
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');

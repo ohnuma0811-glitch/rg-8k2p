@@ -101,3 +101,35 @@ test('ジャンプ台から飛び出した瞬間に jump（「イヤッホー！
   assert.deepEqual(soundEvents(st({}, { airborne: true, y: 1, vy: 4 }), st({}, { airborne: true, y: 1.3, vy: 3 }), 3), []);
   assert.deepEqual(soundEvents(st(), st({}, { hop: 0.1 }), 3), ['hop']);
 });
+
+test('飛び出す少し前（JUMP_LEAD 秒前）に jump。そのまま飛び出しても、もう一度は鳴らさない（2026-10-15 の実機確認「直前くらいに」）', async () => {
+  const { JUMP_LEAD, jumpAhead } = await import('../src/audio/events.js');
+  const { buildTrack } = await import('../src/game/track.js');
+  const { COURSE1 } = await import('../src/data/tracks.js');
+  assert.equal(JUMP_LEAD, 0.3);
+  const course = buildTrack(COURSE1);
+  const n = course.samples.length;
+  // 地面がなくなる所の、dist m 手前で、コースの向きに speed m/s で走っている車
+  const at = (dist, o = {}) => {
+    const s = course.cross.sA + COURSE1.jump.gap.from - dist;
+    const i = ((Math.round(s) % n) + n) % n;
+    const p = course.samples[i];
+    return { x: p.x, z: p.z, seg: i, move: p.h, speed: 40, airborne: false, ...o };
+  };
+  assert.equal(jumpAhead(course, at(40 * 0.2)), true); // 0.2秒後に飛び出す
+  assert.equal(jumpAhead(course, at(40 * 0.6)), false); // まだ 0.6秒ある
+  assert.equal(jumpAhead(course, at(40 * 0.2, { airborne: true })), false);
+  assert.equal(jumpAhead(course, at(40 * 0.2, { speed: 0 })), false);
+  // 逆走して、着地する側から地面のない所へ向かっている: 飛ばないので鳴らさない
+  const back = (() => {
+    const s = course.cross.sA + COURSE1.jump.gap.to + 40 * 0.2;
+    const i = ((Math.round(s) % n) + n) % n;
+    const p = course.samples[i];
+    return { x: p.x, z: p.z, seg: i, move: p.h + Math.PI, speed: 40, airborne: false };
+  })();
+  assert.equal(jumpAhead(course, back), false);
+  // 鳴らすのは「もうすぐ飛ぶ」に変わったときの1回だけ
+  const soon = st({ jumpSoon: true });
+  assert.deepEqual(soundEvents(st(), soon, 3), ['jump']);
+  assert.deepEqual(soundEvents(soon, st({ jumpSoon: false }, { airborne: true, y: 0, vy: 5 }), 3), []);
+});
