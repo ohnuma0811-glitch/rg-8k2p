@@ -10,6 +10,7 @@ import { createKartModel, syncKartModel } from './render/models.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
 import { blendPose, poseOf } from './render/interp.js';
+import { speedText } from './hud.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
@@ -17,6 +18,8 @@ const canvas = document.getElementById('game');
 const hud = document.getElementById('hud');
 const rotate = document.getElementById('rotate');
 const speedLines = document.getElementById('speed-lines');
+const speedo = document.getElementById('speedo');
+const speedNum = speedo.querySelector('.num');
 const probe = document.getElementById('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
 const els = Object.fromEntries(BUTTONS.map((n) => [n, document.getElementById(`btn-${n}`)]));
@@ -124,6 +127,8 @@ startLoop({
     // 画面の端を流れる線は、加速中だけ
     speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
     renderer.render(scene, camera);
-    hud.textContent = `${fps}fps  ${Math.round(Math.abs(kart.speed) * 3.6)}km/h  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
+    speedNum.textContent = speedText(kart.speed);
+    speedo.classList.toggle('boost', kart.boost > 0);
+    hud.textContent = `${fps}fps  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
   },
 });

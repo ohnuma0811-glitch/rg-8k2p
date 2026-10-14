@@ -57,15 +57,59 @@ html, body {
 .btn.hidden {
   display: none;
 }
+/* 確かめ用の小さな表示（fps・版番号）。画面の下の真ん中 */
 #hud {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 6px);
-  left: calc(env(safe-area-inset-left) + 8px);
+  bottom: calc(env(safe-area-inset-bottom) + 4px);
+  left: 50%;
   z-index: 3;
-  color: #fff;
-  font: bold 14px ui-monospace, monospace;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.75);
+  font: bold 11px ui-monospace, monospace;
   text-shadow: 0 1px 2px #000;
+  white-space: pre;
   pointer-events: none;
+}
+/* 左上の大きなデジタルスピード計。うしろにうっすら「888」を出して、デジタル時計のように見せる */
+#speedo {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: calc(env(safe-area-inset-left) + 12px);
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: end;
+  padding: 4px 12px 6px;
+  border-radius: 12px;
+  background: rgba(10, 20, 30, 0.55);
+  pointer-events: none;
+  font: italic 900 clamp(40px, 11vh, 76px) / 1 ui-monospace, "Courier New", monospace;
+  letter-spacing: 0.04em;
+}
+#speedo .ghost,
+#speedo .num {
+  grid-row: 1;
+  grid-column: 1;
+  white-space: pre;
+}
+#speedo .ghost {
+  color: rgba(120, 255, 170, 0.12);
+}
+#speedo .num {
+  color: #7dffb0;
+  text-shadow: 0 0 10px rgba(125, 255, 176, 0.8);
+}
+#speedo.boost .num {
+  color: #ffd84a;
+  text-shadow: 0 0 12px rgba(255, 216, 74, 0.9);
+}
+#speedo .unit {
+  grid-row: 1;
+  grid-column: 2;
+  margin-left: 6px;
+  color: #cfe;
+  font-size: 0.28em;
+  font-style: normal;
 }
 #menu {
   position: fixed;
