@@ -133,12 +133,28 @@ function head(look) {
     brim.rotation.z = -0.18;
     brim.userData.cap = 'brim';
     g.add(brim);
-    // てっぺんのボタンと、正面の白い丸いマーク
+    // てっぺんのボタン
     g.add(ball(0.045, 0xa51b12, -0.02, 0.06 + R * 1.12, 0, 8));
-    const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.012, 16), mat(WHITE));
-    mark.position.set(R * 0.93, 0.3, 0);
-    mark.rotation.z = Math.PI / 2 - 0.55; // 帽子の前の面に沿わせる
-    g.add(mark);
+    // 正面の白い文字「A」（2026-10-15 のユーザー依頼）: 左右のななめの線と、真ん中の横線
+    // 文字は前（+x）を向いた面に書き、帽子の丸みに沿うよう少し上を向ける
+    const LH = 0.16; // 文字の高さ
+    const LW = 0.13; // 文字の幅（足元）
+    const ST = 0.03; // 線の太さ
+    const leg = Math.hypot(LH, LW / 2);
+    const slant = Math.atan2(LW / 2, LH);
+    const letter = new THREE.Group();
+    for (const side of [-1, 1]) {
+      const stroke = box(0.015, leg, ST, WHITE, 0, 0, (side * LW) / 4);
+      stroke.rotation.x = -side * slant; // 足元が外へ広がり、上で合わさる
+      letter.add(stroke);
+    }
+    letter.add(box(0.015, ST * 0.8, LW * 0.45, WHITE, 0, -LH * 0.12, 0));
+    const UP = 0.54; // 帽子の前の面の傾き（約31°上向き）
+    const CR = R * 1.12 + 0.012; // 帽子の面より少しだけ外
+    letter.position.set(-0.02 + Math.cos(UP) * CR, 0.06 + Math.sin(UP) * CR, 0);
+    letter.rotation.z = UP;
+    letter.userData.capLetter = 'A';
+    g.add(letter);
   }
   return g;
 }

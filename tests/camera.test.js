@@ -126,3 +126,25 @@ test('Soki は赤い野球帽をかぶる: 頭をおおう赤い帽子と、顔�
   });
   assert.equal(strands, 0, '毛の束はやめた');
 });
+
+test('Soki の帽子の正面は、白い丸ではなく白い文字「A」（2026-10-15 のユーザー依頼）', () => {
+  const model = createKartModel({ character: 'soki' });
+  model.updateMatrixWorld(true);
+  let letter = null;
+  let whiteDisc = 0;
+  let head = null;
+  model.traverse((o) => {
+    if (o.userData.capLetter) letter = o;
+    if (o.isMesh && o.geometry.type === 'CylinderGeometry' && o.material.color.getHex() === 0xffffff) whiteDisc++;
+    if (o.isMesh && o.geometry.type === 'SphereGeometry' && Math.abs(o.geometry.parameters.radius - 0.42) < 1e-6) head = o;
+  });
+  assert.equal(letter && letter.userData.capLetter, 'A');
+  assert.equal(whiteDisc, 0, '白い丸はやめた');
+  const strokes = letter.children.filter((c) => c.isMesh);
+  assert.equal(strokes.length, 3, '「A」は線3本');
+  assert.ok(strokes.every((c) => c.material.color.getHex() === 0xffffff), '白');
+  // 帽子の前（顔の上）にある
+  const a = new THREE.Box3().setFromObject(letter).getCenter(new THREE.Vector3());
+  const h = new THREE.Box3().setFromObject(head);
+  assert.ok(a.x > (h.min.x + h.max.x) / 2 && a.y > (h.min.y + h.max.y) / 2, '帽子の前の上の方');
+});
