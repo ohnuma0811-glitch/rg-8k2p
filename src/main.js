@@ -1,39 +1,39 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=cd956e0';
-import { startLoop } from './loop.js?v=cd956e0';
-import { COURSE1 } from './data/tracks.js?v=cd956e0';
-import { buildTrack } from './game/track.js?v=cd956e0';
-import { createKart, stepKart, startDash } from './game/kart.js?v=cd956e0';
-import { kartParams } from './game/stats.js?v=cd956e0';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=cd956e0';
-import { pushApart, newBumps } from './game/collide.js?v=cd956e0';
+import * as THREE from '../vendor/three.module.min.js?v=ee5a8c1';
+import { startLoop } from './loop.js?v=ee5a8c1';
+import { COURSE1 } from './data/tracks.js?v=ee5a8c1';
+import { buildTrack } from './game/track.js?v=ee5a8c1';
+import { createKart, stepKart, startDash } from './game/kart.js?v=ee5a8c1';
+import { kartParams } from './game/stats.js?v=ee5a8c1';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=ee5a8c1';
+import { pushApart, newBumps } from './game/collide.js?v=ee5a8c1';
 import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=cd956e0';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=cd956e0';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=cd956e0';
-import { createMinimap } from './render/minimap.js?v=cd956e0';
-import { grandstandSpot } from './render/trackMesh.js?v=cd956e0';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=cd956e0';
-import { faceSvg } from './titleArt.js?v=cd956e0';
-import { createEffects } from './render/effects.js?v=cd956e0';
-import { nextQuality, pixelRatio } from './render/quality.js?v=cd956e0';
-import { blendPose, poseOf } from './render/interp.js?v=cd956e0';
-import { speedText } from './hud.js?v=cd956e0';
-import { addRecent, cleanRecent } from './names.js?v=cd956e0';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=cd956e0';
-import { load, save } from './storage.js?v=cd956e0';
-import * as screens from './screens.js?v=cd956e0';
-import { createAudio } from './audio/audio.js?v=cd956e0';
-import { createSfx } from './audio/sfx.js?v=cd956e0';
-import { soundState, soundEvents } from './audio/events.js?v=cd956e0';
-import { createCrowd } from './audio/crowd.js?v=cd956e0';
-import { crowdMix } from './audio/mix.js?v=cd956e0';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=cd956e0';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=cd956e0';
+} from './game/race.js?v=ee5a8c1';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=ee5a8c1';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=ee5a8c1';
+import { createMinimap } from './render/minimap.js?v=ee5a8c1';
+import { grandstandSpot } from './render/trackMesh.js?v=ee5a8c1';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=ee5a8c1';
+import { faceSvg } from './titleArt.js?v=ee5a8c1';
+import { createEffects } from './render/effects.js?v=ee5a8c1';
+import { nextQuality, pixelRatio } from './render/quality.js?v=ee5a8c1';
+import { blendPose, poseOf } from './render/interp.js?v=ee5a8c1';
+import { speedText } from './hud.js?v=ee5a8c1';
+import { addRecent, cleanRecent } from './names.js?v=ee5a8c1';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=ee5a8c1';
+import { load, save } from './storage.js?v=ee5a8c1';
+import * as screens from './screens.js?v=ee5a8c1';
+import { createAudio } from './audio/audio.js?v=ee5a8c1';
+import { createSfx } from './audio/sfx.js?v=ee5a8c1';
+import { soundState, soundEvents } from './audio/events.js?v=ee5a8c1';
+import { createCrowd } from './audio/crowd.js?v=ee5a8c1';
+import { crowdMix } from './audio/mix.js?v=ee5a8c1';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=ee5a8c1';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=ee5a8c1';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'cd956e0';
+const VERSION = 'ee5a8c1';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
@@ -428,15 +428,34 @@ async function seeYouTomorrow(name) {
 async function flow() {
   for (;;) {
     music.play('title'); // タイトル・名前・キャラ選びの間ずっと（同じ曲が流れていれば何もしない）
-    await screens.title(menu, audio);
-    const recent = cleanRecent(load('recent', []));
-    const name = await screens.askName(menu, recent);
-    save('recent', addRecent(recent, name));
-    if (remainingSec(playStore(), name, Date.now()) <= 0) {
-      await seeYouTomorrow(name);
-      continue;
+    // タイトル → 名前 → キャラ選び。BACK で1つ前の画面へ戻る
+    let screen = 'title';
+    let name = null;
+    let charId = null;
+    while (!charId) {
+      if (screen === 'title') {
+        await screens.title(menu, audio);
+        screen = 'name';
+      } else if (screen === 'name') {
+        const recent = cleanRecent(load('recent', []));
+        name = await screens.askName(menu, recent);
+        if (name === screens.BACK) {
+          screen = screens.prevScreen('name');
+          continue;
+        }
+        save('recent', addRecent(recent, name));
+        if (remainingSec(playStore(), name, Date.now()) <= 0) {
+          await seeYouTomorrow(name);
+          screen = 'title';
+          continue;
+        }
+        screen = 'character';
+      } else {
+        const pick = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
+        if (pick === screens.BACK) screen = screens.prevScreen('character');
+        else charId = pick;
+      }
     }
-    const charId = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
     // 大会（5レースの合計ポイントで優勝を決める）
     let cup = createCup(CPU_COUNT + 1);
     for (;;) {
