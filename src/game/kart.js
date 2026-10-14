@@ -36,7 +36,7 @@ export const PHYS = {
   WALL_FULL_ANGLE: 0.5, // この角度（rad）以上でぶつかると、WALL_KEEP まで落ちる
   WRONG_WARN: 1, // 逆向きにこの秒数走ると、逆走の警告を出す
   WRONG_CLEAR: 0.5, // 前向きにこの秒数走ると、逆走の数えを0に戻す
-  WRONG_FIX: 30, // 逆走がこの秒数続いたら、スピンして正しい向きに戻す
+  WRONG_FIX: 10, // 逆走がこの秒数続いたら、スピンして正しい向きに戻す（2026-10-14 のユーザー依頼で30秒から短く）
   SPIN_TIME: 1, // スピンしている時間（秒。ハンドルは効かない）
   FALL_Y: -2, // これより下に落ちたらコースに戻す
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
@@ -196,9 +196,23 @@ export function stepKart(kart, ctl, track, params, dt) {
   // 進む向きは、車の向きに少しずつそろう（ドリフト中はゆっくり＝外へ滑る）
   const gripRate = kart.airborne ? 0 : kart.drift.active ? PHYS.DRIFT_GRIP : PHYS.GRIP;
   kart.move = wrapAngle(kart.move + wrapAngle(kart.heading - kart.move) * Math.min(1, gripRate * dt));
+  const fromX = kart.x;
+  const fromZ = kart.z;
   kart.x += Math.cos(kart.move) * kart.speed * dt;
   kart.z += Math.sin(kart.move) * kart.speed * dt;
-  const loc = locate(track, kart.x, kart.z, kart.seg);
+  let loc = locate(track, kart.x, kart.z, kart.seg);
+  if (!kart.airborne && loc.ground === null && Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0) {
+    // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる
+    // （2026-10-14 の実機確認で、逆走して飛び越えてしまった）
+    kart.x = fromX;
+    kart.z = fromZ;
+    kart.speed = 0;
+    if (kart.drift.active) endDrift(kart, params, false);
+    kart.hop = 0;
+    loc = locate(track, kart.x, kart.z, kart.seg);
+    // 止まっていても、逆向きに進もうとしていれば逆走の時間を数える（ずっと止まったままにならないように）
+    if (Math.cos(wrapAngle(kart.heading - loc.heading)) < 0) kart.wrongTime += dt;
+  }
   kart.seg = loc.i;
   kart.surface = loc.surface;
 
@@ -256,7 +270,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   }
   kart.onWall = touching;
 
-  // 逆走: コースの向きと逆に走っている時間を数える。1秒で警告、30秒続いたらスピンして正しい向きに戻す
+  // 逆走: コースの向きと逆に走っている時間を数える。1秒で警告、10秒続いたらスピンして正しい向きに戻す
   const along = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed;
   if (along < -2) {
     kart.wrongTime += dt;

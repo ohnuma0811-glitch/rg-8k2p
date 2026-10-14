@@ -337,18 +337,6 @@ test('加速中でも、ジャンプ台から飛び出す速さは同じで、�
   assert.ok(landS > CROSS_S + J.gap.to && landS < CROSS_S + J.gap.to + 25, `${landS}`);
 });
 
-test('地面がない所にバックで入ると落ちて、2秒後に加速板の手前に戻る', () => {
-  const kart = createKart(course, indexAt(course, CROSS_S + J.gap.to + 3));
-  let fell = false;
-  run(course, kart, { ...NONE, brake: true }, 6, (k) => {
-    if (k.respawn > 0) fell = true;
-  });
-  assert.ok(fell);
-  assert.ok(kart.respawn <= 0);
-  const d = (((course.samples[kart.seg].s - CROSS_S) % course.length) + course.length) % course.length - course.length;
-  assert.ok(d < J.boost.from, `${d}`);
-});
-
 test('自動運転で2周しても、コースから落ちない。万能タイプの1周は30〜50秒', () => {
   const kart = createKart(course, course.startIndex);
   const ap = autopilot(course);
@@ -439,7 +427,7 @@ test('逆走して柵にこすっても、車がくるっと前向きに戻さ�
   assert.ok(diff < Math.PI / 2, `向きが ${(diff * 180 / Math.PI).toFixed(0)}度 変わった`);
 });
 
-// 逆走: コースと逆向きに走っているかを調べ、警告を出す。30秒続いたら、スピンして正しい向きに戻す
+// 逆走: コースと逆向きに走っているかを調べ、警告を出す。10秒続いたら、スピンして正しい向きに戻す
 function reverseAutopilot(track) {
   return (kart) => {
     const loc = locate(track, kart.x, kart.z, kart.seg);
@@ -469,18 +457,18 @@ test('コースと逆向きに1秒以上走ると、逆走の警告が出る。�
   assert.equal(kart.wrongWay, false);
 });
 
-test('逆走が30秒続くと、スピンして正しい向きに戻る（スピン中はハンドルが効かない）', () => {
+test('逆走が10秒続くと、スピンして正しい向きに戻る（スピン中はハンドルが効かない。2026-10-14 のユーザー依頼で30秒から短く）', () => {
   const kart = turnAround(OVAL, START + 300);
   const ap = reverseAutopilot(OVAL);
   let spun = false;
   let t = 0;
-  while (t < 32 && !spun) {
+  while (t < 12 && !spun) {
     stepKart(kart, ap(kart), OVAL, params, DT);
     if (kart.spin > 0) spun = true;
     t += DT;
   }
   assert.ok(spun, 'スピンしない');
-  assert.ok(t > 29 && t < 32, `${t.toFixed(1)}秒でスピン`);
+  assert.ok(t > 9.9 && t < 10.5, `${t.toFixed(1)}秒でスピン`);
   const h0 = kart.heading;
   stepKart(kart, { steer: 1, brake: false, drift: false }, OVAL, params, DT);
   run(OVAL, kart, { steer: 1, brake: false, drift: false }, PHYS.SPIN_TIME);
@@ -488,6 +476,36 @@ test('逆走が30秒続くと、スピンして正しい向きに戻る（スピ
   assert.ok(Math.cos(kart.heading - loc.heading) > 0.95, '正しい向きに戻っていない');
   assert.equal(kart.wrongWay, false);
   assert.ok(Math.abs(h0) >= 0);
+});
+
+// ジャンプ台のない側（着地する側）から、逆向きに地面のない所へ入ったとき（2026-10-14 の実機確認で、飛び越えてしまった）
+for (const [how, speed] of [['逆走して', 1], ['前を向いたままバックで', -1]]) {
+  test(`ジャンプの着地する側から、${how}地面のない所へ入っても、飛ばずにふちで止まる`, () => {
+    const i = indexAt(course, CROSS_S + J.gap.to + 25);
+    const kart = speed > 0 ? turnAround(course, i) : createKart(course, i);
+    const ctl = speed > 0 ? { steer: 0, brake: false, drift: false } : { steer: 0, brake: true, drift: false };
+    if (speed > 0) kart.speed = 30;
+    let flew = false;
+    let minS = Infinity;
+    run(course, kart, ctl, 5, (k) => {
+      if (k.airborne || k.y !== 0) flew = true;
+      const loc = locate(course, k.x, k.z, k.seg);
+      minS = Math.min(minS, ((loc.s - CROSS_S) % course.length + course.length) % course.length);
+    });
+    assert.equal(flew, false, '飛んだ');
+    assert.ok(minS >= J.gap.to - 1, `ふちを越えた（交わる所から ${minS.toFixed(1)}m）`);
+  });
+}
+
+test('逆走して、着地する側のふちで止まったまま前に進もうとし続けても、10秒でスピンして正しい向きに戻る', () => {
+  const kart = turnAround(course, indexAt(course, CROSS_S + J.gap.to + 10));
+  let t = 0;
+  while (t < 15 && kart.spin <= 0) {
+    stepKart(kart, NONE, course, params, DT);
+    t += DT;
+  }
+  assert.ok(kart.spin > 0, 'スピンしない');
+  assert.ok(t < 11, `${t.toFixed(1)}秒`);
 });
 
 test('スタートダッシュ: 止まっていても一気に速くなる。加速の数字が大きいほど長く続く', () => {
