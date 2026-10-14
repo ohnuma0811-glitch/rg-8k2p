@@ -26,7 +26,6 @@ import * as screens from './screens.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
-const GAME_NAME = 'Super Kyugo &amp; Soki Kart';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
@@ -325,7 +324,7 @@ async function seeYouTomorrow(name) {
 
 async function flow() {
   for (;;) {
-    await screens.title(menu, GAME_NAME);
+    await screens.title(menu);
     const recent = load('recent', []);
     const name = await screens.askName(menu, recent);
     save('recent', addRecent(recent, name));
