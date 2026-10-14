@@ -8,7 +8,7 @@ import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
 import {
-  LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
+  LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
@@ -49,7 +49,6 @@ const CPU_LOOKS = [
 const CPU_COUNT = 4;
 const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
 const PLAY_SAVE_EVERY = 5; // 遊んだ時間を記録する間かく（秒）
-const END_WAIT = 7; // ゴールしてから結果を出すまで（秒。カメラが前に回って、顔が見えてから）
 const TOP3_HOLD = 0.25; // 上位3人の並びは、新しい並びがこの秒数続いたら変える
 const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に、名前の札を出す
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
@@ -312,7 +311,7 @@ function stepGame(dt) {
       commitPlay();
     }
   } else if (g.endAt === null) {
-    g.endAt = race.t + END_WAIT;
+    g.endAt = race.t + RESULTS_DELAY;
   }
   // 最後にゴールしても、カメラが前に回って顔が見えるまで待つ
   if (g.endAt !== null && race.t >= g.endAt && g.onEnd) {

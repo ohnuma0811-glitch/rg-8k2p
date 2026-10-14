@@ -153,3 +153,8 @@ test('スタートから逆走して、コースの反対側（半分）まで�
   assert.equal(race.entries[0].checkpoint, false);
   assert.ok(progress(race, 0, track) < 0, `進んだ距離 ${progress(race, 0, track)}`);
 });
+
+test('ゴールしてから結果の画面が出るまで 12秒（カメラが前に回って走り続けるのを見せる。7秒から5秒のばした: 2026-10-15 のユーザー依頼）', async () => {
+  const { RESULTS_DELAY } = await import('../src/game/race.js');
+  assert.equal(RESULTS_DELAY, 12);
+});
