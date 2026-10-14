@@ -15,6 +15,11 @@ export function soundState({ count, lap, finished, kart, bumps }) {
   };
 }
 
+// ゴールしたときの音（順位で変える。2026-10-15 のユーザー依頼）: 1〜3位は明るく、4位以下はちょっと悲しく
+export function finishMusic(place) {
+  return place <= 3 ? { sfx: 'finish', song: 'victory' } : { sfx: 'finishSad', song: 'consolation' };
+}
+
 export function soundEvents(prev, cur, laps) {
   if (!prev) return [];
   const ev = [];

@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=4a155b7';
-import { engineParams } from './mix.js?v=4a155b7';
+import { midiToHz } from './notes.js?v=32ad32c';
+import { engineParams } from './mix.js?v=32ad32c';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -68,6 +68,11 @@ export function createSfx(audio) {
     finish: () => {
       arpeggio([72, 76, 79], 0.12, 0.2, 0.15);
       [84, 88, 91].forEach((m) => tone('square', midiToHz(m), 1.4, 0.1, { at: 0.36 }));
+    },
+    // ちょっと悲しいファンファーレ（4位以下）: ミ・レ・ドと下がって、ラ・ド・ミ（A マイナー）をのばす
+    finishSad: () => {
+      [76, 74, 72].forEach((m, i) => tone('triangle', midiToHz(m), 0.3, 0.18, { at: i * 0.22 }));
+      [69, 72, 76].forEach((m) => tone('triangle', midiToHz(m), 1.6, 0.12, { at: 0.7 }));
     },
     spark: () => tone('sine', 1500, 0.12, 0.12, { to: 2200 }),
     boost: () => {
