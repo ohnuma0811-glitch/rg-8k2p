@@ -13,7 +13,8 @@ import {
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
-import { createKartModel, syncKartModel } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js';
+import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
 import { blendPose, poseOf } from './render/interp.js';
@@ -33,15 +34,16 @@ const PLAYER_CHARS = [
 ];
 // CPU 4台の見た目（M3 で動物たちにする）
 const CPU_LOOKS = [
-  { name: 'CPU Blue', body: 0x2a6fdb, character: 'soki', shirt: 0x2a6fdb },
-  { name: 'CPU Green', body: 0x2fa36b, character: 'kyugo', shirt: 0x2fa36b },
-  { name: 'CPU Yellow', body: 0xf0b429, character: 'soki', shirt: 0xf0b429 },
-  { name: 'CPU Purple', body: 0x8e44ad, character: 'kyugo', shirt: 0x8e44ad },
+  { name: 'CPU1', body: 0x2a6fdb, character: 'soki', shirt: 0x2a6fdb },
+  { name: 'CPU2', body: 0x2fa36b, character: 'kyugo', shirt: 0x2fa36b },
+  { name: 'CPU3', body: 0xf0b429, character: 'soki', shirt: 0xf0b429 },
+  { name: 'CPU4', body: 0x8e44ad, character: 'kyugo', shirt: 0x8e44ad },
 ];
 const CPU_COUNT = 4;
 const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
 const PLAY_SAVE_EVERY = 5; // 遊んだ時間を記録する間かく（秒）
 const END_WAIT = 7; // ゴールしてから結果を出すまで（秒。カメラが前に回って、顔が見えてから）
+const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に、名前の札を出す
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
 const $ = (id) => document.getElementById(id);
@@ -166,6 +168,15 @@ function createGame(name, charId) {
     if (!isMe) cpuNo++;
   }
   models.forEach((m) => scene.add(m));
+  const names = karts.map((_, k) => (k === PLAYER_SLOT ? name : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1].name));
+  // 頭の上の名前の札（自分の車には付けない。画面の真ん中をふさがないように）
+  const tags = models.map((m, k) => {
+    if (k === PLAYER_SLOT) return null;
+    const look = CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1];
+    const tag = createNameTag(names[k], `#${look.body.toString(16).padStart(6, '0')}`);
+    m.add(tag);
+    return tag;
+  });
   return {
     name,
     race,
@@ -173,12 +184,13 @@ function createGame(name, charId) {
     karts,
     models,
     cpus,
-    names: karts.map((_, k) => (k === PLAYER_SLOT ? name : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1].name)),
+    names,
+    tags,
     // マップの点と、上位3人のアイコン（体の色と、キャラのしるし）
     faces: karts.map((_, k) => {
       const look = k === PLAYER_SLOT ? { body: me.body, character: me.id } : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1];
       const ch = PLAYER_CHARS.find((c) => c.id === look.character);
-      return { color: `#${look.body.toString(16).padStart(6, '0')}`, icon: ch.icon };
+      return { color: `#${look.body.toString(16).padStart(6, '0')}`, icon: ch.icon, character: ch.id };
     }),
     top3Key: '',
     me: PLAYER_SLOT,
@@ -196,6 +208,11 @@ function createGame(name, charId) {
 function removeGame() {
   if (!game) return;
   game.models.forEach((m) => scene.remove(m));
+  for (const tag of game.tags) {
+    if (!tag) continue;
+    tag.material.map.dispose();
+    tag.material.dispose();
+  }
   game = null;
 }
 
@@ -352,6 +369,10 @@ function renderGame(alpha, dt) {
     return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
+  // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
+  g.tags.forEach((tag, k) => {
+    if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
+  });
   const mine = views[g.me];
   const kart = g.karts[g.me];
   effects.update(mine, dt);
@@ -382,7 +403,7 @@ function showTop3(g, top) {
   if (key === g.top3Key) return;
   g.top3Key = key;
   top3El.innerHTML = top
-    .map((k, n) => `<li class="${k === g.me ? 'me' : ''}"><span class="place">${ordinal(n + 1)}</span><span class="face" style="background:${g.faces[k].color}">${g.faces[k].icon}</span>${g.names[k]}</li>`)
+    .map((k, n) => `<li class="${k === g.me ? 'me' : ''}"><span class="place">${ordinal(n + 1)}</span><span class="face" style="background:${g.faces[k].color}">${faceSvg(g.faces[k].character)}</span>${g.names[k]}</li>`)
     .join('');
   placeSide(); // 行の数が変わると高さが変わる
 }

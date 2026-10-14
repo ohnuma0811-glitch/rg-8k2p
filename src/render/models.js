@@ -159,3 +159,35 @@ export function syncKartModel(model, kart) {
   // ハンドルを切る向きに、頭を少しかたむける
   model.userData.head.rotation.x = kart.drift.active ? kart.drift.dir * 0.25 : 0;
 }
+
+// 名前の札（キャラの頭の上）。画面の上での大きさは、遠くても近くても同じ（遠くの車もだれか分かるように）
+const TAG_SCREEN = 0.07; // 札の高さ（画面の高さに対する割合 × 視野の広さ。だいたい画面の6%）
+export function createNameTag(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.font = 'bold 40px system-ui, sans-serif';
+  const w = Math.min(248, ctx.measureText(text).width + 36);
+  const x = (256 - w) / 2;
+  ctx.fillStyle = 'rgba(10, 20, 30, 0.7)';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 6;
+  // 角の丸い四角（roundRect は iOS 15 にないので、円弧でかく）
+  ctx.beginPath();
+  ctx.arc(x + 26, 32, 26, Math.PI / 2, (Math.PI * 3) / 2);
+  ctx.arc(x + w - 26, 32, 26, -Math.PI / 2, Math.PI / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 34, 220);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map, sizeAttenuation: false, depthWrite: false }));
+  sprite.scale.set(TAG_SCREEN * 4, TAG_SCREEN, 1);
+  sprite.position.set(-0.45, 4.3, 0); // 頭のてっぺん（約3m）の上
+  return sprite;
+}

@@ -32,8 +32,9 @@ function shirt(color, dark) {
   <path d="M78 199 Q100 222 122 199" fill="none" stroke="${dark}" stroke-width="7" stroke-linecap="round"/>`;
 }
 
-const KYUGO = `
-<svg class="hero-kid kyugo" viewBox="0 -12 200 274" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+// cls と viewBox を変えて、タイトルの大きな絵にも、レース中の顔のアイコンにも使う
+const KYUGO = (cls, box) => `
+<svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   ${shirt('#d7261b', '#9e160e')}
   ${face()}
   <path d="M36 102 L18 72 L42 70 L32 34 L60 46 L66 4 L88 36 L104 -6 L118 34 L144 8 L146 46 L178 34 L162 70 L184 78 L164 102
@@ -47,8 +48,8 @@ const KYUGO = `
   <ellipse cx="100" cy="163" rx="10" ry="4.5" fill="#e0605a"/>
 </svg>`;
 
-const SOKI = `
-<svg class="hero-kid soki" viewBox="0 -12 200 274" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+const SOKI = (cls, box) => `
+<svg class="${cls}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <clipPath id="soki-mouth"><path d="M72 142 Q100 182 128 142 Z"/></clipPath>
   </defs>
@@ -68,4 +69,12 @@ const SOKI = `
   </g>
 </svg>`;
 
-export const TITLE_ART = `<div class="hero" aria-hidden="true">${KYUGO}${SOKI}</div>`;
+const HERO_BOX = '0 -12 200 274';
+const FACE_BOX = '14 -10 172 196'; // 頭だけ
+
+export const TITLE_ART = `<div class="hero" aria-hidden="true">${KYUGO('hero-kid kyugo', HERO_BOX)}${SOKI('hero-kid soki', HERO_BOX)}</div>`;
+
+// レース中の上位3人の、顔のアイコン（character: 'kyugo' / 'soki'）
+export function faceSvg(character) {
+  return character === 'soki' ? SOKI('face-svg', FACE_BOX) : KYUGO('face-svg', FACE_BOX);
+}
