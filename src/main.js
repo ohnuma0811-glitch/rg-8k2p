@@ -1,39 +1,39 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=ee5a8c1';
-import { startLoop } from './loop.js?v=ee5a8c1';
-import { COURSE1 } from './data/tracks.js?v=ee5a8c1';
-import { buildTrack } from './game/track.js?v=ee5a8c1';
-import { createKart, stepKart, startDash } from './game/kart.js?v=ee5a8c1';
-import { kartParams } from './game/stats.js?v=ee5a8c1';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=ee5a8c1';
-import { pushApart, newBumps } from './game/collide.js?v=ee5a8c1';
+import * as THREE from '../vendor/three.module.min.js?v=424a200';
+import { startLoop } from './loop.js?v=424a200';
+import { COURSE1 } from './data/tracks.js?v=424a200';
+import { buildTrack } from './game/track.js?v=424a200';
+import { createKart, stepKart, startDash } from './game/kart.js?v=424a200';
+import { kartParams } from './game/stats.js?v=424a200';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=424a200';
+import { pushApart, newBumps } from './game/collide.js?v=424a200';
 import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=ee5a8c1';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=ee5a8c1';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=ee5a8c1';
-import { createMinimap } from './render/minimap.js?v=ee5a8c1';
-import { grandstandSpot } from './render/trackMesh.js?v=ee5a8c1';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=ee5a8c1';
-import { faceSvg } from './titleArt.js?v=ee5a8c1';
-import { createEffects } from './render/effects.js?v=ee5a8c1';
-import { nextQuality, pixelRatio } from './render/quality.js?v=ee5a8c1';
-import { blendPose, poseOf } from './render/interp.js?v=ee5a8c1';
-import { speedText } from './hud.js?v=ee5a8c1';
-import { addRecent, cleanRecent } from './names.js?v=ee5a8c1';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=ee5a8c1';
-import { load, save } from './storage.js?v=ee5a8c1';
-import * as screens from './screens.js?v=ee5a8c1';
-import { createAudio } from './audio/audio.js?v=ee5a8c1';
-import { createSfx } from './audio/sfx.js?v=ee5a8c1';
-import { soundState, soundEvents } from './audio/events.js?v=ee5a8c1';
-import { createCrowd } from './audio/crowd.js?v=ee5a8c1';
-import { crowdMix } from './audio/mix.js?v=ee5a8c1';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=ee5a8c1';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=ee5a8c1';
+} from './game/race.js?v=424a200';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=424a200';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=424a200';
+import { createMinimap } from './render/minimap.js?v=424a200';
+import { grandstandSpot } from './render/trackMesh.js?v=424a200';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=424a200';
+import { faceSvg } from './titleArt.js?v=424a200';
+import { createEffects } from './render/effects.js?v=424a200';
+import { nextQuality, pixelRatio } from './render/quality.js?v=424a200';
+import { blendPose, poseOf } from './render/interp.js?v=424a200';
+import { speedText } from './hud.js?v=424a200';
+import { addRecent, cleanRecent } from './names.js?v=424a200';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=424a200';
+import { load, save } from './storage.js?v=424a200';
+import * as screens from './screens.js?v=424a200';
+import { createAudio } from './audio/audio.js?v=424a200';
+import { createSfx } from './audio/sfx.js?v=424a200';
+import { soundState, soundEvents } from './audio/events.js?v=424a200';
+import { createCrowd } from './audio/crowd.js?v=424a200';
+import { crowdMix } from './audio/mix.js?v=424a200';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=424a200';
+import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js?v=424a200';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'ee5a8c1';
+const VERSION = '424a200';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
@@ -342,6 +342,8 @@ function resultRows(g) {
 // 大会の1レース。'next'（次へ）、'title'（タイトルへ）、'newcup'（新しい大会）を返す
 async function runRace(name, charId, cup) {
   const label = `RACE ${cup.done + 1}/${CUP_RACES}`;
+  // レースの画面に移ったら、曲（タイトル・結果）をだんだん小さくして止める。GO! でコースの曲が始まる
+  music.stop(1.5);
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
   game = createGame(name, charId);
