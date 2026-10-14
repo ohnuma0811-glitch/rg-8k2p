@@ -138,17 +138,18 @@ export async function message(root, heading, text, buttons) {
   return pick;
 }
 
+const ROW_STEP = 0.35; // 結果の行を1行ずつ出す間かく（秒）
 const POINT_STEP = 0.06; // ポイントを1つ数え上げる秒数（カウンターのように）
 const POINT_PAUSE = 0.15; // 次の順位のポイントを数え始めるまでの間（秒）
 
 // 結果: rows = [{ place: '1st', name, time: '1:12.34', points, face: { color, character }, me }]
-// ポイントは1位から順に、0 からカウンターのように数え上げる（2026-10-14 のユーザー依頼）
+// 行は下の順位から1行ずつ出し、全部出たら、ポイントを1位から順に 0 からカウンターのように数え上げる（2026-10-14 のユーザー依頼）
 export async function results(root, rows, buttons) {
   show(root, `
     <h1 class="results-title">RESULTS</h1>
     <table class="results">${rows
       .map(
-        (r) => `<tr class="${r.me ? 'me' : ''}">
+        (r) => `<tr class="row-wait ${r.me ? 'me' : ''}">
           <td class="place">${r.place}</td>
           <td><span class="who"><span class="face" style="background:${r.face.color}">${faceSvg(r.face.character)}</span>${r.name}</span></td>
           <td class="time">${r.time}</td>
@@ -157,8 +158,15 @@ export async function results(root, rows, buttons) {
       .join('')}</table>
     <div class="choices">${buttons.map((b) => `<button type="button" data-pick="${b.id}">${b.label}</button>`).join('')}</div>`);
   const cells = [...root.querySelectorAll('.points')];
+  const trs = [...root.querySelectorAll('table.results tr')];
   let stopped = false;
   (async () => {
+    for (const n of revealOrder(rows.length)) {
+      if (stopped) return;
+      await wait(ROW_STEP);
+      trs[n].classList.remove('row-wait');
+      trs[n].classList.add('row-in');
+    }
     for (let n = 0; n < rows.length && !stopped; n++) {
       await wait(POINT_PAUSE);
       const num = cells[n].querySelector('.num');
@@ -173,6 +181,11 @@ export async function results(root, rows, buttons) {
   stopped = true;
   hide(root);
   return pick;
+}
+
+// 結果の行を出す順（下の順位から）
+export function revealOrder(n) {
+  return Array.from({ length: n }, (_, i) => n - 1 - i);
 }
 
 function wait(sec) {
