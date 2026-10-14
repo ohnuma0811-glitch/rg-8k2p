@@ -4,6 +4,7 @@
 export const SONGS = {
   // タイトル（名前入力・キャラ選びも）: タイトル専用の、クールで走りのある曲（A マイナー。2026-10-15 のユーザー依頼）
   title: {
+    voice: 'synth', // メロディの楽器（src/audio/music.js の LEAD_VOICES）
     bpm: 140,
     bars: 16,
     chords: ['Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'E', 'F', 'G', 'Em', 'Am', 'F', 'G', 'Am', 'E'],
@@ -16,6 +17,7 @@ export const SONGS = {
   // Kenta Circuit: マリオサーキットのような、明るくスピード感のある、テンポの良い曲（メロディはオリジナル）
   // 最後の周は1.12倍の速さで流す
   kenta: {
+    voice: 'pulse',
     bpm: 160,
     bars: 16,
     chords: ['C', 'Am', 'F', 'G', 'C', 'Am', 'F G', 'C', 'F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'G'],
@@ -27,6 +29,7 @@ export const SONGS = {
   },
   // 勝利: ゴールしたあと、カメラが前に回って顔を映している間に流す。明るくお祝い（D メジャー。2026-10-15 のユーザー依頼）
   victory: {
+    voice: 'brass',
     bpm: 150,
     bars: 8,
     chords: ['D', 'G', 'A', 'D', 'Bm', 'G', 'A', 'D'],
@@ -36,6 +39,7 @@ export const SONGS = {
   },
   // 4位以下: 少しさみしいけれど、最後は明るく「次はがんばろう」（A マイナー → C で終わる。2026-10-15 のユーザー依頼）
   consolation: {
+    voice: 'flute',
     bpm: 100,
     bars: 8,
     chords: ['Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'C'],
@@ -45,6 +49,7 @@ export const SONGS = {
   },
   // 結果: ゆったり、がんばったね
   results: {
+    voice: 'bell',
     bpm: 110,
     bars: 8,
     chords: ['C', 'G', 'Am', 'F', 'C', 'G', 'C', 'C'],
