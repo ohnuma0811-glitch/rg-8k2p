@@ -1,10 +1,15 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=7504445';
+import { locate, respawnIndex } from './track.js?v=6f4cd0e';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
+  STEER_DRAG: 0.06, // ハンドルをいっぱいに切ると、最高速がこの割合だけ落ちる
+  DRIFT_DRAG: 0.04, // ドリフト中は、最高速がこの割合だけ落ちる
+  BUMP_ROAD: 0.012, // 道のでこぼこで、最高速がこの割合だけ上下する（スピード計の数字が細かく動く）
+  BUMP_DIRT: 0.04, // ダートのでこぼこ（道より大きい）
+  ACCEL_TAPER: 0.7, // 最高速に近いほど加速が弱くなる強さ（ぴったり止まらず、少しずつ上がる）
   DRAG: 12, // 最高速より速いときに落ちる速さ（m/s²）
   BRAKE: 25, // ブレーキ（m/s²）
   REVERSE_MAX: 6, // バックの最高速（m/s）
@@ -16,8 +21,8 @@ export const PHYS = {
   HOP_TIME: 0.25, // ドリフトボタンで跳ねている時間（秒）
   HOP_HEIGHT: 0.5, // 跳ねる高さ（見た目、m）
   HOP_KEEP: 0.98, // 跳ねるたびに残る速さの割合（直線で何度も跳ねると遅くなる）
-  DRIFT_BASE: 1.09, // ドリフト中、ハンドルを切っていなくても曲がる強さ（ふつうのハンドルいっぱいの約1.1倍）
-  DRIFT_ADJ: 0.94, // ドリフト中、ハンドルで足し引きできる強さ（同じ向きにいっぱいで約2倍＝最高速で半径約20m。反対にいっぱいで、ほぼまっすぐ）
+  DRIFT_BASE: 1.04, // ドリフト中、ハンドルを切っていなくても曲がる強さ（ふつうのハンドルいっぱいの約1.1倍）
+  DRIFT_ADJ: 0.86, // ドリフト中、ハンドルで足し引きできる強さ（同じ向きにいっぱいで約2倍＝最高速で半径約20m。反対にいっぱいで、ほぼまっすぐ）
   COUNTER: 0.3, // 反対へ切った・戻したと見なすハンドルの量
   STAGE_TIME: 0.7, // ドリフトを続けて煙の色が1段進む時間（秒。1.4秒で赤）
   MT_BOOST: 1.2, // 赤で離したときのミニターボの時間（秒）
@@ -98,10 +103,17 @@ export function stepKart(kart, ctl, track, params, dt) {
     let maxV = params.topSpeed;
     if (here.surface !== 'road') maxV *= PHYS.DIRT_FACTOR;
     if (kart.boost > 0) maxV *= PHYS.BOOST_FACTOR;
+    // ハンドルを切ったりドリフトしたりすると、少し遅くなる
+    maxV *= 1 - (kart.drift.active ? PHYS.DRIFT_DRAG : PHYS.STEER_DRAG * Math.abs(steer));
+    // 路面のでこぼこで、最高速が少しずつ上下する（走っている場所で決まる。ダートは大きく）
+    const bump = here.surface === 'road' ? PHYS.BUMP_ROAD : PHYS.BUMP_DIRT;
+    maxV *= 1 + (bump * (Math.sin(here.s * 0.37) + Math.sin(here.s * 1.13 + 1.7))) / 2;
     if (ctl.brake) {
       kart.speed = Math.max(-PHYS.REVERSE_MAX, kart.speed - PHYS.BRAKE * dt);
     } else if (kart.speed < maxV) {
-      kart.speed = Math.min(maxV, kart.speed + params.accel * dt);
+      // 最高速に近いほど、加速が弱くなる
+      const taper = Math.max(0.3, 1 - PHYS.ACCEL_TAPER * (Math.max(0, kart.speed) / maxV) ** 3);
+      kart.speed = Math.min(maxV, kart.speed + params.accel * taper * dt);
     } else {
       kart.speed = Math.max(maxV, kart.speed - PHYS.DRAG * dt);
     }
