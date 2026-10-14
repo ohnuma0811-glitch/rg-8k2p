@@ -47,19 +47,43 @@ function autopilot(track) {
 const NONE = { steer: 0, brake: false, drift: false };
 const START = OVAL.samples.findIndex((p) => p.h === 0); // 楕円のコースの、長い直線の始まり
 
-test('アクセルは自動。直線で最高速まで上がり、それ以上は出ない', () => {
+test('アクセルは自動。直線で最高速の近くまで上がり、最高速を少し（でこぼこの分）しか超えない', () => {
   const kart = createKart(OVAL, START);
   run(OVAL, kart, NONE, 2);
   assert.ok(kart.speed > 10 && kart.speed < params.topSpeed);
-  run(OVAL, kart, NONE, 3);
-  assert.equal(kart.speed, params.topSpeed);
+  let max = 0;
+  run(OVAL, kart, NONE, 4, (k) => { max = Math.max(max, k.speed); });
+  assert.ok(kart.speed > params.topSpeed * 0.96, `${kart.speed}`);
+  assert.ok(max <= params.topSpeed * (1 + PHYS.BUMP_ROAD) + 1e-9, `${max}`);
 });
 
 test('ダートでは最高速が下がる', () => {
   const kart = createKart(OVAL, START, -11);
   run(OVAL, kart, NONE, 5);
   assert.equal(kart.surface, 'dirt');
-  assert.ok(Math.abs(kart.speed - params.topSpeed * PHYS.DIRT_FACTOR) < 0.01, `${kart.speed}`);
+  const want = params.topSpeed * PHYS.DIRT_FACTOR;
+  assert.ok(Math.abs(kart.speed - want) < want * 0.08, `${kart.speed}`);
+});
+
+// スピード計の数字が細かく動くように、速さは一定にならない（2026-10-14 の実機確認）
+function cruise(track, lateral, ctl, seconds) {
+  const kart = createKart(track, track === OVAL ? START : WIDE_START, lateral);
+  run(track, kart, NONE, 5);
+  const speeds = [];
+  run(track, kart, ctl, seconds, (k) => speeds.push(k.speed));
+  return speeds;
+}
+const spread = (xs) => Math.max(...xs) - Math.min(...xs);
+const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+test('まっすぐ走っていても、路面のでこぼこでスピードが少しずつ上下する（一定ではない）', () => {
+  const xs = cruise(OVAL, 0, NONE, 3);
+  assert.ok(spread(xs) > 0.2, `上下の幅 ${spread(xs).toFixed(2)} m/s`);
+  assert.ok(spread(xs) < 2, `上下の幅 ${spread(xs).toFixed(2)} m/s`);
+});
+
+test('ダートでは、道よりも大きくスピードが上下する', () => {
+  assert.ok(spread(cruise(OVAL, -11, NONE, 3)) > spread(cruise(OVAL, 0, NONE, 3)));
 });
 
 test('ブレーキを押し続けると止まって、ゆっくりバックする', () => {
@@ -241,6 +265,13 @@ test('遅いときも、ふつうのハンドルは最高速のときの1.5倍�
     return (kart.heading - h) / DT;
   };
   assert.ok(rate(0.8) <= rate(4) * 1.5 + 1e-9, `${rate(0.8)} / ${rate(4)}`);
+});
+
+test('ハンドルを切って曲がっていると、まっすぐより少し（3〜8%）スピードが落ちる', () => {
+  const straight = mean(cruise(WIDE, 0, NONE, 2));
+  const turning = mean(cruise(WIDE, 0, { ...NONE, steer: 1 }, 2));
+  const drop = 1 - turning / straight;
+  assert.ok(drop >= 0.03 && drop <= 0.08, `${(drop * 100).toFixed(1)}%`);
 });
 
 test('ドリフト中、車の向きは進む向きから30〜45度くらい内側を向く', () => {
