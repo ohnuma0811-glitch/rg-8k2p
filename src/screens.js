@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=dd636f6';
-import { TITLE_ART } from './titleArt.js?v=dd636f6';
+import { typeLetter, isValidName } from './names.js?v=3c71db3';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=3c71db3';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -138,13 +138,43 @@ export async function message(root, heading, text, buttons) {
   return pick;
 }
 
-// 結果: rows = [{ place: '1st', name, time: '1:12.34', me }]
+const POINT_STEP = 0.06; // ポイントを1つ数え上げる秒数（カウンターのように）
+const POINT_PAUSE = 0.15; // 次の順位のポイントを数え始めるまでの間（秒）
+
+// 結果: rows = [{ place: '1st', name, time: '1:12.34', points, face: { color, character }, me }]
+// ポイントは1位から順に、0 からカウンターのように数え上げる（2026-10-14 のユーザー依頼）
 export async function results(root, rows, buttons) {
   show(root, `
-    <h1>Results</h1>
-    <table class="results">${rows.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${r.name}</td><td>${r.time}</td></tr>`).join('')}</table>
+    <h1 class="results-title">RESULTS</h1>
+    <table class="results">${rows
+      .map(
+        (r) => `<tr class="${r.me ? 'me' : ''}">
+          <td class="place">${r.place}</td>
+          <td><span class="who"><span class="face" style="background:${r.face.color}">${faceSvg(r.face.character)}</span>${r.name}</span></td>
+          <td class="time">${r.time}</td>
+          <td class="points"><span class="num">0</span><small>pt</small></td></tr>`,
+      )
+      .join('')}</table>
     <div class="choices">${buttons.map((b) => `<button type="button" data-pick="${b.id}">${b.label}</button>`).join('')}</div>`);
+  const cells = [...root.querySelectorAll('.points')];
+  let stopped = false;
+  (async () => {
+    for (let n = 0; n < rows.length && !stopped; n++) {
+      await wait(POINT_PAUSE);
+      const num = cells[n].querySelector('.num');
+      for (let p = 1; p <= rows[n].points && !stopped; p++) {
+        num.textContent = String(p);
+        await wait(POINT_STEP);
+      }
+      cells[n].classList.add('done'); // 数え終わったら、ぽんと大きくする
+    }
+  })();
   const pick = await waitPick(root);
+  stopped = true;
   hide(root);
   return pick;
+}
+
+function wait(sec) {
+  return new Promise((r) => setTimeout(r, sec * 1000));
 }

@@ -111,6 +111,12 @@ export function ranking(race, track) {
     });
 }
 
+// レースのポイント（1位から。2026-10-14 のユーザー依頼）。5台のレースなら5位は4ポイント
+const POINTS = [10, 8, 6, 5, 4, 3, 2, 1];
+export function racePoints(place) {
+  return POINTS[place - 1] ?? 0;
+}
+
 // 1st, 2nd, 3rd, 4th ...
 export function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd'];

@@ -1,31 +1,31 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=dd636f6';
-import { startLoop } from './loop.js?v=dd636f6';
-import { COURSE1 } from './data/tracks.js?v=dd636f6';
-import { buildTrack } from './game/track.js?v=dd636f6';
-import { createKart, stepKart, startDash } from './game/kart.js?v=dd636f6';
-import { kartParams } from './game/stats.js?v=dd636f6';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=dd636f6';
-import { pushApart } from './game/collide.js?v=dd636f6';
+import * as THREE from '../vendor/three.module.min.js?v=3c71db3';
+import { startLoop } from './loop.js?v=3c71db3';
+import { COURSE1 } from './data/tracks.js?v=3c71db3';
+import { buildTrack } from './game/track.js?v=3c71db3';
+import { createKart, stepKart, startDash } from './game/kart.js?v=3c71db3';
+import { kartParams } from './game/stats.js?v=3c71db3';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=3c71db3';
+import { pushApart } from './game/collide.js?v=3c71db3';
 import {
-  LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
-} from './game/race.js?v=dd636f6';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=dd636f6';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=dd636f6';
-import { createMinimap } from './render/minimap.js?v=dd636f6';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=dd636f6';
-import { faceSvg } from './titleArt.js?v=dd636f6';
-import { createEffects } from './render/effects.js?v=dd636f6';
-import { nextQuality, pixelRatio } from './render/quality.js?v=dd636f6';
-import { blendPose, poseOf } from './render/interp.js?v=dd636f6';
-import { speedText } from './hud.js?v=dd636f6';
-import { addRecent } from './names.js?v=dd636f6';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=dd636f6';
-import { load, save } from './storage.js?v=dd636f6';
-import * as screens from './screens.js?v=dd636f6';
+  LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
+} from './game/race.js?v=3c71db3';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=3c71db3';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=3c71db3';
+import { createMinimap } from './render/minimap.js?v=3c71db3';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=3c71db3';
+import { faceSvg } from './titleArt.js?v=3c71db3';
+import { createEffects } from './render/effects.js?v=3c71db3';
+import { nextQuality, pixelRatio } from './render/quality.js?v=3c71db3';
+import { blendPose, poseOf } from './render/interp.js?v=3c71db3';
+import { speedText } from './hud.js?v=3c71db3';
+import { addRecent } from './names.js?v=3c71db3';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=3c71db3';
+import { load, save } from './storage.js?v=3c71db3';
+import * as screens from './screens.js?v=3c71db3';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'dd636f6';
+const VERSION = '3c71db3';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
@@ -276,7 +276,14 @@ function resultRows(g) {
   return ranking(race, track).map((k, n) => {
     const e = race.entries[k];
     const est = e.finished ? e.time : race.t + (LAPS * track.length - progress(race, k, track)) / avg;
-    return { place: ordinal(n + 1), name: g.names[k], time: (e.finished ? '' : '~') + timeText(est), me: k === g.me };
+    return {
+      place: ordinal(n + 1),
+      name: g.names[k],
+      time: (e.finished ? '' : '~') + timeText(est),
+      points: racePoints(n + 1),
+      face: g.faces[k],
+      me: k === g.me,
+    };
   });
 }
 
