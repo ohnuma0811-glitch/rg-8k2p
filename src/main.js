@@ -342,6 +342,8 @@ function resultRows(g) {
 // 大会の1レース。'next'（次へ）、'title'（タイトルへ）、'newcup'（新しい大会）を返す
 async function runRace(name, charId, cup) {
   const label = `RACE ${cup.done + 1}/${CUP_RACES}`;
+  // レースの画面に移ったら、曲（タイトル・結果）をだんだん小さくして止める。GO! でコースの曲が始まる
+  music.stop(1.5);
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
   game = createGame(name, charId);

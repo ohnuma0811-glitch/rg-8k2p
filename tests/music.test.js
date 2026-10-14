@@ -59,3 +59,52 @@ test('曲が作れなくても、流す・速さを変える・止めるを呼�
   m.stop();
   assert.equal(FINAL_LAP_RATE, 1.12);
 });
+
+// Web Audio のかわり（テスト用）: 曲を流す・止める・音量の変化を覚える
+function fakeMusicContext() {
+  const log = [];
+  const ctx = {
+    currentTime: 10,
+    log,
+    createBufferSource: () => ({
+      buffer: null,
+      loop: false,
+      playbackRate: { setTargetAtTime() {} },
+      connect(n) {
+        return n;
+      },
+      start: () => log.push('start'),
+      stop: (t) => log.push(`stop@${t.toFixed(1)}`),
+    }),
+    createGain: () => ({
+      gain: {
+        setValueAtTime() {},
+        setTargetAtTime: (v, t, tc) => log.push(`gain ${v} from ${t} tc ${tc.toFixed(2)}`),
+      },
+      connect(n) {
+        return n;
+      },
+    }),
+  };
+  return ctx;
+}
+
+test('曲を止めるときは、だんだん小さくして（フェードアウト）から止める（2026-10-15 のユーザー依頼）', async () => {
+  const ctx = fakeMusicContext();
+  const audio = { ctx, musicOut: {} };
+  const m = createMusic(audio, { render: async () => ({ duration: 15 }) });
+  await m.play('title');
+  assert.ok(ctx.log.includes('start'));
+  m.stop(1.5);
+  assert.ok(ctx.log.some((l) => l.startsWith('gain 0 from 10')), 'だんだん小さくする');
+  assert.ok(ctx.log.includes('stop@11.6'), '小さくなってから止める');
+  // もう一度止めても何もしない
+  const n = ctx.log.length;
+  m.stop();
+  assert.equal(ctx.log.length, n);
+});
+
+test('タイトルの曲は、タイトル専用（どのコースの曲ともちがう）', () => {
+  assert.notEqual(SONGS.title, SONGS.kenta);
+  assert.notEqual(SONGS.title.lead, SONGS.results.lead);
+});
