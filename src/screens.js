@@ -24,23 +24,29 @@ function waitPick(root) {
   });
 }
 
-// タイトル: SOLO / VERSUS。VERSUS はまだ「準備中」
+// タイトルで選べる遊び方（2026-10-14 のユーザー依頼）。ready でないものは「準備中」と出す
+export const MODES = [
+  { id: 'solo', label: 'SOLO RACE', icon: '🏁', sub: '1 player + 4 CPU', ready: true },
+  { id: 'timetrial', label: 'TIME TRIAL', icon: '⏱️', sub: 'Practice alone · 3 laps', ready: false },
+  { id: 'versus', label: 'VS RACE', icon: '👥', sub: '2〜8 players', ready: false },
+  { id: 'battle', label: 'BATTLE', icon: '🎈', sub: '3 hits and you are out', ready: false },
+];
+
+// タイトル: 遊び方を選ぶ（2×2 に並べる）。選んだ遊び方の id を返す
 export async function title(root, gameName) {
   for (;;) {
     show(root, `
       <h1 class="title">${gameName}</h1>
-      <div class="choices">
-        <button type="button" data-pick="solo"><span class="icon">🏁</span>SOLO<small>1 player + 4 CPU</small></button>
-        <button type="button" data-pick="versus"><span class="icon">👥</span>VERSUS<small>2〜8 players</small></button>
-      </div>
+      <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small></button>`).join('')}</div>
       <p class="note"></p>`);
     root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
     const pick = await waitPick(root);
-    if (pick === 'solo') {
+    const mode = MODES.find((m) => m.id === pick);
+    if (mode.ready) {
       hide(root);
-      return 'solo';
+      return mode.id;
     }
-    root.querySelector('.note').textContent = 'VERSUS is coming soon!';
+    root.querySelector('.note').textContent = `${mode.label} is coming soon!`;
     await new Promise((r) => setTimeout(r, 1500));
   }
 }

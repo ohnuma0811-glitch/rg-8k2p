@@ -209,6 +209,21 @@ html, body {
   color: #fff;
   font: bold 20px system-ui, sans-serif;
 }
+/* タイトルの4つの遊び方は 2×2（左右の Kyugo と Soki の絵が見えるように） */
+#menu .choices.modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 190px));
+  gap: 10px;
+  justify-content: center;
+}
+#menu .choices.modes button {
+  padding: 8px 12px;
+  gap: 2px;
+  min-width: 0;
+}
+#menu .choices.modes .icon {
+  font-size: 26px;
+}
 #menu .choices button small {
   font-size: 13px;
   font-weight: normal;
