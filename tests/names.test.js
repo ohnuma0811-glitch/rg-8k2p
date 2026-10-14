@@ -26,3 +26,10 @@ test('最近の名前は、新しいものが先頭で、同じ名前は1つだ�
   assert.deepEqual(addRecent(list, 'D'), ['D', 'F', 'E', 'C', 'B']);
   assert.deepEqual(addRecent(list, 'bad'), list);
 });
+
+test('保存してある「最近の名前」が壊れていても使えるように、正しい名前だけを残す（レビューの指摘）', async () => {
+  const { cleanRecent } = await import('../src/names.js');
+  assert.deepEqual(cleanRecent(['KYUGO', '<b>x</b>', 'soki', 'SOKI', 3]), ['KYUGO', 'SOKI']);
+  assert.deepEqual(cleanRecent('KYUGO'), []);
+  assert.deepEqual(cleanRecent(null), []);
+});

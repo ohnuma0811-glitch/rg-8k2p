@@ -19,7 +19,7 @@ import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
 import { blendPose, poseOf } from './render/interp.js';
 import { speedText } from './hud.js';
-import { addRecent } from './names.js';
+import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
@@ -48,6 +48,10 @@ const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に�
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
 const $ = (id) => document.getElementById(id);
+// 画面の文字は、変わったときだけ書きかえる（毎フレーム書くと、ブラウザが毎回並べ直して重い）
+function setText(el, text) {
+  if (el.textContent !== text) el.textContent = text;
+}
 const canvas = $('game');
 const hud = $('hud');
 const rotate = $('rotate');
@@ -122,6 +126,7 @@ function placeSide() {
   const item = layout.item;
   if (controls.mode !== 'keyboard' && top + sideEl.offsetHeight > item.y - item.r - 6) right = w - (item.x - item.r) + 8;
   sideEl.style.right = `${right}px`;
+  minimap.resize();
 }
 
 function resize() {
@@ -147,6 +152,7 @@ function commitPlay() {
   if (!game || game.playSec <= 0) return;
   save('playtime', addPlay(playStore(), game.name, Date.now(), game.playSec));
   game.playSec = 0;
+  game.leftBase = remainingSec(playStore(), game.name, Date.now());
 }
 
 // ---- レース ----
@@ -198,6 +204,8 @@ function createGame(name, charId) {
     prev: karts.map(poseOf),
     contacts: new Set(),
     playSec: 0,
+    // 残り時間（秒）。保存してある記録を読むのは、レースの最初と記録したときだけ（毎フレーム読むと重い）
+    leftBase: remainingSec(playStore(), name, Date.now()),
     sinceSave: 0,
     driftWas: false,
     endAt: null,
@@ -209,7 +217,13 @@ function createGame(name, charId) {
 
 function removeGame() {
   if (!game) return;
-  game.models.forEach((m) => scene.remove(m));
+  game.models.forEach((m) => {
+    scene.remove(m);
+    // 形（geometry）は車ごとに作っているので消す。材質（material）は使い回しているので消さない
+    m.traverse((o) => {
+      if (o.geometry && !o.isSprite) o.geometry.dispose();
+    });
+  });
   for (const tag of game.tags) {
     if (!tag) continue;
     tag.material.map.dispose();
@@ -331,9 +345,13 @@ async function runRace(name, charId, cup) {
     face: g.faces[k],
     me: k === g.me,
   }));
-  return screens.standings(menu, table, label, over, over
-    ? [{ id: 'newcup', label: '↻ NEW CUP' }, { id: 'title', label: '⌂ TITLE' }]
-    : [{ id: 'next', label: `▶ RACE ${cup.done + 1}/${CUP_RACES}` }, { id: 'title', label: '⌂ TITLE' }]);
+  // 遊べる時間が終わっていたら、次のレースには進めない（OK のあと「See you tomorrow!」）
+  const timeUp = remainingSec(playStore(), name, Date.now()) <= 0;
+  let buttons;
+  if (timeUp) buttons = [{ id: 'title', label: 'OK' }];
+  else if (over) buttons = [{ id: 'newcup', label: '↻ NEW CUP' }, { id: 'title', label: '⌂ TITLE' }];
+  else buttons = [{ id: 'next', label: `▶ RACE ${cup.done + 1}/${CUP_RACES}` }, { id: 'title', label: '⌂ TITLE' }];
+  return screens.standings(menu, table, label, over, buttons);
 }
 
 // 一時停止（SOLO だけ）: つづける / タイトルへ
@@ -360,7 +378,7 @@ async function seeYouTomorrow(name) {
 async function flow() {
   for (;;) {
     await screens.title(menu);
-    const recent = load('recent', []);
+    const recent = cleanRecent(load('recent', []));
     const name = await screens.askName(menu, recent);
     save('recent', addRecent(recent, name));
     if (remainingSec(playStore(), name, Date.now()) <= 0) {
@@ -424,17 +442,16 @@ function renderGame(alpha, dt) {
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 表示
-  speedNum.textContent = speedText(kart.speed);
+  setText(speedNum, speedText(kart.speed));
   speedo.classList.toggle('boost', kart.boost > 0);
-  lapEl.textContent = `LAP ${Math.min(LAPS, e.lap + 1)}/${LAPS}`;
-  timeEl.textContent = timeText(Math.max(0, e.finished ? e.time : race.t));
+  setText(lapEl, `LAP ${Math.min(LAPS, e.lap + 1)}/${LAPS}`);
+  setText(timeEl, timeText(Math.max(0, e.finished ? e.time : race.t)));
   const order = ranking(race, track);
-  rankEl.textContent = ordinal(order.indexOf(g.me) + 1);
-  countEl.textContent = flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race);
+  setText(rankEl, ordinal(order.indexOf(g.me) + 1));
+  setText(countEl, flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race));
   minimap.draw(views.map((v, k) => ({ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me })));
   showTop3(g, order.slice(0, 3), dt);
-  const left = remainingSec(playStore(), g.name, Date.now()) - g.playSec;
-  leftEl.textContent = remainingText(Math.max(0, left));
+  setText(leftEl, remainingText(Math.max(0, g.leftBase - g.playSec)));
   return { mine, kart };
 }
 
@@ -518,7 +535,7 @@ startLoop({
       wrongWayEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
     }
     speedo.classList.toggle('hidden', !game);
-    hud.textContent = `${fps}fps  ${controls.mode}  v:${VERSION}`;
+    setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}`);
   },
 });
 

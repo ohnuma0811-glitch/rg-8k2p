@@ -69,7 +69,9 @@ export function updateProgress(race, k, track, seg) {
   const L = track.length;
   const start = track.samples[track.startIndex].s;
   const rel = (((track.samples[seg].s - start) % L) + L) % L;
-  if (rel > 0.4 * L && rel < 0.6 * L) e.checkpoint = true;
+  // その周の半分（コースの反対側）を、前向きに通ったときだけ数える（逆走で戻っても数えない）
+  const forward = e.rel !== null && rel >= e.rel && rel - e.rel < 0.1 * L;
+  if (forward && rel > 0.4 * L && rel < 0.6 * L) e.checkpoint = true;
   if (e.rel !== null) {
     if (e.rel > 0.8 * L && rel < 0.2 * L && e.checkpoint) {
       // スタートラインを前向きに越えた（その周の半分を通っていれば、1周）

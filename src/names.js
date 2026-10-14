@@ -12,6 +12,11 @@ export function typeLetter(name, letter) {
   return name + letter;
 }
 
+// 保存してある「最近の名前」から、正しい名前だけを残す（壊れていても止まらないように）
+export function cleanRecent(value) {
+  return Array.isArray(value) ? value.filter(isValidName).slice(0, RECENT_MAX) : [];
+}
+
 export function addRecent(list, name) {
   if (!isValidName(name)) return list;
   return [name, ...list.filter((n) => n !== name)].slice(0, RECENT_MAX);

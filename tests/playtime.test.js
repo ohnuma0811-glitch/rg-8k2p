@@ -45,3 +45,13 @@ test('残り時間の表示: 1分以上は分、1分を切ったら秒', () => {
   assert.equal(remainingText(44.2), 'Today: 45 sec left');
   assert.equal(remainingText(Infinity), '');
 });
+
+test('保存してある遊んだ時間が壊れていても（null や数字）、止まらずに 0 分使ったことにする（レビューの指摘）', async () => {
+  const { usedSec } = await import('../src/playtime.js');
+  const now = Date.now();
+  assert.equal(usedSec(null, 'KYUGO', now), 0);
+  assert.equal(usedSec(5, 'KYUGO', now), 0);
+  assert.equal(remainingSec(null, 'KYUGO', now), 20 * 60);
+  const after = addPlay(null, 'KYUGO', now, 30);
+  assert.equal(usedSec(after, 'KYUGO', now), 30);
+});

@@ -142,3 +142,14 @@ test('ポイント: 1位から 10, 8, 6, 5, 4, 3, 2, 1。5台なら5位は4ポ�
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(racePoints), [10, 8, 6, 5, 4, 3, 2, 1]);
   assert.equal(racePoints(5), 4, '5台のレースの5位');
 });
+
+test('スタートから逆走して、コースの反対側（半分）まで戻っても、その周の半分を通ったことにしない（レビューの指摘）', () => {
+  const race = createRace(1);
+  race.t = 0;
+  race.phase = 'racing';
+  updateProgress(race, 0, track, at(-6));
+  // 逆向きに、1周の45%ほど戻る
+  for (let s = -6; s > -0.45 * track.length; s -= 5) updateProgress(race, 0, track, at(s));
+  assert.equal(race.entries[0].checkpoint, false);
+  assert.ok(progress(race, 0, track) < 0, `進んだ距離 ${progress(race, 0, track)}`);
+});

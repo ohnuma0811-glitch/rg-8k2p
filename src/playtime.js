@@ -16,8 +16,13 @@ export function isLimited(name) {
 }
 
 // 使った秒数。store は { 日付: { 名前: 秒 } }
+// 保存してあるものが壊れていても（null や数字）止まらないように、空として扱う
+function okStore(store) {
+  return store && typeof store === 'object' ? store : {};
+}
+
 export function usedSec(store, name, nowMs) {
-  return store[dayKey(nowMs)]?.[name] ?? 0;
+  return okStore(store)[dayKey(nowMs)]?.[name] ?? 0;
 }
 
 // 残りの秒数。制限のない名前は Infinity
@@ -28,9 +33,9 @@ export function remainingSec(store, name, nowMs, limitMin = DEFAULT_LIMIT_MIN) {
 
 // 遊んだ秒数を足す（制限のない名前は記録しない）。古い日の記録は消す
 export function addPlay(store, name, nowMs, sec) {
-  if (!isLimited(name) || sec <= 0) return store;
+  if (!isLimited(name) || sec <= 0) return okStore(store);
   const key = dayKey(nowMs);
-  const today = { ...(store[key] ?? {}) };
+  const today = { ...(okStore(store)[key] ?? {}) };
   today[name] = (today[name] ?? 0) + sec;
   return { [key]: today };
 }
