@@ -95,3 +95,9 @@ test('壁の音は、ぶつかった最初だけ。壁にこすりながら走�
   // こすっている途中で一瞬離れて、またついた（離れていたのは 0.1秒）: 鳴らさない
   assert.deepEqual(soundEvents(st({ wallQuiet: 0.1 }), st({ wallQuiet: 0 }, { onWall: true }), 3), []);
 });
+
+test('ジャンプ台から飛び出した瞬間に jump（「イヤッホー！」の声。2026-10-15 のユーザー依頼）。空中にいる間と、ドリフトの跳ねでは鳴らさない', () => {
+  assert.deepEqual(soundEvents(st(), st({}, { airborne: true, y: 0, vy: 5 }), 3), ['jump']);
+  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 1, vy: 4 }), st({}, { airborne: true, y: 1.3, vy: 3 }), 3), []);
+  assert.deepEqual(soundEvents(st(), st({}, { hop: 0.1 }), 3), ['hop']);
+});

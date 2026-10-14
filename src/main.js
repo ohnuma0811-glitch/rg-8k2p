@@ -26,6 +26,7 @@ import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { createAudio } from './audio/audio.js';
 import { createSfx } from './audio/sfx.js';
+import { createVoices } from './audio/voice.js';
 import { soundState, soundEvents, finishMusic } from './audio/events.js';
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
@@ -36,8 +37,9 @@ import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js'
 const VERSION = 'dev';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
-  { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
-  { id: 'soki', name: 'Soki', color: '#1c3c88', icon: '⭐', body: 0x1c3c88 },
+  // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
+  { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a, voice: 'male' },
+  { id: 'soki', name: 'Soki', color: '#1c3c88', icon: '⭐', body: 0x1c3c88, voice: 'male' },
 ];
 // CPU 4台の見た目（M3 で動物たちにする）
 const CPU_LOOKS = [
@@ -98,6 +100,7 @@ const minimap = createMinimap($('minimap'), track);
 const controls = new Controls();
 const audio = createAudio();
 const sfx = createSfx(audio);
+const voices = createVoices(audio);
 const crowd = createCrowd(audio);
 const music = createMusic(audio);
 // 最初のタップ・クリック・キーで音を有効にする（iPhone・Android は、さわるまで音を出せない）
@@ -110,6 +113,7 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
       audio.unlock();
       if (!first || !audio.ctx) return;
       // 曲を作るのに少し時間がかかるので、タイトルの曲から順に作っておく
+      voices.load();
       music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('victory')).then(() => music.prepare('consolation')).then(() => music.prepare('results'));
       if (!game) music.play('title');
     },
@@ -223,6 +227,7 @@ function createGame(name, charId) {
   });
   return {
     name,
+    voice: me.voice, // ジャンプ台で飛ぶときの声
     race,
     base,
     karts,
@@ -544,6 +549,7 @@ function renderGame(alpha, dt) {
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
+    else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
     else if (name !== 'finish') sfx.play(name);
     if (name === 'finalLap' || name === 'finish') crowd.excite(3);
     if (name === 'go') music.play(COURSE1.music);
