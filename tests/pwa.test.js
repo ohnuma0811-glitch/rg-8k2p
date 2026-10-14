@@ -35,8 +35,9 @@ test('index.html が manifest と iPhone 用のアイコンを読む', () => {
 
 test('公開のとき、manifest・sw・アイコンも載せ、sw の版を付ける', () => {
   const sh = read('scripts/deploy.sh').toString();
-  for (const f of ['manifest.json', 'sw.js', 'icons']) assert.ok(sh.includes(f), f);
-  assert.match(sh, /ks-kart-dev/);
+  for (const f of ['manifest.json', 'sw.js', 'icons', 'sounds']) assert.ok(sh.includes(f), f);
+  assert.match(sh, /const VERSION = 'dev';.*sw\.js/s);
+  assert.match(read('sw.js').toString(), /^const VERSION = 'dev';/m);
 });
 
 // sw.js を、ブラウザのかわりの物の中で動かす
@@ -48,6 +49,7 @@ function loadSw({ online, status = 200 }) {
     open: async () => ({ put: async (req, res) => cache.set(req.url, res) }),
     match: async (req) => cache.get(req.url),
   };
+  const waits = [];
   const fetch = async (req) => {
     if (!online) throw new Error('offline');
     return { ok: status >= 200 && status < 300, status, body: `new ${req.url}`, clone() { return this; } };
@@ -56,8 +58,10 @@ function loadSw({ online, status = 200 }) {
   new Function('self', 'caches', 'fetch', 'location', read('sw.js').toString())(self, caches, fetch, location);
   const respond = async (url, method = 'GET') => {
     let p = null;
-    handlers.fetch({ request: { url, method }, respondWith: (x) => (p = x) });
-    return p && (await p);
+    handlers.fetch({ request: { url, method }, respondWith: (x) => (p = x), waitUntil: (x) => waits.push(x) });
+    const res = p && (await p);
+    await Promise.all(waits); // 取っておくのが終わるまで、ブラウザは sw を止めない
+    return res;
   };
   return { respond, cache };
 }
@@ -88,16 +92,26 @@ test('sw: サーバーがエラー（503 など）を返したら、取ってお
   assert.equal((await sw.respond('https://example.com/new.js')).status, 503);
 });
 
-test('sw: 新しい版になったら、このゲームの古い版の取っておいたファイルを消す。ほかのゲーム（同じ GitHub の 09 のゲーム）のものは消さない', async () => {
+test('sw: 新しい版になったら、入れ物の中のほかの版のファイルだけ消す。版の付いていないファイル（index.html など）と、ほかのゲーム（同じ GitHub の 09 のゲーム）の入れ物は消さない', async () => {
+  // M5 のレビュー: 版ごとに入れ物を分けると、古い sw が取っておいた新しい版のファイルを、新しい sw が入れ物ごと消していた。
+  // 入れ物の名前が ks- で始まると、09 のゲームの sw にも消されていた
   const handlers = {};
-  const names = new Set(['ks-kart-old1', 'ks-kart-dev', 'ks-c90d32a', 'ks-kart-old2']);
+  const names = new Set(['ks-kart-old1', 'kart', 'ks-c90d32a']);
+  const entries = new Set([
+    'https://example.com/index.html',
+    'https://example.com/src/main.js?v=dev',
+    'https://example.com/src/main.js?v=old',
+    'https://example.com/sounds/yahoo-male.mp3',
+  ]);
+  const kart = { keys: async () => [...entries].map((url) => ({ url })), delete: async (req) => entries.delete(req.url) };
   const self = { addEventListener: (type, fn) => (handlers[type] = fn), skipWaiting() {}, clients: { claim: async () => {} } };
-  const caches = { keys: async () => [...names], delete: async (k) => names.delete(k) };
+  const caches = { keys: async () => [...names], delete: async (k) => names.delete(k), open: async (k) => (assert.equal(k, 'kart'), kart) };
   new Function('self', 'caches', 'fetch', 'location', read('sw.js').toString())(self, caches, null, { origin: 'https://example.com' });
   let done = null;
   handlers.activate({ waitUntil: (p) => (done = p) });
   await done;
-  assert.deepEqual([...names].sort(), ['ks-c90d32a', 'ks-kart-dev']);
+  assert.deepEqual([...names].sort(), ['kart', 'ks-c90d32a']);
+  assert.deepEqual([...entries].sort(), ['https://example.com/index.html', 'https://example.com/sounds/yahoo-male.mp3', 'https://example.com/src/main.js?v=dev']);
 });
 
 test('開いたばかり（ゲームを読みこんでいる間）は、スピード計と操作ボタンを出さない（2026-10-15 の実機確認）', () => {

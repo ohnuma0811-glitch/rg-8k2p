@@ -19,8 +19,8 @@ find src -name '*.js' -exec sed -i -E "s#(from '\.[^']+\.js)'#\1?v=$ver'#g" {} +
 sed -i -E "s#^const VERSION = 'dev';#const VERSION = '$ver';#" src/main.js
 grep -q "const VERSION = '$ver'" src/main.js
 # 端末に取っておくファイルの入れ物の名前にも版番号を付ける
-sed -i -E "s#ks-kart-dev#ks-kart-$ver#" sw.js
-grep -q "ks-kart-$ver" sw.js
+sed -i -E "s#^const VERSION = 'dev';#const VERSION = '$ver';#" sw.js
+grep -q "const VERSION = '$ver'" sw.js
 git add -A
 if git diff --cached --quiet; then
   echo "変更なし"

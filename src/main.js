@@ -27,7 +27,7 @@ import * as screens from './screens.js';
 import { createAudio } from './audio/audio.js';
 import { createSfx } from './audio/sfx.js';
 import { createVoices } from './audio/voice.js';
-import { soundState, soundEvents, finishMusic, jumpAhead } from './audio/events.js';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js';
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
 import { createMusic, FINAL_LAP_RATE } from './audio/music.js';
@@ -416,10 +416,12 @@ async function runRace(name, charId, cup) {
 
 // 一時停止（SOLO だけ）: つづける / タイトルへ
 pauseBtn.addEventListener('click', async () => {
-  if (!game || game.paused) return;
+  // ゴールして結果の画面へ移る途中（画面が暗くなっていく間）は、止めない（M5 のレビュー）
+  if (!game || game.paused || !game.onEnd) return;
   game.paused = true;
   sfx.stopAll(); // 一時停止中は、エンジン音・ドリフトの音・歓声を止める
   crowd.stop();
+  game.sound = afterPause(game.sound);
   // SOUND を押したら、一時停止のまま文字だけ変える
   let pick;
   for (;;) {

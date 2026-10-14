@@ -47,6 +47,12 @@ export function finishMusic(place) {
   return place <= 3 ? { sfx: 'finish', song: 'victory' } : { sfx: 'finishSad', song: 'consolation' };
 }
 
+// 一時停止で鳴りつづける音（ドリフトのキュルキュル）を止めたあとの「前の様子」。ドリフトしていないことにして、
+// つづけたとき、まだドリフトしていれば driftStart でまた鳴らす（M5 のレビュー: つづけたあと鳴らなかった）
+export function afterPause(state) {
+  return state && { ...state, drift: false };
+}
+
 export function soundEvents(prev, cur, laps) {
   if (!prev) return [];
   const ev = [];

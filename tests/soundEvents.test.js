@@ -133,3 +133,11 @@ test('飛び出す少し前（JUMP_LEAD 秒前）に jump。そのまま飛び�
   assert.deepEqual(soundEvents(st(), soon, 3), ['jump']);
   assert.deepEqual(soundEvents(soon, st({ jumpSoon: false }, { airborne: true, y: 0, vy: 5 }), 3), []);
 });
+
+test('一時停止で音を止めたあとは、ドリフトの途中でも「止まっている」として扱う。つづけると、ドリフトの音がまた鳴る（M5 のレビュー）', async () => {
+  const { afterPause } = await import('../src/audio/events.js');
+  const drifting = st({}, { drift: { active: true, stage: 1 } });
+  assert.deepEqual(soundEvents(drifting, drifting, 3), []); // そのままだと、つづけても鳴らない
+  assert.deepEqual(soundEvents(afterPause(drifting), drifting, 3), ['driftStart']);
+  assert.equal(afterPause(null), null);
+});
