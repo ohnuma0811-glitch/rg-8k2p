@@ -143,3 +143,13 @@ test('メロディは、拍の頭の音を強めに鳴らす（強弱で表情�
   assert.equal(lead[0].accent, true, '最初の音は拍の頭');
   assert.ok(lead.some((e) => e.accent === false), '拍の頭でない音もある');
 });
+
+test('結果の曲は、かっこいい曲（E マイナー、分厚いスーパーソウ、124 BPM・16小節）（2026-10-15 のユーザー依頼）', async () => {
+  const { LEAD_VOICES } = await import('../src/audio/music.js');
+  const r = SONGS.results;
+  assert.equal(r.voice, 'supersaw');
+  assert.ok(LEAD_VOICES.supersaw.layers.length >= 5, '音を5つ以上重ねる');
+  assert.equal(r.chords[0], 'Em');
+  assert.equal(r.bpm, 124);
+  assert.equal(r.bars, 16);
+});

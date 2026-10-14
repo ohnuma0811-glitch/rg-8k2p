@@ -54,6 +54,14 @@ const TAG_RANGE = 120; // 自分の車からこの距離（m）までの車に�
 const FINISH_TEXT = 2.5; // ゴールしてから「FINISH!」を出しておく秒数（そのあとは顔が見えるように消す）
 
 const $ = (id) => document.getElementById(id);
+// 画面を暗くする・明るくする（to: 1 で真っ黒、0 で元どおり）。FADE_SEC 秒かけて変え、終わったら次へ
+const FADE_SEC = 0.8;
+function fade(to) {
+  const el = $('fade');
+  el.style.transition = `opacity ${FADE_SEC}s`;
+  el.style.opacity = String(to);
+  return new Promise((r) => setTimeout(r, FADE_SEC * 1000));
+}
 // 画面の文字は、変わったときだけ書きかえる（毎フレーム書くと、ブラウザが毎回並べ直して重い）
 function setText(el, text) {
   if (el.textContent !== text) el.textContent = text;
@@ -359,12 +367,16 @@ async function runRace(name, charId, cup) {
     game.onEnd = resolve;
   });
   commitPlay();
-  raceHud.classList.remove('show');
   if (why === 'title') {
+    raceHud.classList.remove('show');
     removeGame();
     placeButtons();
     return 'title';
   }
+  // ゴールのあと結果の画面へは、画面をだんだん暗く・曲をだんだん小さくしてから切りかえる（急に切りかわらないように）
+  music.stop(FADE_SEC);
+  await fade(1);
+  raceHud.classList.remove('show');
   const g = game;
   const rows = resultRows(g);
   addRace(cup, ranking(g.race, track));
@@ -372,10 +384,12 @@ async function runRace(name, charId, cup) {
   placeButtons();
   // そのレースの結果 → 大会の順位（合計ポイント）
   music.play('results');
-  const first = await screens.results(menu, rows, label, [
+  const shown = screens.results(menu, rows, label, [
     { id: 'next', label: 'NEXT ▶' },
     { id: 'title', label: '⌂ TITLE' },
   ]);
+  fade(0); // 結果の画面を出してから、だんだん明るく
+  const first = await shown;
   if (first === 'title') return 'title';
   const over = isOver(cup);
   const table = standings(cup).map((k, n) => ({

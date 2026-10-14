@@ -94,7 +94,17 @@ export const LEAD_VOICES = {
     sustain: 0.85,
     release: 0.15,
   },
-  // 結果: 鉄琴ふう（ポーンと鳴って、すぐ小さくなる）
+  // 結果: スーパーソウ（ギザギザの波を5つ少しずつずらして重ねた、分厚くかっこいい音。2026-10-15 のユーザー依頼）
+  supersaw: {
+    layers: [-24, -12, 0, 12, 24].map((detune) => ({ type: 'sawtooth', detune, gain: 0.45 })),
+    gain: 0.07,
+    cutoff: { base: 2500, peak: 6000, decay: 0.2, q: 1 },
+    vibrato: 8,
+    attack: 0.01,
+    sustain: 0.8,
+    release: 0.1,
+  },
+  // 鉄琴ふう（ポーンと鳴って、すぐ小さくなる。はじめの結果の曲で使っていた）
   bell: {
     layers: [{ type: 'sine', detune: 0, gain: 1 }, { type: 'triangle', detune: 1200, gain: 0.4 }, { type: 'sine', detune: 1902, gain: 0.15 }],
     gain: 0.15,
