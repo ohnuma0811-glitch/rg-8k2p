@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.min.js';
-import { createKartModel } from '../src/render/models.js';
+import { createKartModel, CHARACTERS } from '../src/render/models.js';
 import { CAM_HEIGHT } from '../src/render/scene.js';
 
 // 地平線はカメラの目の高さに見える。カメラが頭より高ければ、まっすぐな道でキャラは地平線より下に映る
@@ -101,5 +101,20 @@ test('Soki の髪は、頭の後ろの下（耳より下）までおおう（202
   const ray = new THREE.Raycaster(center.clone().add(new THREE.Vector3(-3, -0.25, 0)), new THREE.Vector3(1, 0, 0));
   const hits = ray.intersectObject(model, true);
   assert.ok(hits.length > 0, '何にも当たらない');
-  assert.equal(hits[0].object.material.color.getHex(), 0x1a1a1a, `最初に当たったのが髪でない（${hits[0].object.material.color.getHexString()}）`);
+  assert.equal(hits[0].object.material.color.getHex(), CHARACTERS.soki.hairColor, `最初に当たったのが髪でない（${hits[0].object.material.color.getHexString()}）`);
+});
+
+test('Soki の髪は帽子に見えないように: こげ茶で、前髪は長さのちがう毛の束が並び、上につやがある（2026-10-15 の実機確認）', () => {
+  const hair = CHARACTERS.soki.hairColor;
+  assert.notEqual(hair, 0x1a1a1a, '真っ黒でない');
+  const strands = [];
+  let shine = 0;
+  createKartModel({ character: 'soki' }).traverse((o) => {
+    if (o.userData.strand === 'fringe') strands.push(o);
+    if (o.userData.shine) shine++;
+  });
+  assert.ok(strands.length >= 7, `前髪の束 ${strands.length}`);
+  assert.ok(new Set(strands.map((o) => o.scale.y.toFixed(2))).size >= 3, '長さがそろいすぎ');
+  assert.ok(strands.every((o) => o.material.color.getHex() === hair));
+  assert.ok(shine >= 1, 'つや');
 });
