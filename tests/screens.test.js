@@ -14,3 +14,7 @@ test('結果は、下の順位から1行ずつ出す（5位 → 1位。2026-10-1
   assert.deepEqual(revealOrder(5), [4, 3, 2, 1, 0]);
   assert.deepEqual(revealOrder(1), [0]);
 });
+
+test('VS RACE と BATTLE には「GAME CODE が必要」と書く（2026-10-14 のユーザー依頼）', () => {
+  assert.deepEqual(MODES.filter((m) => m.code).map((m) => m.id), ['versus', 'battle']);
+});
