@@ -1,6 +1,8 @@
 // レースの決まり: スタートの並び、カウント、スタートダッシュ、周回、順位
 export const LAPS = 3; // 周回
 export const COUNTDOWN = 3; // 3, 2, 1 のあと GO（秒）
+// ゴールしてから結果の画面を出すまでの秒数（カメラが前に回って顔を映し、そのまま走り続けるのを見せる。7秒から5秒のばした: 2026-10-15 のユーザー依頼）
+export const RESULTS_DELAY = 12;
 export const COURSE_INTRO = 3; // レースの前に、コースを回って映し、コースの名前を出す秒数
 export const DASH_FROM = -0.2; // GO の何秒前から押せばスタートダッシュになるか
 export const DASH_TO = 0.05; // GO の何秒後まで押せばスタートダッシュになるか
