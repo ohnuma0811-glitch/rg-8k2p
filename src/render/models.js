@@ -1,7 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=683bd87';
-import { PHYS } from '../game/kart.js?v=683bd87';
+import * as THREE from '../../vendor/three.module.min.js?v=4a4ecb2';
+import { PHYS } from '../game/kart.js?v=4a4ecb2';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -117,6 +117,11 @@ function head(look) {
     const bowl = new THREE.Mesh(new THREE.SphereGeometry(R * 1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(HAIR));
     bowl.position.set(-0.02, 0.06, 0);
     g.add(bowl);
+    // 後ろの下の髪: 頭の後ろ半分を、耳の下の高さまでおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）
+    // （球の向き: phi が -90°〜90° のところが頭の後ろ（-x）。theta は真上 0 から真下 180°）
+    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 16, 8, -Math.PI / 2, Math.PI, Math.PI * 0.45, Math.PI * 0.32), mat(HAIR));
+    back.position.set(-0.02, 0.06, 0);
+    g.add(back);
     g.add(box(0.12, 0.12, R * 1.9, HAIR, R * 0.82, 0.14, 0));
   }
   return g;
