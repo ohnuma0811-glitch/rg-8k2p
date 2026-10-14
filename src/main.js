@@ -1,10 +1,15 @@
-// 起動。M1 は「1人でコースを走る」だけ
+// 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
 import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSE1 } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
-import { createKart, stepKart } from './game/kart.js';
+import { createKart, stepKart, startDash } from './game/kart.js';
 import { kartParams } from './game/stats.js';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
+import { pushApart } from './game/collide.js';
+import {
+  LAPS, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
+} from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js';
 import { createKartModel, syncKartModel } from './render/models.js';
@@ -12,44 +17,62 @@ import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
 import { blendPose, poseOf } from './render/interp.js';
 import { speedText } from './hud.js';
+import { addRecent } from './names.js';
+import { remainingSec, addPlay, remainingText } from './playtime.js';
+import { load, save } from './storage.js';
+import * as screens from './screens.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
-const canvas = document.getElementById('game');
-const hud = document.getElementById('hud');
-const rotate = document.getElementById('rotate');
-const speedLines = document.getElementById('speed-lines');
-const speedo = document.getElementById('speedo');
-const wrongWayEl = document.getElementById('wrongway');
+const GAME_NAME = 'Super Kyugo &amp; Soki Kart';
+// プレイヤーが選べるキャラ（M3 で8人にする）
+const PLAYER_CHARS = [
+  { id: 'kyugo', name: 'Kyugo', color: '#c11f0a', icon: '🔥', body: 0xc11f0a },
+  { id: 'soki', name: 'Soki', color: '#1c3c88', icon: '⭐', body: 0x1c3c88 },
+];
+// CPU 4台の見た目（M3 で動物たちにする）
+const CPU_LOOKS = [
+  { name: 'CPU Blue', body: 0x2a6fdb, character: 'soki', shirt: 0x2a6fdb },
+  { name: 'CPU Green', body: 0x2fa36b, character: 'kyugo', shirt: 0x2fa36b },
+  { name: 'CPU Yellow', body: 0xf0b429, character: 'soki', shirt: 0xf0b429 },
+  { name: 'CPU Purple', body: 0x8e44ad, character: 'kyugo', shirt: 0x8e44ad },
+];
+const CPU_COUNT = 4;
+const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
+const PLAY_SAVE_EVERY = 5; // 遊んだ時間を記録する間かく（秒）
+const END_WAIT = 3; // ゴールしてから結果を出すまで（秒）
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('game');
+const hud = $('hud');
+const rotate = $('rotate');
+const speedLines = $('speed-lines');
+const speedo = $('speedo');
 const speedNum = speedo.querySelector('.num');
-const probe = document.getElementById('safe-probe');
+const wrongWayEl = $('wrongway');
+const menu = $('menu');
+const raceHud = $('race-hud');
+const lapEl = $('lap');
+const timeEl = $('race-time');
+const rankEl = $('rank');
+const countEl = $('countdown');
+const leftEl = $('time-left');
+const pauseBtn = $('btn-pause');
+const probe = $('safe-probe');
 const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
-const els = Object.fromEntries(BUTTONS.map((n) => [n, document.getElementById(`btn-${n}`)]));
+const els = Object.fromEntries(BUTTONS.map((n) => [n, $(`btn-${n}`)]));
+const dev = new Set(location.hash.slice(1).split('&'));
 
 const track = buildTrack(COURSE1);
-// 確かめ用: #jump を付けると、ジャンプ台の手前から走り出す
-const devStart = new Set(location.hash.slice(1).split('&')).has('jump')
-  ? Math.round(track.cross.sA + track.def.jump.boost.from - 25 + track.length) % track.length
-  : track.startIndex;
-const kart = createKart(track, devStart);
-// 確かめ用: #reverse を付けると、逆向きで走り出す（逆走の警告を見る）
-if (location.hash.includes('reverse')) {
-  kart.heading += Math.PI;
-  kart.move = kart.heading;
-}
-const params = kartParams({ accel: 3, top: 3, handling: 3 });
 const renderer = createRenderer(canvas);
 const { scene, camera } = createWorld(track);
-// 確かめ用: URL の後ろに #front を付けると車を前から見る、#soki を付けると Soki で走る（例: #front&soki）
-const dev = new Set(location.hash.slice(1).split('&'));
-const model = createKartModel(dev.has('soki') ? { body: 0x1c3c88, character: 'soki' } : {});
-scene.add(model);
 const effects = createEffects(scene);
 const controls = new Controls();
 // タッチできる端末はボタン、パソコンはキーボード
 controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
 let quality = 1;
 let layout;
+let game = null; // 走っているレース（タイトルなどの画面では null）
 
 function safeArea() {
   const cs = getComputedStyle(probe);
@@ -61,12 +84,16 @@ function safeArea() {
 }
 
 function placeButtons() {
+  const racing = game !== null;
   for (const n of BUTTONS) {
     const b = layout[n];
     const el = els[n];
-    el.classList.toggle('hidden', controls.mode === 'keyboard');
+    el.classList.toggle('hidden', controls.mode === 'keyboard' || !racing);
     Object.assign(el.style, { left: `${b.x - b.r}px`, top: `${b.y - b.r}px`, width: `${b.r * 2}px`, height: `${b.r * 2}px` });
   }
+  // 順位は ◀ ▶ ▼ の上（左下）
+  rankEl.style.left = `${layout.left.x - layout.left.r}px`;
+  rankEl.style.bottom = `${window.innerHeight - (layout.brake.y - layout.brake.r) + 8}px`;
 }
 
 function resize() {
@@ -81,32 +108,238 @@ function resize() {
 
 window.addEventListener('resize', resize);
 resize();
-attachControls(controls, document.getElementById('touch-layer'), () => layout);
+attachControls(controls, $('touch-layer'), () => layout);
 
+// ---- 遊べる時間 ----
+function playStore() {
+  return load('playtime', {});
+}
 
+function commitPlay() {
+  if (!game || game.playSec <= 0) return;
+  save('playtime', addPlay(playStore(), game.name, Date.now(), game.playSec));
+  game.playSec = 0;
+}
+
+// ---- レース ----
+function createGame(name, charId) {
+  const me = PLAYER_CHARS.find((c) => c.id === charId);
+  const count = CPU_COUNT + 1;
+  const race = createRace(count);
+  const base = kartParams({ accel: 3, top: 3, handling: 3 });
+  const karts = [];
+  const models = [];
+  const cpus = [];
+  let cpuNo = 0;
+  for (let k = 0; k < count; k++) {
+    const slot = gridSlot(track, k);
+    karts.push(createKart(track, slot.i, slot.lateral));
+    const isMe = k === PLAYER_SLOT;
+    const look = isMe ? { body: me.body, character: me.id } : CPU_LOOKS[cpuNo];
+    cpus.push(isMe ? createCpu(7) : createCpu(cpuNo));
+    models.push(createKartModel(look));
+    if (!isMe) cpuNo++;
+  }
+  models.forEach((m) => scene.add(m));
+  return {
+    name,
+    race,
+    base,
+    karts,
+    models,
+    cpus,
+    names: karts.map((_, k) => (k === PLAYER_SLOT ? name : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1].name)),
+    me: PLAYER_SLOT,
+    prev: karts.map(poseOf),
+    contacts: new Set(),
+    playSec: 0,
+    sinceSave: 0,
+    driftWas: false,
+    endAt: null,
+    paused: false,
+    onEnd: null,
+  };
+}
+
+function removeGame() {
+  if (!game) return;
+  game.models.forEach((m) => scene.remove(m));
+  game = null;
+}
+
+function stepGame(dt) {
+  const g = game;
+  const { race, karts, me } = g;
+  const went = raceTick(race, dt);
+  karts.forEach((kart, k) => {
+    g.prev[k] = poseOf(kart);
+  });
+  // スタートダッシュは DRIFT ボタン（押した瞬間だけ）
+  if (controls.drift && !g.driftWas) pressDash(race, me);
+  g.driftWas = controls.drift;
+  if (race.phase === 'countdown') return;
+  if (went) countEl.classList.add('go');
+  if (takeDash(race, me)) startDash(karts[me], g.base, 3);
+  const L = track.length;
+  const myProgress = progress(race, me, track);
+  karts.forEach((kart, k) => {
+    const done = race.entries[k].finished;
+    if (k === me && !done) {
+      stepKart(kart, controls, track, g.base, dt);
+    } else {
+      // CPU（ゴールしたプレイヤーの車も CPU が運転する）
+      const rubber = k === me ? 1 : rubberFactor(progress(race, k, track), myProgress, L);
+      stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber), dt);
+    }
+  });
+  g.contacts = pushApart(karts, g.contacts);
+  karts.forEach((kart, k) => updateProgress(race, k, track, kart.seg));
+  if (!race.entries[me].finished) {
+    g.playSec += dt;
+    g.sinceSave += dt;
+    if (g.sinceSave >= PLAY_SAVE_EVERY) {
+      g.sinceSave = 0;
+      commitPlay();
+    }
+  } else if (g.endAt === null) {
+    g.endAt = race.t + END_WAIT;
+  }
+  if (g.endAt !== null && (race.t >= g.endAt || race.entries.every((e) => e.finished)) && g.onEnd) {
+    const end = g.onEnd;
+    g.onEnd = null;
+    end('finish');
+  }
+}
+
+// 結果の表。まだゴールしていない車は、のこりの距離から見こみのタイム（~ を付ける）
+function resultRows(g) {
+  const { race } = g;
+  const avg = g.base.topSpeed * 0.8;
+  return ranking(race, track).map((k, n) => {
+    const e = race.entries[k];
+    const est = e.finished ? e.time : race.t + (LAPS * track.length - progress(race, k, track)) / avg;
+    return { place: ordinal(n + 1), name: g.names[k], time: (e.finished ? '' : '~') + timeText(est), me: k === g.me };
+  });
+}
+
+async function runRace(name, charId) {
+  game = createGame(name, charId);
+  camera.userData.h = undefined;
+  raceHud.classList.add('show');
+  countEl.classList.remove('go');
+  placeButtons();
+  const why = await new Promise((resolve) => {
+    game.onEnd = resolve;
+  });
+  commitPlay();
+  raceHud.classList.remove('show');
+  if (why === 'title') {
+    removeGame();
+    placeButtons();
+    return 'title';
+  }
+  const rows = resultRows(game);
+  removeGame();
+  placeButtons();
+  return screens.results(menu, rows, [
+    { id: 'again', label: '↻ RACE AGAIN' },
+    { id: 'title', label: '⌂ TITLE' },
+  ]);
+}
+
+// 一時停止（SOLO だけ）: つづける / タイトルへ
+pauseBtn.addEventListener('click', async () => {
+  if (!game || game.paused) return;
+  game.paused = true;
+  const pick = await screens.message(menu, 'Paused', '', [
+    { id: 'go', label: '▶ CONTINUE' },
+    { id: 'title', label: '⌂ TITLE' },
+  ]);
+  if (!game) return;
+  game.paused = false;
+  if (pick === 'title' && game.onEnd) {
+    const end = game.onEnd;
+    game.onEnd = null;
+    end('title');
+  }
+});
+
+async function seeYouTomorrow(name) {
+  await screens.message(menu, 'See you tomorrow!', `${name}, you played enough today.`, [{ id: 'ok', label: 'OK' }]);
+}
+
+async function flow() {
+  for (;;) {
+    await screens.title(menu, GAME_NAME);
+    const recent = load('recent', []);
+    const name = await screens.askName(menu, recent);
+    save('recent', addRecent(recent, name));
+    if (remainingSec(playStore(), name, Date.now()) <= 0) {
+      await seeYouTomorrow(name);
+      continue;
+    }
+    const charId = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
+    for (;;) {
+      const pick = await runRace(name, charId);
+      if (remainingSec(playStore(), name, Date.now()) <= 0) {
+        await seeYouTomorrow(name);
+        break;
+      }
+      if (pick !== 'again') break;
+    }
+  }
+}
+
+// ---- 描く ----
 let frames = 0;
 let fpsTime = 0;
 let fps = 60;
 let last = performance.now();
-// 確かめ用: #ramp を付けると、ジャンプ台をななめ横から見る
-function showRamp() {
-  const r = track.def.jump.ramp;
-  const mid = track.samples[Math.round(track.cross.sA + (r.from + r.to) / 2 + track.length) % track.length];
-  // ジャンプ台の真上の高い所から見下ろす
-  camera.position.set(mid.x - Math.cos(mid.h) * 5, 60, mid.z - Math.sin(mid.h) * 5);
-  camera.lookAt(mid.x, mid.y, mid.z);
-}
-
-// 逆走の警告を出す場所（キャラの頭の上）を計算するための入れ物
+let orbit = 0;
 const overHead = new THREE.Vector3();
 
-// 1つ前の計算での車の位置（描くときに、今の計算とのあいだをつなぐ）
-let prevPose = poseOf(kart);
+// タイトルなどの画面のうしろでは、コースの上をゆっくり回って見せる
+function orbitCamera(dt) {
+  orbit += dt * 0.08;
+  camera.fov = 60;
+  camera.updateProjectionMatrix();
+  camera.position.set(Math.sin(orbit) * 420, 160, Math.cos(orbit) * 420);
+  camera.lookAt(0, 0, 0);
+}
+
+function renderGame(alpha, dt) {
+  const g = game;
+  const views = g.karts.map((kart, k) => {
+    const cur = poseOf(kart);
+    const prev = g.prev[k];
+    const jumped = Math.hypot(cur.x - prev.x, cur.z - prev.z) > 10;
+    return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
+  });
+  views.forEach((v, k) => syncKartModel(g.models[k], v));
+  const mine = views[g.me];
+  const kart = g.karts[g.me];
+  effects.update(mine, dt);
+  if (dev.has('front')) updateFrontCamera(camera, mine);
+  else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
+  speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
+  // 表示
+  const { race } = g;
+  const e = race.entries[g.me];
+  speedNum.textContent = speedText(kart.speed);
+  speedo.classList.toggle('boost', kart.boost > 0);
+  lapEl.textContent = `LAP ${Math.min(LAPS, e.lap + 1)}/${LAPS}`;
+  timeEl.textContent = timeText(Math.max(0, e.finished ? e.time : race.t));
+  rankEl.textContent = ordinal(ranking(race, track).indexOf(g.me) + 1);
+  countEl.textContent = e.finished ? 'FINISH!' : countdownText(race);
+  const left = remainingSec(playStore(), g.name, Date.now()) - g.playSec;
+  leftEl.textContent = remainingText(Math.max(0, left));
+  return { mine, kart };
+}
+
 startLoop({
   update(dt) {
     controls.tick();
-    prevPose = poseOf(kart);
-    stepKart(kart, controls, track, params, dt);
+    if (game && !game.paused) stepGame(dt);
   },
   render(alpha) {
     const now = performance.now();
@@ -125,27 +358,26 @@ startLoop({
       }
     }
     for (const n of BUTTONS) els[n].classList.toggle('active', controls.touch[n]);
-    // 前の計算と今の計算のあいだに車を置く（コースに戻したときのような大きな移動はつながない）
-    const cur = poseOf(kart);
-    const jumped = Math.hypot(cur.x - prevPose.x, cur.z - prevPose.z) > 10;
-    const view = { ...kart, ...(jumped ? cur : blendPose(prevPose, cur, alpha)) };
-    syncKartModel(model, view);
-    effects.update(view, dt);
-    if (dev.has('ramp')) showRamp();
-    else if (dev.has('front')) updateFrontCamera(camera, view);
-    else updateChaseCamera(camera, view, params.topSpeed, dt);
-    // 画面の端を流れる線は、加速中だけ
-    speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
+    let wrong = false;
+    let mine = null;
+    if (game) {
+      const r = renderGame(alpha, dt);
+      mine = r.mine;
+      wrong = r.kart.wrongWay;
+    } else {
+      orbitCamera(dt);
+    }
     renderer.render(scene, camera);
     // 逆走の警告: キャラの頭の上の画面の位置に出す
-    wrongWayEl.classList.toggle('show', kart.wrongWay);
-    if (kart.wrongWay) {
-      overHead.set(view.x, view.y + 3.6, view.z).project(camera);
+    wrongWayEl.classList.toggle('show', wrong);
+    if (wrong) {
+      overHead.set(mine.x, mine.y + 3.6, mine.z).project(camera);
       wrongWayEl.style.left = `${((overHead.x + 1) / 2) * window.innerWidth}px`;
       wrongWayEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
     }
-    speedNum.textContent = speedText(kart.speed);
-    speedo.classList.toggle('boost', kart.boost > 0);
-    hud.textContent = `${fps}fps  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
+    speedo.classList.toggle('hidden', !game);
+    hud.textContent = `${fps}fps  ${controls.mode}  v:${VERSION}`;
   },
 });
+
+flow();

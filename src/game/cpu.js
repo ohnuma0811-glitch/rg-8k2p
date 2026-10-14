@@ -31,6 +31,8 @@ export function createCpu(k) {
 // プレイヤーとの差から、速さの倍率を決める（progress の差、1周の長さ L）
 export function rubberFactor(cpuProgress, playerProgress, L) {
   const diff = (playerProgress - cpuProgress) / L; // プレイヤーが前ならプラス
+  // レースの最初（まだ進んだ距離が分からない）は、そのままの速さ
+  if (!Number.isFinite(diff)) return 1;
   return 1 + Math.max(-CPU.RUBBER_MAX, Math.min(CPU.RUBBER_MAX, diff * CPU.RUBBER));
 }
 

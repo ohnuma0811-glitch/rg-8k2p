@@ -72,3 +72,10 @@ test('CPU の最高速は、キャラの数字より少し遅い（プレイヤ�
   assert.equal(p.turnRate, params.turnRate);
   assert.ok(cpuParams(params, 1.08).topSpeed > p.topSpeed);
 });
+
+test('レースの最初で、まだ進んだ距離が分からない（-Infinity）ときも、速さの倍率は 1（NaN にならない）', () => {
+  const L = track.length;
+  assert.equal(rubberFactor(-Infinity, -Infinity, L), 1);
+  assert.equal(rubberFactor(-Infinity, 100, L), 1);
+  assert.equal(rubberFactor(100, -Infinity, L), 1);
+});

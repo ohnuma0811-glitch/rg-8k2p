@@ -114,7 +114,8 @@ function driver(look) {
 // 前は +x 向き。kart.heading に合わせて rotation.y = -heading にする
 // マリオカート64 のような、低くて細いゴーカート。太いタイヤが目立ち、キャラは車に対して大きい（頭が車の幅くらい）
 const DRIVER_SCALE = 1.6;
-export function createKartModel({ body = 0xc11f0a, character = 'kyugo' } = {}) {
+// shirt を渡すと、シャツの色だけ変える（CPU の見分けに使う）
+export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } = {}) {
   const g = new THREE.Group();
   g.add(box(2.1, 0.18, 1.1, DARK, 0, 0.32, 0)); // 骨組み（低くて細い）
   g.add(box(0.7, 0.32, 1.2, body, 1.0, 0.45, 0)); // 前のカバー
@@ -138,7 +139,7 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo' } = {}) {
     g.add(hub);
     wheels.push(w);
   }
-  const d = driver(CHARACTERS[character]);
+  const d = driver(shirt === undefined ? CHARACTERS[character] : { ...CHARACTERS[character], shirt });
   d.scale.setScalar(DRIVER_SCALE);
   d.position.set(-0.45, 0.5, 0);
   g.add(d);

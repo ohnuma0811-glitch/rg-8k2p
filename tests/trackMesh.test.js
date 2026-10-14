@@ -38,3 +38,32 @@ test('コースに貼る板（スタートライン・加速板・ジャンプ�
   const ny = m.geometry.attributes.normal.getY(0);
   assert.ok(ny > 0 || m.material.side === THREE.DoubleSide, `面の向き ${ny}`);
 });
+
+test('ジャンプの着地の所の道にも、両側に柵がある', async () => {
+  const { fenceSides } = await import('../src/render/trackMesh.js');
+  const sides = fenceSides(track);
+  const j = COURSE1.jump;
+  for (let d = j.gap.to + 8; d <= j.gap.to + 30; d += 2) {
+    const i = Math.round(track.cross.sA + d);
+    assert.ok(sides[i][-1] && sides[i][1], `交わる所から${d}m 先の点${i}に柵がない`);
+  }
+});
+
+test('柵は、ほかの道の舗装の上には立たない（交わる所の下の道をふさがない）', async () => {
+  const { fenceSides } = await import('../src/render/trackMesh.js');
+  const sides = fenceSides(track);
+  for (let i = 0; i < n; i++) {
+    const p = samples[i];
+    for (const side of [-1, 1]) {
+      if (!sides[i][side]) continue;
+      const x = p.x - Math.sin(p.h) * side * p.wall;
+      const z = p.z + Math.cos(p.h) * side * p.wall;
+      for (let j = 0; j < n; j++) {
+        const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
+        const q = samples[j];
+        if (gap < 60 || q.y === null) continue;
+        assert.ok(Math.hypot(q.x - x, q.z - z) > COURSE1.roadHalf + 1, `点${i}の柵が点${j}の道の上`);
+      }
+    }
+  }
+});

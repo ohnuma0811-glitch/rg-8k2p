@@ -196,6 +196,52 @@ function grandstand(track) {
   return group;
 }
 
+// コースの点を、CELL m ごとのます目に分けておき、点 (x, z) から r m 以内の点だけを調べる（読み込みを速くする）
+const CELL = 20;
+function nearIndex(samples) {
+  const grid = new Map();
+  samples.forEach((p, i) => {
+    const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(i);
+  });
+  // (x, z) から r 以内にある点の番号を、ひとつずつ test に渡す。test が true を返したらそこで止めて true
+  return (x, z, r, test) => {
+    const span = Math.ceil(r / CELL);
+    const cx = Math.floor(x / CELL);
+    const cz = Math.floor(z / CELL);
+    for (let gx = cx - span; gx <= cx + span; gx++) {
+      for (let gz = cz - span; gz <= cz + span; gz++) {
+        for (const j of grid.get(`${gx},${gz}`) ?? []) if (test(j)) return true;
+      }
+    }
+    return false;
+  };
+}
+
+// 柵を立てられるか（点 i の左右 -1 / 1）。地面がある平らな所で、柵の位置がほかの道の舗装（＋1m）の上でなければ立てる
+// （交わる所の近くでも、下を通る道をふさがない所には柵を描く。ジャンプの着地の所も囲む）
+export function fenceSides(track) {
+  const { samples, roadHalf } = track;
+  const n = samples.length;
+  const near = nearIndex(samples);
+  return samples.map((p, i) => {
+    const ok = {};
+    for (const side of [-1, 1]) {
+      ok[side] = false;
+      if (p.y !== 0 || p.ramp) continue;
+      const x = p.x - Math.sin(p.h) * side * p.wall;
+      const z = p.z + Math.cos(p.h) * side * p.wall;
+      ok[side] = !near(x, z, roadHalf + 1, (j) => {
+        const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
+        const q = samples[j];
+        return gap >= 60 && q.y !== null && Math.hypot(q.x - x, q.z - z) <= roadHalf + 1;
+      });
+    }
+    return ok;
+  });
+}
+
 // 柵の外の高い土手（マリオカート64 のように、道の両側を高く囲む）。ほかの道・交わる所・観客席の前には作らない
 export const BANK_FROM = 3; // 柵から土手のふもとまで（m）。間に看板を立てる
 export const BANK_WIDTH = 14; // 土手の幅（m）
@@ -204,17 +250,28 @@ const BANK_HEIGHT = 7; // 土手の高さ（m）
 // 点 i の左右（-1 / 1）に土手を作れるか
 export function bankSides(track) {
   const { samples } = track;
+  const n = samples.length;
   const start = samples[track.startIndex];
-  return samples.map((p) => {
+  const fences = fenceSides(track);
+  const near = nearIndex(samples);
+  const reach = Math.max(...samples.map((q) => q.wall)) + 1;
+  // 点 (x, z) が、点 i から離れたほかの道（地面がない所も含む）の柵の内側にないか
+  const clearOfOthers = (x, z, i) => !near(x, z, reach, (j) => {
+    const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
+    const q = samples[j];
+    return gap >= 80 && Math.hypot(q.x - x, q.z - z) <= q.wall + 1;
+  });
+  return samples.map((p, i) => {
     const ok = {};
     for (const side of [-1, 1]) {
       const [rx, rz] = rightOf(p);
-      const d = p.wall + BANK_FROM + BANK_WIDTH + 2;
-      const x = p.x + rx * side * d;
-      const z = p.z + rz * side * d;
-      ok[side] = p.y === 0 && !p.noWall && !p.ramp
-        && distToTrack(samples, x, z) > p.wall + 2
-        && Math.hypot(p.x - start.x, p.z - start.z) > 40;
+      ok[side] = fences[i][side] && p.y === 0 && !p.ramp && Math.hypot(p.x - start.x, p.z - start.z) > 40;
+      // 土手のふもと・真ん中・てっぺんが、ほかの道にかからない所だけ
+      for (const off of [BANK_FROM, BANK_FROM + BANK_WIDTH / 2, BANK_FROM + BANK_WIDTH + 2]) {
+        if (!ok[side]) break;
+        const d = p.wall + off;
+        ok[side] = clearOfOthers(p.x + rx * side * d, p.z + rz * side * d, i);
+      }
     }
     return ok;
   });
@@ -324,9 +381,11 @@ export function buildTrackMesh(track) {
   group.add(ribbon(samples, -roadHalf - dirt, -roadHalf - 1, () => 0.02, flat, { color: COLORS.dirt }));
   group.add(ribbon(samples, roadHalf + 1, roadHalf + dirt, () => 0.02, flat, { color: COLORS.dirt }));
 
-  // 柵（交わる所のまわりは開ける）。ジャンプ台は道のすぐ横に側面と柵
-  const fenceOk = (p) => p.y === 0 && !p.noWall && !p.ramp;
+  // 柵（ほかの道をふさぐ所だけ開ける）。ジャンプ台は道のすぐ横に側面と柵
+  const fences = fenceSides(track);
+  const index = new Map(samples.map((p, i) => [p, i]));
   for (const side of [-1, 1]) {
+    const fenceOk = (p) => fences[index.get(p)][side];
     group.add(fence(samples, side * (roadHalf + dirt), () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
     group.add(fence(samples, side * roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
