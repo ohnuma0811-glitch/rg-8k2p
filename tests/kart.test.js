@@ -146,12 +146,23 @@ test('ドリフト中に反対へ切って戻すたびに、煙が白 → 黄 �
   assert.ok(kart.speed > params.topSpeed);
 });
 
-test('切り返さずに長くドリフトしても、煙は白のままで、離しても加速しない', () => {
+test('切り返さなくても、ドリフトを続けると煙が0.7秒で黄、1.4秒で赤になり、離すと加速する（大きなカーブで赤まで届く）', () => {
   const kart = startRightDrift();
-  run(WIDE, kart, D(0.3), 2);
+  run(WIDE, kart, D(0.3), 0.6);
   assert.equal(driftLevel(kart), 0);
+  run(WIDE, kart, D(0.3), 0.2);
+  assert.equal(driftLevel(kart), 1);
+  run(WIDE, kart, D(0.3), 0.7);
+  assert.equal(driftLevel(kart), 2);
   stepKart(kart, NONE, WIDE, params, DT);
-  assert.equal(kart.boost, 0);
+  assert.ok(kart.boost > PHYS.MT_BOOST - 0.05);
+});
+
+test('反対のボタンを押して離すだけでも、切り返し1回と数える（同じ向きに押し直さなくてよい）', () => {
+  const kart = startRightDrift();
+  run(WIDE, kart, D(-1), 0.1);
+  run(WIDE, kart, D(0), 0.05);
+  assert.equal(driftLevel(kart), 1);
 });
 
 test('黄色で離しても加速しない（赤まで待つ）', () => {
