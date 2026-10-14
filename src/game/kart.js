@@ -1,7 +1,7 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
-// 反対へ切って戻すたびに煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=4cb225e';
+// ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
+import { locate, respawnIndex } from './track.js?v=c2d83cb';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -19,6 +19,7 @@ export const PHYS = {
   DRIFT_BASE: 1.45, // ドリフト中、ハンドルを切っていなくても曲がる強さ（ふつうのハンドルいっぱいの1.45倍）
   DRIFT_ADJ: 0.58, // ドリフト中、ハンドルで足し引きできる強さ（同じ向きにいっぱいで約2倍＝最高速で半径約20m。反対へ切ると大回り）
   COUNTER: 0.3, // 反対へ切った・戻したと見なすハンドルの量
+  STAGE_TIME: 0.7, // ドリフトを続けて煙の色が1段進む時間（秒。1.4秒で赤）
   MT_BOOST: 1.2, // 赤で離したときのミニターボの時間（秒）
   PAD_BOOST: 1.0, // 加速板の加速の時間（秒）
   BOOST_FACTOR: 1.3, // 加速中の最高速の倍率
@@ -49,7 +50,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.speed = 0;
   kart.seg = i;
   kart.airborne = false;
-  kart.drift = { active: false, dir: 0, stage: 0, counter: false };
+  kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
   kart.hop = 0;
   kart.prevDrift = false;
   kart.boost = 0;
@@ -78,7 +79,7 @@ function startBoost(kart, params, time) {
 
 function endDrift(kart, params, release) {
   const lv = driftLevel(kart);
-  kart.drift = { active: false, dir: 0, stage: 0, counter: false };
+  kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
   if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST);
 }
 
@@ -114,20 +115,24 @@ export function stepKart(kart, ctl, track, params, dt) {
       if (kart.hop <= 0) {
         kart.hop = 0;
         if (ctl.drift && Math.abs(steer) > PHYS.COUNTER && kart.speed >= PHYS.DRIFT_MIN_SPEED) {
-          kart.drift = { active: true, dir: Math.sign(steer), stage: 0, counter: false };
+          kart.drift = { active: true, dir: Math.sign(steer), stage: 0, counter: false, flicks: 0, time: 0 };
         }
       }
     } else if (kart.drift.active) {
       if (!ctl.drift) endDrift(kart, params, true);
       else if (kart.speed < PHYS.DRIFT_MIN_SPEED) endDrift(kart, params, false);
       else {
-        // 反対へ切って、すぐ戻すたびに、煙の色が1つ進む（赤まで）
-        const along = steer * kart.drift.dir;
-        if (along < -PHYS.COUNTER) kart.drift.counter = true;
-        else if (along > PHYS.COUNTER && kart.drift.counter) {
-          kart.drift.counter = false;
-          kart.drift.stage = Math.min(2, kart.drift.stage + 1);
+        // 煙の色は、ドリフトを続けた時間で進む（STAGE_TIME ごとに 白 → 黄 → 赤）
+        // 反対に切って戻す（反対のボタンを押して離すだけでもよい）たびに、1段早く進む
+        const d = kart.drift;
+        d.time += dt;
+        const along = steer * d.dir;
+        if (along < -PHYS.COUNTER) d.counter = true;
+        else if (d.counter && along > -0.1) {
+          d.counter = false;
+          d.flicks += 1;
         }
+        d.stage = Math.min(2, d.flicks + Math.floor(d.time / PHYS.STAGE_TIME));
       }
     }
 
