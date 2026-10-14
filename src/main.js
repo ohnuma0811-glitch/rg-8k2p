@@ -1,0 +1,151 @@
+// 起動。M1 は「1人でコースを走る」だけ
+import * as THREE from '../vendor/three.module.min.js';
+import { startLoop } from './loop.js';
+import { COURSE1 } from './data/tracks.js';
+import { buildTrack } from './game/track.js';
+import { createKart, stepKart } from './game/kart.js';
+import { kartParams } from './game/stats.js';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera } from './render/scene.js';
+import { createKartModel, syncKartModel } from './render/models.js';
+import { createEffects } from './render/effects.js';
+import { nextQuality, pixelRatio } from './render/quality.js';
+import { blendPose, poseOf } from './render/interp.js';
+import { speedText } from './hud.js';
+
+// 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
+const VERSION = 'dev';
+const canvas = document.getElementById('game');
+const hud = document.getElementById('hud');
+const rotate = document.getElementById('rotate');
+const speedLines = document.getElementById('speed-lines');
+const speedo = document.getElementById('speedo');
+const wrongWayEl = document.getElementById('wrongway');
+const speedNum = speedo.querySelector('.num');
+const probe = document.getElementById('safe-probe');
+const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
+const els = Object.fromEntries(BUTTONS.map((n) => [n, document.getElementById(`btn-${n}`)]));
+
+const track = buildTrack(COURSE1);
+// 確かめ用: #jump を付けると、ジャンプ台の手前から走り出す
+const devStart = new Set(location.hash.slice(1).split('&')).has('jump')
+  ? Math.round(track.cross.sA + track.def.jump.boost.from - 25 + track.length) % track.length
+  : track.startIndex;
+const kart = createKart(track, devStart);
+// 確かめ用: #reverse を付けると、逆向きで走り出す（逆走の警告を見る）
+if (location.hash.includes('reverse')) {
+  kart.heading += Math.PI;
+  kart.move = kart.heading;
+}
+const params = kartParams({ accel: 3, top: 3, handling: 3 });
+const renderer = createRenderer(canvas);
+const { scene, camera } = createWorld(track);
+// 確かめ用: URL の後ろに #front を付けると車を前から見る、#soki を付けると Soki で走る（例: #front&soki）
+const dev = new Set(location.hash.slice(1).split('&'));
+const model = createKartModel(dev.has('soki') ? { body: 0x1c3c88, character: 'soki' } : {});
+scene.add(model);
+const effects = createEffects(scene);
+const controls = new Controls();
+// タッチできる端末はボタン、パソコンはキーボード
+controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
+let quality = 1;
+let layout;
+
+function safeArea() {
+  const cs = getComputedStyle(probe);
+  return {
+    left: parseFloat(cs.paddingLeft) || 0,
+    right: parseFloat(cs.paddingRight) || 0,
+    bottom: parseFloat(cs.paddingBottom) || 0,
+  };
+}
+
+function placeButtons() {
+  for (const n of BUTTONS) {
+    const b = layout[n];
+    const el = els[n];
+    el.classList.toggle('hidden', controls.mode === 'keyboard');
+    Object.assign(el.style, { left: `${b.x - b.r}px`, top: `${b.y - b.r}px`, width: `${b.r * 2}px`, height: `${b.r * 2}px` });
+  }
+}
+
+function resize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  rotate.classList.toggle('show', h > w);
+  resizeRenderer(renderer, camera, w, h, pixelRatio(window.devicePixelRatio, quality));
+  layout = computeButtonLayout(w, h, safeArea(), controls.mode);
+  controls.relayout(layout);
+  placeButtons();
+}
+
+window.addEventListener('resize', resize);
+resize();
+attachControls(controls, document.getElementById('touch-layer'), () => layout);
+
+
+let frames = 0;
+let fpsTime = 0;
+let fps = 60;
+let last = performance.now();
+// 確かめ用: #ramp を付けると、ジャンプ台をななめ横から見る
+function showRamp() {
+  const r = track.def.jump.ramp;
+  const mid = track.samples[Math.round(track.cross.sA + (r.from + r.to) / 2 + track.length) % track.length];
+  // ジャンプ台の真上の高い所から見下ろす
+  camera.position.set(mid.x - Math.cos(mid.h) * 5, 60, mid.z - Math.sin(mid.h) * 5);
+  camera.lookAt(mid.x, mid.y, mid.z);
+}
+
+// 逆走の警告を出す場所（キャラの頭の上）を計算するための入れ物
+const overHead = new THREE.Vector3();
+
+// 1つ前の計算での車の位置（描くときに、今の計算とのあいだをつなぐ）
+let prevPose = poseOf(kart);
+startLoop({
+  update(dt) {
+    controls.tick();
+    prevPose = poseOf(kart);
+    stepKart(kart, controls, track, params, dt);
+  },
+  render(alpha) {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    frames++;
+    fpsTime += dt;
+    if (fpsTime >= 2) {
+      fps = Math.round(frames / fpsTime);
+      frames = 0;
+      fpsTime = 0;
+      const q = nextQuality(quality, fps);
+      if (q !== quality) {
+        quality = q;
+        resize();
+      }
+    }
+    for (const n of BUTTONS) els[n].classList.toggle('active', controls.touch[n]);
+    // 前の計算と今の計算のあいだに車を置く（コースに戻したときのような大きな移動はつながない）
+    const cur = poseOf(kart);
+    const jumped = Math.hypot(cur.x - prevPose.x, cur.z - prevPose.z) > 10;
+    const view = { ...kart, ...(jumped ? cur : blendPose(prevPose, cur, alpha)) };
+    syncKartModel(model, view);
+    effects.update(view, dt);
+    if (dev.has('ramp')) showRamp();
+    else if (dev.has('front')) updateFrontCamera(camera, view);
+    else updateChaseCamera(camera, view, params.topSpeed, dt);
+    // 画面の端を流れる線は、加速中だけ
+    speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
+    renderer.render(scene, camera);
+    // 逆走の警告: キャラの頭の上の画面の位置に出す
+    wrongWayEl.classList.toggle('show', kart.wrongWay);
+    if (kart.wrongWay) {
+      overHead.set(view.x, view.y + 3.6, view.z).project(camera);
+      wrongWayEl.style.left = `${((overHead.x + 1) / 2) * window.innerWidth}px`;
+      wrongWayEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
+    }
+    speedNum.textContent = speedText(kart.speed);
+    speedo.classList.toggle('boost', kart.boost > 0);
+    hud.textContent = `${fps}fps  ${kart.surface}  ${controls.mode}  v:${VERSION}`;
+  },
+});

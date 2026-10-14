@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>Race Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="speed-lines"></div>
+  <div id="touch-layer"></div>
+  <div id="btn-left" class="btn">◀</div>
+  <div id="btn-right" class="btn">▶</div>
+  <div id="btn-brake" class="btn">▼</div>
+  <div id="btn-drift" class="btn">DRIFT</div>
+  <div id="btn-item" class="btn">ITEM</div>
+  <div id="speedo"><span class="ghost">888</span><span class="num">  0</span><span class="unit">km/h</span></div>
+  <div id="wrongway">↺ WRONG WAY!</div>
+  <div id="hud"></div>
+  <div id="menu"></div>
+  <div id="rotate">Turn your device</div>
+  <div id="safe-probe"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
