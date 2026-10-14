@@ -59,11 +59,24 @@ export function createSfx(audio) {
     });
   }
 
+  // 「ピロリーン」: rise の音を速く順に鳴らし、最後に top の音を hold 秒のばす（2つ少しずらして重ね、キラッと）
+  function pirorin(rise, top, hold) {
+    rise.forEach((m, i) => tone('square', midiToHz(m), 0.12, 0.12, { at: i * 0.07 }));
+    const at = rise.length * 0.07;
+    tone('square', midiToHz(top), hold, 0.12, { at });
+    tone('triangle', midiToHz(top) * 1.004, hold, 0.08, { at });
+  }
+
   const SOUNDS = {
     count: () => tone('square', 880, 0.3, 0.25),
     go: () => tone('square', 1760, 0.8, 0.25),
-    lap: () => arpeggio([79, 84], 0.12, 0.25, 0.15),
-    finalLap: () => arpeggio([72, 76, 79, 84], 0.11, 0.35, 0.15),
+    // 周回（1周目・2周目を走り終えたとき）: 「ピロリーン」。ピ・ロ・リと速く上がって、最後の音を長くのばす（2026-10-15 のユーザー依頼）
+    lap: () => pirorin([84, 88, 91], 96, 0.9),
+    // 最後の周に入るとき: 同じ「ピロリーン」を少し高く、和音で華やかに
+    finalLap: () => {
+      pirorin([86, 90, 93], 98, 1.1);
+      tone('triangle', midiToHz(94), 1.1, 0.06, { at: 0.24 });
+    },
     // ゴールのファンファーレ: ド・ミ・ソと上がって、0.36秒後に高い和音をのばす
     finish: () => {
       arpeggio([72, 76, 79], 0.12, 0.2, 0.15);

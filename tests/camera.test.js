@@ -88,3 +88,18 @@ test('レース中の Kyugo: 目の上の黒い線（2本目のまゆに見え�
     assert.equal(e.rotation.x, 0, '傾いている');
   }
 });
+
+test('Soki の髪は、頭の後ろの下（耳より下）までおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）', () => {
+  const model = createKartModel({ character: 'soki' });
+  model.updateMatrixWorld(true);
+  let head = null;
+  model.traverse((o) => {
+    if (o.isMesh && o.geometry.type === 'SphereGeometry' && Math.abs(o.geometry.parameters.radius - 0.42) < 1e-6) head = o;
+  });
+  const center = new THREE.Vector3().setFromMatrixPosition(head.matrixWorld);
+  // 頭の真後ろ（前は +x）の、耳より少し下の点に、髪があるか（そこから後ろへ線をのばして、髪に当たるか）
+  const ray = new THREE.Raycaster(center.clone().add(new THREE.Vector3(-3, -0.25, 0)), new THREE.Vector3(1, 0, 0));
+  const hits = ray.intersectObject(model, true);
+  assert.ok(hits.length > 0, '何にも当たらない');
+  assert.equal(hits[0].object.material.color.getHex(), 0x1a1a1a, `最初に当たったのが髪でない（${hits[0].object.material.color.getHexString()}）`);
+});

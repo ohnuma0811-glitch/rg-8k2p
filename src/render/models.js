@@ -117,6 +117,11 @@ function head(look) {
     const bowl = new THREE.Mesh(new THREE.SphereGeometry(R * 1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(HAIR));
     bowl.position.set(-0.02, 0.06, 0);
     g.add(bowl);
+    // 後ろの下の髪: 頭の後ろ半分を、耳の下の高さまでおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）
+    // （球の向き: phi が -90°〜90° のところが頭の後ろ（-x）。theta は真上 0 から真下 180°）
+    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 16, 8, -Math.PI / 2, Math.PI, Math.PI * 0.45, Math.PI * 0.32), mat(HAIR));
+    back.position.set(-0.02, 0.06, 0);
+    g.add(back);
     g.add(box(0.12, 0.12, R * 1.9, HAIR, R * 0.82, 0.14, 0));
   }
   return g;

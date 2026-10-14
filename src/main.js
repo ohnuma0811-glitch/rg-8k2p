@@ -610,7 +610,10 @@ startLoop({
     for (const n of BUTTONS) els[n].classList.toggle('active', controls.touch[n]);
     let wrong = false;
     let mine = null;
-    if (game) {
+    // 一時停止中は、車・タイヤ・カメラを動かさず、止めたときの画面のまま描く（2026-10-15 の実機確認）
+    if (game && game.paused) {
+      // 何もしない
+    } else if (game) {
       const r = renderGame(alpha, dt);
       mine = r.mine;
       wrong = r.kart.wrongWay;
