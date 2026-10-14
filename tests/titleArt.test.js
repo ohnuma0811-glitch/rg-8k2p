@@ -45,3 +45,12 @@ test('Kyugo の舌と歯は、口の形で切り抜く（口からはみ出さ�
     assert.ok(g.indexOf('#e0605a') > 0 && g.indexOf('#e0605a') < g.indexOf('</g>'), '舌が切り抜きの中にない');
   });
 });
+
+test('タイトルの絵の Soki も、レース中と同じ赤い野球帽（白い文字「A」）をかぶる（2026-10-15 のユーザー依頼）', () => {
+  for (const svg of [faceSvg('soki'), TITLE_ART.slice(TITLE_ART.indexOf('hero-kid soki'))]) {
+    assert.ok(svg.includes('class="cap-crown"') && svg.includes('fill="#d7261b"'), '赤い帽子');
+    assert.ok(svg.includes('class="cap-brim"'), 'つば');
+    assert.ok(svg.includes('class="cap-letter"'), '白い文字 A');
+  }
+  assert.ok(!faceSvg('kyugo').includes('cap-crown'), 'Kyugo は帽子なし');
+});

@@ -1,4 +1,4 @@
-// タイトル画面の絵: Kyugo（赤い T シャツ、ツンツン頭）と Soki（青い T シャツ、坊ちゃん刈り、前歯が1本ない）
+// タイトル画面の絵: Kyugo（赤い T シャツ、ツンツン頭）と Soki（青い T シャツ、赤い野球帽、前歯が1本ない）
 // コースが回っている前、文字のうしろに大きく出す（2026-10-14 のユーザー依頼）
 
 const SKIN = '#f6cfa6';
@@ -68,10 +68,17 @@ const SOKI = (cls, box, clip = `soki-mouth-${++clipNo}`) => `
   </defs>
   ${shirt('#2a62c9', '#173f8a')}
   ${face()}
-  <path d="M32 122 C24 52 64 28 100 28 C136 28 176 52 168 122 L158 122 L154 94 L46 94 L42 122 Z"
-        fill="#2b1d16" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M60 50 Q100 30 140 50" fill="none" stroke="#6b5040" stroke-width="6" stroke-linecap="round"/>
-  <path d="M58 104 Q74 98 88 104 M112 104 Q126 98 142 104" fill="none" stroke="#2b1d16" stroke-width="5" stroke-linecap="round"/>
+  <!-- 赤い野球帽（レース中のカートと同じ。2026-10-15 のユーザー依頼）。帽子の下から、横にこげ茶の髪がのぞく -->
+  <path d="M40 114 C35 99 39 89 48 84 L60 84 L55 114 Z M160 114 C165 99 161 89 152 84 L140 84 L145 114 Z"
+        fill="#2b1d16" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path class="cap-crown" d="M36 90 C34 44 66 24 100 24 C134 24 166 44 164 90 Q100 80 36 90 Z"
+        fill="#d7261b" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M68 36 Q100 25 132 36" fill="none" stroke="#f26b5e" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="100" cy="24" r="6" fill="#a51b12" stroke="#000" stroke-width="2"/>
+  <path class="cap-letter" d="M88 74 L100 44 L112 74 M92.5 64 L107.5 64"
+        fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="cap-brim" d="M30 90 Q100 76 170 90 Q172 100 162 102 Q100 118 38 102 Q28 100 30 90 Z"
+        fill="#b51d14" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
   ${eyes(124)}
   <path d="M72 142 Q100 182 128 142 Z" fill="#7a1f1f" stroke="${LINE}" stroke-width="3" stroke-linejoin="round"/>
   <g clip-path="url(#${clip})">
