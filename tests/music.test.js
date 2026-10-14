@@ -116,3 +116,22 @@ test('勝利の曲がある。ゴールのファンファーレのあとから�
   await m.play('victory', { delay: 1.5 });
   assert.ok(ctx.log.includes('start@11.5'), ctx.log.join(' / '));
 });
+
+test('メロディの音色は曲ごとにちがう（5曲で5つの楽器）。どの楽器も決まりがそろっている（2026-10-15 のユーザー依頼）', async () => {
+  const { LEAD_VOICES } = await import('../src/audio/music.js');
+  const used = Object.values(SONGS).map((s) => s.voice);
+  for (const v of used) assert.ok(LEAD_VOICES[v], `楽器 ${v}`);
+  assert.equal(new Set(used).size, Object.keys(SONGS).length, '曲ごとにちがう楽器');
+  for (const [name, v] of Object.entries(LEAD_VOICES)) {
+    assert.ok(v.layers.length >= 1, `${name} の音の重ね`);
+    for (const l of v.layers) assert.ok(['sine', 'square', 'sawtooth', 'triangle'].includes(l.type), `${name} の波 ${l.type}`);
+    assert.ok(v.gain > 0 && v.gain <= 0.2, `${name} の音量`);
+    assert.ok(v.vibrato >= 0 && v.vibrato <= 40, `${name} のゆれ（セント）`);
+  }
+});
+
+test('メロディは、拍の頭の音を強めに鳴らす（強弱で表情を付ける）', () => {
+  const lead = songEvents(SONGS.kenta).filter((e) => e.inst === 'lead');
+  assert.equal(lead[0].accent, true, '最初の音は拍の頭');
+  assert.ok(lead.some((e) => e.accent === false), '拍の頭でない音もある');
+});
