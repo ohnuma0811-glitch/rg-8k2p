@@ -177,6 +177,10 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.y = loc.ground;
       kart.vy = 0;
       kart.airborne = false;
+      // 空中でドリフトボタンを押してハンドルを切っていれば、着地してすぐドリフト（マリオカート64 のように）
+      if (ctl.drift && Math.abs(steer) > PHYS.COUNTER && kart.speed >= PHYS.DRIFT_MIN_SPEED) {
+        kart.drift = { active: true, dir: Math.sign(steer), stage: 0, counter: false, flicks: 0, time: 0 };
+      }
     } else if (kart.y < PHYS.FALL_Y) {
       kart.respawn = PHYS.RESPAWN_DELAY;
       kart.respawnAt = respawnIndex(track, loc.i);
@@ -186,6 +190,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   } else if (loc.ground === null) {
     // 地面がなくなった。前に走っていればジャンプ台から飛び出す（いつも同じ速さで、必ず向こう側に届く）
     kart.airborne = true;
+    kart.hop = 0; // 跳ねている途中でも、飛び出したら跳ねは終わり
     if (kart.drift.active) endDrift(kart, params, false);
     if (kart.speed > 0) {
       kart.speed = PHYS.LAUNCH_SPEED;
@@ -211,8 +216,10 @@ export function stepKart(kart, ctl, track, params, dt) {
     const out = Math.sin(wrapAngle(kart.move - loc.heading)) * side * Math.sign(kart.speed);
     if (out > 0 && !kart.airborne) {
       if (!kart.onWall) kart.speed *= 1 - (1 - PHYS.WALL_KEEP) * Math.min(1, out / Math.sin(PHYS.WALL_FULL_ANGLE));
-      kart.heading = loc.heading;
-      kart.move = loc.heading;
+      // コースの向きにそろえる。逆走しているときは逆向きにそろえる（くるっと前向きに戻さない）
+      const along = Math.cos(wrapAngle(kart.move - loc.heading)) >= 0 ? loc.heading : wrapAngle(loc.heading + Math.PI);
+      kart.heading = along;
+      kart.move = along;
     }
   }
   kart.onWall = touching;

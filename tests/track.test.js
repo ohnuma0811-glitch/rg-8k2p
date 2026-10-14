@@ -113,13 +113,14 @@ test('スタートラインは横の道の、交わる所の手前', () => {
   near(cross.sB - p.s, COURSE1.startBeforeCross, 1.5, 'スタートから交わる所まで');
 });
 
-test('きついカーブ（20mで60度以上曲がる所）はちょうど3か所で、どれも大きく（80度以上）曲がる', () => {
+// 柵は道の中心から16m。柵が折れ返らない半径（16m以上）の中で、いちばんきつい3か所
+test('きついカーブ（20mで52度以上曲がる所）はちょうど3か所で、どれも大きく（80度以上）曲がる', () => {
   const curves = [];
   let start = null;
   for (let i = 0; i < n; i++) {
     const turn = deg(wrap(samples[(i + 20) % n].h - samples[i].h));
-    if (turn >= 60 && start === null) start = i;
-    if (turn < 40 && start !== null) {
+    if (turn >= 52 && start === null) start = i;
+    if (turn < 35 && start !== null) {
       curves.push([start, i]);
       start = null;
     }
@@ -133,4 +134,15 @@ test('きついカーブ（20mで60度以上曲がる所）はちょうど3か�
 
 test('道幅はカートの長さ（約2.6m）の9倍くらい（24m）。マリオカート64 くらいの広さ', () => {
   assert.equal(COURSE1.roadHalf * 2, 24);
+});
+
+test('カーブの半径は、どこでも柵までの距離より大きい（カーブの内側で、道・柵・土手が折れ返らない）', () => {
+  for (let i = 0; i < n; i++) {
+    const a = samples[(i - 3 + n) % n];
+    const b = samples[(i + 3) % n];
+    const turn = Math.abs(wrap(b.h - a.h));
+    if (turn < 1e-6) continue;
+    const radius = 6 / turn;
+    assert.ok(radius >= samples[i].wall, `点${i}: 半径 ${radius.toFixed(1)}m < 柵まで ${samples[i].wall}m`);
+  }
 });

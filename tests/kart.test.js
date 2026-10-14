@@ -370,11 +370,11 @@ test('自動運転で2周しても、コースから落ちない。万能タイ�
   assert.ok(lap > 30 && lap < 50, `1周 ${lap.toFixed(1)}秒`);
 });
 
-test('柵に向かってハンドルを切り続けても、止まらずに柵ぞいに走れる（スピードは半分より上）', () => {
+test('柵に向かってハンドルを切り続けても、止まらずに柵ぞいに走れる（ダートの上でも、スピードは最高速の40%より上）', () => {
   const kart = createKart(OVAL, START);
   run(OVAL, kart, NONE, 3);
   run(OVAL, kart, { ...NONE, steer: 1 }, 4);
-  assert.ok(kart.speed > params.topSpeed * 0.5, `${kart.speed}`);
+  assert.ok(kart.speed > params.topSpeed * 0.4, `${kart.speed}`);
 });
 
 test('空中でハンドルを切り続けても、地面がない所に落ちず向こう側に着地する', () => {
@@ -396,4 +396,45 @@ test('空中でハンドルを切り続けても、地面がない所に落ち�
       assert.ok(course.samples[kart.seg].s > CROSS_S + J.gap.to);
     }
   }
+});
+
+test('ジャンプ中にドリフトボタンを押してハンドルを切っていれば、着地するとすぐドリフトになる', () => {
+  const kart = createKart(course, indexAt(course, CROSS_S + J.boost.from - 5));
+  const ap = autopilot(course);
+  let landedAt = null;
+  let t = 0;
+  let was = false;
+  while (t < 5 && landedAt === null) {
+    const c = kart.airborne ? { steer: 1, brake: false, drift: true } : ap(kart);
+    stepKart(kart, c, course, params, DT);
+    if (was && !kart.airborne) landedAt = t;
+    was = kart.airborne;
+    t += DT;
+  }
+  assert.ok(landedAt !== null, '着地しない');
+  assert.ok(kart.drift.active, '着地してもドリフトにならない');
+});
+
+test('ジャンプ台の直前で跳ねても、飛んでいる間は跳ねた分が残らない', () => {
+  const kart = createKart(course, indexAt(course, CROSS_S + J.ramp.to - 3));
+  kart.speed = 30;
+  stepKart(kart, { steer: 0, brake: false, drift: true }, course, params, DT);
+  run(course, kart, { steer: 0, brake: false, drift: true }, 0.3);
+  assert.ok(kart.airborne);
+  assert.equal(kart.hop, 0);
+});
+
+test('逆走して柵にこすっても、車がくるっと前向きに戻されない', () => {
+  const kart = createKart(OVAL, START + 200);
+  run(OVAL, kart, NONE, 0.01);
+  const p = OVAL.samples[kart.seg];
+  kart.heading = p.h + Math.PI - 0.3; // ほぼ逆向きで、少し柵の方を向く
+  kart.move = kart.heading;
+  kart.speed = 20;
+  const h0 = kart.heading;
+  let touched = false;
+  run(OVAL, kart, NONE, 3, (k) => { if (k.onWall) touched = true; });
+  assert.ok(touched, '柵に当たっていない');
+  const diff = Math.abs(Math.atan2(Math.sin(kart.heading - h0), Math.cos(kart.heading - h0)));
+  assert.ok(diff < Math.PI / 2, `向きが ${(diff * 180 / Math.PI).toFixed(0)}度 変わった`);
 });

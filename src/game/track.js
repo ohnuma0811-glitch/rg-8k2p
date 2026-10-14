@@ -88,8 +88,45 @@ function inRange(s, from, to) {
   return s >= from && s < to;
 }
 
+// カーブの半径が minR より小さい所だけを、少しずつならす（カーブの内側で、道・柵・土手が折れ返らないように）
+// 形と長さは保つ（ならしたあと、もう一度 1m ごとに取り直す）。直らなければ、ならす範囲を広げていく
+function limitCurvature(samples, minR, length) {
+  let pts = samples.map((p) => [p.x, p.z]);
+  for (let round = 0; round < 300; round++) {
+    const n = pts.length;
+    const radius = (i) => {
+      const a = pts[(i - 3 + n) % n];
+      const b = pts[i];
+      const c = pts[(i + 3) % n];
+      const h1 = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const h2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
+      const turn = Math.abs(Math.atan2(Math.sin(h2 - h1), Math.cos(h2 - h1)));
+      // 3m ずつの2本の弦の向きの差が、円の 3m 分の角度（半径 = 3m ÷ 角度）
+      return turn < 1e-9 ? Infinity : Math.hypot(c[0] - a[0], c[1] - a[1]) / 2 / turn;
+    };
+    const bad = new Set();
+    for (let i = 0; i < n; i++) {
+      if (radius(i) < minR) for (let k = -8 - (round >> 3); k <= 8 + (round >> 3); k++) bad.add((i + k + n) % n);
+    }
+    if (bad.size === 0) break;
+    for (let pass = 0; pass < 2; pass++) {
+      const next = pts.map((p) => [...p]);
+      for (const i of bad) {
+        const a = pts[(i - 1 + n) % n];
+        const c = pts[(i + 1) % n];
+        next[i] = [pts[i][0] + 0.5 * ((a[0] + c[0]) / 2 - pts[i][0]), pts[i][1] + 0.5 * ((a[1] + c[1]) / 2 - pts[i][1])];
+      }
+      pts = next;
+    }
+    pts = resample(pts, length).map((p) => [p.x, p.z]);
+  }
+  return resample(pts, length);
+}
+
 export function buildTrack(def) {
-  const samples = resample(smoothLoop(def.points), def.length);
+  let samples = resample(smoothLoop(def.points), def.length);
+  // 柵まで（道幅の半分＋ダート）より半径が小さいカーブは、ならす
+  samples = limitCurvature(samples, def.roadHalf + def.dirt + 0.5, def.length);
   const n = samples.length;
   for (let i = 0; i < n; i++) {
     const p = samples[i];
