@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=ea2b2f2';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=ea2b2f2';
+import { typeLetter, isValidName } from './names.js?v=2d90991';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=2d90991';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -28,9 +28,10 @@ function waitPick(root) {
 export const MODES = [
   { id: 'solo', label: 'SOLO RACE', icon: '🏁', sub: '1 player + 4 CPU', ready: true },
   { id: 'timetrial', label: 'TIME TRIAL', icon: '⏱️', sub: 'Practice alone · 3 laps', ready: false },
-  { id: 'versus', label: 'VS RACE', icon: '👥', sub: '2〜8 players', ready: false },
-  { id: 'battle', label: 'BATTLE', icon: '🎈', sub: '3 hits and you are out', ready: false },
+  { id: 'versus', label: 'VS RACE', icon: '👥', sub: '2〜8 players', ready: false, code: true },
+  { id: 'battle', label: 'BATTLE', icon: '🎈', sub: '3 hits and you are out', ready: false, code: true },
 ];
+// code: GAME CODE が要る遊び方（ボタンに「🔒 GAME CODE」と書く）
 
 // タイトル: 遊び方を選ぶ（2×2 に並べる）。選んだ遊び方の id を返す
 // タイトルのロゴ（白い文字のロゴ風。2026-10-14 のユーザー依頼）: SUPER / Kyugo & Soki / KART
@@ -44,7 +45,7 @@ export async function title(root) {
   for (;;) {
     show(root, `
       ${LOGO}
-      <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small></button>`).join('')}</div>
+      <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small>${m.code ? '<span class="need-code">🔒 GAME CODE</span>' : ''}</button>`).join('')}</div>
       <p class="note"></p>`);
     root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
     const pick = await waitPick(root);
