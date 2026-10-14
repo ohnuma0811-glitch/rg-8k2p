@@ -1,31 +1,31 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=cfdcd88';
-import { startLoop } from './loop.js?v=cfdcd88';
-import { COURSE1 } from './data/tracks.js?v=cfdcd88';
-import { buildTrack } from './game/track.js?v=cfdcd88';
-import { createKart, stepKart, startDash } from './game/kart.js?v=cfdcd88';
-import { kartParams } from './game/stats.js?v=cfdcd88';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=cfdcd88';
-import { pushApart } from './game/collide.js?v=cfdcd88';
+import * as THREE from '../vendor/three.module.min.js?v=e00431b';
+import { startLoop } from './loop.js?v=e00431b';
+import { COURSE1 } from './data/tracks.js?v=e00431b';
+import { buildTrack } from './game/track.js?v=e00431b';
+import { createKart, stepKart, startDash } from './game/kart.js?v=e00431b';
+import { kartParams } from './game/stats.js?v=e00431b';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=e00431b';
+import { pushApart } from './game/collide.js?v=e00431b';
 import {
   LAPS, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText,
-} from './game/race.js?v=cfdcd88';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=cfdcd88';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera } from './render/scene.js?v=cfdcd88';
-import { createMinimap } from './render/minimap.js?v=cfdcd88';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=cfdcd88';
-import { faceSvg } from './titleArt.js?v=cfdcd88';
-import { createEffects } from './render/effects.js?v=cfdcd88';
-import { nextQuality, pixelRatio } from './render/quality.js?v=cfdcd88';
-import { blendPose, poseOf } from './render/interp.js?v=cfdcd88';
-import { speedText } from './hud.js?v=cfdcd88';
-import { addRecent } from './names.js?v=cfdcd88';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=cfdcd88';
-import { load, save } from './storage.js?v=cfdcd88';
-import * as screens from './screens.js?v=cfdcd88';
+} from './game/race.js?v=e00431b';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=e00431b';
+import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera } from './render/scene.js?v=e00431b';
+import { createMinimap } from './render/minimap.js?v=e00431b';
+import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=e00431b';
+import { faceSvg } from './titleArt.js?v=e00431b';
+import { createEffects } from './render/effects.js?v=e00431b';
+import { nextQuality, pixelRatio } from './render/quality.js?v=e00431b';
+import { blendPose, poseOf } from './render/interp.js?v=e00431b';
+import { speedText } from './hud.js?v=e00431b';
+import { addRecent } from './names.js?v=e00431b';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=e00431b';
+import { load, save } from './storage.js?v=e00431b';
+import * as screens from './screens.js?v=e00431b';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'cfdcd88';
+const VERSION = 'e00431b';
 const GAME_NAME = 'Super Kyugo &amp; Soki Kart';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [

@@ -1,7 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=cfdcd88';
-import { PHYS } from '../game/kart.js?v=cfdcd88';
+import * as THREE from '../../vendor/three.module.min.js?v=e00431b';
+import { PHYS } from '../game/kart.js?v=e00431b';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
