@@ -73,22 +73,18 @@ test('レース中の Kyugo の顔にはピンクのほっぺがない。まゆ�
   }
 });
 
-test('レース中の Kyugo: 目の上の黒い線（2本目のまゆに見える）はなく、目はつり上げない（2026-10-14 のユーザー依頼）', () => {
+test('レース中の Kyugo: 目の上の黒い線（2本目のまゆに見える）はなく、目は Soki と同じかわいい丸い目（たて長の黒い目。2026-10-14 のユーザー依頼）', () => {
   const lids = [];
-  const whites = [];
+  const eyes = [];
   createKartModel({ character: 'kyugo' }).traverse((o) => {
     if (o.isMesh && o.geometry.type === 'BoxGeometry' && o.material.color.getHex() === 0x1a1a1a) lids.push(o);
-    if (o.userData.eyeWhite) whites.push(o);
+    if (o.userData.eye) eyes.push(o);
   });
   assert.equal(lids.length, 0, '目の上の線がある');
-  assert.equal(whites.length, 2);
-  for (const w of whites) assert.equal(w.rotation.x, 0, '目が傾いている');
-});
-
-test('レース中の Kyugo の目は、切れ長でない普通の目（白目の縦が横の85%以上）', () => {
-  const whites = [];
-  createKartModel({ character: 'kyugo' }).traverse((o) => {
-    if (o.userData.eyeWhite) whites.push(o);
-  });
-  for (const w of whites) assert.ok(w.scale.y / w.scale.z >= 0.85, `縦 ${w.scale.y} / 横 ${w.scale.z}`);
+  assert.equal(eyes.length, 2);
+  for (const e of eyes) {
+    assert.equal(e.material.color.getHex(), 0x1a1a1a, '黒い目');
+    assert.ok(e.scale.y > e.scale.z, 'たて長でない');
+    assert.equal(e.rotation.x, 0, '傾いている');
+  }
 });

@@ -18,17 +18,19 @@ test('Kyugo の顔にはピンクのほっぺがない（タイトルの絵・�
   assert.ok(!hero.includes('#ff8a8a'), 'タイトルの Kyugo にほっぺがある');
 });
 
-test('タイトルの Kyugo: 目は水平（両はしが同じ高さ）で、目の上の線はない（2026-10-14 のユーザー依頼。レース中の顔とそろえる）', () => {
-  const svg = faceSvg('kyugo');
-  const shapes = [...svg.matchAll(/<clipPath id="kyugo-eye[^"]*"><path d="M([\d.]+) ([\d.]+) Q[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)/g)];
-  assert.equal(shapes.length, 2);
-  for (const m of shapes) assert.equal(m[2], m[4], `目のはしの高さ ${m[2]} / ${m[4]}`);
-  assert.ok(!svg.includes('stroke="#1b1b22"'), '目の上の線がある');
+test('Kyugo の目は、Soki と同じかわいい丸い目（タイトルの絵・顔のアイコン。2026-10-14 のユーザー依頼）', () => {
+  const round = (svg) => (svg.match(/<ellipse cx="\d+" cy="124" rx="9" ry="12" fill="#1b1b22"\/>/g) || []).length;
+  assert.equal(round(faceSvg('soki')), 2);
+  assert.equal(round(faceSvg('kyugo')), 2, 'Kyugo の目が丸くない');
+  assert.ok(!faceSvg('kyugo').includes('kyugo-eye'), '横長の目が残っている');
 });
 
-test('タイトルの Kyugo の目は、切れ長でない普通の目（縦が横の6割以上。2026-10-14 のユーザー依頼）', () => {
-  const m = faceSvg('kyugo').match(/<clipPath id="kyugo-eye[^"]*"><path d="M([\d.]+) ([\d.]+) Q[\d.]+ ([\d.]+) ([\d.]+) [\d.]+ Q[\d.]+ ([\d.]+)/);
-  const width = Math.abs(Number(m[4]) - Number(m[1]));
-  const height = (Number(m[5]) - Number(m[3])) / 2; // 2次ベジェのふくらみは、制御点までの半分
-  assert.ok(height / width >= 0.6, `縦 ${height} / 横 ${width}`);
+test('顔のアイコンは、丸の真ん中に顔（目と口のあたり）が来るように切り取る（2026-10-14 のユーザー依頼）', () => {
+  for (const ch of ['kyugo', 'soki']) {
+    const [x, y, w, h] = faceSvg(ch).match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+    // 顔の真ん中は (100, 118) あたり（目が 124、口が 150、頭のてっぺんが 46）
+    assert.ok(Math.abs(x + w / 2 - 100) < 1, `${ch} 横 ${x + w / 2}`);
+    assert.ok(Math.abs(y + h / 2 - 118) < 4, `${ch} 縦 ${y + h / 2}`);
+    assert.equal(w, h, '正方形');
+  }
 });
