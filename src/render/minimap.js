@@ -19,50 +19,56 @@ export function mapFit(samples, w, h, pad) {
   return (x, z) => ({ x: ox + x * scale, y: oy + z * scale });
 }
 
-// 地図を作る。draw(dots) で毎回描き直す。dots = [{ x, z, color, me }]（me は自分の車。大きく、白いふち）
+// 地図を作る。draw(dots) で毎回、車の点を描く。dots = [{ x, z, color, me }]（me は自分の車。大きく、白いふち）
+// 大きさは resize() のときだけ調べ、コースの形はそのとき別のキャンバスに1回だけ描いておく（毎フレームは写すだけ）
 export function createMinimap(canvas, track) {
   const ctx = canvas.getContext('2d');
+  const roadCanvas = document.createElement('canvas');
   let fit = null;
   let w = 0;
   let h = 0;
-  let road = null; // コースの形（大きさが変わったときだけ作り直す）
+  let ratio = 1;
 
-  function layout() {
-    const ratio = window.devicePixelRatio || 1;
+  function resize() {
     const cw = canvas.clientWidth;
     const ch = canvas.clientHeight;
-    if (cw === w && ch === h) return;
+    const r = window.devicePixelRatio || 1;
+    if (cw === w && ch === h && r === ratio) return;
     w = cw;
     h = ch;
-    canvas.width = Math.round(w * ratio);
-    canvas.height = Math.round(h * ratio);
+    ratio = r;
+    if (!w || !h) return;
+    canvas.width = roadCanvas.width = Math.round(w * ratio);
+    canvas.height = roadCanvas.height = Math.round(h * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     fit = mapFit(track.samples, w, h, 8);
-    road = new Path2D();
+    // コースの形とスタートライン
+    const rc = roadCanvas.getContext('2d');
+    rc.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const road = new Path2D();
     track.samples.forEach((p, i) => {
       const q = fit(p.x, p.z);
       if (i === 0) road.moveTo(q.x, q.y);
       else road.lineTo(q.x, q.y);
     });
     road.closePath();
+    rc.lineJoin = 'round';
+    rc.strokeStyle = 'rgba(255,255,255,0.9)';
+    rc.lineWidth = 7;
+    rc.stroke(road);
+    rc.strokeStyle = '#555c66';
+    rc.lineWidth = 4;
+    rc.stroke(road);
+    const s = track.samples[track.startIndex];
+    const q = fit(s.x, s.z);
+    rc.fillStyle = '#fff';
+    rc.fillRect(q.x - 3, q.y - 3, 6, 6);
   }
 
   function draw(dots) {
-    layout();
-    if (!w || !h) return;
+    if (!fit) return;
     ctx.clearRect(0, 0, w, h);
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 7;
-    ctx.stroke(road);
-    ctx.strokeStyle = '#555c66';
-    ctx.lineWidth = 4;
-    ctx.stroke(road);
-    // スタートライン
-    const s = track.samples[track.startIndex];
-    const q = fit(s.x, s.z);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(q.x - 3, q.y - 3, 6, 6);
+    ctx.drawImage(roadCanvas, 0, 0, w, h);
     // 自分の車を最後に（いちばん上に）描く
     const order = [...dots].sort((a, b) => (a.me ? 1 : 0) - (b.me ? 1 : 0));
     for (const d of order) {
@@ -77,5 +83,5 @@ export function createMinimap(canvas, track) {
     }
   }
 
-  return { draw };
+  return { draw, resize };
 }

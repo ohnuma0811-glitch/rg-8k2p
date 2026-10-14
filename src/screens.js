@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=6aeb751';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=6aeb751';
+import { typeLetter, isValidName } from './names.js?v=02ca2f8';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=02ca2f8';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -42,20 +42,27 @@ const LOGO = `
   </h1>`;
 
 export async function title(root) {
-  for (;;) {
-    show(root, `
+  show(root, `
       ${LOGO}
       <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small>${m.code ? '<span class="need-code">🔒 GAME CODE</span>' : ''}</button>`).join('')}</div>
       <p class="note"></p>`);
-    root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
+  root.insertAdjacentHTML('afterbegin', TITLE_ART); // 文字のうしろに、Kyugo と Soki の絵
+  const note = root.querySelector('.note');
+  let clear = null;
+  for (;;) {
     const pick = await waitPick(root);
     const mode = MODES.find((m) => m.id === pick);
     if (mode.ready) {
+      clearTimeout(clear);
       hide(root);
       return mode.id;
     }
-    root.querySelector('.note').textContent = `${mode.label} is coming soon!`;
-    await new Promise((r) => setTimeout(r, 1500));
+    // まだ作っていない遊び方: お知らせを少しだけ出す。その間もほかのボタンは押せる
+    note.textContent = `${mode.label} is coming soon!`;
+    clearTimeout(clear);
+    clear = setTimeout(() => {
+      note.textContent = '';
+    }, 1500);
   }
 }
 
