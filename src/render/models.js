@@ -45,16 +45,16 @@ function humanFace(g, R) {
   const BROW = 0x1d1d24;
   for (const side of [-1, 1]) {
     const z = side * 0.14;
-    // 目: 少し横長の目（つり上げない。2026-10-14 のユーザー依頼）
+    // 目: 切れ長でない普通の目で、つり上げない（2026-10-14 のユーザー依頼）
     const white = ball(0.075, WHITE, R * 0.8, 0.04, z, 10); // 横から見て、顔から飛び出さないように少し奥に
-    white.scale.set(0.5, 0.75, 1.15);
+    white.scale.set(0.5, 1.0, 1.08);
     white.userData.eyeWhite = true;
     g.add(white);
     const iris = ball(0.045, 0x3a2412, R * 0.8 + 0.028, 0.035, z, 10);
-    iris.scale.set(0.5, 0.95, 0.95);
+    iris.scale.set(0.5, 1.1, 1);
     g.add(iris);
     const pupil = ball(0.026, EYE, R * 0.8 + 0.047, 0.035, z, 8);
-    pupil.scale.set(0.5, 1, 1);
+    pupil.scale.set(0.5, 1.15, 1);
     g.add(pupil);
     g.add(ball(0.014, WHITE, R * 0.8 + 0.06, 0.06, z + 0.012, 6));
     // まゆ: 太く、内側が下がって外側が上がった、きりっとしたまゆ

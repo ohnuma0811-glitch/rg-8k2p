@@ -25,3 +25,10 @@ test('タイトルの Kyugo: 目は水平（両はしが同じ高さ）で、目
   for (const m of shapes) assert.equal(m[2], m[4], `目のはしの高さ ${m[2]} / ${m[4]}`);
   assert.ok(!svg.includes('stroke="#1b1b22"'), '目の上の線がある');
 });
+
+test('タイトルの Kyugo の目は、切れ長でない普通の目（縦が横の6割以上。2026-10-14 のユーザー依頼）', () => {
+  const m = faceSvg('kyugo').match(/<clipPath id="kyugo-eye[^"]*"><path d="M([\d.]+) ([\d.]+) Q[\d.]+ ([\d.]+) ([\d.]+) [\d.]+ Q[\d.]+ ([\d.]+)/);
+  const width = Math.abs(Number(m[4]) - Number(m[1]));
+  const height = (Number(m[5]) - Number(m[3])) / 2; // 2次ベジェのふくらみは、制御点までの半分
+  assert.ok(height / width >= 0.6, `縦 ${height} / 横 ${width}`);
+});
