@@ -34,3 +34,14 @@ export function pushApart(karts, prev = new Set()) {
   }
   return now;
 }
+
+// k 番の車が、今回新しくぶつかった数（効果音用）。prev・now は pushApart が返す組（'a-b'）
+export function newBumps(prev, now, k) {
+  let n = 0;
+  for (const key of now) {
+    if (prev.has(key)) continue;
+    const [a, b] = key.split('-').map(Number);
+    if (a === k || b === k) n++;
+  }
+  return n;
+}

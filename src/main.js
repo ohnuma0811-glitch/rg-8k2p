@@ -6,7 +6,7 @@ import { buildTrack } from './game/track.js';
 import { createKart, stepKart, startDash } from './game/kart.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
-import { pushApart } from './game/collide.js';
+import { pushApart, newBumps } from './game/collide.js';
 import {
   LAPS, COURSE_INTRO, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
@@ -24,6 +24,8 @@ import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { createAudio } from './audio/audio.js';
+import { createSfx } from './audio/sfx.js';
+import { soundState, soundEvents } from './audio/events.js';
 import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
@@ -83,6 +85,7 @@ const effects = createEffects(scene);
 const minimap = createMinimap($('minimap'), track);
 const controls = new Controls();
 const audio = createAudio();
+const sfx = createSfx(audio);
 // 最初のタップ・クリック・キーで音を有効にする（iPhone・Android は、さわるまで音を出せない）
 for (const type of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(type, () => audio.unlock(), { passive: true });
 // 画面が見えなくなったら音を止める
@@ -206,6 +209,8 @@ function createGame(name, charId) {
       return { color: `#${look.body.toString(16).padStart(6, '0')}`, icon: ch.icon, character: ch.id };
     }),
     top3Key: '',
+    bumps: 0, // 自分がぶつかった回数（効果音用）
+    sound: null, // 前のフレームの音の様子
     me: PLAYER_SLOT,
     prev: karts.map(poseOf),
     contacts: new Set(),
@@ -223,6 +228,7 @@ function createGame(name, charId) {
 
 function removeGame() {
   if (!game) return;
+  sfx.stopAll();
   game.models.forEach((m) => {
     scene.remove(m);
     // 形（geometry）は車ごとに作っているので消す。材質（material）は使い回しているので消さない
@@ -271,7 +277,9 @@ function stepGame(dt) {
       stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber), dt);
     }
   });
-  g.contacts = pushApart(karts, g.contacts);
+  const before = g.contacts;
+  g.contacts = pushApart(karts, before);
+  g.bumps += newBumps(before, g.contacts, me);
   karts.forEach((kart, k) => updateProgress(race, k, track, kart.seg));
   if (!race.entries[me].finished) {
     g.playSec += dt;
@@ -316,6 +324,7 @@ async function runRace(name, charId, cup) {
   await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
   game = createGame(name, charId);
   buildTop3(game);
+  sfx.engine.start();
   camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
   speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
@@ -364,6 +373,7 @@ async function runRace(name, charId, cup) {
 pauseBtn.addEventListener('click', async () => {
   if (!game || game.paused) return;
   game.paused = true;
+  sfx.stopAll(); // 一時停止中は、エンジン音・ドリフトの音を止める
   // SOUND を押したら、一時停止のまま文字だけ変える
   let pick;
   for (;;) {
@@ -377,6 +387,7 @@ pauseBtn.addEventListener('click', async () => {
   }
   if (!game) return;
   game.paused = false;
+  sfx.engine.start();
   if (pick === 'title' && game.onEnd) {
     const end = game.onEnd;
     game.onEnd = null;
@@ -465,6 +476,15 @@ function renderGame(alpha, dt) {
   minimap.draw(views.map((v, k) => ({ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me })));
   showTop3(g, order.slice(0, 3), dt);
   setText(leftEl, remainingText(Math.max(0, g.leftBase - g.playSec)));
+  // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps });
+  for (const name of soundEvents(g.sound, now, LAPS)) {
+    if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
+    else if (name === 'driftEnd') sfx.drift(false);
+    else sfx.play(name);
+  }
+  g.sound = now;
+  sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);
   return { mine, kart };
 }
 
