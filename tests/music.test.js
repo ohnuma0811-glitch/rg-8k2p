@@ -13,9 +13,17 @@ test('どの曲も、メロディ・コード・ドラムの長さが小節の�
   }
 });
 
-test('曲の長さ: Kenta Circuit は 160 BPM・16小節で 24 秒', () => {
-  assert.equal(SONGS.kenta.bpm, 160);
-  assert.ok(Math.abs(loopSec(SONGS.kenta) - 24) < 1e-9);
+test('曲の長さ: Kenta Circuit は 168 BPM・16小節で約22.9秒（スピード感のため少し速く。2026-10-15 のユーザー依頼）', () => {
+  assert.equal(SONGS.kenta.bpm, 168);
+  assert.ok(Math.abs(loopSec(SONGS.kenta) - (16 * 16 * 60) / 168 / 4) < 1e-9);
+});
+
+test('Kenta Circuit のメロディは「はじく弦」で、細かい音（16分・8分音符）が多い（スピード感）', () => {
+  assert.equal(SONGS.kenta.voice, 'pluck');
+  const ns = parseTrack(SONGS.kenta.lead).notes;
+  const short = ns.filter((n) => n.len <= 2).length;
+  assert.ok(short / ns.length >= 0.85, `細かい音 ${short}/${ns.length}`);
+  assert.ok(ns.some((n) => n.len === 1), '16分音符がある');
 });
 
 test('コースごとに曲がある（コースのデータの music が SONGS にある）', async () => {

@@ -63,6 +63,17 @@ export const LEAD_VOICES = {
     sustain: 0.6,
     release: 0.06,
   },
+  // Kenta Circuit: はじく弦（ギターふう。ポンと鳴って短く消える。細かい音でスピード感。2026-10-15 のユーザー依頼）
+  pluck: {
+    layers: [{ type: 'sawtooth', detune: 0, gain: 1 }, { type: 'square', detune: 0, gain: 0.5 }],
+    gain: 0.1,
+    cutoff: { base: 400, peak: 5000, decay: 0.08, q: 2 },
+    vibrato: 0,
+    attack: 0.002,
+    sustain: 0.15,
+    release: 0.15,
+    decay: 0.2,
+  },
   // 勝利: 金管楽器ふう（出だしが少しやわらかい）
   brass: {
     layers: [{ type: 'sawtooth', detune: -7, gain: 1 }, { type: 'sawtooth', detune: 7, gain: 1 }],
