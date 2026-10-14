@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=d46dc3b';
-import { engineParams } from './mix.js?v=d46dc3b';
+import { midiToHz } from './notes.js?v=c65f4a8';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=c65f4a8';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -112,9 +112,13 @@ export function createSfx(audio) {
       burst('bandpass', 700, 3500, 0.4, 0.5);
       tone('sawtooth', 220, 0.4, 0.08, { to: 660 });
     },
+    // 壁にぶつかったとき: 低い「ドン」に、スマホのスピーカーでも聞こえる中くらいの高さの「ガン」を重ねる
     wall: () => {
-      burst('lowpass', 400, 80, 0.2, 0.8);
-      tone('sine', 90, 0.15, 0.3, { to: 50 });
+      const v = WALL_VOLUME;
+      burst('lowpass', 400, 80, 0.2, 0.45 * v);
+      tone('sine', 90, 0.15, 0.18 * v, { to: 50 });
+      burst('bandpass', 1500, 500, 0.15, 0.3 * v);
+      tone('square', 260, 0.1, 0.1 * v, { to: 130 });
     },
     // 車どうしでぶつかったとき「バン」: 低く響く音（はじめの着地の音を使う。2026-10-15 のユーザー依頼）
     bump: () => {
@@ -193,7 +197,7 @@ export function createSfx(audio) {
         src.start();
         squeal = { src, gain };
       }
-      if (squeal) squeal.gain.gain.setTargetAtTime(on ? 0.12 * speed01 : 0, ctx.currentTime, 0.05);
+      if (squeal) squeal.gain.gain.setTargetAtTime(on ? DRIFT_VOLUME * speed01 : 0, ctx.currentTime, 0.05);
       if (!on && squeal) {
         const s = squeal;
         squeal = null;

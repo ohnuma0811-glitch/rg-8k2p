@@ -1,6 +1,6 @@
 // ドリフトの煙（白 → 黄 → 赤。マリオカート64 のように）と、ダートの砂ぼこり
-import * as THREE from '../../vendor/three.module.min.js?v=d46dc3b';
-import { driftLevel } from '../game/kart.js?v=d46dc3b';
+import * as THREE from '../../vendor/three.module.min.js?v=c65f4a8';
+import { driftLevel } from '../game/kart.js?v=c65f4a8';
 
 const MAX = 200;
 const SMOKE = [new THREE.Color(0xf4f4f4), new THREE.Color(0xffd84a), new THREE.Color(0xff3b2f)];
