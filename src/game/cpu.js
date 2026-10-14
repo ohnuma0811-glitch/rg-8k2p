@@ -1,0 +1,65 @@
+// CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
+// 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
+import { locate } from './track.js?v=2402770';
+
+export const CPU = {
+  LOOK: 10, // 何m先の点を目指すか（の基本）
+  LOOK_PER_SPEED: 0.3, // 速さ1m/s ごとに、目指す点をこれだけ先にする
+  STEER_GAIN: 2.5, // 目指す点とのずれ（rad）を、ハンドルの量にする倍率
+  BEND_AHEAD: 35, // 何m先までのカーブを見るか
+  BRAKE_BEND: 1.1, // この角度（rad）以上曲がるカーブの手前では、速すぎればブレーキ
+  CORNER_SPEED: 25, // きついカーブに入る速さ（m/s）
+  DRIFT_BEND: 0.6, // この角度以上曲がるカーブでは、ドリフトする
+  DRIFT_END: 0.25, // カーブがこの角度より小さくなったら、ドリフトをやめる
+  SKILL: 0.93, // CPU の最高速の割合（プレイヤーが「がんばれば勝てる」くらいに）
+  RUBBER: 0.25, // プレイヤーとの差（1周に対する割合）を、速さの倍率にする強さ
+  RUBBER_MAX: 0.08, // 速さを変えるのは、この割合まで
+};
+
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// k 番目の CPU。走る線（中心から右へ m）と、線をゆらす速さを少しずつ変える
+export function createCpu(k) {
+  return {
+    lane: [-5, 4, -2, 6, -6, 2, 5][k % 7],
+    sway: 0.4 + (k % 3) * 0.15,
+    phase: k * 1.7,
+    drifting: false,
+  };
+}
+
+// プレイヤーとの差から、速さの倍率を決める（progress の差、1周の長さ L）
+export function rubberFactor(cpuProgress, playerProgress, L) {
+  const diff = (playerProgress - cpuProgress) / L; // プレイヤーが前ならプラス
+  // レースの最初（まだ進んだ距離が分からない）は、そのままの速さ
+  if (!Number.isFinite(diff)) return 1;
+  return 1 + Math.max(-CPU.RUBBER_MAX, Math.min(CPU.RUBBER_MAX, diff * CPU.RUBBER));
+}
+
+// その時の操作（{ steer, brake, drift }）。t はレースの時刻（線をゆらすため）
+export function cpuControl(cpu, kart, track, t) {
+  const { samples } = track;
+  const n = samples.length;
+  const loc = locate(track, kart.x, kart.z, kart.seg);
+  const look = Math.round(CPU.LOOK + Math.max(0, kart.speed) * CPU.LOOK_PER_SPEED);
+  const p = samples[(loc.i + look) % n];
+  const lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
+  const tx = p.x - Math.sin(p.h) * lane;
+  const tz = p.z + Math.cos(p.h) * lane;
+  const angle = wrap(Math.atan2(tz - kart.z, tx - kart.x) - kart.move);
+  const steer = Math.max(-1, Math.min(1, angle * CPU.STEER_GAIN));
+  const bendTo = wrap(samples[(loc.i + CPU.BEND_AHEAD) % n].h - loc.heading);
+  const bend = Math.abs(bendTo);
+  const brake = bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED;
+  if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne) cpu.drifting = true;
+  if (cpu.drifting && (bend < CPU.DRIFT_END || kart.speed < 14)) cpu.drifting = false;
+  // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
+  const starting = cpu.drifting && !kart.drift.active;
+  const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
+  return { steer: out, brake, drift: cpu.drifting };
+}
+
+// CPU の車の数字（キャラの数字に、CPU の強さと、プレイヤーとの差の倍率をかける）
+export function cpuParams(base, rubber) {
+  return { ...base, topSpeed: base.topSpeed * CPU.SKILL * rubber };
+}

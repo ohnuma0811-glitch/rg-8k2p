@@ -1,7 +1,7 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=8a27b62';
+import { locate, respawnIndex } from './track.js?v=2402770';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -84,6 +84,13 @@ export function createKart(track, i, lateral = 0) {
 // ドリフトの煙の色: 0 = 白、1 = 黄、2 = 赤（ドリフトしていないときは 0）
 export function driftLevel(kart) {
   return kart.drift.active ? kart.drift.stage : 0;
+}
+
+// スタートダッシュ: 加速の数字（1〜5）が大きいほど長く加速する
+export const DASH_BASE = 0.5;
+export const DASH_PER_ACCEL = 0.15;
+export function startDash(kart, params, accelLevel) {
+  startBoost(kart, params, DASH_BASE + DASH_PER_ACCEL * accelLevel);
 }
 
 function startBoost(kart, params, time) {
