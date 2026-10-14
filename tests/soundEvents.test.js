@@ -69,3 +69,29 @@ test('ドリフトのボタンで跳ねたとき「ピヨン」（hop）。跳�
   assert.deepEqual(soundEvents(st({}, { hop: 0.2 }), st({}, { hop: 0.1 }), 3), []);
   assert.deepEqual(soundEvents(st({}, { hop: 0.1 }), st({}, { hop: 0 }), 3), []);
 });
+
+test('ジャンプの着地の音は、地面に着く少し前（0.08秒前）に鳴らし始める（音が遅れて聞こえないように。2026-10-15 の実機確認）', async () => {
+  const { LAND_LEAD } = await import('../src/audio/events.js');
+  assert.equal(LAND_LEAD, 0.08);
+  // 高さ 2m、下へ 10m/s → 着くまで 0.2秒: まだ鳴らさない
+  const high = st({}, { airborne: true, y: 2, vy: -10 });
+  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 3, vy: -9 }), high, 3), []);
+  // 高さ 0.6m、下へ 10m/s → 着くまで 0.06秒: 鳴らす
+  const soon = st({}, { airborne: true, y: 0.6, vy: -10 });
+  assert.deepEqual(soundEvents(high, soon, 3), ['land']);
+  // 実際に着いたときは、もう一度は鳴らさない
+  assert.deepEqual(soundEvents(soon, st({}, { airborne: false, y: 0, vy: 0 }), 3), []);
+  // 上へ飛んでいる間は鳴らさない
+  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 0.2, vy: 5 }), st({}, { airborne: true, y: 0.3, vy: 4 }), 3), []);
+  // 「もうすぐ」が分からないまま着いたときは、着いたときに鳴らす
+  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 0.5, vy: 0 }), st({}, { airborne: false, y: 0, vy: 0 }), 3), ['land']);
+});
+
+test('壁の音は、ぶつかった最初だけ。壁にこすりながら走って、ついたり離れたりしても鳴らし続けない（2026-10-15 の実機確認）', async () => {
+  const { WALL_QUIET } = await import('../src/audio/events.js');
+  assert.equal(WALL_QUIET, 0.5);
+  // しばらく壁から離れていた（wallQuiet 1秒）→ ぶつかった: 鳴らす
+  assert.deepEqual(soundEvents(st({ wallQuiet: 1 }), st({ wallQuiet: 0 }, { onWall: true }), 3), ['wall']);
+  // こすっている途中で一瞬離れて、またついた（離れていたのは 0.1秒）: 鳴らさない
+  assert.deepEqual(soundEvents(st({ wallQuiet: 0.1 }), st({ wallQuiet: 0 }, { onWall: true }), 3), []);
+});
