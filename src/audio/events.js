@@ -42,6 +42,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.lap > prev.lap && !cur.finished) ev.push(cur.lap === laps - 1 ? 'finalLap' : 'lap');
   if (cur.finished && !prev.finished) ev.push('finish');
   if (cur.hop && !prev.hop) ev.push('hop');
+  if (cur.airborne && !prev.airborne) ev.push('jump'); // ジャンプ台から飛び出した（ドリフトの跳ねは airborne にならない）
   if (cur.drift && !prev.drift) ev.push('driftStart');
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');
