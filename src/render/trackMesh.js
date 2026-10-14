@@ -155,15 +155,25 @@ function distToTrack(samples, x, z) {
   return Math.sqrt(d);
 }
 
-// スタートラインの横（コースの外側、柵の外）に、段になった観客席と観客
-function grandstand(track) {
-  const group = new THREE.Group();
+// 観客席の向き（コースの外側）と、真ん中の場所。音（歓声）でも使う
+function grandstandFrame(track) {
   const p = track.samples[track.startIndex];
   const base = p.wall + 4;
   const [r0x, r0z] = rightOf(p);
   const side = insideLoop(track.samples, p.x + r0x * (base + 6), p.z + r0z * (base + 6)) ? -1 : 1;
-  const rx = r0x * side;
-  const rz = r0z * side;
+  return { p, base, rx: r0x * side, rz: r0z * side };
+}
+
+export function grandstandSpot(track) {
+  const { p, base, rx, rz } = grandstandFrame(track);
+  const mid = base + 9; // 10段（2m ずつ）の真ん中
+  return { x: p.x + rx * mid, z: p.z + rz * mid };
+}
+
+// スタートラインの横（コースの外側、柵の外）に、段になった観客席と観客
+function grandstand(track) {
+  const group = new THREE.Group();
+  const { p, base, rx, rz } = grandstandFrame(track);
   const length = 50;
   const steps = 10; // 段の数（マリオカート64 のように高い観客席）
   const stand = new THREE.MeshLambertMaterial({ color: 0x9aa3ad });

@@ -13,6 +13,7 @@ import {
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
+import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -26,6 +27,8 @@ import * as screens from './screens.js';
 import { createAudio } from './audio/audio.js';
 import { createSfx } from './audio/sfx.js';
 import { soundState, soundEvents } from './audio/events.js';
+import { createCrowd } from './audio/crowd.js';
+import { crowdMix } from './audio/mix.js';
 import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
@@ -79,6 +82,7 @@ const els = Object.fromEntries(BUTTONS.map((n) => [n, $(`btn-${n}`)]));
 const dev = new Set(location.hash.slice(1).split('&'));
 
 const track = buildTrack(COURSE1);
+const standSpot = grandstandSpot(track); // 観客席の真ん中（歓声の大きさと左右）
 const renderer = createRenderer(canvas);
 const { scene, camera } = createWorld(track);
 const effects = createEffects(scene);
@@ -86,6 +90,7 @@ const minimap = createMinimap($('minimap'), track);
 const controls = new Controls();
 const audio = createAudio();
 const sfx = createSfx(audio);
+const crowd = createCrowd(audio);
 // 最初のタップ・クリック・キーで音を有効にする（iPhone・Android は、さわるまで音を出せない）
 for (const type of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(type, () => audio.unlock(), { passive: true });
 // 画面が見えなくなったら音を止める
@@ -229,6 +234,7 @@ function createGame(name, charId) {
 function removeGame() {
   if (!game) return;
   sfx.stopAll();
+  crowd.stop();
   game.models.forEach((m) => {
     scene.remove(m);
     // 形（geometry）は車ごとに作っているので消す。材質（material）は使い回しているので消さない
@@ -325,6 +331,7 @@ async function runRace(name, charId, cup) {
   game = createGame(name, charId);
   buildTop3(game);
   sfx.engine.start();
+  crowd.start();
   camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
   speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
@@ -373,7 +380,8 @@ async function runRace(name, charId, cup) {
 pauseBtn.addEventListener('click', async () => {
   if (!game || game.paused) return;
   game.paused = true;
-  sfx.stopAll(); // 一時停止中は、エンジン音・ドリフトの音を止める
+  sfx.stopAll(); // 一時停止中は、エンジン音・ドリフトの音・歓声を止める
+  crowd.stop();
   // SOUND を押したら、一時停止のまま文字だけ変える
   let pick;
   for (;;) {
@@ -388,6 +396,7 @@ pauseBtn.addEventListener('click', async () => {
   if (!game) return;
   game.paused = false;
   sfx.engine.start();
+  crowd.start();
   if (pick === 'title' && game.onEnd) {
     const end = game.onEnd;
     game.onEnd = null;
@@ -482,9 +491,11 @@ function renderGame(alpha, dt) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
     else sfx.play(name);
+    if (name === 'finalLap' || name === 'finish') crowd.excite(3);
   }
   g.sound = now;
   sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);
+  crowd.update(crowdMix(mine, standSpot));
   return { mine, kart };
 }
 
