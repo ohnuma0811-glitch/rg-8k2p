@@ -187,27 +187,49 @@ function timeTo90(ctl, warm, before = []) {
   return { t, kart };
 }
 
-test('ふつうに曲がる: 最高速でいっぱいに切ると、90度を0.9〜1.3秒で曲がる', () => {
-  const { t } = timeTo90({ ...NONE, steer: 1 }, 4);
-  assert.ok(t >= 0.9 && t <= 1.3, `${t.toFixed(2)}秒`);
-});
-
-test('ドリフトで曲がる: 最高速でいっぱいに切ると、ふつうより少しきつく、90度を0.75〜1.1秒で曲がる', () => {
-  const { t, kart } = timeTo90(D(1), 4, [[D(1), PHYS.HOP_TIME + 0.02]]);
-  assert.ok(kart.drift.active);
-  assert.ok(t >= 0.75 && t <= 1.1, `${t.toFixed(2)}秒`);
-  assert.ok(t < timeTo90({ ...NONE, steer: 1 }, 4).t);
-});
-
-test('ドリフトでいっぱいに切っても、最高速では半径20m以上（道幅24mの中で円を描けない）', () => {
+// マリオカート64 のように、ふつうのハンドルは大回りで、きついカーブはドリフトで曲がる（2026-10-14 の実機確認）
+function radiusAtTop(ctl, before = []) {
   const kart = createKart(WIDE, WIDE_START);
   run(WIDE, kart, NONE, 4);
-  run(WIDE, kart, D(1), PHYS.HOP_TIME + 0.02);
+  for (const [c, sec] of before) run(WIDE, kart, c, sec);
   const h = kart.heading;
-  stepKart(kart, D(1), WIDE, params, DT);
-  const rate = Math.abs(kart.heading - h) / DT;
-  const radius = kart.speed / rate;
-  assert.ok(radius >= 20, `半径 ${radius.toFixed(1)}m`);
+  stepKart(kart, ctl, WIDE, params, DT);
+  return { radius: kart.speed / (Math.abs(kart.heading - h) / DT), kart };
+}
+
+test('ふつうに曲がる: 最高速でいっぱいに切ると、90度を1.4〜1.9秒（半径40m以上の大回り）', () => {
+  const { t } = timeTo90({ ...NONE, steer: 1 }, 4);
+  assert.ok(t >= 1.4 && t <= 1.9, `${t.toFixed(2)}秒`);
+  const { radius } = radiusAtTop({ ...NONE, steer: 1 });
+  assert.ok(radius >= 40, `半径 ${radius.toFixed(1)}m`);
+});
+
+test('ドリフトで曲がる: 最高速で同じ向きにいっぱいに切ると、90度を0.6〜0.95秒（半径20〜25m）', () => {
+  const { t, kart } = timeTo90(D(1), 4, [[D(1), PHYS.HOP_TIME + 0.02]]);
+  assert.ok(kart.drift.active);
+  assert.ok(t >= 0.6 && t <= 0.95, `${t.toFixed(2)}秒`);
+  const { radius } = radiusAtTop(D(1), [[D(1), PHYS.HOP_TIME + 0.02]]);
+  assert.ok(radius >= 20 && radius <= 25, `半径 ${radius.toFixed(1)}m`);
+});
+
+test('ドリフト中、反対に切ると大回り、切らなければその間（ハンドルで曲がり方を調整できる）', () => {
+  const r = (steer) => radiusAtTop(D(steer), [[D(1), PHYS.HOP_TIME + 0.02]]).radius;
+  const tight = r(1);
+  const mid = r(0);
+  const wide = r(-1);
+  assert.ok(tight < mid && mid < wide, `${tight} / ${mid} / ${wide}`);
+  assert.ok(wide > 40, `${wide}`);
+});
+
+test('遅いときも、ふつうのハンドルは最高速のときの1.5倍までしか速く曲がらない（小回りしすぎない）', () => {
+  const rate = (warm) => {
+    const kart = createKart(WIDE, WIDE_START);
+    run(WIDE, kart, NONE, warm);
+    const h = kart.heading;
+    stepKart(kart, { ...NONE, steer: 1 }, WIDE, params, DT);
+    return (kart.heading - h) / DT;
+  };
+  assert.ok(rate(0.8) <= rate(4) * 1.5 + 1e-9, `${rate(0.8)} / ${rate(4)}`);
 });
 
 test('ドリフト中、車の向きは進む向きから30〜45度くらい内側を向く', () => {

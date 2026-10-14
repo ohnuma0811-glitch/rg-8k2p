@@ -9,15 +9,15 @@ export const PHYS = {
   BRAKE: 25, // ブレーキ（m/s²）
   REVERSE_MAX: 6, // バックの最高速（m/s）
   TURN_FULL_SPEED: 6, // この速さ以上で、曲がる力がいっぱいになる（止まっていると曲がれない）
-  HIGH_SPEED_STEER: 0.5, // 最高速のとき、ハンドルの曲がり方がこの割合だけ弱くなる（ドリフトも同じ。最高速で90度を約1.1秒）
+  LOW_SPEED_BONUS: 0.5, // 遅いときは、ふつうのハンドルがこの割合だけ強くなる（止まりかけで最大1.5倍。小回りしすぎない）
   GRIP: 10, // ふつうのとき、進む向きが車の向きにそろう速さ（1/秒）
   DRIFT_GRIP: 2.4, // ドリフト中の、進む向きがそろう速さ（小さいほど外へ滑る。車の向きのずれが約30度）
   DRIFT_MIN_SPEED: 12, // ドリフトできる速さ
   HOP_TIME: 0.25, // ドリフトボタンで跳ねている時間（秒）
   HOP_HEIGHT: 0.5, // 跳ねる高さ（見た目、m）
   HOP_KEEP: 0.98, // 跳ねるたびに残る速さの割合（直線で何度も跳ねると遅くなる）
-  DRIFT_BASE: 0.8, // ドリフト中、ハンドルを切っていなくても曲がる割合
-  DRIFT_ADJ: 0.4, // ドリフト中、ハンドルで足し引きできる割合（いっぱいに切ると、ふつうより少しきつい。反対へ切ると大回り）
+  DRIFT_BASE: 1.45, // ドリフト中、ハンドルを切っていなくても曲がる強さ（ふつうのハンドルいっぱいの1.45倍）
+  DRIFT_ADJ: 0.58, // ドリフト中、ハンドルで足し引きできる強さ（同じ向きにいっぱいで約2倍＝最高速で半径約20m。反対へ切ると大回り）
   COUNTER: 0.3, // 反対へ切った・戻したと見なすハンドルの量
   MT_BOOST: 1.2, // 赤で離したときのミニターボの時間（秒）
   PAD_BOOST: 1.0, // 加速板の加速の時間（秒）
@@ -131,11 +131,11 @@ export function stepKart(kart, ctl, track, params, dt) {
       }
     }
 
-    // 速いほどハンドルがゆるい。止まりかけでは曲がれない
+    // ふつうのハンドルは大回り（遅いときだけ少し強い）。きついカーブはドリフトで曲がる（マリオカート64 のように）
+    // 止まりかけでは曲がれない
     const grip = Math.min(1, Math.abs(kart.speed) / PHYS.TURN_FULL_SPEED) * Math.sign(kart.speed);
-    const fast = 1 - PHYS.HIGH_SPEED_STEER * Math.min(1, Math.abs(kart.speed) / params.topSpeed);
-    // ドリフトも速いほどゆるくする（最高速で道幅の中を円を描いて回れないように）
-    const turn = (kart.drift.active ? kart.drift.dir * PHYS.DRIFT_BASE + steer * PHYS.DRIFT_ADJ : steer) * fast;
+    const slow = 1 + PHYS.LOW_SPEED_BONUS * (1 - Math.min(1, Math.abs(kart.speed) / params.topSpeed));
+    const turn = kart.drift.active ? kart.drift.dir * PHYS.DRIFT_BASE + steer * PHYS.DRIFT_ADJ : steer * slow;
     kart.heading += turn * params.turnRate * grip * dt;
   } else {
     kart.heading += steer * params.turnRate * PHYS.AIR_TURN * dt;
