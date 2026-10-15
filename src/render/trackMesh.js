@@ -2,6 +2,7 @@
 import * as THREE from '../../vendor/three.module.min.js';
 import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
 import { buildJungle } from './town/jungle.js';
+import { buildWater } from './town/water.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
 
 const COLORS = {
@@ -513,6 +514,8 @@ export function buildTrackMesh(track) {
       avoid.push({ x: sp.x - Math.sin(sp.ry) * back, z: sp.z - Math.cos(sp.ry) * back, radius: r * 1.6 + 6 });
     }
     group.add(buildJungle(track, avoid));
+    // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）
+    group.add(buildWater(track, avoid));
   }
 
   // 観客席・土手・木と看板は、サーキットだけ

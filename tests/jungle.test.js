@@ -20,3 +20,18 @@ test('ジャングルは道と、景色の建物のまわりにはかからな�
     for (const a of avoid) assert.ok(Math.hypot(a.x - p.x, a.z - p.z) >= a.radius, 'ジャングルが建物にかかる');
   }
 });
+
+test('コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）: 道と建物のまわりはあける', async () => {
+  const { waterCells, WATER_CELL } = await import('../src/render/town/water.js');
+  const xs = t.samples.map((p) => p.x);
+  const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const avoid = [{ x: t.samples[1300].x + 60, z: t.samples[1300].z, radius: 20 }];
+  const cells = waterCells(t, avoid);
+  assert.ok(cells.length * WATER_CELL ** 2 > 40000, `水が ${cells.length} マスしかない`);
+  for (const c of cells) {
+    assert.ok(insideLoop(t.samples, c.x, c.z), '水がコースの外');
+    assert.ok(c.x < mid, '水が右半分');
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - c.x, q.z - c.z) >= q.wall + 2, '水が道にかかる');
+    for (const a of avoid) assert.ok(Math.hypot(a.x - c.x, a.z - c.z) >= a.radius, '水が建物にかかる');
+  }
+});

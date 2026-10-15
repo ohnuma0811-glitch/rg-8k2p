@@ -183,3 +183,8 @@ test('通行止めの道はコースの道につながる: 道のふちから始
   assert.ok(opened >= mouths.length * 5, `${opened}`);
   assert.ok(fences.filter((f) => f[-1]).length > t.samples.length * 0.6);
 });
+
+test('ロータリー G の右（湖の側）には外へ出る道を作らない（2026-10-15 のユーザー依頼）', () => {
+  assert.ok(!KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.at && i.at[0] === 'G' && i.at[1] === 'G'));
+  assert.ok(!KAMPAR_SCENERY.some((i) => i.part === 'lake'), '湖は水の床（src/render/town/water.js）にまとめる');
+});

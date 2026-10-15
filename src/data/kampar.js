@@ -54,7 +54,6 @@ export const KAMPAR_SCENERY = [
   { part: 'arrowSign', at: ['G', 'H', 0.53], side: 1, back: 0.5, dir: 0 },
   { part: 'chevronBoard', at: ['G', 'H', 0.47], side: -1, back: 0.5, dir: 1 },
   { part: 'chevronBoard', at: ['G', 'H', 0.47], side: 1, back: 0.5, dir: -1 },
-  { part: 'stubRoad', at: ['G', 'G', 0], side: 1, back: 0, radius: 3 },
 
   // 直角の角の正面に続く道（通行止め。2026-10-15 のユーザー依頼「正面にも道は続いているが、通行止め」）
   { part: 'stubRoad', at: ['A', 'A', 0], ahead: true },
@@ -118,12 +117,10 @@ export const KAMPAR_SCENERY = [
   { part: 'tree', from: ['F', 'G', 0.05], to: ['F', 'G', 0.9], every: 12, side: 1, back: 1, radius: 3 },
   { part: 'railing', from: ['F', 'G', 0.1], to: ['F', 'G', 0.9], every: 10, side: 1, back: 4, radius: 1, length: 10, color: 0xf2f2f2 },
   { part: 'car', from: ['F', 'G', 0.2], to: ['F', 'G', 0.8], every: 9, side: 1, back: 1.5, radius: 2, color: 0xc8c8c8 },
-  { part: 'lake', at: ['F', 'G', 0.5], side: 1, back: 6, radius: 4, width: 110, depth: 70 },
   { part: 'tree', from: ['F', 'G', 0.32], to: ['F', 'G', 0.78], every: 14, side: 0, radius: 1, crown: 0.45, height: 5 }, // 分離帯の若い木
 
   // G〜H（61右〜62右H）: 大学の建物と木。右は湖
   { part: 'tree', from: ['G', 'H', 0.6], to: ['G', 'H', 0.95], every: 14, side: 1, back: 2, radius: 3 },
-  { part: 'lake', at: ['G', 'H', 0.6], side: 1, back: 8, radius: 4, width: 90, depth: 60 },
 
   // H〜I（63HI）: 大学の中。両側に大学の建物、木
   { part: 'tower', from: ['H', 'I', 0.35], to: ['H', 'I', 0.9], every: 45, side: 1, back: 8, radius: 12, floors: 3, width: 36, depth: 16, color: 0xf2f2f0, stripe: 0x8fa0ad },
