@@ -181,9 +181,10 @@ test('バンプで転がって滑っても、柵の外に出ない（その場�
   }
 });
 
-test('バンプの警告: バンプの手前のしま模様（BUMP_STRIPE_M）に入ったら出す。越えたら消える（2026-10-15 のユーザー依頼で遅らせた）', async () => {
-  const { bumpWarning, BUMP_STRIPE_M } = await import('../src/game/hazards.js');
+test('バンプの警告: しま模様（BUMP_STRIPE_M）に入る2秒前（今の速さで）から出す。越えたら消える（2026-10-15 のユーザー依頼）', async () => {
+  const { bumpWarning, BUMP_STRIPE_M, BUMP_WARN_EARLY } = await import('../src/game/hazards.js');
   assert.equal(BUMP_STRIPE_M, 26);
+  assert.equal(BUMP_WARN_EARLY, 2);
   const b = t.bumps[0];
   const at = (dist, speed) => {
     const i = (Math.round(b - dist) + t.length) % t.length;
@@ -193,8 +194,9 @@ test('バンプの警告: バンプの手前のしま模様（BUMP_STRIPE_M）�
   };
   assert.equal(bumpWarning(t, at(20, 40)), true); // しまの上
   assert.equal(bumpWarning(t, at(20, 5)), true); // ゆっくりでも、しまの上なら出す
-  assert.equal(bumpWarning(t, at(40, 40)), false); // しまの手前
-  assert.equal(bumpWarning(t, at(80, 40)), false);
+  assert.equal(bumpWarning(t, at(100, 40)), true); // しまの 74m 手前、1.85秒でしまに入る
+  assert.equal(bumpWarning(t, at(120, 40)), false); // 2.35秒かかる
+  assert.equal(bumpWarning(t, at(50, 5)), false); // ゆっくり: 4.8秒かかる
   assert.equal(bumpWarning(t, at(-3, 40)), false); // 越えたあと
   assert.equal(bumpWarning(t, { ...at(15, 40), tumble: 2 }), false); // 転がっている間は出さない
 });
