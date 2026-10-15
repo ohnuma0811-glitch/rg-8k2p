@@ -36,9 +36,10 @@ export function palm(b, { height = 8 } = {}) {
   }
 }
 
-export function tree(b, { height = 7, color = COLORS.leaf } = {}) {
+// 木。crown は葉の広がりの倍率（分離帯の上の若い木は 0.45 くらいにして、道にはみ出さない）
+export function tree(b, { height = 7, color = COLORS.leaf, crown = 1 } = {}) {
   b.cyl(0.25, 0.35, height * 0.45, 6, COLORS.trunk, 0, 0, 0);
-  b.cyl(2.2, 2.8, height * 0.6, 7, color, 0, height * 0.4, 0);
+  b.cyl(2.2 * crown, 2.8 * crown, height * 0.6, 7, color, 0, height * 0.4, 0);
 }
 
 export function lamp(b) {
@@ -135,4 +136,76 @@ export function tower(b, { floors = 20, width = 16, depth = 14, color = 0xe2e2df
   b.box(width, h, depth, color, 0, 0, 0);
   for (const x of [-width / 3, 0, width / 3]) b.box(1.6, h - 2, 0.2, stripe, x, 1, depth / 2 + 0.05);
   b.box(width + 0.6, 1.2, depth + 0.6, 0xf6f6f4, 0, h, 0);
+}
+
+// 白黒の木組みのショップハウス（写真 23〜25）: 白い壁に黒い細い格子、三角の屋根
+export function timberHouse(b, { floors = 3, width = 7, depth = 14 } = {}) {
+  const fh = 3.4;
+  const h = fh * floors;
+  b.box(width, h, depth, 0xf2efe8, 0, 0, -depth / 2);
+  for (let x = -width / 2; x <= width / 2 + 0.01; x += width / 4) b.box(0.18, h - fh, 0.1, 0x2a2a2a, x, fh, 0.03); // 縦の黒い木
+  for (let f = 1; f <= floors; f++) b.box(width, 0.18, 0.1, 0x2a2a2a, 0, f * fh - 0.2, 0.03); // 横の黒い木
+  for (let f = 1; f < floors; f++) b.box(width / 3, 1.4, 0.12, COLORS.glass, 0, f * fh + 0.9, 0.05);
+  b.box(width, 0.3, 2.2, COLORS.white, 0, fh - 0.3, 1.1); // 歩道の屋根
+  for (let k = 0; k < 4; k++) b.box(width + 0.4 - k * 1.6, 0.8, depth, 0x4a4f55, 0, h + k * 0.8, -depth / 2); // 三角の屋根（段々）
+}
+
+// ガソリンスタンド: 緑と白の平たい屋根を4本の柱で
+export function petrolStation(b) {
+  for (const [x, z] of [[-6, -2], [6, -2], [-6, -9], [6, -9]]) b.box(0.5, 5, 0.5, COLORS.white, x, 0, z);
+  b.box(16, 0.9, 11, 0x1f8f4a, 0, 5, -5.5);
+  b.box(16, 0.3, 11.2, COLORS.white, 0, 5.9, -5.5);
+  b.box(8, 3.5, 6, COLORS.white, 0, 0, -16); // 小さな店
+}
+
+// ファストフード店（実在の店の名前は使わない）
+export function fastFood(b) {
+  b.box(12, 6, 12, 0xd8262b, 0, 0, -6);
+  b.box(12.2, 1.2, 12.2, COLORS.white, 0, 6, -6);
+  b.label(textDraw('FRIED CHICKEN', '#d8262b', '#ffffff'), [256, 64], 0, 6.6, 0.15, 0, 10, 1.1);
+}
+
+// 屋根付きの通路（学校のまわり。写真 27〜29）。roof の色で青か赤
+export function walkway(b, { length = 12, roof = 0x2a5fb8 } = {}) {
+  for (let x = -length / 2; x <= length / 2 + 0.01; x += 3) b.box(0.25, 2.6, 0.25, 0x9aa0a6, x, 0, 0);
+  b.box(length + 0.6, 0.4, 3, roof, 0, 2.6, 0);
+}
+
+// 灰色の横長の平屋の店と、駐車場の屋根（写真 70〜72）
+export function shed(b) {
+  b.box(44, 7, 22, 0xd9dcdf, 0, 0, -18);
+  b.box(44.6, 0.8, 22.6, 0x9aa3ab, 0, 7, -18);
+  b.box(30, 0.4, 8, 0x8f969c, 0, 3.2, -3); // 駐車場の屋根
+  for (const x of [-14, -7, 0, 7, 14]) b.box(0.3, 3.2, 0.3, 0x9aa0a6, x, 0, -3);
+}
+
+// 湖（水の平たい板）
+export function lake(b, { width = 120, depth = 80 } = {}) {
+  b.box(width, 0.06, depth, 0x5f9fc8, 0, 0.02, -depth / 2);
+}
+
+// 低いやぶ
+export function bush(b, { color = 0x3c7f35 } = {}) {
+  b.box(3, 1.4, 2.4, color, 0, 0, 0);
+  b.box(2, 1.9, 1.8, color, 0.8, 0, -0.6);
+}
+
+// 家具の店（ショップハウスに青い看板）
+export function furnitureShop(b) {
+  shophouse(b, { floors: 2, width: 12, color: 0xf0f0f0, roof: 'flat' });
+  b.label(textDraw('FURNITURE', '#ffffff', '#1f5fbf'), [256, 64], 0, 5.2, 0.3, 0, 10, 2);
+}
+
+function textDraw(text, fg, bg) {
+  const draw = (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = fg;
+    g.font = `bold ${Math.floor(h * 0.55)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, w / 2, h / 2, w * 0.94);
+  };
+  draw.key = `text:${text}:${fg}:${bg}`;
+  return draw;
 }

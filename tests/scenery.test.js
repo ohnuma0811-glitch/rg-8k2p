@@ -35,3 +35,22 @@ test('景色は道・ほかの道・ロータリーの島にかからない（�
   assert.deepEqual(group.userData.skippedLandmarks, []);
   for (const spot of group.userData.spots) assert.ok(sceneryClear(t, spot, spot.radius), JSON.stringify(spot));
 });
+
+test('どの区間にも景色がある（設計書 4 の表のとおり、区間ごとに何か置く）', () => {
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  const marks = ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  for (let k = 0; k < marks.length; k++) {
+    const from = marks[k] === 'S' ? 0 : t.marks[marks[k]];
+    const to = k + 1 < marks.length ? t.marks[marks[k + 1]] : t.length;
+    const n = group.userData.spots.filter((s) => s.s >= from && s.s < to).length;
+    assert.ok(n >= 5, `${marks[k]} の区間の景色が ${n} 個`);
+  }
+});
+
+test('道の真ん中（side 0）に置く物は、分離帯のある所だけ（道の上に街灯や木が立たない）', () => {
+  const group = buildScenery(t, [{ part: 'lamp', from: ['E', 'F', 0.1], to: ['E', 'F', 0.9], every: 30, side: 0, radius: 1 }, ...KAMPAR_SCENERY]);
+  const n = t.samples.length;
+  for (const spot of group.userData.spots.filter((s) => s.side === 0)) {
+    assert.ok(t.samples[((Math.round(spot.s) % n) + n) % n].median > 0, `s=${spot.s}`);
+  }
+});

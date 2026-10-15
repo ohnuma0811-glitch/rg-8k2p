@@ -485,6 +485,8 @@ export function buildTrackMesh(track) {
     group.add(bumpSign(track, b - 25));
   }
 
+  group.add(mountains(track));
+
   // 街の景色（部品セットを、コースのデータの置き場所に）
   if (town) group.add(buildScenery(track, track.def.scenery ?? []));
 
@@ -576,5 +578,27 @@ function bumpSign(track, s) {
   }), side: THREE.DoubleSide }));
   plate.position.set(0, 1.75, 0.08);
   g.add(pole, diamond, plate);
+  return g;
+}
+
+// 遠くの山。サーキットはまわりをぐるりと。Kampar Town は写真のとおり、北（-z）と東（+x）に高く
+const MOUNTAIN = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
+function mountains(track) {
+  const g = new THREE.Group();
+  const town = track.def.theme === 'town';
+  const reach = Math.max(...track.samples.map((p) => Math.hypot(p.x, p.z)));
+  const radius = town ? reach + 380 : 700;
+  for (let k = 0; k < 14; k++) {
+    const a = (k / 14) * Math.PI * 2;
+    let h = 150 + ((k * 37) % 5) * 40;
+    if (town) {
+      const north = Math.max(0, -Math.sin(a)); // -z の向き
+      const east = Math.max(0, Math.cos(a)); // +x の向き
+      h = 90 + 260 * Math.max(north, east) + ((k * 37) % 5) * 25;
+    }
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), MOUNTAIN);
+    cone.position.set(Math.cos(a) * radius, h / 2 - 2, Math.sin(a) * radius);
+    g.add(cone);
+  }
   return g;
 }

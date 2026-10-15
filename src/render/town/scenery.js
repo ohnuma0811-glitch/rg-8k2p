@@ -37,6 +37,9 @@ export function buildScenery(track, list) {
   const put = (item, s) => {
     const spot = placeSpot(track, s, item.side ?? -1, item.back ?? 2);
     spot.radius = item.radius ?? 1;
+    // 道の真ん中に置く物は、分離帯のある所だけ（道の上に立たないように）
+    const n = track.samples.length;
+    if (spot.side === 0 && !(track.samples[((Math.round(s) % n) + n) % n].median > 0)) return;
     if (!sceneryClear(track, spot, spot.radius)) {
       if (landmarks.PARTS[item.part]) skippedLandmarks.push(item.part);
       return;
