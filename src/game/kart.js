@@ -27,6 +27,7 @@ export const PHYS = {
   COUNTER: 0.3, // 反対へ切った・戻したと見なすハンドルの量
   STAGE_TIME: 0.7, // ドリフトを続けて煙の色が1段進む時間（秒。1.4秒で赤）
   MT_BOOST: 1.2, // 赤で離したときのミニターボの時間（秒）
+  MT_FACTOR: 1.15, // ミニターボの最高速の倍率（加速板より弱く。ミニターボ中に加速板に乗ると、さらに速くなるように。2026-10-16 のユーザー依頼）
   PAD_BOOST: 1.0, // 加速板の加速の時間（秒）
   BOOST_FACTOR: 1.3, // 加速中の最高速の倍率
   GRAVITY: 15, // m/s²
@@ -66,6 +67,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.hop = 0;
   kart.prevDrift = false;
   kart.boost = 0;
+  kart.boostFactor = PHYS.BOOST_FACTOR;
   kart.surface = 'road';
   kart.respawn = 0;
   kart.respawnAt = i;
@@ -99,15 +101,20 @@ export function startDash(kart, params, accelLevel) {
   startBoost(kart, params, DASH_BASE + DASH_PER_ACCEL * accelLevel);
 }
 
-function startBoost(kart, params, time) {
-  kart.boost = Math.max(kart.boost, time);
-  kart.speed = Math.max(kart.speed, params.topSpeed * PHYS.BOOST_FACTOR);
+// factor: 加速中の最高速の倍率（加速板・スタートダッシュは BOOST_FACTOR、ミニターボは MT_FACTOR）。
+// 加速中に、より強い加速を受けたら強い方に切りかえる。弱い加速は、強い加速の間は受けない
+function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
+  const going = kart.boost > 0;
+  if (going && factor < kart.boostFactor) return;
+  kart.boost = going && factor === kart.boostFactor ? Math.max(kart.boost, time) : time;
+  kart.boostFactor = factor;
+  kart.speed = Math.max(kart.speed, params.topSpeed * factor);
 }
 
 function endDrift(kart, params, release) {
   const lv = driftLevel(kart);
   kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
-  if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST);
+  if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST, PHYS.MT_FACTOR);
 }
 
 // ctl: { steer: -1〜1（右が正）, brake: bool, drift: bool }
@@ -164,7 +171,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
     let maxV = params.topSpeed;
     if (here.surface !== 'road') maxV *= PHYS.DIRT_FACTOR;
-    if (kart.boost > 0) maxV *= PHYS.BOOST_FACTOR;
+    if (kart.boost > 0) maxV *= kart.boostFactor;
     // ハンドルを切ったりドリフトしたりすると、少し遅くなる
     maxV *= 1 - (kart.drift.active ? PHYS.DRIFT_DRAG : PHYS.STEER_DRAG * Math.abs(steer));
     // 路面のでこぼこで、最高速が少しずつ上下する（走っている場所で決まる。ダートは大きく）

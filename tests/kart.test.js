@@ -183,6 +183,21 @@ test('切り返さなくても、ドリフトを続けると煙が0.7秒で黄�
   assert.ok(kart.boost > PHYS.MT_BOOST - 0.05);
 });
 
+test('赤で離したミニターボは、加速板より弱い（最高速 MT_FACTOR 倍）。ミニターボ中に加速板に乗ると、さらに速くなる（2026-10-16 のユーザー依頼）', () => {
+  assert.ok(PHYS.MT_FACTOR < PHYS.BOOST_FACTOR);
+  const kart = startRightDrift();
+  run(WIDE, kart, D(0.3), 1.5);
+  assert.equal(driftLevel(kart), 2);
+  stepKart(kart, NONE, WIDE, params, DT);
+  assert.equal(kart.boostFactor, PHYS.MT_FACTOR);
+  assert.ok(kart.speed <= params.topSpeed * PHYS.MT_FACTOR + 1e-6, `ミニターボが速すぎる: ${kart.speed}`);
+  const before = kart.speed;
+  // 加速板（強い加速）に乗る
+  startDash(kart, params, 3);
+  assert.equal(kart.boostFactor, PHYS.BOOST_FACTOR);
+  assert.ok(kart.speed > before + 1, '加速板で速くならない');
+});
+
 test('反対のボタンを押して離すだけでも、切り返し1回と数える（同じ向きに押し直さなくてよい）', () => {
   const kart = startRightDrift();
   run(WIDE, kart, D(-1), 0.1);

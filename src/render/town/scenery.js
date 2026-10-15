@@ -111,6 +111,17 @@ export function buildScenery(track, list) {
       b.pop();
       return;
     }
+    // 直角の角を基準に置く物: corner: [u, w]（u は入ってくる向きに、w は曲がる向きと反対へ。m）。前（+z）は走ってくる車の方
+    if (item.corner) {
+      const c = cornerCenter(track, s);
+      const [u, w] = item.corner;
+      const spot = { x: c.x + c.ux * u - c.vx * w, z: c.z + c.uz * u - c.vz * w, ry: Math.atan2(c.ux, c.uz), s: c.s, side: 2, radius: item.radius ?? 2, part: item.part };
+      spots.push(spot);
+      b.push(spot.x, 0, spot.z, spot.ry);
+      PARTS[item.part](b, { ...item, side: 0 });
+      b.pop();
+      return;
+    }
     // 角の正面に置く物（T字路の正面の看板など）: 道のふちから back m 奥
     if (item.ahead) {
       const spot = aheadSpot(track, s, item.ahead);

@@ -13,6 +13,9 @@ export const KAMPAR_SCENERY = [
   { part: 'pipeBridge', at: ['J', 'S', 0.75], side: 1, back: 2, radius: 8 }, // 川と水道管の橋（77）
 
   // 走ってくる車の方を向いた、道ばたの大きな看板（まっすぐ走っていても見えるように。2026-10-15 のユーザー依頼）
+  // F（WestLake Villas の前の右折）の交差点の奥の右手に、学校へ行く向きの大きな看板「WIS→」（2026-10-16 のユーザー依頼）
+  // corner: [u, w] は角からの場所（u は入ってくる向きに、w は曲がる向きと反対へ）。奥（u > 道の幅）の右手（w < -道の幅）
+  { part: 'driverBoard', at: ['F', 'F', 0], corner: [24, -24], radius: 9, text: 'WIS →', bg: '#3b2a6b', width: 14, height: 5, top: 9 },
   // ホテルの手前（ホテルにうもれないように、ホテルの 4m 手前。板が道にかからないよう、道のふちから 8m 奥。2026-10-16 のユーザー依頼）
   { part: 'driverBoard', at: ['C', 'D', 0.22], side: 1, back: 8, radius: 2, text: 'Grand Kampar Hotel', bg: '#7a1f2b', fg: '#f2d48a', width: 16, height: 4, top: 10 },
   { part: 'driverBoard', at: ['I', 'J', 0.86], side: 1, back: 3, radius: 2, text: "Lotus's", bg: '#3fc1e8', width: 18, height: 4.4, top: 12 }, // J の手前のまっすぐな所（道がくねる所だと画面の外に出た）

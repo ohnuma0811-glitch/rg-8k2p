@@ -204,3 +204,20 @@ test('学校の横断幕は校舎の真ん前（校舎は学校の場所から 2
   const d = markS(t, banner.at) - (markS(t, school.at) + 25);
   assert.ok(Math.abs(d) < 8, `${d.toFixed(1)}m ずれている`);
 });
+
+test('F の交差点の奥の右手に「WIS→」の大きな看板。道にも通行止めの道にもかからない（2026-10-16 のユーザー依頼）', async () => {
+  const { cornerCenter, cornerUW } = await import('../src/game/track.js');
+  const item = KAMPAR_SCENERY.find((i) => i.part === 'driverBoard' && i.text.includes('WIS'));
+  assert.ok(item && item.text.includes('→'));
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  const c = cornerCenter(t, markS(t, ['F', 'F', 0]));
+  const sp = group.userData.spots.find((p) => p.part === 'driverBoard' && Math.hypot(p.x - (c.x + c.ux * 24 - c.vx * -24), p.z - (c.z + c.uz * 24 - c.vz * -24)) < 0.5);
+  assert.ok(sp, '看板が置かれていない');
+  const o = cornerUW(c, sp.x, sp.z);
+  assert.ok(o.u > t.roadHalf + 5 && o.w < -t.roadHalf - 5, '交差点の奥の右手ではない');
+  // 看板の板の両はし（幅14m、走ってくる車の方を向くので、横に広がる）も道にかからない
+  for (const d of [-7, 7]) {
+    const x = sp.x - c.vx * d, z = sp.z - c.vz * d;
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - x, q.z - z) > q.half + 1, '看板が道にかかる');
+  }
+});
