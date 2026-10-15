@@ -1,5 +1,6 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
 import * as THREE from '../../vendor/three.module.min.js';
+import { buildScenery } from './town/scenery.js';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -483,6 +484,9 @@ export function buildTrackMesh(track) {
     group.add(m);
     group.add(bumpSign(track, b - 25));
   }
+
+  // 街の景色（部品セットを、コースのデータの置き場所に）
+  if (town) group.add(buildScenery(track, track.def.scenery ?? []));
 
   // 観客席・土手・木と看板は、サーキットだけ
   if (track.def.theme === 'circuit') {

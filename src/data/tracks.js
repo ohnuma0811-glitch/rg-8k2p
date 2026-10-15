@@ -1,3 +1,5 @@
+import { KAMPAR_SCENERY } from './kampar.js';
+
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
 // きついカーブは3か所だけにして、どれも大きく曲がるようにする（小さなくねくねは入れない）
@@ -39,6 +41,7 @@ export const COURSE2 = {
   name: 'Kampar Town',
   music: 'kenta', // Task 30 で Kampar Town の曲（'kampar'）にする
   theme: 'town',
+  scenery: KAMPAR_SCENERY, // 景色の置き場所（src/data/kampar.js）
   points: [
     [1000, 530], [990, 590], [962, 655], [932, 712], // 0〜3: スタート（歩道橋）から A へ、ゆるやかなカーブ
     [902, 744], // 4: A（右へ曲がる）
