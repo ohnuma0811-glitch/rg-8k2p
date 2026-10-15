@@ -1,4 +1,4 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=8258d44';
+import { KAMPAR_SCENERY } from './kampar.js?v=150f95c';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -86,7 +86,8 @@ export const COURSE2 = {
   squareCorners: [['A', 'A', 0], ['B', 'B', 0], ['C', 'C', 0], ['D', 'D', 0], ['D', 'E', 0.7], ['F', 'F', 0], ['J', 'J', 0]],
   intersections: ['A', 'B', 'F'], // 交差点（横断歩道を描く。信号と、まわりの通行止めの道は src/data/kampar.js）
   // 牛（2026-10-15 のユーザー依頼）: J の近くで、ゆっくり左右に動く。メーター150以上でぶつかるとスピン
-  cows: { from: ['I', 'J', 0.39], to: ['I', 'J', 0.95], count: 9 }, // UTAR 側に5頭ふやして9頭（2026-10-15 のユーザー依頼）
+  cows: { from: ['I', 'J', 0.39], to: ['I', 'J', 0.95], count: 9 },
+  buses: 5, // スクールバス（BAS SEKOLAH）。右側の車線を逆向きに走ってくる（2026-10-16 のユーザー依頼） // UTAR 側に5頭ふやして9頭（2026-10-15 のユーザー依頼）
   pads: [
     { at: ['S', 'A', 0.4], len: 6, time: 1.0 },
     { at: ['I', 'J', 0.3], len: 6, time: 1.0 },

@@ -1,8 +1,8 @@
 // 置き場所のデータから、コースの景色を作る（部品の前が道を向くように、道ぞいに置く）
-import * as kit from './kit.js?v=8258d44';
-import * as landmarks from './landmarks.js?v=8258d44';
-import { createBuilder } from './builder.js?v=8258d44';
-import { markS, span, cornerCenter } from '../../game/track.js?v=8258d44';
+import * as kit from './kit.js?v=150f95c';
+import * as landmarks from './landmarks.js?v=150f95c';
+import { createBuilder } from './builder.js?v=150f95c';
+import { markS, span, cornerCenter } from '../../game/track.js?v=150f95c';
 
 const PARTS = { ...kit, ...landmarks.PARTS };
 

@@ -1,41 +1,41 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=8258d44';
-import { startLoop } from './loop.js?v=8258d44';
-import { COURSES } from './data/tracks.js?v=8258d44';
-import { buildTrack } from './game/track.js?v=8258d44';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=8258d44';
-import { cowContact, cowPose, bumpWarning } from './game/hazards.js?v=8258d44';
-import { kartParams } from './game/stats.js?v=8258d44';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=8258d44';
-import { pushApart, newBumps } from './game/collide.js?v=8258d44';
+import * as THREE from '../vendor/three.module.min.js?v=150f95c';
+import { startLoop } from './loop.js?v=150f95c';
+import { COURSES } from './data/tracks.js?v=150f95c';
+import { buildTrack } from './game/track.js?v=150f95c';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=150f95c';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear } from './game/hazards.js?v=150f95c';
+import { kartParams } from './game/stats.js?v=150f95c';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=150f95c';
+import { pushApart, newBumps } from './game/collide.js?v=150f95c';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=8258d44';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=8258d44';
-import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=8258d44';
-import { createMinimap } from './render/minimap.js?v=8258d44';
-import { grandstandSpot } from './render/trackMesh.js?v=8258d44';
-import { createKartModel, syncKartModel, createNameTag, createCowModel } from './render/models.js?v=8258d44';
-import { faceSvg } from './titleArt.js?v=8258d44';
-import { createEffects } from './render/effects.js?v=8258d44';
-import { nextQuality, pixelRatio } from './render/quality.js?v=8258d44';
-import { blendPose, poseOf } from './render/interp.js?v=8258d44';
-import { speedText } from './hud.js?v=8258d44';
-import { addRecent, cleanRecent } from './names.js?v=8258d44';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=8258d44';
-import { load, save } from './storage.js?v=8258d44';
-import * as screens from './screens.js?v=8258d44';
-import { createAudio } from './audio/audio.js?v=8258d44';
-import { createSfx } from './audio/sfx.js?v=8258d44';
-import { createVoices } from './audio/voice.js?v=8258d44';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=8258d44';
-import { createCrowd } from './audio/crowd.js?v=8258d44';
-import { crowdMix } from './audio/mix.js?v=8258d44';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=8258d44';
-import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=8258d44';
+} from './game/race.js?v=150f95c';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=150f95c';
+import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=150f95c';
+import { createMinimap } from './render/minimap.js?v=150f95c';
+import { grandstandSpot } from './render/trackMesh.js?v=150f95c';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel } from './render/models.js?v=150f95c';
+import { faceSvg } from './titleArt.js?v=150f95c';
+import { createEffects } from './render/effects.js?v=150f95c';
+import { nextQuality, pixelRatio } from './render/quality.js?v=150f95c';
+import { blendPose, poseOf } from './render/interp.js?v=150f95c';
+import { speedText } from './hud.js?v=150f95c';
+import { addRecent, cleanRecent } from './names.js?v=150f95c';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=150f95c';
+import { load, save } from './storage.js?v=150f95c';
+import * as screens from './screens.js?v=150f95c';
+import { createAudio } from './audio/audio.js?v=150f95c';
+import { createSfx } from './audio/sfx.js?v=150f95c';
+import { createVoices } from './audio/voice.js?v=150f95c';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=150f95c';
+import { createCrowd } from './audio/crowd.js?v=150f95c';
+import { crowdMix } from './audio/mix.js?v=150f95c';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=150f95c';
+import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=150f95c';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '8258d44';
+const VERSION = '150f95c';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -297,6 +297,21 @@ function placeCows(time) {
   });
 }
 
+// スクールバスの形（牛と同じく、コースの形と一緒に取っておく）を、時刻 time の場所に置く（2026-10-16 のユーザー依頼）
+function placeBuses(time) {
+  if (!track.buses.length) return;
+  if (!track.busModels) {
+    track.busModels = track.buses.map(() => createBusModel());
+    track.busModels.forEach((m) => track.mesh.add(m));
+  }
+  track.buses.forEach((bus, k) => {
+    const p = busPose(track, bus, time);
+    const m = track.busModels[k];
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = -p.heading;
+  });
+}
+
 function removeGame() {
   if (!game) return;
   sfx.stopAll();
@@ -351,6 +366,8 @@ function stepGame(dt) {
   });
   // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
   if (track.cows.length) karts.forEach((kart) => cowContact(kart, track, race.t, PHYS));
+  // スクールバス（Kampar Town）: 触れたらスピン
+  if (track.buses.length) karts.forEach((kart) => busContact(kart, track, race.t, PHYS));
   // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）
   karts.forEach((kart) => {
     if (kart.tumble > 0 && !kart.tumbleShown) effects.burst(kart.x, kart.y + 0.5, kart.z);
@@ -559,6 +576,7 @@ function renderGame(alpha, dt) {
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
   placeCows(g.race.t);
+  placeBuses(g.race.t);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -588,7 +606,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t) });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
