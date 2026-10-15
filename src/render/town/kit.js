@@ -288,3 +288,10 @@ export function trafficLight(b, { side = -1 } = {}) {
   b.box(0.45, 0.45, 0.1, 0x2bff6a, 0.6, 0.12, 0.26); // 青（ついている）
   b.pop();
 }
+
+// 山（スタートの左。2026-10-15 のユーザー依頼）: ジャングルにおおわれた大きな山
+export function hill(b, { radius = 90, height = 75 } = {}) {
+  b.cyl(radius * 0.25, radius, height, 9, 0x2a6b2e, 0, 0, -radius - 6);
+  b.cyl(0, radius * 0.3, height * 0.25, 9, 0x245f32, 0, height, -radius - 6);
+  b.cyl(radius * 0.2, radius * 0.7, height * 0.6, 8, 0x1f5a2a, radius * 0.9, 0, -radius * 0.8);
+}

@@ -1,6 +1,7 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
 import * as THREE from '../../vendor/three.module.min.js';
 import { buildScenery } from './town/scenery.js';
+import { buildJungle } from './town/jungle.js';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -495,7 +496,19 @@ export function buildTrackMesh(track) {
   }
 
   // 街の景色（部品セットを、コースのデータの置き場所に）
-  if (town) group.add(buildScenery(track, track.def.scenery ?? []));
+  if (town) {
+    const scenery = buildScenery(track, track.def.scenery ?? []);
+    group.add(scenery);
+    // コースの外側の何もない所はジャングル（建物・通行止めの道のまわりはあける）
+    const avoid = [];
+    for (const sp of scenery.userData.spots) {
+      const r = sp.side === 2 ? 14 : Math.max(6, sp.radius ?? 1);
+      const back = sp.side === 2 ? 16 : r * 1.4; // 建物は道から奥へ広がる
+      avoid.push({ x: sp.x, z: sp.z, radius: r + 6 });
+      avoid.push({ x: sp.x - Math.sin(sp.ry) * back, z: sp.z - Math.cos(sp.ry) * back, radius: r * 1.6 + 6 });
+    }
+    group.add(buildJungle(track, avoid));
+  }
 
   // 観客席・土手・木と看板は、サーキットだけ
   if (track.def.theme === 'circuit') {
