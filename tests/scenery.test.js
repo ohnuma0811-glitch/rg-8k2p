@@ -188,3 +188,19 @@ test('ロータリー G の右（湖の側）には外へ出る道を作らな�
   assert.ok(!KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.at && i.at[0] === 'G' && i.at[1] === 'G'));
   assert.ok(!KAMPAR_SCENERY.some((i) => i.part === 'lake'), '湖は水の床（src/render/town/water.js）にまとめる');
 });
+
+test('Grand Kampar Hotel の道ばたの看板は、ホテルの手前で、ホテルの建物にも道にもかからない（2026-10-16 のユーザー依頼）', () => {
+  const board = KAMPAR_SCENERY.find((i) => i.part === 'driverBoard' && i.text === 'Grand Kampar Hotel');
+  const hotel = KAMPAR_SCENERY.find((i) => i.part === 'hotel');
+  assert.ok(board && hotel);
+  const bs = markS(t, board.at), hs = markS(t, hotel.at);
+  assert.ok(hs - bs > 15 + 2, `看板がホテル（幅30m）の中: ${(hs - bs).toFixed(1)}m 手前`);
+  assert.ok(board.back >= (board.width ?? 14) / 2, '看板の柱が道にかかる');
+});
+
+test('学校の横断幕は校舎の真ん前（校舎は学校の場所から 25m 先）', () => {
+  const banner = KAMPAR_SCENERY.find((i) => i.part === 'banner' && i.text.includes('OPEN DAY'));
+  const school = KAMPAR_SCENERY.find((i) => i.part === 'westlakeSchool');
+  const d = markS(t, banner.at) - (markS(t, school.at) + 25);
+  assert.ok(Math.abs(d) < 8, `${d.toFixed(1)}m ずれている`);
+});
