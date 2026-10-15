@@ -131,7 +131,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   const steer = Math.max(-1, Math.min(1, ctl.steer));
 
   if (!kart.airborne) {
-    if (here.boost) startBoost(kart, params, PHYS.PAD_BOOST);
+    if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
     let maxV = params.topSpeed;
     if (here.surface !== 'road') maxV *= PHYS.DIRT_FACTOR;
     if (kart.boost > 0) maxV *= PHYS.BOOST_FACTOR;
