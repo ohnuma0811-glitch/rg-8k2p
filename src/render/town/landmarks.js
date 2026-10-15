@@ -195,10 +195,37 @@ function footbridge(b, { span = 34 } = {}) {
     const a = (k / 8) * Math.PI;
     b.box(0.6, 0.2, 14, 0x2a9a8f, -Math.cos(a) * 1.6, top + 2.2 + Math.sin(a) * 1.2, span / 2);
   }
+  // 高速道路のような緑の案内板（スタートから見える側。2026-10-16 のユーザー依頼）。
+  // 右の道ばたの部品では +x が走ってくる車の方なので、+x 側に、前（絵の面）を +x へ向けて付ける
+  b.box(0.3, 4.2, 15.4, 0xffffff, 1.95, top + 0.2, span / 2); // 白いふち
+  b.label(highwaySignDraw(), [1024, 280], 2.12, top + 2.3, span / 2, Math.PI / 2, 15, 4);
   // 両はしのスロープ（道に平行に、道ばたへ下りる）
   for (const z of [-3, span + 3]) {
     for (let k = 0; k < 8; k++) b.box(3, 0.4, 2.4, COLORS.concrete, 3 + k * 3, top - (k + 1) * (top / 8), z);
   }
+}
+
+// 緑の案内板の絵: 2行、左に行き先と距離、右に矢印（マレーシアの高速道路の案内板ふう）
+function highwaySignDraw() {
+  const draw = (g, w, h) => {
+    g.fillStyle = '#0b6b3a';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 8;
+    g.strokeRect(10, 10, w - 20, h - 20);
+    g.fillStyle = '#ffffff';
+    g.font = `bold ${Math.floor(h * 0.3)}px sans-serif`;
+    g.textBaseline = 'middle';
+    [['Kuala Lumpur  250 km', '↑'], ['Ipoh  100 km', '→']].forEach(([name, arrow], k) => {
+      const y = (h * (k + 0.5)) / 2;
+      g.textAlign = 'left';
+      g.fillText(name, w * 0.05, y);
+      g.textAlign = 'right';
+      g.fillText(arrow, w * 0.95, y);
+    });
+  };
+  draw.key = 'highway:KL250:Ipoh100';
+  return draw;
 }
 
 // J〜スタートの、川と大きな水道管の橋（写真 77）
