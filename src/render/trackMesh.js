@@ -1,10 +1,10 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=e13567f';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=e13567f';
-import { buildJungle } from './town/jungle.js?v=e13567f';
-import { buildWater } from './town/water.js?v=e13567f';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=e13567f';
-import { cornerUW } from '../game/track.js?v=e13567f';
+import * as THREE from '../../vendor/three.module.min.js?v=8258d44';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=8258d44';
+import { buildJungle } from './town/jungle.js?v=8258d44';
+import { buildWater } from './town/water.js?v=8258d44';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=8258d44';
+import { cornerUW } from '../game/track.js?v=8258d44';
 
 const COLORS = {
   dirt: 0xb08850,
