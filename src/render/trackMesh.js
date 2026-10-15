@@ -1,8 +1,9 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=fb0d64c';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=fb0d64c';
-import { buildJungle } from './town/jungle.js?v=fb0d64c';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=fb0d64c';
+import * as THREE from '../../vendor/three.module.min.js?v=bcb4702';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=bcb4702';
+import { buildJungle } from './town/jungle.js?v=bcb4702';
+import { buildWater } from './town/water.js?v=bcb4702';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=bcb4702';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -513,6 +514,8 @@ export function buildTrackMesh(track) {
       avoid.push({ x: sp.x - Math.sin(sp.ry) * back, z: sp.z - Math.cos(sp.ry) * back, radius: r * 1.6 + 6 });
     }
     group.add(buildJungle(track, avoid));
+    // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）
+    group.add(buildWater(track, avoid));
   }
 
   // 観客席・土手・木と看板は、サーキットだけ
