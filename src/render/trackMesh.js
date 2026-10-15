@@ -449,9 +449,12 @@ export function buildTrackMesh(track) {
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
 
-  group.add(grandstand(track));
-  const sides = bankSides(track);
-  group.add(bank(track, sides, -1), bank(track, sides, 1));
-  group.add(roadside(track, sides));
+  // 観客席・土手・木と看板は、サーキットだけ
+  if (track.def.theme === 'circuit') {
+    group.add(grandstand(track));
+    const sides = bankSides(track);
+    group.add(bank(track, sides, -1), bank(track, sides, 1));
+    group.add(roadside(track, sides));
+  }
   return group;
 }

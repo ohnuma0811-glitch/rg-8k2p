@@ -1,7 +1,7 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
 import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
-import { COURSE1 } from './data/tracks.js';
+import { COURSES } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
 import { createKart, stepKart, startDash } from './game/kart.js';
 import { kartParams } from './game/stats.js';
@@ -11,7 +11,7 @@ import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
-import { createRenderer, createWorld, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
+import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag } from './render/models.js';
@@ -31,7 +31,7 @@ import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './a
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
 import { createMusic, FINAL_LAP_RATE } from './audio/music.js';
-import { CUP_RACES, createCup, addRace, standings, isOver } from './game/cup.js';
+import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
@@ -91,12 +91,29 @@ const BUTTONS = ['left', 'right', 'brake', 'drift', 'item'];
 const els = Object.fromEntries(BUTTONS.map((n) => [n, $(`btn-${n}`)]));
 const dev = new Set(location.hash.slice(1).split('&'));
 
-const track = buildTrack(COURSE1);
-const standSpot = grandstandSpot(track); // 観客席の真ん中（歓声の大きさと左右）
+// コースの形は一度作ったら使い回す（レースのたびに作り直すと重い）
+const builtTracks = new Map();
+function trackOf(def) {
+  if (!builtTracks.has(def)) builtTracks.set(def, buildTrack(def));
+  return builtTracks.get(def);
+}
 const renderer = createRenderer(canvas);
-const { scene, camera } = createWorld(track);
+const { scene, camera } = createWorld();
 const effects = createEffects(scene);
-const minimap = createMinimap($('minimap'), track);
+let course = COURSES[0];
+let track = trackOf(course);
+let standSpot = null; // 観客席の真ん中（歓声の大きさと左右）。観客席のないコースでは null
+let minimap = null;
+// 走るコースを決める（形・マップ・歓声）
+function useCourse(def) {
+  course = def;
+  track = trackOf(def);
+  setCourse(scene, track);
+  minimap = createMinimap($('minimap'), track);
+  minimap.resize();
+  standSpot = def.theme === 'circuit' ? grandstandSpot(track) : null;
+}
+useCourse(COURSES[0]);
 const controls = new Controls();
 const audio = createAudio();
 const sfx = createSfx(audio);
@@ -112,9 +129,10 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
       const first = !audio.ctx;
       audio.unlock();
       if (!first || !audio.ctx) return;
-      // 曲を作るのに少し時間がかかるので、タイトルの曲から順に作っておく
       voices.load();
-      music.prepare('title').then(() => music.prepare(COURSE1.music)).then(() => music.prepare('victory')).then(() => music.prepare('consolation')).then(() => music.prepare('results'));
+      // 曲を作るのに少し時間がかかるので、タイトルの曲、コースの曲（一覧の順）、ゴールと結果の曲の順に作っておく
+      const order = ['title', ...new Set(COURSES.map((c) => c.music)), 'victory', 'consolation', 'results'];
+      order.reduce((p, name) => p.then(() => music.prepare(name)), Promise.resolve());
       if (!game) music.play('title');
     },
     { passive: true },
@@ -354,15 +372,16 @@ function resultRows(g) {
 
 // 大会の1レース。'next'（次へ）、'title'（タイトルへ）、'newcup'（新しい大会）を返す
 async function runRace(name, charId, cup) {
-  const label = `RACE ${cup.done + 1}/${CUP_RACES}`;
+  useCourse(courseOf(COURSES, cup));
+  const label = `RACE ${cup.done + 1}/${cup.races}`;
   // レースの画面に移ったら、曲（タイトル・結果）をだんだん小さくして止める。GO! でコースの曲が始まる
   music.stop(1.5);
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
-  await screens.courseIntro(menu, COURSE1.name, label, COURSE_INTRO);
+  await screens.courseIntro(menu, course.name, label, COURSE_INTRO);
   game = createGame(name, charId);
   buildTop3(game);
   sfx.engine.start();
-  crowd.start();
+  if (standSpot) crowd.start(); // 歓声は観客席のあるコースだけ
   camera.userData = {}; // カメラの動きを最初から（前のレースの位置を引きずらない）
   raceHud.classList.add('show');
   speedo.classList.remove('hidden'); // 上位3人の場所を決めるのに、速度計の大きさが要る
@@ -410,7 +429,7 @@ async function runRace(name, charId, cup) {
   let buttons;
   if (timeUp) buttons = [{ id: 'title', label: 'OK' }];
   else if (over) buttons = [{ id: 'newcup', label: '↻ NEW CUP' }, { id: 'title', label: '⌂ TITLE' }];
-  else buttons = [{ id: 'next', label: `▶ RACE ${cup.done + 1}/${CUP_RACES}` }, { id: 'title', label: '⌂ TITLE' }];
+  else buttons = [{ id: 'next', label: `▶ RACE ${cup.done + 1}/${cup.races}` }, { id: 'title', label: '⌂ TITLE' }];
   return screens.standings(menu, table, label, over, buttons);
 }
 
@@ -436,7 +455,7 @@ pauseBtn.addEventListener('click', async () => {
   if (!game) return;
   game.paused = false;
   sfx.engine.start();
-  crowd.start();
+  if (standSpot) crowd.start(); // 歓声は観客席のあるコースだけ
   if (pick === 'title' && game.onEnd) {
     const end = game.onEnd;
     game.onEnd = null;
@@ -451,6 +470,7 @@ async function seeYouTomorrow(name) {
 async function flow() {
   for (;;) {
     music.play('title'); // タイトル・名前・キャラ選びの間ずっと（同じ曲が流れていれば何もしない）
+    useCourse(COURSES[0]); // タイトルのカメラは1つ目のコースを映す
     // タイトル → 名前 → キャラ選び。BACK で1つ前の画面へ戻る
     let screen = 'title';
     let name = null;
@@ -479,8 +499,8 @@ async function flow() {
         else charId = pick;
       }
     }
-    // 大会（5レースの合計ポイントで優勝を決める）
-    let cup = createCup(CPU_COUNT + 1);
+    // 大会（コースの数のレースの、合計ポイントで優勝を決める）
+    let cup = createCup(CPU_COUNT + 1, COURSES.length);
     for (;;) {
       const pick = await runRace(name, charId, cup);
       if (remainingSec(playStore(), name, Date.now()) <= 0) {
@@ -488,7 +508,7 @@ async function flow() {
         break;
       }
       if (pick === 'title') break;
-      if (pick === 'newcup') cup = createCup(CPU_COUNT + 1);
+      if (pick === 'newcup') cup = createCup(CPU_COUNT + 1, COURSES.length);
     }
   }
 }
@@ -553,8 +573,8 @@ function renderGame(alpha, dt) {
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
     else if (name !== 'finish') sfx.play(name);
-    if (name === 'finalLap' || name === 'finish') crowd.excite(3);
-    if (name === 'go') music.play(COURSE1.music);
+    if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
+    if (name === 'go') music.play(course.music);
     if (name === 'finalLap') music.setRate(FINAL_LAP_RATE);
     if (name === 'finish') {
       // 順位で音を変える: 1〜3位は明るいファンファーレと勝利の曲、4位以下はちょっと悲しいファンファーレと別の曲
@@ -565,7 +585,7 @@ function renderGame(alpha, dt) {
   }
   g.sound = now;
   sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);
-  crowd.update(crowdMix(mine, standSpot));
+  if (standSpot) crowd.update(crowdMix(mine, standSpot));
   return { mine, kart };
 }
 

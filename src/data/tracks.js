@@ -6,6 +6,7 @@
 export const COURSE1 = {
   name: 'Kenta Circuit', // 2026-10-14 のユーザー依頼（Kentaサーキット）
   music: 'kenta', // このコースの曲（src/audio/songs.js の名前）
+  theme: 'circuit', // 見た目の種類（観客席・土手・赤白の柵）
   // 絵の点。斜めの道の下（交わる所の手前）から、走る順に並べる
   points: [
     [445, 350], [455, 322], [465, 287], [480, 260], [497, 232], // 斜めの道（右上へ上る。交わる所をジャンプで越える）
@@ -29,3 +30,7 @@ export const COURSE1 = {
   },
   startBeforeCross: 60, // スタートラインは、交わる所の、あとから通る方の道の、この距離だけ手前（m）
 };
+
+// 大会で走る順のコースの一覧（2026-10-15 のユーザー依頼: 1 Kenta Circuit、2 Kampar Town、3 Kyugo Mountain、4 Soki Forest、5 Global City）
+// できたコースから足す。大会のレースの数はこの数
+export const COURSES = [COURSE1];
