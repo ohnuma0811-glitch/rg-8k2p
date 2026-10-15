@@ -224,13 +224,14 @@ function createGame(name, charId) {
   const karts = [];
   const models = [];
   const cpus = [];
+  const seed = Math.floor(Math.random() * 100000); // レースごとの数（CPU がバンプで減速を忘れる所が、レースごとに変わる）
   let cpuNo = 0;
   for (let k = 0; k < count; k++) {
     const slot = gridSlot(track, k);
     karts.push(createKart(track, slot.i, slot.lateral));
     const isMe = k === PLAYER_SLOT;
     const look = isMe ? { body: me.body, character: me.id } : CPU_LOOKS[cpuNo];
-    cpus.push(isMe ? createCpu(7) : createCpu(cpuNo));
+    cpus.push(isMe ? createCpu(7, seed) : createCpu(cpuNo, seed));
     models.push(createKartModel(look));
     if (!isMe) cpuNo++;
   }

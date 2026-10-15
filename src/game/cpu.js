@@ -22,8 +22,12 @@ export const CPU = {
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 // k 番目の CPU。走る線（中心から右へ m）と、線をゆらす速さを少しずつ変える
-export function createCpu(k) {
+// seed はレースごとの数（バンプで減速を忘れる所が、レースごとに変わる）
+export function createCpu(k, seed = 0) {
   return {
+    seed,
+    lap: 0, // 何周目か（バンプで減速を忘れる所が、周ごとに変わる）
+    lastS: null,
     lane: [-5, 4, -2, 6, -6, 2, 5][k % 7],
     sway: 0.4 + (k % 3) * 0.15,
     phase: k * 1.7,
@@ -48,6 +52,9 @@ export function cpuControl(cpu, kart, track, t) {
   const loc = locate(track, kart.x, kart.z, kart.seg);
   const look = Math.round(CPU.LOOK + Math.max(0, kart.speed) * CPU.LOOK_PER_SPEED);
   const p = samples[(loc.i + look) % n];
+  // 周を数える（スタートの線を越えたら1つ増やす）
+  if (cpu.lastS !== null && loc.s < cpu.lastS - track.length / 2) cpu.lap++;
+  cpu.lastS = loc.s;
   let lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
   // ロータリー: 島のまわりは、近い側（曲がる向きの内側。まっすぐなら自分の走る線の側）を、島から離れて回る
   const isl = islandNear(track, p.s);
@@ -56,15 +63,41 @@ export function cpuControl(cpu, kart, track, t) {
     const side = turnTo > 0.3 ? 1 : turnTo < -0.3 ? -1 : Math.sign(cpu.lane) || 1;
     lane = side * (isl.r + 5 + Math.abs(Math.sin(t * cpu.sway + cpu.phase)) * 2);
   }
-  // 牛: 先の牛が、自分が着くころに走る線の近くにいたら、牛の横（5m 離れた所）を通る
+  // 牛: いちばん近い先の牛が、自分が着くころに走る線の近くにいたら、牛の横（5m 離れた所）を通る
+  // よけた先が道のはしで牛に近ければ、反対側からよける。牛のすぐ手前では、ぶつかってもスピンしない速さまで落とす
+  let cowBrake = false;
+  let cowAhead = Infinity;
+  let cowNear = null;
   for (const cow of track.cows ?? []) {
     const ahead = span(track, loc.s, cow.s);
-    if (ahead > 35) continue;
-    const c = cowPose(track, cow, t + ahead / Math.max(5, kart.speed));
-    if (Math.abs(lane - c.lateral) < 4) {
-      lane = c.lateral + 5 * (Math.sign(lane - c.lateral) || 1);
-      lane = Math.max(-(track.roadHalf - 2), Math.min(track.roadHalf - 2, lane));
+    if (ahead < 40 && ahead < cowAhead) {
+      cowAhead = ahead;
+      cowNear = cow;
     }
+  }
+  if (cowNear) {
+    const c = cowPose(track, cowNear, t + cowAhead / Math.max(5, kart.speed));
+    const edge = track.roadHalf - 2;
+    if (Math.abs(lane - c.lateral) < 4.5) {
+      const side = Math.sign(lane - c.lateral) || 1;
+      let dodge = Math.max(-edge, Math.min(edge, c.lateral + 5.5 * side));
+      if (Math.abs(dodge - c.lateral) < 4.5) dodge = Math.max(-edge, Math.min(edge, c.lateral - 5.5 * side));
+      lane = dodge;
+      if (Math.abs(lane - c.lateral) < 4.5) cowBrake = true;
+    }
+    if (Math.abs(loc.lateral - c.lateral) < 4) cowBrake = true;
+    // 牛までに、スピンしない速さまで落とせる所から減速する
+    const stop = (kart.speed ** 2 - CPU.BUMP_SPEED ** 2) / (2 * 25) + 8;
+    if (cowAhead > Math.max(8, stop)) cowBrake = false;
+  }
+  // 分離帯（芝生）の上は走らない: 走る線が分離帯にかかるときは、分離帯の外へ
+  // 今いる所から、目指す点の少し先までに分離帯があれば、早めに分離帯の外の線へ寄る
+  let median = 0;
+  for (let k = 0; k <= look + 25; k += 3) median = Math.max(median, samples[(loc.i + k) % n].median);
+  // 真ん中に近い線は、左右がゆれて分離帯をまたがないよう、その CPU のもとの側にする
+  if (median > 0) {
+    const side = Math.abs(lane) > median + 1 ? Math.sign(lane) : Math.sign(cpu.lane) || 1;
+    lane = side * Math.max(Math.abs(lane), median + 2);
   }
   const tx = p.x - Math.sin(p.h) * lane;
   const tz = p.z + Math.cos(p.h) * lane;
@@ -77,9 +110,9 @@ export function cpuControl(cpu, kart, track, t) {
   (track.bumps ?? []).forEach((b, k) => {
     const ahead = span(track, loc.s, b);
     const stop = (kart.speed ** 2 - CPU.BUMP_SPEED ** 2) / (2 * 25) + 6;
-    if (ahead < Math.max(6, stop) && kart.speed > CPU.BUMP_SPEED && !bumpMiss(cpu, k, t)) bumpBrake = true;
+    if (ahead < Math.max(6, stop) && kart.speed > CPU.BUMP_SPEED && !bumpMiss(cpu, k, cpu.lap)) bumpBrake = true;
   });
-  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake;
+  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED);
   if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne) cpu.drifting = true;
   if (cpu.drifting && (bend < CPU.DRIFT_END || kart.speed < 14)) cpu.drifting = false;
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
@@ -88,10 +121,14 @@ export function cpuControl(cpu, kart, track, t) {
   return { steer: out, brake, drift: cpu.drifting };
 }
 
-// CPU が、このバンプで減速を忘れるか（2割。同じ周の間は変わらない）
-function bumpMiss(cpu, b, t) {
-  const r = Math.sin((cpu.id ?? 0) * 12.9898 + b * 78.233 + Math.floor(t / 50) * 37.719) * 43758.5453;
-  return r - Math.floor(r) < CPU.BUMP_MISS;
+// CPU が、このバンプ（b 番目）で、この周（lap）に減速を忘れるか（2割くらい。レース・CPU・バンプ・周で決まる）
+// （最終レビュー: sin を使った前の式は、レースごとに同じで、かたよっていた）
+export function bumpMiss(cpu, b, lap) {
+  let h = Math.imul((cpu.seed ?? 0) + 1, 2654435761) ^ Math.imul((cpu.id ?? 0) + 1, 73856093) ^ Math.imul(b + 1, 19349663) ^ Math.imul(lap + 1, 83492791);
+  h = Math.imul(h ^ (h >>> 15), 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 3266489917);
+  h ^= h >>> 16;
+  return (h >>> 0) % 100 < CPU.BUMP_MISS * 100;
 }
 
 // CPU の車の数字（キャラの数字に、CPU の強さと、プレイヤーとの差の倍率をかける）

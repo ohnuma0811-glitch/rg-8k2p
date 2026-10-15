@@ -125,6 +125,14 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.z += Math.sin(kart.move) * kart.speed * dt;
     const loc = locate(track, kart.x, kart.z, kart.seg);
     kart.seg = loc.i;
+    // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
+    const excess = Math.abs(loc.lateral) - loc.wall;
+    if (excess > 0) {
+      const side = Math.sign(loc.lateral);
+      kart.x -= -Math.sin(loc.heading) * side * excess;
+      kart.z -= Math.cos(loc.heading) * side * excess;
+      kart.speed *= 0.5;
+    }
     if (kart.tumble === 0) {
       kart.speed = 0;
       kart.heading = loc.heading;

@@ -138,3 +138,45 @@ test('牛にぶつかったあとも、車は道の中にいる（柵の外に�
     }
   }
 });
+
+test('CPU がバンプで減速を忘れるのは2割くらい。どの CPU も、ときどき忘れる。レースごとにちがう', async () => {
+  const { bumpMiss } = await import('../src/game/cpu.js');
+  const { createCpu } = await import('../src/game/cpu.js');
+  let miss = 0;
+  let all = 0;
+  const perCpu = [0, 0, 0, 0];
+  for (let seed = 0; seed < 50; seed++) {
+    for (let id = 0; id < 4; id++) {
+      const cpu = createCpu(id, seed);
+      for (let b = 0; b < 3; b++) {
+        for (let lap = 0; lap < 3; lap++) {
+          all++;
+          if (bumpMiss(cpu, b, lap)) {
+            miss++;
+            perCpu[id]++;
+          }
+        }
+      }
+    }
+  }
+  assert.ok(miss / all > 0.12 && miss / all < 0.28, `${miss}/${all}`);
+  for (const n of perCpu) assert.ok(n > 0, `${perCpu}`);
+  // 同じ CPU でも、レース（seed）がちがえば、忘れる所がちがう
+  const pattern = (seed) => [0, 1, 2].map((b) => bumpMiss(createCpu(0, seed), b, 0)).join();
+  assert.ok(new Set([0, 1, 2, 3, 4, 5, 6, 7].map(pattern)).size > 1);
+});
+
+test('バンプで転がって滑っても、柵の外に出ない（その場で転がる）', () => {
+  for (const angle of [0.4, 0.6, -0.6]) {
+    const kart = before(t.bumps[0], 38, 3);
+    kart.x = kart.x - Math.sin(kart.heading) * 7;
+    kart.z = kart.z + Math.cos(kart.heading) * 7;
+    kart.heading += angle;
+    kart.move = kart.heading;
+    for (let k = 0; k < 60 * 4; k++) {
+      stepKart(kart, go, t, params, 1 / 60);
+      const loc = locate(t, kart.x, kart.z, kart.seg);
+      assert.ok(Math.abs(loc.lateral) <= loc.wall + 1e-6, `${angle}: ${Math.abs(loc.lateral).toFixed(1)} > ${loc.wall}`);
+    }
+  }
+});

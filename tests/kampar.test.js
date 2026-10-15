@@ -62,3 +62,57 @@ test('CPU は3周を止まらずに走りきる。1周は約1分（45〜80秒）
   assert.ok(dist >= 3 * t.length, `3周走れなかった: ${dist.toFixed(0)}m`);
   assert.ok(firstLap > 45 && firstLap < 80, `1周 ${firstLap?.toFixed(1)}秒`);
 });
+
+// CPU 4台で Kampar Town を3周（ゲームと同じ: 並び・CPU の速さ・牛・車どうしの押し合い）
+import { gridSlot } from '../src/game/race.js';
+import { cpuParams } from '../src/game/cpu.js';
+import { pushApart } from '../src/game/collide.js';
+import { locate } from '../src/game/track.js';
+function kamparCpuRace(seed = 1) {
+  const karts = [0, 1, 2, 3].map((k) => {
+    const slot = gridSlot(t, k);
+    return createKart(t, slot.i, slot.lateral);
+  });
+  const cpus = [0, 1, 2, 3].map((k) => createCpu(k, seed));
+  const stats = karts.map(() => ({ dist: 0, last: null, median: 0, spins: 0, tumbles: 0, finish: null }));
+  let contacts = new Set();
+  for (let time = 0; time < 300 && stats.some((s) => s.finish === null); time += 1 / 60) {
+    karts.forEach((kart, k) => {
+      const st = stats[k];
+      const wasSpin = kart.spin > 0;
+      const wasTumble = kart.tumble > 0;
+      stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60);
+      cowContact(kart, t, time, PHYS);
+      if (kart.spin > 0 && !wasSpin) st.spins++;
+      if (kart.tumble > 0 && !wasTumble) st.tumbles++;
+      const loc = locate(t, kart.x, kart.z, kart.seg);
+      if (loc.surface === 'dirt' && Math.abs(loc.lateral) < 2 && t.samples[loc.i].median > 0) st.median += 1 / 60;
+      const s = t.samples[kart.seg].s;
+      if (st.last !== null) {
+        const d = span(t, st.last, s);
+        if (d < t.length / 2) st.dist += d;
+      }
+      st.last = s;
+      if (st.finish === null && st.dist >= 3 * t.length) st.finish = time;
+    });
+    contacts = pushApart(karts, contacts);
+  }
+  return stats;
+}
+
+test('CPU 4台が Kampar Town を3周走りきる（バンプ・牛・ロータリーで止まったままにならない。1周は平均80秒まで）', () => {
+  const stats = kamparCpuRace();
+  stats.forEach((s, k) => {
+    assert.ok(s.finish !== null, `CPU ${k} が3周できない（${s.dist.toFixed(0)}m）`);
+    assert.ok(s.finish / 3 < 80, `CPU ${k} の1周 ${(s.finish / 3).toFixed(1)}秒`);
+  });
+});
+
+test('CPU は分離帯の芝生の上を走らない（走る線が分離帯にかかる CPU も、分離帯をよける）', () => {
+  for (const [k, s] of kamparCpuRace().entries()) assert.ok(s.median < 3, `CPU ${k} が分離帯の上を ${s.median.toFixed(1)}秒`);
+});
+
+test('CPU は牛をよける（ぶつかってスピンするのは、ときどきだけ）', () => {
+  const spins = kamparCpuRace().reduce((n, s) => n + s.spins, 0);
+  assert.ok(spins <= 3, `4台×3周で ${spins} 回スピン`);
+});
