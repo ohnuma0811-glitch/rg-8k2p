@@ -62,3 +62,14 @@ test('すれちがいの音: バスが近い（20m 以内）ときだけ busNear
   assert.equal(busNear(t, { x: p.x + 60, z: p.z }, 3), false);
   assert.ok(BUS_LENGTH > 5);
 });
+
+test('スタートの前後（うしろ 200m〜前 300m）には、スタートの前からスタートして3秒まで、バスがいない（2026-10-16 のユーザー依頼）', async () => {
+  const { BUS_HIDE_AHEAD, BUS_HIDE_BACK } = await import('../src/game/track.js');
+  const { COUNTDOWN } = await import('../src/game/race.js');
+  for (let time = -COUNTDOWN; time <= 3; time += 0.1) {
+    for (const bus of t.buses) {
+      const s = busPose(t, bus, time).s;
+      assert.ok(s > BUS_HIDE_AHEAD && s < t.length - BUS_HIDE_BACK, `t=${time.toFixed(1)} にスタートの近く（s=${s.toFixed(0)}）`);
+    }
+  }
+});
