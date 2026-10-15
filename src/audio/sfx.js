@@ -87,6 +87,42 @@ export function createSfx(audio) {
     o.stop(t + 0.25);
   }
 
+  // 気絶したような「ピヨピヨ」（バンプで転がって走れない3秒の間。2026-10-15 のユーザー依頼）
+  // 高い2つの音を小鳥がさえずるようにくり返す。一時停止で止められるよう、専用のつなぎ口（piyo）を通す
+  let piyo = null;
+  function piyoPiyo(at, times) {
+    const ctx = audio.ctx;
+    if (piyo) piyo.disconnect();
+    piyo = ctx.createGain();
+    piyo.connect(audio.sfxOut);
+    const bus = piyo;
+    const chirp = (t, f) => {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * 1.35, t + 0.06);
+      o.frequency.exponentialRampToValueAtTime(f * 1.1, t + 0.11);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.18, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+      o.connect(g).connect(bus);
+      o.start(t);
+      o.stop(t + 0.15);
+    };
+    const t0 = ctx.currentTime + at;
+    for (let k = 0; k < times; k++) {
+      chirp(t0 + k * 0.25, 2200);
+      chirp(t0 + k * 0.25 + 0.12, 2700);
+    }
+    setTimeout(() => {
+      if (piyo === bus) {
+        bus.disconnect();
+        piyo = null;
+      }
+    }, (at + times * 0.25 + 0.5) * 1000);
+  }
+
   const SOUNDS = {
     count: () => tone('square', 880, 0.3, 0.25),
     go: () => tone('square', 1760, 0.8, 0.25),
@@ -139,6 +175,15 @@ export function createSfx(audio) {
       burst('highpass', 7000, 2500, 1.1, 0.3);
       tone('square', 160, 0.25, 0.1, { to: 60 });
       burst('lowpass', 1500, 80, 0.5, 0.15, { at: 0.2 }); // こだま（小さく）
+    },
+    // バンプで転がる: ジャンプ台の着地と同じ作りの派手な「バーン」と、0.4秒あとから3秒の「ピヨピヨ」
+    tumble: () => {
+      burst('bandpass', 2500, 600, 0.12, 0.85);
+      burst('lowpass', 3000, 60, 1.0, 0.95);
+      tone('sine', 70, 0.9, 0.7, { to: 28 });
+      burst('highpass', 7000, 2500, 1.1, 0.35);
+      tone('square', 160, 0.25, 0.12, { to: 60 });
+      piyoPiyo(0.4, 12);
     },
   };
 
@@ -212,6 +257,10 @@ export function createSfx(audio) {
     stopAll() {
       this.engine.stop();
       this.drift(false);
+      if (piyo) {
+        piyo.disconnect();
+        piyo = null;
+      }
     },
   };
 }

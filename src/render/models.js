@@ -2,7 +2,50 @@
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
 import * as THREE from '../../vendor/three.module.min.js';
 import { PHYS } from '../game/kart.js';
-import { HUMP_TIME } from '../game/hazards.js';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js';
+
+// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る
+const TUMBLE_FLY = 0.8;
+const TUMBLE_HEIGHT = 2.5; // 跳ねる高さ（m）
+
+// 頭の上を回る黄色い星（バンプで転がっている間。目が回っているように）
+// いつもこちらを向く板（Sprite）にする（横から見ても、後ろから見ても星の形に見える）
+let starTexture = null;
+function starMap() {
+  if (starTexture || typeof document === 'undefined') return starTexture;
+  const cv = document.createElement('canvas');
+  cv.width = 64;
+  cv.height = 64;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#ffffff';
+  c.strokeStyle = '#8a5a00';
+  c.lineWidth = 4;
+  c.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const r = k % 2 ? 12 : 28;
+    const a = (k / 10) * Math.PI * 2 - Math.PI / 2;
+    c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+  }
+  c.closePath();
+  c.fill();
+  c.stroke();
+  starTexture = new THREE.CanvasTexture(cv);
+  return starTexture;
+}
+function dizzyStars() {
+  const g = new THREE.Group();
+  const material = new THREE.SpriteMaterial({ color: 0xffd400, map: starMap() });
+  for (let k = 0; k < 5; k++) {
+    const star = new THREE.Sprite(material);
+    star.scale.set(0.6, 0.6, 1);
+    const a = (k / 5) * Math.PI * 2;
+    star.position.set(Math.cos(a) * 0.9, 0, Math.sin(a) * 0.9);
+    g.add(star);
+  }
+  g.position.set(-0.45, 3.4, 0); // キャラの頭の上
+  g.visible = false;
+  return g;
+}
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -222,6 +265,10 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
   d.position.set(-0.45, 0.5, 0);
   g.add(d);
   g.userData.wheels = wheels;
+  const stars = dizzyStars();
+  g.add(stars);
+  g.userData.stars = stars;
+  g.rotation.order = 'YXZ'; // 向き（y）のあとに、車の前後の軸（x）で転がる
   g.userData.head = d.userData.head;
   return g;
 }
@@ -232,9 +279,20 @@ export function syncKartModel(model, kart) {
   // バンプを乗り越える: 前が上がってから後ろが上がる（2026-10-15 のユーザー依頼）
   const u = kart.hump > 0 ? 1 - kart.hump / HUMP_TIME : 0;
   const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.15 : 0;
-  model.position.set(kart.x, kart.y + hop + lift, kart.z);
+  // バンプで転がる: はじめは大きく跳ねて2回転がり、そのあとは目が回る（星が回る）
+  const tumbling = kart.tumble > 0;
+  const since = tumbling ? TUMBLE_TIME - kart.tumble : 0;
+  const flying = tumbling && since < TUMBLE_FLY;
+  const fly = flying ? Math.sin((since / TUMBLE_FLY) * Math.PI) * TUMBLE_HEIGHT : 0;
+  model.position.set(kart.x, kart.y + hop + lift + fly, kart.z);
   model.rotation.y = -kart.heading;
   model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.12 : 0;
+  model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
+  const stars = model.userData.stars;
+  if (stars) {
+    stars.visible = tumbling && !flying;
+    if (stars.visible) stars.rotation.y = since * 5;
+  }
   // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
   model.visible = kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0;
   for (const w of model.userData.wheels) w.rotation.z -= kart.speed * 0.05;

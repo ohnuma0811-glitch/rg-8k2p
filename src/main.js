@@ -349,6 +349,11 @@ function stepGame(dt) {
   });
   // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
   if (track.cows.length) karts.forEach((kart) => cowContact(kart, track, race.t, PHYS));
+  // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）
+  karts.forEach((kart) => {
+    if (kart.tumble > 0 && !kart.tumbleShown) effects.burst(kart.x, kart.y + 0.5, kart.z);
+    kart.tumbleShown = kart.tumble > 0;
+  });
   const before = g.contacts;
   g.contacts = pushApart(karts, before);
   g.bumps += newBumps(before, g.contacts, me);
