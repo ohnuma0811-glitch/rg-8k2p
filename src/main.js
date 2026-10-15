@@ -396,7 +396,7 @@ function resultRows(g) {
   });
 }
 
-// 大会の1レース。'next'（次へ）、'title'（タイトルへ）、'newcup'（新しい大会）を返す
+// 大会の1レース。'next'（次のレースへ）か 'title'（タイトルへ。最後のレースのあとも）を返す
 async function runRace(name, charId, cup) {
   // 確かめ用: URL の後ろに #course2 を付けると、1レース目から Kampar Town
   useCourse(dev.has('course2') ? COURSES[1] : courseOf(COURSES, cup));
@@ -435,13 +435,10 @@ async function runRace(name, charId, cup) {
   placeButtons();
   // そのレースの結果 → 大会の順位（合計ポイント）
   music.play('results');
-  const shown = screens.results(menu, rows, label, [
-    { id: 'next', label: 'NEXT ▶' },
-    { id: 'title', label: '⌂ TITLE' },
-  ]);
+  // 結果も大会の順位も、ボタンなしで、全部の表示が終わって3秒後に次へ（2026-10-16 のユーザー依頼）
+  const shown = screens.results(menu, rows, label);
   fade(0); // 結果の画面を出してから、だんだん明るく
-  const first = await shown;
-  if (first === 'title') return 'title';
+  await shown;
   const over = isOver(cup);
   const table = standings(cup).map((k, n) => ({
     place: ordinal(n + 1),
@@ -451,13 +448,9 @@ async function runRace(name, charId, cup) {
     face: g.faces[k],
     me: k === g.me,
   }));
-  // 遊べる時間が終わっていたら、次のレースには進めない（OK のあと「See you tomorrow!」）
-  const timeUp = remainingSec(playStore(), name, Date.now()) <= 0;
-  let buttons;
-  if (timeUp) buttons = [{ id: 'title', label: 'OK' }];
-  else if (over) buttons = [{ id: 'newcup', label: '↻ NEW CUP' }, { id: 'title', label: '⌂ TITLE' }];
-  else buttons = [{ id: 'next', label: `▶ RACE ${cup.done + 1}/${cup.races}` }, { id: 'title', label: '⌂ TITLE' }];
-  return screens.standings(menu, table, label, over, buttons);
+  await screens.standings(menu, table, label, over);
+  // 最後のレースのあとはタイトルへ。遊べる時間が終わっていたら、呼んだ所で「See you tomorrow!」
+  return over ? 'title' : 'next';
 }
 
 // 一時停止（SOLO だけ）: つづける / タイトルへ
@@ -527,7 +520,7 @@ async function flow() {
       }
     }
     // 大会（コースの数のレースの、合計ポイントで優勝を決める）
-    let cup = createCup(CPU_COUNT + 1, COURSES.length);
+    const cup = createCup(CPU_COUNT + 1, COURSES.length);
     for (;;) {
       const pick = await runRace(name, charId, cup);
       if (remainingSec(playStore(), name, Date.now()) <= 0) {
@@ -535,7 +528,6 @@ async function flow() {
         break;
       }
       if (pick === 'title') break;
-      if (pick === 'newcup') cup = createCup(CPU_COUNT + 1, COURSES.length);
     }
   }
 }
