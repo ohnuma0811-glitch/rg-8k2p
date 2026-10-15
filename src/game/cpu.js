@@ -1,6 +1,6 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate } from './track.js?v=78d6fa5';
+import { locate, islandNear } from './track.js?v=b595e01';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -44,7 +44,14 @@ export function cpuControl(cpu, kart, track, t) {
   const loc = locate(track, kart.x, kart.z, kart.seg);
   const look = Math.round(CPU.LOOK + Math.max(0, kart.speed) * CPU.LOOK_PER_SPEED);
   const p = samples[(loc.i + look) % n];
-  const lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
+  let lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
+  // ロータリー: 島のまわりは、近い側（曲がる向きの内側。まっすぐなら自分の走る線の側）を、島から離れて回る
+  const isl = islandNear(track, p.s);
+  if (isl) {
+    const turnTo = wrap(samples[(loc.i + 60) % n].h - loc.heading);
+    const side = turnTo > 0.3 ? 1 : turnTo < -0.3 ? -1 : Math.sign(cpu.lane) || 1;
+    lane = side * (isl.r + 5 + Math.abs(Math.sin(t * cpu.sway + cpu.phase)) * 2);
+  }
   const tx = p.x - Math.sin(p.h) * lane;
   const tz = p.z + Math.cos(p.h) * lane;
   const angle = wrap(Math.atan2(tz - kart.z, tx - kart.x) - kart.move);

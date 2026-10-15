@@ -34,15 +34,18 @@ function smoothLoop(points) {
   return line;
 }
 
-// 折れ線を、決めた長さ（m）に大きくして、1m ごとに点を取り直す。真ん中が (0, 0) になるように置く
-function resample(line, length) {
+// 折れ線を、決めた長さ（m）にするための大きさの倍率 k と、真ん中 (cx, cz)
+function fitOf(line, length) {
   const seg = line.map((p, i) => Math.hypot(line[(i + 1) % line.length][0] - p[0], line[(i + 1) % line.length][1] - p[1]));
   const raw = seg.reduce((a, b) => a + b, 0);
-  const k = length / raw;
   const xs = line.map((p) => p[0]);
   const zs = line.map((p) => p[1]);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+  return { seg, k: length / raw, cx: (Math.min(...xs) + Math.max(...xs)) / 2, cz: (Math.min(...zs) + Math.max(...zs)) / 2 };
+}
+
+// 折れ線を、決めた長さ（m）に大きくして、1m ごとに点を取り直す。真ん中が (0, 0) になるように置く
+function resample(line, length) {
+  const { seg, k, cx, cz } = fitOf(line, length);
   const n = Math.round(length / SAMPLE_STEP);
   const out = [];
   let j = 0;
@@ -123,8 +126,57 @@ function limitCurvature(samples, minR, length) {
   return resample(pts, length);
 }
 
+// 絵の点 pt の、コースの上の場所 s（一番近い1mごとの点）
+function pointS(samples, fit, pt) {
+  const x = (pt[0] - fit.cx) * fit.k;
+  const z = (pt[1] - fit.cz) * fit.k;
+  let best = samples[0];
+  let bestD = Infinity;
+  for (const p of samples) {
+    const d = (p.x - x) ** 2 + (p.z - z) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best.s;
+}
+
+// ロータリーの島の、道を広げる長さ（島の中心から前後に m）
+export function islandReach(track, island) {
+  return island.r + track.roadHalf + 12;
+}
+
+// s のまわりにある島（なければ null）
+export function islandNear(track, s) {
+  return (track.islands ?? []).find((isl) => Math.min(span(track, isl.s, s), span(track, s, isl.s)) < islandReach(track, isl)) ?? null;
+}
+
+// a から b まで、走る向きに進む長さ（m）
+export function span(track, a, b) {
+  const L = track.length;
+  return (((b - a) % L) + L) % L;
+}
+
+// 場所の書き方: 'S' はスタート（s = 0）。[from, to, t] は印 from から印 to へ t の割合（to が 'S' なら1周の終わり）
+export function markS(track, ref) {
+  if (ref === 'S') return 0;
+  const [from, to, t] = ref;
+  const a = from === 'S' ? 0 : track.marks[from];
+  const b = to === 'S' ? track.length : track.marks[to];
+  const d = to === 'S' ? b - a : span(track, a, b);
+  return a + d * t;
+}
+
+// s が from から to の間か（1周の切れ目をまたいでもよい）
+export function between(track, s, from, to) {
+  return span(track, from, s) < span(track, from, to);
+}
+
 export function buildTrack(def) {
-  let samples = resample(smoothLoop(def.points), def.length);
+  const line = smoothLoop(def.points);
+  const fit = fitOf(line, def.length);
+  let samples = resample(line, def.length);
   // 柵まで（道幅の半分＋ダート）より半径が小さいカーブは、ならす
   samples = limitCurvature(samples, def.roadHalf + def.dirt + 0.5, def.length);
   const n = samples.length;
@@ -149,8 +201,12 @@ export function buildTrack(def) {
     p.ramp = false;
     p.boost = false;
     p.noWall = false;
+    p.half = def.roadHalf; // 道の半分の幅（ロータリーの所は広い）
+    p.median = 0; // 分離帯の半分の幅（なければ 0）
+    p.boostTime = 0; // 加速板の加速の時間（秒）
     if (!cross) continue;
     p.boost = inRange(p.s, at(j.boost.from), at(j.boost.to));
+    if (p.boost) p.boostTime = 1.0;
     if (inRange(p.s, at(j.ramp.from), at(j.ramp.to))) {
       p.ramp = true;
       p.y = (j.ramp.height * (p.s - at(j.ramp.from))) / (j.ramp.to - j.ramp.from);
@@ -166,13 +222,46 @@ export function buildTrack(def) {
   }
   const startS = cross ? cross.sB - def.startBeforeCross : 0;
   const startIndex = samples.findIndex((p) => p.s >= startS);
-  return { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross };
+  const t = { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross, marks: {} };
+  for (const [name, i] of Object.entries(def.marks ?? {})) t.marks[name] = pointS(samples, fit, def.points[i]);
+  // ロータリー: 真ん中に島を置き、島のまわりだけ道を広げる（島の両側を道の幅で走れる）
+  t.islands = [];
+  for (const rb of def.roundabouts ?? []) {
+    const p = samples[Math.round(markS(t, rb.at)) % samples.length];
+    const island = { x: p.x, z: p.z, r: rb.r, s: p.s };
+    t.islands.push(island);
+    const reach = islandReach(t, island);
+    for (const q of samples) {
+      const d = Math.min(span(t, island.s, q.s), span(t, q.s, island.s));
+      if (d >= reach) continue;
+      // なめらかに広げる（中心で島の半径だけ広い）
+      const bulge = rb.r * Math.cos(((d / reach) * Math.PI) / 2) ** 2;
+      q.half = Math.max(q.half, def.roadHalf + bulge);
+      q.wall = q.half + def.dirt;
+    }
+  }
+  for (const m of def.medians ?? []) {
+    const from = markS(t, m.from);
+    const to = markS(t, m.to);
+    // ロータリーの所には分離帯を通さない
+    for (const p of samples) if (between(t, p.s, from, to) && p.half === def.roadHalf) p.median = m.half;
+  }
+  for (const pad of def.pads ?? []) {
+    const at = markS(t, pad.at);
+    for (const p of samples) {
+      if (between(t, p.s, at, at + pad.len)) {
+        p.boost = true;
+        p.boostTime = pad.time;
+      }
+    }
+  }
+  return t;
 }
 
 // 位置 (x, z) に一番近いコースの点を探す。hint（前の点の番号）があれば、その前後だけを探す
 // （交わる所で、もう一方の道の点を拾わないため）
 export function locate(track, x, z, hint = null, win = 40) {
-  const { samples, length, roadHalf } = track;
+  const { samples, length } = track;
   const n = samples.length;
   let best = 0;
   let bestD = Infinity;
@@ -200,7 +289,9 @@ export function locate(track, x, z, hint = null, win = 40) {
   const lateral = dx * -fz + dz * fx;
   const s = ((((p.s + dx * fx + dz * fz) % length) + length) % length);
   const a = Math.abs(lateral);
-  const surface = a <= roadHalf ? 'road' : a <= p.wall ? 'dirt' : 'out';
+  // 分離帯（芝生）の上はダートと同じ
+  const onRoad = a <= p.half && !(p.median > 0 && a < p.median);
+  const surface = onRoad ? 'road' : a <= p.wall ? 'dirt' : 'out';
   return {
     i: best,
     s,
@@ -208,8 +299,10 @@ export function locate(track, x, z, hint = null, win = 40) {
     heading: p.h,
     ground: p.y,
     wall: p.wall,
+    half: p.half,
     surface,
-    boost: p.boost && a <= roadHalf,
+    boost: p.boost && onRoad,
+    boostTime: p.boostTime,
   };
 }
 

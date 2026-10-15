@@ -1,11 +1,11 @@
-// 大会（2026-10-14 のユーザー依頼）: 5レースのポイントの合計で優勝を決める
-import { racePoints } from './race.js?v=78d6fa5';
+// 大会（2026-10-14 のユーザー依頼）: 全部のレースのポイントの合計で優勝を決める
+// レースの数は、できているコースの数（2026-10-15 のユーザー依頼。今は2レース、最後は5レース）
+import { racePoints } from './race.js?v=b595e01';
 
-export const CUP_RACES = 5;
-
-// count 台の大会。車の番号（0〜count-1）は、どのレースでも同じ人・同じ CPU
-export function createCup(count) {
+// count 台の大会を races レースで。車の番号（0〜count-1）は、どのレースでも同じ人・同じ CPU
+export function createCup(count, races) {
   return {
+    races,
     done: 0, // 走り終えたレースの数
     totals: Array(count).fill(0), // 合計ポイント
     gained: Array(count).fill(0), // 直前のレースで取ったポイント
@@ -32,5 +32,10 @@ export function standings(cup) {
 }
 
 export function isOver(cup) {
-  return cup.done >= CUP_RACES;
+  return cup.done >= cup.races;
+}
+
+// 次に走るコース（1レース目から順に、コースの一覧の順）
+export function courseOf(courses, cup) {
+  return courses[cup.done % courses.length];
 }
