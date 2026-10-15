@@ -1,4 +1,4 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=07a9ae7';
+import { KAMPAR_SCENERY } from './kampar.js?v=2a52c93';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正

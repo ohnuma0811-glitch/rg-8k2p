@@ -34,6 +34,9 @@ export const KAMPAR_SCENERY = [
   { part: 'fastFood', at: ['A', 'B', 0.6], side: 1, back: 3, radius: 8 }, // ファストフード店（11）
   { part: 'petrolStation', at: ['A', 'B', 0.72], side: 1, back: 3, radius: 9 }, // ガソリンスタンド（12）
   { part: 'museumSign', at: ['A', 'B', 0.93], side: 1, back: 1, radius: 4 }, // 博物館の看板（13）
+  // 1つ目のバンプの先を右に曲がった（B）あと、右手の2つ目の建物（横道の先のショップハウス）の所に、道をまたぐ（歩道橋のような）
+  // 緑の横断幕「ECONSAVE →」。下は赤い帯（2026-10-16 のユーザー依頼）
+  { part: 'banner', at: ['B', 'C', 0.66], side: 1, back: 0, radius: 2, text: 'ECONSAVE →', style: 'greenRed' },
   { part: 'gBuilding', at: ['B', 'C', 0.85], side: 1, back: 2, radius: 8 }, // 丸い「G」の建物（19C）
   { part: 'hotel', at: ['C', 'D', 0.6], side: 1, back: 3, radius: 10 }, // 白い8階建てのホテル（22）
   { part: 'waterTowerBB', at: ['E', 'F', 0.4], side: 1, back: 6, radius: 6 }, // 「Bandar Barat」の給水塔（38）
