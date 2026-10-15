@@ -1,11 +1,12 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=77642e5';
-import { span, locate } from './track.js?v=77642e5';
+import { SPEED_SHOW } from '../hud.js?v=52a93ef';
+import { span, locate } from './track.js?v=52a93ef';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
 export const HUMP_TIME = 0.35; // 乗り越える動きの秒数
-export const BUMP_STRIPE_M = 26; // バンプの手前のしま模様の長さ（m）。しまに入ったら警告を出す（2026-10-15 のユーザー依頼）
+export const BUMP_STRIPE_M = 26; // バンプの手前のしま模様の長さ（m）
+export const BUMP_WARN_EARLY = 2; // しまに入るこの秒数前（今の速さで）から、警告を出す（2026-10-15 のユーザー依頼）
 
 // スピードメーターの数字（実際の速さの1.5倍。src/hud.js と同じ）
 export function meterKmh(mps) {
@@ -80,12 +81,12 @@ export function cowContact(kart, track, time, phys) {
   return hit;
 }
 
-// バンプの警告を出すか: バンプの手前のしま模様の上にいる（転がっている・飛んでいる・止まりかけは出さない）
+// バンプの警告を出すか: バンプの手前のしま模様の上か、今の速さで BUMP_WARN_EARLY 秒以内にしまに入る（転がっている・飛んでいる・止まりかけは出さない）
 export function bumpWarning(track, kart) {
   if (kart.tumble > 0 || kart.airborne || !(kart.speed > 2)) return false;
   const s = track.samples[kart.seg].s;
   return (track.bumps ?? []).some((b) => {
     const ahead = span(track, s, b);
-    return ahead > 0 && ahead <= BUMP_STRIPE_M;
+    return ahead > 0 && ahead < track.length / 2 && ahead - BUMP_STRIPE_M <= BUMP_WARN_EARLY * kart.speed;
   });
 }

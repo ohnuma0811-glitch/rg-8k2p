@@ -1,10 +1,10 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=77642e5';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=77642e5';
-import { buildJungle } from './town/jungle.js?v=77642e5';
-import { buildWater } from './town/water.js?v=77642e5';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=77642e5';
-import { cornerUW } from '../game/track.js?v=77642e5';
+import * as THREE from '../../vendor/three.module.min.js?v=52a93ef';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=52a93ef';
+import { buildJungle } from './town/jungle.js?v=52a93ef';
+import { buildWater } from './town/water.js?v=52a93ef';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=52a93ef';
+import { cornerUW } from '../game/track.js?v=52a93ef';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -428,10 +428,19 @@ export function buildTrackMesh(track) {
     g.fillRect(2, 0, 2, h);
     g.fillRect(w - 4, 0, 2, h);
   });
-  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  // 直角の角の四角の中のコースの道は、両はしの白線なし（真ん中の破線はそのまま通す。2026-10-15 のユーザー依頼）
+  const corners = track.corners ?? [];
+  const inSquare = (p) => corners.some((c) => inCornerZone(c, p.x, p.z));
+  const asphaltMid = canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = '#55585e';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#e8e8e8';
+    g.fillRect(w / 2 - 1, 0, 2, h / 2);
+  });
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p), { color: 0xffffff, map: asphalt, vScale: 4 }));
+  if (corners.length) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && inSquare(p), { color: 0xffffff, map: asphaltMid, vScale: 4 }));
   // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
   const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
-  const corners = track.corners ?? [];
   if (mouths.length || corners.length) group.add(junctionMesh(track, mouths, corners, asphalt));
   if (corners.length) group.add(cornerWalls(corners, mouths));
   // 縁石（交差点の口の所と、直角の角の外側の四角の中はなし）
@@ -440,7 +449,7 @@ export function buildTrackMesh(track) {
     const [rx, rz] = rightOf(p);
     const x = p.x + rx * side * (p.half + 0.5);
     const z = p.z + rz * side * (p.half + 0.5);
-    return !mouths.some((m) => inMouth(m, x, z)) && !corners.some((c) => inCornerOuter(c, x, z));
+    return !mouths.some((m) => inMouth(m, x, z)) && !corners.some((c) => inCornerZone(c, x, z));
   };
   group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, curbOk(-1), { colorOf: curb }));
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
@@ -760,6 +769,13 @@ function ZEBRA_MAT() {
   return zebra;
 }
 
+// 直角の角の前後、まっすぐな幅の道で描く長さ（m）。この中のコースの道は、丸い縁石と両はしの白線を描かない
+const CORNER_REACH = 30;
+export function inCornerZone(c, x, z) {
+  const o = cornerUW(c, x, z);
+  return o.u > -CORNER_REACH && o.w > -CORNER_REACH && o.u < c.W + 2 && o.w < c.W + 2;
+}
+
 // 点が、直角の角の外側の四角の中か（内側の角の丸い柵・縁石はそのまま）
 export function inCornerOuter(c, x, z) {
   const o = cornerUW(c, x, z);
@@ -817,16 +833,46 @@ function junctionMesh(track, mouths, corners, asphalt) {
     uv.push(0, v0, 0, v1, 1, v0, 1, v0, 0, v1, 1, v1);
   }
   group.add(mesh(pos, { color: 0xffffff, uv, map: asphalt }));
-  // 直角の角の四角（2本の道が重なる所から、外側の壁まで）。コースの道の上に、線のない道の色でかぶせる
-  // （コースの道の丸い白線や破線が、交差点の中に出ないように。2026-10-15 のユーザー依頼「つぎはぎに見える」）
+  // 直角の角の四角（2本の道が重なる所から、外側の壁まで）。コースの道の下に、コースと同じ道の絵の、線のない所を貼る（色がそろうように）
   const box = [];
+  const boxUv = [];
   for (const c of corners) {
-    const a = -track.roadHalf;
     const h = c.W;
-    const P = (u, w) => [c.x + c.ux * u - c.vx * w, 0.036, c.z + c.uz * u - c.vz * w];
-    const p1 = P(a, a), p2 = P(h, a), p3 = P(h, h), p4 = P(a, h);
-    box.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
+    // 通行止めの道（y）より少し下（重なってちらつかないように）
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, y - 0.006, c.z + c.uz * u - c.vz * w];
+    // 入ってくる道と曲がった先の道を、角の前後 CORNER_REACH m まで、まっすぐな幅で（内側の角は芝生のまま）
+    const a = -track.roadHalf;
+    // コースの道は角の手前から少し丸いので、その下まで長めにしく（すき間ができないように）
+    const L = -CORNER_REACH - 15;
+    for (const [u0, u1, w0, w1] of [[L, h, a, -a], [a, -a, L, h], [a, h, a, h]]) {
+      const p1 = P(u0, w0), p2 = P(u1, w0), p3 = P(u1, w1), p4 = P(u0, w1);
+      for (const tri of [[p1, p2, p3], [p1, p3, p4]]) {
+        // 上向きの面にする（コースの道と同じ明るさに）
+        const [q0, q1, q2] = tri;
+        const ny = (q1[2] - q0[2]) * (q2[0] - q0[0]) - (q1[0] - q0[0]) * (q2[2] - q0[2]);
+        for (const q of ny >= 0 ? tri : [q0, q2, q1]) {
+          box.push(...q);
+          boxUv.push(0.25, 0.75); // 白線のない所
+        }
+      }
+    }
   }
-  if (box.length) group.add(mesh(box, { color: 0x55585e }));
+  // 内側の角の、直角の縁石（2本のまっすぐな白黒）
+  const curbPos = [];
+  const curbCol = [];
+  const col = new THREE.Color();
+  for (const c of corners) {
+    const a = track.roadHalf;
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, 0.04, c.z + c.uz * u - c.vz * w];
+    for (let t = -CORNER_REACH; t < -a; t += 2) {
+      for (const [p1, p2, p3, p4] of [[P(t, -a), P(t + 2, -a), P(t + 2, -a - 1), P(t, -a - 1)], [P(-a, t), P(-a, t + 2), P(-a - 1, t + 2), P(-a - 1, t)]]) {
+        curbPos.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
+        col.setHex(Math.floor(t / 2) % 2 ? 0xf2f2f2 : 0x222222);
+        for (let k = 0; k < 6; k++) curbCol.push(col.r, col.g, col.b);
+      }
+    }
+  }
+  if (curbPos.length) group.add(mesh(curbPos, { colors: curbCol }));
+  if (box.length) group.add(mesh(box, { color: 0xffffff, uv: boxUv, map: asphalt }));
   return group;
 }

@@ -1,4 +1,4 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=77642e5';
+import { KAMPAR_SCENERY } from './kampar.js?v=52a93ef';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -94,7 +94,7 @@ export const COURSE2 = {
     // F〜H の小さな加速板。片側だけに、右・左・右の順（side: 1 右、-1 左。2026-10-15 のユーザー依頼）
     { at: ['F', 'H', 0.12], len: 3, time: 0.6, side: 1 },
     { at: ['F', 'H', 0.42], len: 3, time: 0.6, side: -1 },
-    { at: ['F', 'H', 0.66], len: 3, time: 0.6, side: 1 },
+    { at: ['F', 'H', 0.92], len: 3, time: 0.6, side: 1 }, // ロータリー G のあと（すぐ手前にあったのを、2026-10-15 のユーザー依頼で後ろへ）
   ],
 };
 
