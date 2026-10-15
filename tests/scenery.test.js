@@ -113,9 +113,9 @@ test('直角の角の正面には通行止めの道が続く。町の横道の�
   }
 });
 
-test('走ってくる車の方を向いた大きな看板: WestLake Villas・学校・病院・Lotus\'s・Grand Kampar Hotel（2026-10-15 のユーザー依頼）', () => {
+test('走ってくる車の方を向いた大きな看板: 学校・病院・Lotus\'s・Grand Kampar Hotel（WestLake Villas は角の看板と横断幕だけ。2026-10-15 のユーザー依頼）', () => {
   const texts = KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard').map((i) => i.text).join(' | ');
-  for (const w of ['WestLake Villas', 'WESTLAKE INTERNATIONAL SCHOOL', 'HOSPITAL UTAR', "Lotus's", 'Grand Kampar Hotel']) assert.ok(texts.includes(w), w);
+  for (const w of ['WESTLAKE INTERNATIONAL SCHOOL', 'HOSPITAL UTAR', "Lotus's", 'Grand Kampar Hotel']) assert.ok(texts.includes(w), w);
   const group = buildScenery(t, KAMPAR_SCENERY);
   assert.equal(group.userData.spots.filter((s) => s.part === 'driverBoard').length, KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard').length);
 });
