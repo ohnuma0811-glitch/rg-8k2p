@@ -3,6 +3,14 @@
 // side は -1 左・1 右・0 真ん中（分離帯の上）、back は道のふちから奥へ（m）、radius は置く物の大きさ（ほかの道にかからないか調べる）
 // 写真の番号は docs/reference/kampar/ のファイル名
 export const KAMPAR_SCENERY = [
+  // とくに大事な景色（設計書 4.1。再現度を高く）
+  { part: 'footbridge', at: ['S', 'A', 0.15], side: 1, back: 0, radius: 2 }, // スタートの近くの歩道橋（02）
+  { part: 'westlakeVillas', at: ['E', 'F', 0.85], side: -1, back: 30, radius: 20 }, // F の手前の左の高いマンション（40〜42F）
+  { part: 'westlakeSchool', at: ['F', 'G', 0.45], side: -1, back: 3, radius: 20 }, // F〜H の左の学校（44〜48）
+  { part: 'hospitalUtar', at: ['G', 'H', 0.12], side: -1, back: 6, radius: 20 }, // UTAR の病院（49・50・60G）
+  { part: 'kamparSign', at: ['J', 'S', 0.3], side: -1, back: 3, radius: 12 }, // KAMPAR の看板（75J右・76）
+  { part: 'pipeBridge', at: ['J', 'S', 0.75], side: 1, back: 2, radius: 8 }, // 川と水道管の橋（77）
+
   // スタート〜A（01〜06）: 分離帯のある広い道。左は草むらとやぶ、右は低い建物。分離帯に街灯
   { part: 'bush', from: ['S', 'A', 0.05], to: ['S', 'A', 0.95], every: 9, side: -1, back: 2, radius: 2 },
   { part: 'tree', from: ['S', 'A', 0.1], to: ['S', 'A', 0.9], every: 18, side: -1, back: 6, radius: 3, color: 0x2f7a2c },

@@ -17,15 +17,20 @@ export function placeSpot(track, s, side, back) {
   return { x, z, ry, s: p.s, side };
 }
 
-// 半径 radius の物を spot に置いても、道（自分のまわり以外の区間の道）や島にかからないか
+// 半径 radius の物を spot に置いても、ほかの区間の道や、ほかの区間のロータリーの島にかからないか
+// 自分の前の道（大きい物ほど長く）は数えない（spot は自分の道のふちの外にあるので）
 export function sceneryClear(track, spot, radius) {
-  const near = spot.side === 0 ? 40 : 25;
+  const near = (spot.side === 0 ? 40 : 25) + radius * 1.5;
+  const along = (s) => Math.min(span(track, s, spot.s), span(track, spot.s, s));
   for (const q of track.samples) {
-    if (Math.min(span(track, q.s, spot.s), span(track, spot.s, q.s)) < near) continue;
+    if (along(q.s) < near) continue;
     if (Math.hypot(q.x - spot.x, q.z - spot.z) < q.wall + radius) return false;
   }
   for (const isl of track.islands ?? []) {
-    if (spot.side !== 0 && Math.hypot(isl.x - spot.x, isl.z - spot.z) < isl.r + 12 + radius) return false;
+    if (spot.side === 0) continue;
+    // 自分の前のロータリーは、島（道の真ん中）より道のふちの外にあるので、かからない
+    const r = along(isl.s) < near ? isl.r : isl.r + 12 + radius;
+    if (Math.hypot(isl.x - spot.x, isl.z - spot.z) < r) return false;
   }
   return true;
 }

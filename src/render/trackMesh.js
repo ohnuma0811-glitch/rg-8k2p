@@ -587,7 +587,7 @@ function mountains(track) {
   const g = new THREE.Group();
   const town = track.def.theme === 'town';
   const reach = Math.max(...track.samples.map((p) => Math.hypot(p.x, p.z)));
-  const radius = town ? reach + 380 : 700;
+  const radius = 700;
   for (let k = 0; k < 14; k++) {
     const a = (k / 14) * Math.PI * 2;
     let h = 150 + ((k * 37) % 5) * 40;
@@ -597,7 +597,9 @@ function mountains(track) {
       h = 90 + 260 * Math.max(north, east) + ((k * 37) % 5) * 25;
     }
     const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), MOUNTAIN);
-    cone.position.set(Math.cos(a) * radius, h / 2 - 2, Math.sin(a) * radius);
+    // 街では、山のすそがコースにかからないよう、すその広さの分だけ遠くに置く
+    const r = town ? reach + h * 1.4 + 60 : radius;
+    cone.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r);
     g.add(cone);
   }
   return g;

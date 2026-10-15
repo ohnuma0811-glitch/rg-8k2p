@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack } from '../src/game/track.js';
+import { buildTrack, markS } from '../src/game/track.js';
 import { COURSE2 } from '../src/data/tracks.js';
 import { placeSpot, sceneryClear, buildScenery } from '../src/render/town/scenery.js';
 import { createBuilder } from '../src/render/town/builder.js';
@@ -53,4 +53,21 @@ test('道の真ん中（side 0）に置く物は、分離帯のある所だけ�
   for (const spot of group.userData.spots.filter((s) => s.side === 0)) {
     assert.ok(t.samples[((Math.round(spot.s) % n) + n) % n].median > 0, `s=${spot.s}`);
   }
+});
+
+test('とくに大事な景色（設計書 4.1）は、どれも置かれている', () => {
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  const names = KAMPAR_SCENERY.map((i) => i.part);
+  for (const p of ['westlakeVillas', 'westlakeSchool', 'hospitalUtar', 'kamparSign', 'footbridge', 'pipeBridge']) assert.ok(names.includes(p), p);
+  assert.deepEqual(group.userData.skippedLandmarks, []);
+});
+
+test('大きな目印は、自分の前の道（同じ区間）ではなく、ほかの区間の道にかかるときだけ置かない', () => {
+  // F の手前の左（道のふちから10m）: 自分の道の25m先の点は近いが、それは同じ道なので置ける
+  const spot = placeSpot(t, markS(t, ['E', 'F', 0.82]), -1, 10);
+  assert.ok(sceneryClear(t, spot, 20));
+  // 道の上（ほかの区間の道の真ん中）に置こうとしたら、置かない
+  const other = placeSpot(t, markS(t, ['C', 'D', 0.5]), 0, 0);
+  const far = { ...placeSpot(t, markS(t, ['H', 'I', 0.5]), -1, 2), x: other.x, z: other.z };
+  assert.equal(sceneryClear(t, far, 5), false);
 });
