@@ -79,8 +79,8 @@ export const KAMPAR_SCENERY = [
   { part: 'stubRoad', at: ['J', 'J', 0], ahead: 'back' },
   { part: 'trafficLight', at: ['S', 'A', 0.96], side: -1, back: 0.5, radius: 1 },
   { part: 'trafficLight', at: ['S', 'A', 0.96], side: 1, back: 0.5, radius: 1 },
-  { part: 'trafficLight', at: ['A', 'B', 0.97], side: -1, back: 0.5, radius: 1 },
-  { part: 'trafficLight', at: ['A', 'B', 0.97], side: 1, back: 0.5, radius: 1 },
+  { part: 'trafficLight', at: ['A', 'B', 0.9], side: -1, back: 0.5, radius: 1 }, // 角の四角（走れる所）に入らないよう少し手前
+  { part: 'trafficLight', at: ['A', 'B', 0.9], side: 1, back: 0.5, radius: 1 },
   { part: 'trafficLight', at: ['E', 'F', 0.96], side: -1, back: 0.5, radius: 1 },
   { part: 'trafficLight', at: ['E', 'F', 0.96], side: 1, back: 0.5, radius: 1 },
   // 町の中の横道（通行止め）

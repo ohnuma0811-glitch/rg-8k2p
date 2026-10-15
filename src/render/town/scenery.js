@@ -1,8 +1,8 @@
 // 置き場所のデータから、コースの景色を作る（部品の前が道を向くように、道ぞいに置く）
-import * as kit from './kit.js?v=2a52c93';
-import * as landmarks from './landmarks.js?v=2a52c93';
-import { createBuilder } from './builder.js?v=2a52c93';
-import { markS, span, cornerCenter } from '../../game/track.js?v=2a52c93';
+import * as kit from './kit.js?v=7abddec';
+import * as landmarks from './landmarks.js?v=7abddec';
+import { createBuilder } from './builder.js?v=7abddec';
+import { markS, span, cornerCenter, locate } from '../../game/track.js?v=7abddec';
 
 const PARTS = { ...kit, ...landmarks.PARTS };
 
@@ -79,6 +79,8 @@ export function inMouth(m, x, z) {
 
 // 半径 radius の物を spot に置くと、通行止めの道（口から STUB_REACH m 先まで）や、角のまん中にかかるか
 export const STUB_REACH = 34;
+// 道の上をまたぐ物（地面の上の走れる所の判定はしない）
+const OVERHEAD = new Set(['banner', 'archGate', 'footbridge', 'stubRoad', 'pipeBridge']);
 export function onStub(mouths, spot, radius) {
   return mouths.some((m) => {
     const dx = spot.x - m.x;
@@ -126,8 +128,13 @@ export function buildScenery(track, list) {
     if (item.ahead) {
       const spot = aheadSpot(track, s, item.ahead);
       const back = item.back ?? 4;
-      spot.x -= Math.sin(spot.ry) * back;
-      spot.z -= Math.cos(spot.ry) * back;
+      // 直角の角の外側は、角から W（道の半分＋道の外）まで走れるので、その外から back m 奥に（最終レビュー）
+      const c = cornerCenter(track, s);
+      const dx = -Math.sin(spot.ry), dz = -Math.cos(spot.ry);
+      const d0 = (spot.x - c.x) * dx + (spot.z - c.z) * dz;
+      const d = Math.max(d0, track.roadHalf + track.def.dirt + 0.5) + back;
+      spot.x = c.x + dx * d;
+      spot.z = c.z + dz * d;
       spot.radius = item.radius ?? 1;
       spot.part = item.part;
       spots.push(spot);
@@ -143,7 +150,9 @@ export function buildScenery(track, list) {
     // 道の真ん中に置く物は、分離帯のある所だけ（道の上に立たないように）
     const n = track.samples.length;
     if (spot.side === 0 && !item.anywhere && !(track.samples[((Math.round(s) % n) + n) % n].median > 0)) return;
-    if (!sceneryClear(track, spot, spot.radius) || (item.part !== 'trafficLight' && onStub(mouths, spot, spot.radius))) {
+    // 地面に立つ物は、カートが走れる所（直角の角の外側の四角も）に置かない（最終レビュー）
+    const onCourse = !OVERHEAD.has(item.part) && spot.side !== 0 && !item.anywhere && locate(track, spot.x, spot.z).surface !== 'out';
+    if (onCourse || !sceneryClear(track, spot, spot.radius) || (item.part !== 'trafficLight' && onStub(mouths, spot, spot.radius))) {
       if (landmarks.PARTS[item.part]) skippedLandmarks.push(item.part);
       return;
     }

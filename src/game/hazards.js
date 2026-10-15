@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=2a52c93';
-import { span, locate } from './track.js?v=2a52c93';
+import { SPEED_SHOW } from '../hud.js?v=7abddec';
+import { span, locate } from './track.js?v=7abddec';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -134,7 +134,7 @@ export function busContact(kart, track, time, phys) {
     const side = dx * -fz + dz * fx;
     const halfL = BUS_LENGTH / 2 + COW_PAD;
     const halfW = BUS_WIDTH / 2 + COW_PAD;
-    if (Math.abs(along) >= halfL || Math.abs(side) >= halfW || kart.airborne) continue;
+    if (Math.abs(along) >= halfL || Math.abs(side) >= halfW || kart.airborne || kart.tumble > 0) continue;
     touching = true;
     // 横（近い側）へ押し出す
     const out = (Math.sign(side) || -1) * halfW - side;

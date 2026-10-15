@@ -1,10 +1,10 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=2a52c93';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=2a52c93';
-import { buildJungle } from './town/jungle.js?v=2a52c93';
-import { buildWater } from './town/water.js?v=2a52c93';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=2a52c93';
-import { cornerUW } from '../game/track.js?v=2a52c93';
+import * as THREE from '../../vendor/three.module.min.js?v=7abddec';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=7abddec';
+import { buildJungle } from './town/jungle.js?v=7abddec';
+import { buildWater } from './town/water.js?v=7abddec';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=7abddec';
+import { cornerUW } from '../game/track.js?v=7abddec';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -782,6 +782,22 @@ export function inCornerOuter(c, x, z) {
   return o.u > -c.W + 1 && o.w > -c.W + 1 && o.u < c.W + 1 && o.w < c.W + 1;
 }
 
+// 直角の角の外側の壁（w = W と u = W の線）の、通行止めの道の口であける所（線ごとに [から, まで]）。
+// 口は角の丸めのため、角から 6〜9m ほどの所にあるので、線より手前の口も数える（最終レビュー: あかない角があった）
+export function cornerWallCuts(c, mouths) {
+  const W = c.W;
+  const out = { u: [], w: [] };
+  for (const m of mouths) {
+    const o = cornerUW(c, m.x, m.z);
+    for (const line of ['w', 'u']) {
+      const along = line === 'w' ? o.u : o.w;
+      const off = line === 'w' ? o.w : o.u;
+      if (Math.abs(along) < W + m.width / 2 && off > 3 && off < W + 3) out[line].push([along - m.width / 2, along + m.width / 2]);
+    }
+  }
+  return out;
+}
+
 // 直角の角の外側の、2本のまっすぐな低い壁（w = W と u = W）。通行止めの道の口の所はあける
 function cornerWalls(corners, mouths) {
   const pos = [];
@@ -792,15 +808,9 @@ function cornerWalls(corners, mouths) {
   for (const c of corners) {
     const W = c.W;
     const P = (u, w) => [c.x + c.ux * u - c.vx * w, c.z + c.uz * u - c.vz * w];
+    const cutsOf = cornerWallCuts(c, mouths);
     for (const line of ['w', 'u']) {
-      // 口のある所（線の上の、あける幅）
-      const cuts = [];
-      for (const m of mouths) {
-        const o = cornerUW(c, m.x, m.z);
-        const along = line === 'w' ? o.u : o.w;
-        const off = line === 'w' ? o.w : o.u;
-        if (Math.abs(along) < W + m.width / 2 && off > W - 6 && off < W + 3) cuts.push([along - m.width / 2, along + m.width / 2]);
-      }
+      const cuts = cutsOf[line];
       let from = -W;
       const pieces = [];
       for (const [a, b] of cuts.sort((x, y) => x[0] - y[0])) {
