@@ -1,8 +1,8 @@
 // 置き場所のデータから、コースの景色を作る（部品の前が道を向くように、道ぞいに置く）
-import * as kit from './kit.js?v=52a93ef';
-import * as landmarks from './landmarks.js?v=52a93ef';
-import { createBuilder } from './builder.js?v=52a93ef';
-import { markS, span, cornerCenter } from '../../game/track.js?v=52a93ef';
+import * as kit from './kit.js?v=0b7eeeb';
+import * as landmarks from './landmarks.js?v=0b7eeeb';
+import { createBuilder } from './builder.js?v=0b7eeeb';
+import { markS, span, cornerCenter } from '../../game/track.js?v=0b7eeeb';
 
 const PARTS = { ...kit, ...landmarks.PARTS };
 
@@ -108,6 +108,17 @@ export function buildScenery(track, list) {
       spots.push(spot);
       b.push(spot.x, 0, spot.z, spot.ry);
       PARTS[item.part](b, { ...item, width: spot.width });
+      b.pop();
+      return;
+    }
+    // 直角の角を基準に置く物: corner: [u, w]（u は入ってくる向きに、w は曲がる向きと反対へ。m）。前（+z）は走ってくる車の方
+    if (item.corner) {
+      const c = cornerCenter(track, s);
+      const [u, w] = item.corner;
+      const spot = { x: c.x + c.ux * u - c.vx * w, z: c.z + c.uz * u - c.vz * w, ry: Math.atan2(c.ux, c.uz), s: c.s, side: 2, radius: item.radius ?? 2, part: item.part };
+      spots.push(spot);
+      b.push(spot.x, 0, spot.z, spot.ry);
+      PARTS[item.part](b, { ...item, side: 0 });
       b.pop();
       return;
     }
