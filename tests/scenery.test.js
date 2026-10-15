@@ -189,13 +189,24 @@ test('ロータリー G の右（湖の側）には外へ出る道を作らな�
   assert.ok(!KAMPAR_SCENERY.some((i) => i.part === 'lake'), '湖は水の床（src/render/town/water.js）にまとめる');
 });
 
-test('Grand Kampar Hotel の道ばたの看板は、ホテルの手前で、ホテルの建物にも道にもかからない（2026-10-16 のユーザー依頼）', () => {
-  const board = KAMPAR_SCENERY.find((i) => i.part === 'driverBoard' && i.text === 'Grand Kampar Hotel');
-  const hotel = KAMPAR_SCENERY.find((i) => i.part === 'hotel');
-  assert.ok(board && hotel);
-  const bs = markS(t, board.at), hs = markS(t, hotel.at);
-  assert.ok(hs - bs > 15 + 2, `看板がホテル（幅30m）の中: ${(hs - bs).toFixed(1)}m 手前`);
-  assert.ok(board.back >= (board.width ?? 14) / 2, '看板の柱が道にかかる');
+test('Grand Kampar Hotel の看板は、C へ向かう車の正面（C の壁の向こう）の、ホテルの右手。道にもホテルにもかからない（2026-10-16 のユーザー依頼）', async () => {
+  const { cornerCenter, cornerUW } = await import('../src/game/track.js');
+  const item = KAMPAR_SCENERY.find((i) => i.part === 'driverBoard' && i.text === 'Grand Kampar Hotel');
+  assert.deepEqual(item.at, ['C', 'C', 0]);
+  const c = cornerCenter(t, markS(t, ['C', 'C', 0]));
+  const [u, w] = item.corner;
+  assert.ok(u > t.roadHalf + t.def.dirt + 5, 'C の壁より手前');
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  const hotel = group.userData.spots.find((p) => p.part === 'hotel');
+  const ho = cornerUW(c, hotel.x, hotel.z);
+  assert.ok(ho.w < w, 'ホテルの右手にない（ホテルは曲がる向きの側）');
+  // 看板の両はし（幅16m）が道とホテル（幅30m）にかからない
+  const sx = c.x + c.ux * u - c.vx * w, sz = c.z + c.uz * u - c.vz * w;
+  for (const d of [-8, 8]) {
+    const x = sx - c.vx * d, z = sz - c.vz * d;
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - x, q.z - z) > q.half + 1, '看板が道にかかる');
+    assert.ok(cornerUW(c, x, z).w > ho.w + 15, '看板がホテルにかかる');
+  }
 });
 
 test('学校の横断幕は校舎の真ん前（校舎は学校の場所から 25m 先）', () => {

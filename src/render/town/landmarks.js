@@ -214,17 +214,20 @@ function highwaySignDraw() {
     g.lineWidth = 8;
     g.strokeRect(10, 10, w - 20, h - 20);
     g.fillStyle = '#ffffff';
-    g.font = `bold ${Math.floor(h * 0.3)}px sans-serif`;
+    g.font = `bold ${Math.floor(h * 0.25)}px sans-serif`;
     g.textBaseline = 'middle';
-    [['Kuala Lumpur  250 km', '↑'], ['Ipoh  100 km', '→']].forEach(([name, arrow], k) => {
+    // 行き先は左寄せ、距離は右寄せで同じ列、矢印も同じ列（250km↑ と 100km→ が縦にそろう。2026-10-16 のユーザー依頼）
+    [['Kuala Lumpur', '250 km', '↑'], ['Ipoh', '100 km', '→']].forEach(([name, dist, arrow], k) => {
       const y = (h * (k + 0.5)) / 2;
       g.textAlign = 'left';
       g.fillText(name, w * 0.05, y);
       g.textAlign = 'right';
-      g.fillText(arrow, w * 0.95, y);
+      g.fillText(dist, w * 0.85, y);
+      g.textAlign = 'center';
+      g.fillText(arrow, w * 0.91, y);
     });
   };
-  draw.key = 'highway:KL250:Ipoh100';
+  draw.key = 'highway:KL250:Ipoh100:cols';
   return draw;
 }
 
