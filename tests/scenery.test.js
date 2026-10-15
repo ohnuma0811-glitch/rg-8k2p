@@ -112,3 +112,38 @@ test('直角の角の正面には通行止めの道が続く。町の横道の�
     for (const r of roads) assert.ok(!(r.side === sp.side && Math.abs(r.s - sp.s) < 9), `s=${sp.s} の横道に建物`);
   }
 });
+
+test('走ってくる車の方を向いた大きな看板: WestLake Villas・学校・病院・Lotus\'s・Grand Kampar Hotel（2026-10-15 のユーザー依頼）', () => {
+  const texts = KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard').map((i) => i.text).join(' | ');
+  for (const w of ['WestLake Villas', 'WESTLAKE INTERNATIONAL SCHOOL', 'HOSPITAL UTAR', "Lotus's", 'Grand Kampar Hotel']) assert.ok(texts.includes(w), w);
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  assert.equal(group.userData.spots.filter((s) => s.part === 'driverBoard').length, KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard').length);
+});
+
+test('WestLake Villas・学校・病院は道の左のふちにくっつける（道のふちから2m 以内）', () => {
+  for (const p of ['westlakeVillas', 'westlakeSchool', 'hospitalUtar']) {
+    const it = KAMPAR_SCENERY.find((i) => i.part === p);
+    assert.equal(it.side, -1, p);
+    assert.ok(it.back <= 2, `${p}: ${it.back}`);
+  }
+});
+
+test('A・B・F は交差点: 正面と反対側にも通行止めの道、横断歩道、信号機（いつも青）', () => {
+  assert.deepEqual(COURSE2.intersections, ['A', 'B', 'F']);
+  for (const m of ['A', 'B', 'F']) {
+    const at = (i) => i.at && i.at[0] === m && i.at[1] === m;
+    assert.ok(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === true && at(i)), `${m} の正面`);
+    assert.ok(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === 'back' && at(i)), `${m} の反対側`);
+    assert.ok(KAMPAR_SCENERY.filter((i) => i.part === 'trafficLight' && i.at[0] === m).length >= 2, `${m} の信号`);
+  }
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  for (const sp of group.userData.spots.filter((s) => s.side === 2)) {
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - sp.x, q.z - sp.z) >= q.wall - 1, `s=${sp.s.toFixed(0)} の道がコースの上`);
+  }
+});
+
+test('UTAR の敷地の入口（H の手前）と I の門に、アーチと大きな UTAR の看板', () => {
+  const arches = KAMPAR_SCENERY.filter((i) => i.part === 'archGate');
+  assert.ok(arches.some((i) => i.at[1] === 'H'), 'H の手前のアーチ');
+  assert.ok(arches.some((i) => i.at[1] === 'I' || i.at[0] === 'I'), 'I の門');
+});

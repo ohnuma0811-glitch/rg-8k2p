@@ -163,7 +163,7 @@ test('転がっている間は、頭の上で黄色い星が回る。転がっ�
   const kart = createKart(tumbleTrack, 0, 0);
   syncKartModel(m, kart);
   assert.equal(m.userData.stars.visible, false);
-  kart.tumble = 2;
+  kart.tumble = 0.3; // 落ちたあと（目が回っている）
   syncKartModel(m, kart);
   assert.equal(m.userData.stars.visible, true);
   assert.ok(m.userData.stars.children.length >= 4);
@@ -179,7 +179,7 @@ test('「バーン」のとき、車は大きく跳ね上がり、くるっと�
   kart.tumble = TUMBLE_TIME - 0.3; // 跳ねている途中
   syncKartModel(m, kart);
   assert.ok(m.position.y - kart.y > 1.5, `${m.position.y}`);
-  kart.tumble = 1; // もう落ちて、目が回っている
+  kart.tumble = TUMBLE_TIME * 0.25; // もう落ちて、目が回っている
   syncKartModel(m, kart);
   assert.ok(Math.abs(m.position.y - kart.y) < 0.01);
   assert.ok(Math.abs(m.rotation.x) < 0.01);

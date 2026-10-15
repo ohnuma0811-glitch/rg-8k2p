@@ -4,9 +4,9 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { PHYS } from '../game/kart.js';
 import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js';
 
-// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る
-const TUMBLE_FLY = 0.8;
-const TUMBLE_HEIGHT = 2.5; // 跳ねる高さ（m）
+// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
+const TUMBLE_FLY = 0.55;
+const TUMBLE_HEIGHT = 2; // 跳ねる高さ（m）
 
 // 頭の上を回る黄色い星（バンプで転がっている間。目が回っているように）
 // いつもこちらを向く板（Sprite）にする（横から見ても、後ろから見ても星の形に見える）

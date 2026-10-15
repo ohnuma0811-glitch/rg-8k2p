@@ -6,11 +6,18 @@
 export const KAMPAR_SCENERY = [
   // とくに大事な景色（設計書 4.1。再現度を高く）
   { part: 'footbridge', at: ['S', 'A', 0.15], side: 1, back: 0, radius: 2 }, // スタートの近くの歩道橋（02）
-  { part: 'westlakeVillas', at: ['E', 'F', 0.85], side: -1, back: 30, radius: 20 }, // F の手前の左の高いマンション（40〜42F）
-  { part: 'westlakeSchool', at: ['F', 'G', 0.45], side: -1, back: 3, radius: 20 }, // F〜H の左の学校（44〜48）
-  { part: 'hospitalUtar', at: ['G', 'H', 0.12], side: -1, back: 6, radius: 20 }, // UTAR の病院（49・50・60G）
+  { part: 'westlakeVillas', at: ['E', 'F', 0.85], side: -1, back: 2, radius: 20, front: 0 }, // F の手前の左の高いマンション（40〜42F）
+  { part: 'westlakeSchool', at: ['F', 'G', 0.45], side: -1, back: 1, radius: 20 }, // F〜H の左の学校（44〜48）
+  { part: 'hospitalUtar', at: ['G', 'H', 0.22], side: -1, back: 1, radius: 20 }, // UTAR の病院（49・50・60G）
   { part: 'kamparSign', at: ['J', 'S', 0.3], side: -1, back: 3, radius: 12 }, // KAMPAR の看板（75J右・76）
   { part: 'pipeBridge', at: ['J', 'S', 0.75], side: 1, back: 2, radius: 8 }, // 川と水道管の橋（77）
+
+  // 走ってくる車の方を向いた、道ばたの大きな看板（まっすぐ走っていても見えるように。2026-10-15 のユーザー依頼）
+  { part: 'driverBoard', at: ['E', 'F', 0.72], side: -1, back: 1, radius: 2, text: 'WestLake Villas', bg: '#2a62b8' },
+  { part: 'driverBoard', at: ['F', 'G', 0.36], side: -1, back: 1, radius: 2, text: 'WESTLAKE INTERNATIONAL SCHOOL', bg: '#3b2a6b' },
+  { part: 'driverBoard', at: ['G', 'H', 0.17], side: -1, back: 1, radius: 2, text: 'HOSPITAL UTAR', bg: '#1f9a96' },
+  { part: 'driverBoard', at: ['I', 'J', 0.72], side: 1, back: 1, radius: 2, text: "Lotus's", bg: '#3fc1e8', width: 12, top: 9 },
+  { part: 'driverBoard', at: ['C', 'D', 0.3], side: 1, back: 1, radius: 2, text: 'Grand Kampar Hotel', bg: '#7a1f2b', fg: '#f2d48a' },
 
   // 道の上の大きな横断幕（場所が分かるように。2026-10-15 のユーザー依頼）
   { part: 'banner', at: ['E', 'F', 0.6], side: 1, back: 0, radius: 2, text: '← WestLake Villas', color: '#2a62b8' },
@@ -28,6 +35,7 @@ export const KAMPAR_SCENERY = [
   { part: 'waterTowerBB', at: ['E', 'F', 0.4], side: 1, back: 6, radius: 6 }, // 「Bandar Barat」の給水塔（38）
   { part: 'facultyBuilding', at: ['G', 'H', 0.8], side: 1, back: 4, radius: 10 }, // 学部の建物（61右）
   { part: 'utarHall', at: ['H', 'I', 0.12], side: 1, back: 6, radius: 18 }, // 大学の大ホール（62右H）
+  { part: 'archGate', at: ['G', 'H', 0.97], side: 1, back: 0, radius: 2 }, // H の、UTAR の敷地の入口のアーチ（2026-10-15 のユーザー依頼）
   { part: 'archGate', at: ['H', 'I', 0.97], side: 1, back: 0, radius: 2 }, // I の青いアーチの門（64I）
   { part: 'waterTowerUtar', at: ['I', 'J', 0.12], side: -1, back: 5, radius: 6 }, // UTAR の給水塔（67）
 
@@ -58,6 +66,16 @@ export const KAMPAR_SCENERY = [
   { part: 'stubRoad', at: ['D', 'E', 0.7], ahead: true }, // D〜E の角
   { part: 'stubRoad', at: ['F', 'F', 0], ahead: true },
   { part: 'stubRoad', at: ['J', 'J', 0], ahead: true },
+  // 交差点 A・B・F（2026-10-15 のユーザー依頼）: 曲がる先の反対側にも道が続き（通行止め）、信号機（いつも青）
+  { part: 'stubRoad', at: ['A', 'A', 0], ahead: 'back' },
+  { part: 'stubRoad', at: ['B', 'B', 0], ahead: 'back' },
+  { part: 'stubRoad', at: ['F', 'F', 0], ahead: 'back' },
+  { part: 'trafficLight', at: ['A', 'B', 0.04], side: -1, back: 0.5, radius: 1 },
+  { part: 'trafficLight', at: ['A', 'B', 0.04], side: 1, back: 0.5, radius: 1 },
+  { part: 'trafficLight', at: ['B', 'C', 0.06], side: -1, back: 0.5, radius: 1 },
+  { part: 'trafficLight', at: ['B', 'C', 0.06], side: 1, back: 0.5, radius: 1 },
+  { part: 'trafficLight', at: ['F', 'G', 0.06], side: -1, back: 0.5, radius: 1 },
+  { part: 'trafficLight', at: ['F', 'G', 0.06], side: 1, back: 0.5, radius: 1 },
   // 町の中の横道（通行止め）
   { part: 'stubRoad', at: ['A', 'B', 0.62], side: -1, back: 0, radius: 3 },
   { part: 'stubRoad', at: ['B', 'C', 0.45], side: 1, back: 0, radius: 3 },
@@ -103,11 +121,13 @@ export const KAMPAR_SCENERY = [
   { part: 'railing', from: ['F', 'G', 0.1], to: ['F', 'G', 0.9], every: 10, side: 1, back: 4, radius: 1, length: 10, color: 0xf2f2f2 },
   { part: 'car', from: ['F', 'G', 0.2], to: ['F', 'G', 0.8], every: 9, side: 1, back: 1.5, radius: 2, color: 0xc8c8c8 },
   { part: 'lake', at: ['F', 'G', 0.5], side: 1, back: 6, radius: 4, width: 110, depth: 70 },
+  { part: 'tree', from: ['F', 'G', 0.34], to: ['F', 'G', 0.74], every: 14, side: 0, radius: 1, crown: 0.45, height: 5 }, // 分離帯の若い木
 
   // G〜H（61右〜62右H）: 大学の建物と木。右は湖
   { part: 'tree', from: ['G', 'H', 0.3], to: ['G', 'H', 0.95], every: 14, side: 1, back: 2, radius: 3 },
   { part: 'tower', from: ['G', 'H', 0.55], to: ['G', 'H', 0.95], every: 40, side: -1, back: 8, radius: 12, floors: 3, width: 34, depth: 16, color: 0xf0f0ee, stripe: 0x9aa3ab },
   { part: 'lake', at: ['G', 'H', 0.6], side: 1, back: 8, radius: 4, width: 90, depth: 60 },
+  { part: 'tree', from: ['G', 'H', 0.27], to: ['G', 'H', 0.84], every: 16, side: 0, radius: 1, crown: 0.45, height: 5 }, // 分離帯の若い木
 
   // H〜I（63HI）: 大学の中。両側に大学の建物、木
   { part: 'tower', from: ['H', 'I', 0.35], to: ['H', 'I', 0.9], every: 45, side: 1, back: 8, radius: 12, floors: 3, width: 36, depth: 16, color: 0xf2f2f0, stripe: 0x8fa0ad },
@@ -118,7 +138,7 @@ export const KAMPAR_SCENERY = [
   { part: 'tree', from: ['I', 'J', 0.05], to: ['I', 'J', 0.6], every: 18, side: 1, back: 2, radius: 3, height: 10 },
   { part: 'car', from: ['I', 'J', 0.05], to: ['I', 'J', 0.5], every: 8, side: -1, back: 0.5, radius: 2, color: 0x9da7ad },
   { part: 'shed', at: ['I', 'J', 0.75], side: -1, back: 5, radius: 20 },
-  { part: 'furnitureShop', at: ['I', 'J', 0.85], side: 1, back: 3, radius: 9 },
+  { part: 'shed', at: ['I', 'J', 0.82], side: 1, back: 3, radius: 20, color: 0x8fd8ee }, // Lotus's の建物（右。牛のいる所）
 
   // J〜スタート（76〜78）: 4階建ての古いショップハウス、木、やぶ、道ばたの街灯
   { part: 'shophouse', from: ['J', 'S', 0.1], to: ['J', 'S', 0.25], every: 6, side: -1, back: 3, radius: 7, floors: 4, color: 0xe6dcc0 },

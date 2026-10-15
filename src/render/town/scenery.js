@@ -36,13 +36,15 @@ export function sceneryClear(track, spot, radius) {
 }
 
 // 直角の角の「正面に続く道」の場所: 角に入ってくる向きのまま、まっすぐ進んで、角の外の柵を越えた所。前（+z）が角の方を向く
-export function aheadSpot(track, s) {
+// mode が 'back' のときは、曲がった先の道の反対側（交差点の4本目の道）
+export function aheadSpot(track, s, mode = true) {
   const n = track.samples.length;
   const at = (k) => track.samples[((Math.round(k) % n) + n) % n];
-  const p0 = at(s - 40);
+  const back = mode === 'back';
+  const p0 = at(back ? s + 40 : s - 40);
   const c = at(s);
-  const dx = Math.cos(p0.h);
-  const dz = Math.sin(p0.h);
+  const dx = Math.cos(p0.h) * (back ? -1 : 1);
+  const dz = Math.sin(p0.h) * (back ? -1 : 1);
   // 角の点まで進む長さ ＋ 角の外の柵まで
   const d = (c.x - p0.x) * dx + (c.z - p0.z) * dz + c.wall + 9;
   return { x: p0.x + dx * d, z: p0.z + dz * d, ry: Math.atan2(-dx, -dz), s: c.s, side: 2 };
@@ -57,7 +59,7 @@ export function buildScenery(track, list) {
   const opened = (item, s) => item.every && openings.some((o) => o.side === item.side && Math.min(span(track, o.s, s), span(track, s, o.s)) < 11);
   const put = (item, s) => {
     if (item.ahead) {
-      const spot = aheadSpot(track, s);
+      const spot = aheadSpot(track, s, item.ahead);
       spot.radius = 1;
       spots.push(spot);
       b.push(spot.x, 0, spot.z, spot.ry);

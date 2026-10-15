@@ -14,6 +14,7 @@ const go = { steer: 0, brake: false, drift: false };
 test('バンプで転がる速さはスピードメーターの数字の150（実際の速さの1.5倍を出している。2026-10-15 に100から変更）', () => {
   assert.equal(BUMP_LIMIT_KMH, 150);
   assert.ok(Math.abs(meterKmh(150 / 3.6 / 1.5) - 150) < 1e-9);
+  assert.equal(TUMBLE_TIME, 1); // 転がって走れないのは1秒（2026-10-15 のユーザー依頼で3秒から短く）
 });
 
 test('バンプを越えたか: 前へ越えたときだけ。逆向き・1周の切れ目・1フレームで大きく進んでも正しく', () => {
@@ -39,12 +40,12 @@ function before(at, speed, back = 3) {
   return kart;
 }
 
-test('メーター150を超えてバンプに乗ると、3秒転がって走れない。そのあと止まった状態から走り出す', () => {
+test('メーター150を超えてバンプに乗ると、1秒転がって走れない。そのあと止まった状態から走り出す', () => {
   const kart = before(t.bumps[0], 30); // 30m/s = メーター162
   for (let k = 0; k < 20; k++) stepKart(kart, go, t, params, 1 / 60);
   assert.ok(kart.tumble > 0);
   const turned = kart.heading;
-  for (let k = 0; k < 60; k++) stepKart(kart, { steer: 1, brake: false, drift: true }, t, params, 1 / 60);
+  for (let k = 0; k < 30; k++) stepKart(kart, { steer: 1, brake: false, drift: true }, t, params, 1 / 60);
   assert.equal(kart.drift.active, false); // ドリフトもハンドルも効かない
   let time = 0;
   while (kart.tumble > 0 && time < TUMBLE_TIME + 1) {

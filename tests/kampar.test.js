@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, span } from '../src/game/track.js';
+import { buildTrack, span, markS } from '../src/game/track.js';
 import { COURSE2, COURSES } from '../src/data/tracks.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
 import { cowContact } from '../src/game/hazards.js';
@@ -135,9 +135,25 @@ test('町の角（A・B・C・D・F・J）は直角（角の前後25mで70度以
   }
 });
 
-test('中央分離帯はない（どこも1本の道。2026-10-15 のユーザー依頼）。ロータリーの島は半径12m', () => {
-  assert.ok(t.samples.every((p) => p.median === 0));
+test('中央分離帯は G の直線（F〜H）だけ。ほかは1本の道（2026-10-15 のユーザー依頼）。ロータリーの島は半径12m', () => {
+  for (const p of t.samples) {
+    if (p.median > 0) assert.ok(p.s > t.marks.F && p.s < t.marks.H, `s=${p.s}`);
+  }
+  assert.ok(t.samples.some((p) => p.median > 0));
   for (const isl of t.islands) assert.equal(isl.r, 12);
+});
+
+test('F〜H の小さな加速板は、片側だけ: 右・左・右の順（2026-10-15 のユーザー依頼）', async () => {
+  const { locate } = await import('../src/game/track.js');
+  const pads = COURSE2.pads.filter((p) => p.side);
+  assert.deepEqual(pads.map((p) => p.side), [1, -1, 1]);
+  for (const pad of pads) {
+    const s = markS(t, pad.at) + 1;
+    const p = t.samples[Math.round(s)];
+    const at = (d) => locate(t, p.x - Math.sin(p.h) * d, p.z + Math.cos(p.h) * d, null);
+    assert.equal(at(pad.side * 6).boost, true, `${pad.at} の加速板の側`);
+    assert.equal(at(-pad.side * 6).boost, false, `${pad.at} の反対側`);
+  }
 });
 
 test('バンプは、ひとつ前の角やロータリーの出口から 70m 以上あとにある（見えてからバンプまでが長い）', () => {
