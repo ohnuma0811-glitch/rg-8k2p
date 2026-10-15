@@ -134,7 +134,7 @@ export function busContact(kart, track, time, phys) {
     const side = dx * -fz + dz * fx;
     const halfL = BUS_LENGTH / 2 + COW_PAD;
     const halfW = BUS_WIDTH / 2 + COW_PAD;
-    if (Math.abs(along) >= halfL || Math.abs(side) >= halfW || kart.airborne) continue;
+    if (Math.abs(along) >= halfL || Math.abs(side) >= halfW || kart.airborne || kart.tumble > 0) continue;
     touching = true;
     // 横（近い側）へ押し出す
     const out = (Math.sign(side) || -1) * halfW - side;

@@ -136,7 +136,7 @@ test('A・B・F は十字路: 正面と反対側に通行止めの道、横断�
     assert.equal(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === true && at(i)), true, `${m} の正面`);
     assert.ok(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === 'back' && at(i)), `${m} の反対側`);
     // 信号は、交差点に入ってくる手前の両側（走ってくる車から見える所）
-    const lights = KAMPAR_SCENERY.filter((i) => i.part === 'trafficLight' && i.at[1] === m && i.at[2] > 0.9);
+    const lights = KAMPAR_SCENERY.filter((i) => i.part === 'trafficLight' && i.at[1] === m && i.at[2] >= 0.9);
     assert.deepEqual(lights.map((i) => i.side).sort(), [-1, 1], `${m} の信号`);
   }
   const group = buildScenery(t, KAMPAR_SCENERY);
@@ -244,4 +244,30 @@ test('B を右に曲がったあと、右手の2つ目の建物（横道の先�
   assert.ok(group.userData.spots.some((p) => p.part === 'banner' && Math.abs(p.s - s) < 1), '置かれていない');
   const houses = group.userData.spots.filter((p) => p.part === 'shophouse' && p.side === 1);
   assert.ok(houses.some((h) => Math.abs(h.s - s) < 4), 'その所に建物がない');
+});
+
+test('直角の角の四角（カートが走れる所）の中に、地面に立つ景色を置かない（最終レビュー: B の信号・J の KAMPAR の看板）', async () => {
+  const { locate } = await import('../src/game/track.js');
+  const OVERHEAD = new Set(['banner', 'archGate', 'footbridge', 'stubRoad', 'pipeBridge']);
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  for (const sp of group.userData.spots) {
+    if (OVERHEAD.has(sp.part) || sp.side === 0 || sp.anywhere) continue;
+    const loc = locate(t, sp.x, sp.z);
+    assert.equal(loc.surface, 'out', `${sp.part}（s=${sp.s.toFixed(0)}）が走れる所にある`);
+  }
+  // 信号は、交差点ごとに両側に残る
+  for (const m of ['A', 'B', 'F']) assert.equal(group.userData.spots.filter((p) => p.part === 'trafficLight' && Math.abs(p.s - t.marks[m]) < 40).length, 2, `${m} の信号`);
+});
+
+test('直角の角の壁は、通行止めの道の口のある所をどの角でもあける（最終レビュー: あく角とあかない角があった）', async () => {
+  const { stubMouths } = await import('../src/render/town/scenery.js');
+  const { cornerWallCuts } = await import('../src/render/trackMesh.js');
+  const mouths = stubMouths(t, KAMPAR_SCENERY).filter((m) => m.corner);
+  assert.ok(mouths.length >= 9);
+  for (const m of mouths) {
+    const c = t.corners.find((k) => Math.hypot(k.x - m.corner.x, k.z - m.corner.z) < 1);
+    assert.ok(c, '角が見つからない');
+    const cuts = cornerWallCuts(c, [m]);
+    assert.equal(cuts.u.length + cuts.w.length, 1, `s=${m.s.toFixed(0)} の口の壁があかない`);
+  }
 });
