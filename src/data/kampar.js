@@ -19,6 +19,9 @@ export const KAMPAR_SCENERY = [
   { part: 'driverBoard', at: ['I', 'J', 0.86], side: 1, back: 3, radius: 2, text: "Lotus's", bg: '#3fc1e8', width: 18, height: 4.4, top: 12 }, // J の手前のまっすぐな所（道がくねる所だと画面の外に出た）
   { part: 'driverBoard', at: ['C', 'D', 0.3], side: 1, back: 1, radius: 2, text: 'Grand Kampar Hotel', bg: '#7a1f2b', fg: '#f2d48a' },
 
+  // スタートの左は山（2026-10-15 のユーザー依頼）
+  { part: 'hill', at: ['S', 'A', 0.1], side: -1, back: 12, radius: 30 },
+
   // 道の上の大きな横断幕（場所が分かるように。2026-10-15 のユーザー依頼）
   { part: 'banner', at: ['E', 'F', 0.6], side: 1, back: 0, radius: 2, text: '← WestLake Villas', color: '#2a62b8' },
   { part: 'banner', at: ['F', 'G', 0.25], side: 1, back: 0, radius: 2, text: '← Westlake International School / OPEN DAY HERE', color: '#3b2a6b' },
