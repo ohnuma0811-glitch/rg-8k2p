@@ -1,6 +1,6 @@
 // その場所だけの目印（設計書 4・4.1）。写真と見くらべて作る
 // 部品の前（道の側）は +z、道ぞいの長さは x、地面は y = 0（src/render/town/kit.js と同じ）
-import { COLORS, tower, bus } from './kit.js?v=888515d';
+import { COLORS, tower, bus } from './kit.js?v=8d6c692';
 
 // 文字の板の絵（同じ文字は使い回す）
 function textDraw(text, fg, bg, weight = 'bold') {

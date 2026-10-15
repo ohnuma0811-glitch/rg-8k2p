@@ -13,7 +13,6 @@ export const KAMPAR_SCENERY = [
   { part: 'pipeBridge', at: ['J', 'S', 0.75], side: 1, back: 2, radius: 8 }, // 川と水道管の橋（77）
 
   // 走ってくる車の方を向いた、道ばたの大きな看板（まっすぐ走っていても見えるように。2026-10-15 のユーザー依頼）
-  { part: 'driverBoard', at: ['E', 'F', 0.72], side: -1, back: 1, radius: 2, text: 'WestLake Villas', bg: '#2a62b8' },
   { part: 'driverBoard', at: ['F', 'G', 0.36], side: -1, back: 1, radius: 2, text: 'WESTLAKE INTERNATIONAL SCHOOL', bg: '#3b2a6b' },
   { part: 'driverBoard', at: ['G', 'H', 0.17], side: -1, back: 1, radius: 2, text: 'HOSPITAL UTAR', bg: '#1f9a96' },
   { part: 'driverBoard', at: ['I', 'J', 0.86], side: 1, back: 3, radius: 2, text: "Lotus's", bg: '#3fc1e8', width: 18, height: 4.4, top: 12 }, // J の手前のまっすぐな所（道がくねる所だと画面の外に出た）
