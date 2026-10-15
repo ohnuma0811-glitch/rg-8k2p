@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.min.js';
-import { createKartModel } from '../src/render/models.js';
+import { createKartModel, CHARACTERS } from '../src/render/models.js';
 import { CAM_HEIGHT } from '../src/render/scene.js';
 
 // 地平線はカメラの目の高さに見える。カメラが頭より高ければ、まっすぐな道でキャラは地平線より下に映る
@@ -87,4 +87,64 @@ test('レース中の Kyugo: 目の上の黒い線（2本目のまゆに見え�
     assert.ok(e.scale.y > e.scale.z, 'たて長でない');
     assert.equal(e.rotation.x, 0, '傾いている');
   }
+});
+
+test('Soki の髪は、頭の後ろの下（耳より下）までおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）', () => {
+  const model = createKartModel({ character: 'soki' });
+  model.updateMatrixWorld(true);
+  let head = null;
+  model.traverse((o) => {
+    if (o.isMesh && o.geometry.type === 'SphereGeometry' && Math.abs(o.geometry.parameters.radius - 0.42) < 1e-6) head = o;
+  });
+  const center = new THREE.Vector3().setFromMatrixPosition(head.matrixWorld);
+  // 頭の真後ろ（前は +x）の、耳より少し下の点に、髪があるか（そこから後ろへ線をのばして、髪に当たるか）
+  const ray = new THREE.Raycaster(center.clone().add(new THREE.Vector3(-3, -0.25, 0)), new THREE.Vector3(1, 0, 0));
+  const hits = ray.intersectObject(model, true);
+  assert.ok(hits.length > 0, '何にも当たらない');
+  const c = hits[0].object.material.color.getHex();
+  assert.ok(c === CHARACTERS.soki.hairColor || c === CHARACTERS.soki.capColor, `最初に当たったのが髪か帽子でない（${hits[0].object.material.color.getHexString()}）`);
+});
+
+test('Soki は赤い野球帽をかぶる: 頭をおおう赤い帽子と、顔より前に出るつば（2026-10-15 のユーザー依頼「髪の毛が不自然なので、赤い野球帽をかぶせて」）', () => {
+  const model = createKartModel({ character: 'soki' });
+  model.updateMatrixWorld(true);
+  const parts = { crown: null, brim: null, face: null };
+  model.traverse((o) => {
+    if (o.userData.cap) parts[o.userData.cap] = o;
+    if (o.isMesh && o.geometry.type === 'SphereGeometry' && Math.abs(o.geometry.parameters.radius - 0.42) < 1e-6) parts.face = o;
+  });
+  assert.ok(parts.crown && parts.brim, '帽子とつば');
+  assert.equal(parts.crown.material.color.getHex(), CHARACTERS.soki.capColor);
+  const red = new THREE.Color(CHARACTERS.soki.capColor);
+  assert.ok(red.r > 0.6 && red.g < 0.3 && red.b < 0.3, '赤');
+  const brim = new THREE.Box3().setFromObject(parts.brim);
+  const face = new THREE.Box3().setFromObject(parts.face);
+  assert.ok(brim.max.x > face.max.x + 0.1, `つばが顔より前に出る（${brim.max.x.toFixed(2)} / ${face.max.x.toFixed(2)}）`);
+  let strands = 0;
+  model.traverse((o) => {
+    if (o.userData.strand) strands++;
+  });
+  assert.equal(strands, 0, '毛の束はやめた');
+});
+
+test('Soki の帽子の正面は、白い丸ではなく白い文字「A」（2026-10-15 のユーザー依頼）', () => {
+  const model = createKartModel({ character: 'soki' });
+  model.updateMatrixWorld(true);
+  let letter = null;
+  let whiteDisc = 0;
+  let head = null;
+  model.traverse((o) => {
+    if (o.userData.capLetter) letter = o;
+    if (o.isMesh && o.geometry.type === 'CylinderGeometry' && o.material.color.getHex() === 0xffffff) whiteDisc++;
+    if (o.isMesh && o.geometry.type === 'SphereGeometry' && Math.abs(o.geometry.parameters.radius - 0.42) < 1e-6) head = o;
+  });
+  assert.equal(letter && letter.userData.capLetter, 'A');
+  assert.equal(whiteDisc, 0, '白い丸はやめた');
+  const strokes = letter.children.filter((c) => c.isMesh);
+  assert.equal(strokes.length, 3, '「A」は線3本');
+  assert.ok(strokes.every((c) => c.material.color.getHex() === 0xffffff), '白');
+  // 帽子の前（顔の上）にある
+  const a = new THREE.Box3().setFromObject(letter).getCenter(new THREE.Vector3());
+  const h = new THREE.Box3().setFromObject(head);
+  assert.ok(a.x > (h.min.x + h.max.x) / 2 && a.y > (h.min.y + h.max.y) / 2, '帽子の前の上の方');
 });

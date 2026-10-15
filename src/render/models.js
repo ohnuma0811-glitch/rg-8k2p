@@ -34,7 +34,8 @@ const DARK = 0x1d2430;
 // キャラの見た目。前は +x 向き。座席に座った形で、原点は座面
 export const CHARACTERS = {
   kyugo: { hair: 'spiky', shirt: 0xc11f0a, face: 'human' }, // 顔は人間らしく（2026-10-14 のユーザー依頼）
-  soki: { hair: 'bowl', shirt: 0x1c3c88 },
+  // 赤い野球帽をかぶる。帽子の下から、こげ茶の髪が少しのぞく（2026-10-15 のユーザー依頼）
+  soki: { hair: 'cap', shirt: 0x1c3c88, hairColor: 0x2b1d16, capColor: 0xd7261b },
 };
 
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
@@ -113,11 +114,47 @@ function head(look) {
       g.add(s);
     }
   } else {
-    // おわん形: 頭の上半分をすっぽりおおい、前髪は横一直線
-    const bowl = new THREE.Mesh(new THREE.SphereGeometry(R * 1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(HAIR));
-    bowl.position.set(-0.02, 0.06, 0);
-    g.add(bowl);
-    g.add(box(0.12, 0.12, R * 1.9, HAIR, R * 0.82, 0.14, 0));
+    // 赤い野球帽（2026-10-15 のユーザー依頼「髪の毛が不自然なので、赤い野球帽をかぶせて」）
+    const HC = look.hairColor || HAIR;
+    const CAP = look.capColor || 0xd7261b;
+    // 帽子の下からのぞく髪: 後ろと横を、耳の下の高さまで
+    // （球の向き: phi が -90°〜90° のところが頭の後ろ（-x）。theta は真上 0 から真下 180°）
+    const back = new THREE.Mesh(new THREE.SphereGeometry(R * 1.06, 16, 8, -Math.PI * 0.6, Math.PI * 1.2, Math.PI * 0.4, Math.PI * 0.37), mat(HC));
+    back.position.set(-0.02, 0.06, 0);
+    g.add(back);
+    // 帽子の上（頭の上半分より少し深くかぶる）
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(R * 1.12, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.46), mat(CAP));
+    crown.position.set(-0.02, 0.06, 0);
+    crown.userData.cap = 'crown';
+    g.add(crown);
+    // つば: 前（+x）に突き出した半円の板。少し下を向く
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.035, 20, 1, false, 0, Math.PI), mat(CAP));
+    brim.position.set(R * 0.62, 0.13, 0);
+    brim.rotation.z = -0.18;
+    brim.userData.cap = 'brim';
+    g.add(brim);
+    // てっぺんのボタン
+    g.add(ball(0.045, 0xa51b12, -0.02, 0.06 + R * 1.12, 0, 8));
+    // 正面の白い文字「A」（2026-10-15 のユーザー依頼）: 左右のななめの線と、真ん中の横線
+    // 文字は前（+x）を向いた面に書き、帽子の丸みに沿うよう少し上を向ける
+    const LH = 0.16; // 文字の高さ
+    const LW = 0.13; // 文字の幅（足元）
+    const ST = 0.03; // 線の太さ
+    const leg = Math.hypot(LH, LW / 2);
+    const slant = Math.atan2(LW / 2, LH);
+    const letter = new THREE.Group();
+    for (const side of [-1, 1]) {
+      const stroke = box(0.015, leg, ST, WHITE, 0, 0, (side * LW) / 4);
+      stroke.rotation.x = -side * slant; // 足元が外へ広がり、上で合わさる
+      letter.add(stroke);
+    }
+    letter.add(box(0.015, ST * 0.8, LW * 0.45, WHITE, 0, -LH * 0.12, 0));
+    const UP = 0.54; // 帽子の前の面の傾き（約31°上向き）
+    const CR = R * 1.12 + 0.012; // 帽子の面より少しだけ外
+    letter.position.set(-0.02 + Math.cos(UP) * CR, 0.06 + Math.sin(UP) * CR, 0);
+    letter.rotation.z = UP;
+    letter.userData.capLetter = 'A';
+    g.add(letter);
   }
   return g;
 }

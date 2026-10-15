@@ -8,8 +8,8 @@ url="$(git remote get-url origin | sed -E 's#.*github\.com[:/]([^/]+)/([^/]+)$#h
 tmp="$(mktemp -d)"
 git worktree add -q "$tmp" gh-pages
 trap 'cd "$root"; git worktree remove --force "$tmp"' EXIT
-rm -rf "$tmp/src" "$tmp/vendor" "$tmp/index.html" "$tmp/style.css"
-cp -r index.html style.css src vendor "$tmp/"
+rm -rf "$tmp/src" "$tmp/vendor" "$tmp/sounds" "$tmp/index.html" "$tmp/style.css" "$tmp/manifest.json" "$tmp/sw.js" "$tmp/icons"
+cp -r index.html style.css manifest.json sw.js icons sounds src vendor "$tmp/"
 # ブラウザが古いファイルを使い続けないよう、読み込むファイル名に版番号（main のコミット）を付ける
 ver="$(git rev-parse --short HEAD)"
 cd "$tmp"
@@ -18,6 +18,9 @@ find src -name '*.js' -exec sed -i -E "s#(from '\.[^']+\.js)'#\1?v=$ver'#g" {} +
 # 画面の左上に出す版番号
 sed -i -E "s#^const VERSION = 'dev';#const VERSION = '$ver';#" src/main.js
 grep -q "const VERSION = '$ver'" src/main.js
+# 端末に取っておくファイルの入れ物の名前にも版番号を付ける
+sed -i -E "s#^const VERSION = 'dev';#const VERSION = '$ver';#" sw.js
+grep -q "const VERSION = '$ver'" sw.js
 git add -A
 if git diff --cached --quiet; then
   echo "変更なし"

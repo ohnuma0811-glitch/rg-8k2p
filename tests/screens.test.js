@@ -18,3 +18,11 @@ test('結果は、下の順位から1行ずつ出す（5位 → 1位。2026-10-1
 test('VS RACE と BATTLE には「GAME CODE が必要」と書く（2026-10-14 のユーザー依頼）', () => {
   assert.deepEqual(MODES.filter((m) => m.code).map((m) => m.id), ['versus', 'battle']);
 });
+
+test('BACK で1つ前の画面へ: キャラ選び → 名前 → タイトル（2026-10-15 のユーザー依頼）', async () => {
+  const { prevScreen, BACK } = await import('../src/screens.js');
+  assert.equal(prevScreen('character'), 'name');
+  assert.equal(prevScreen('name'), 'title');
+  assert.equal(prevScreen('title'), 'title', 'タイトルより前はない');
+  assert.equal(typeof BACK, 'string');
+});
