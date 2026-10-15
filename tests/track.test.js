@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, locate, respawnIndex } from '../src/game/track.js';
+import { buildTrack, locate, respawnIndex, markS } from '../src/game/track.js';
 import { COURSE1 } from '../src/data/tracks.js';
 
 const track = buildTrack(COURSE1);
@@ -144,5 +144,70 @@ test('カーブの半径は、どこでも柵までの距離より大きい（�
     if (turn < 1e-6) continue;
     const radius = 6 / turn;
     assert.ok(radius >= samples[i].wall, `点${i}: 半径 ${radius.toFixed(1)}m < 柵まで ${samples[i].wall}m`);
+  }
+});
+
+export const TEST_DEF = {
+  points: [[0, 0], [200, 0], [400, 0], [600, 0], [800, 0], [1000, 100], [800, 200], [600, 200], [400, 200], [200, 200], [0, 200], [-200, 100]],
+  length: 2400,
+  roadHalf: 12,
+  dirt: 3,
+  theme: 'town',
+  marks: { A: 3, B: 8 },
+  medians: [{ from: ['A', 'B', 0.1], to: ['A', 'B', 0.4], half: 1.5 }],
+  pads: [{ at: ['A', 'B', 0.6], len: 3, time: 0.6 }],
+};
+
+test('区間の印と場所の書き方: S はスタート、[A, B, t] は A から B へ t の割合', () => {
+  const t = buildTrack(TEST_DEF);
+  assert.equal(markS(t, 'S'), 0);
+  const a = t.marks.A;
+  const b = t.marks.B;
+  assert.ok(a > 0 && b > a, `${a} ${b}`);
+  assert.equal(markS(t, ['A', 'B', 0]), a);
+  assert.ok(Math.abs(markS(t, ['A', 'B', 0.5]) - (a + b) / 2) < 1e-9);
+  // 終わりの側の S は1周の長さ（J からスタートまで、のように書ける）
+  assert.ok(Math.abs(markS(t, ['B', 'S', 1]) - t.length) < 1e-9);
+});
+
+test('分離帯の上は芝生（ダートと同じく遅くなる）。分離帯の外は道', () => {
+  const t = buildTrack(TEST_DEF);
+  const s = markS(t, ['A', 'B', 0.25]);
+  const p = t.samples[Math.round(s) % t.samples.length];
+  const right = (d) => [p.x - Math.sin(p.h) * d, p.z + Math.cos(p.h) * d];
+  assert.equal(locate(t, ...right(0), null).surface, 'dirt');
+  assert.equal(locate(t, ...right(1.4), null).surface, 'dirt');
+  assert.equal(locate(t, ...right(3), null).surface, 'road');
+  assert.equal(locate(t, ...right(-3), null).surface, 'road');
+  assert.equal(p.half, 12);
+});
+
+test('加速板は、点ごとに長さと加速の時間を持てる（小さな加速板。2026-10-15 のユーザー依頼）', () => {
+  const t = buildTrack(TEST_DEF);
+  const s = markS(t, ['A', 'B', 0.6]);
+  const on = locate(t, t.samples[Math.round(s) + 1].x, t.samples[Math.round(s) + 1].z, null);
+  assert.equal(on.boost, true);
+  assert.equal(on.boostTime, 0.6);
+  const off = locate(t, t.samples[Math.round(s) + 6].x, t.samples[Math.round(s) + 6].z, null);
+  assert.equal(off.boost, false);
+});
+
+test('Kenta Circuit の加速板は今までどおり 1.0秒', () => {
+  const p = track.samples.find((q) => q.boost);
+  assert.equal(p.boostTime, 1.0);
+});
+
+test('ロータリー: 島のまわりだけ道を広げ、島の両側を道の幅で走れる（2026-10-15 のユーザーの判断）', () => {
+  const t = buildTrack({ ...TEST_DEF, roundabouts: [{ at: ['A', 'B', 0.5], r: 7 }] });
+  assert.equal(t.islands.length, 1);
+  const isl = t.islands[0];
+  const p = t.samples[Math.round(isl.s)];
+  assert.equal(p.half, 12 + 7);
+  assert.ok(Math.abs(p.wall - (12 + 7 + 3)) < 1e-9);
+  // 島から遠い所は、ふつうの幅
+  assert.equal(t.samples[Math.round(isl.s + 60)].half, 12);
+  // 島の両側（中心から ±13m）は道
+  for (const d of [-13, 13]) {
+    assert.equal(locate(t, p.x - Math.sin(p.h) * d, p.z + Math.cos(p.h) * d, null).surface, 'road');
   }
 });

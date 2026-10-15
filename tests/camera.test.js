@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.min.js';
 import { createKartModel, CHARACTERS } from '../src/render/models.js';
 import { CAM_HEIGHT } from '../src/render/scene.js';
+import { buildTrack } from '../src/game/track.js';
+import { COURSE1 } from '../src/data/tracks.js';
 
 // 地平線はカメラの目の高さに見える。カメラが頭より高ければ、まっすぐな道でキャラは地平線より下に映る
 test('カメラは、キャラの頭のてっぺんより0.5m以上高い（まっすぐな道で、キャラが地平線より下に映る）', () => {
   for (const character of ['kyugo', 'soki']) {
-    const box = new THREE.Box3().setFromObject(createKartModel({ character }));
+    const model = createKartModel({ character });
+    model.remove(model.userData.stars); // 頭の上の星（バンプで転がっている間だけ見える）は、キャラの高さに入れない
+    const box = new THREE.Box3().setFromObject(model);
     assert.ok(CAM_HEIGHT >= box.max.y + 0.5, `${character}: 頭 ${box.max.y.toFixed(2)}m / カメラ ${CAM_HEIGHT}m`);
   }
 });
@@ -91,6 +95,7 @@ test('レース中の Kyugo: 目の上の黒い線（2本目のまゆに見え�
 
 test('Soki の髪は、頭の後ろの下（耳より下）までおおう（2026-10-15 の実機確認「後ろの髪の毛が頭の下の方がない」）', () => {
   const model = createKartModel({ character: 'soki' });
+  model.remove(model.userData.stars); // 頭の上の星（いつもこちらを向く板）は、線を当てて調べるのに使えない
   model.updateMatrixWorld(true);
   let head = null;
   model.traverse((o) => {
@@ -147,4 +152,35 @@ test('Soki の帽子の正面は、白い丸ではなく白い文字「A」（20
   const a = new THREE.Box3().setFromObject(letter).getCenter(new THREE.Vector3());
   const h = new THREE.Box3().setFromObject(head);
   assert.ok(a.x > (h.min.x + h.max.x) / 2 && a.y > (h.min.y + h.max.y) / 2, '帽子の前の上の方');
+});
+
+const tumbleTrack = buildTrack(COURSE1);
+
+test('転がっている間は、頭の上で黄色い星が回る。転がっていないときは見えない（2026-10-15 のユーザー依頼）', async () => {
+  const { syncKartModel } = await import('../src/render/models.js');
+  const { createKart } = await import('../src/game/kart.js');
+  const m = createKartModel({ character: 'kyugo' });
+  const kart = createKart(tumbleTrack, 0, 0);
+  syncKartModel(m, kart);
+  assert.equal(m.userData.stars.visible, false);
+  kart.tumble = 0.3; // 落ちたあと（目が回っている）
+  syncKartModel(m, kart);
+  assert.equal(m.userData.stars.visible, true);
+  assert.ok(m.userData.stars.children.length >= 4);
+  for (const s of m.userData.stars.children) assert.equal(s.material.color.getHex(), 0xffd400);
+});
+
+test('「バーン」のとき、車は大きく跳ね上がり、くるっと転がってから落ちる', async () => {
+  const { syncKartModel } = await import('../src/render/models.js');
+  const { createKart } = await import('../src/game/kart.js');
+  const { TUMBLE_TIME } = await import('../src/game/hazards.js');
+  const m = createKartModel({ character: 'soki' });
+  const kart = createKart(tumbleTrack, 0, 0);
+  kart.tumble = TUMBLE_TIME - 0.3; // 跳ねている途中
+  syncKartModel(m, kart);
+  assert.ok(m.position.y - kart.y > 1.5, `${m.position.y}`);
+  kart.tumble = TUMBLE_TIME * 0.25; // もう落ちて、目が回っている
+  syncKartModel(m, kart);
+  assert.ok(Math.abs(m.position.y - kart.y) < 0.01);
+  assert.ok(Math.abs(m.rotation.x) < 0.01);
 });

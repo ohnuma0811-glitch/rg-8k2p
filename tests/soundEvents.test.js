@@ -141,3 +141,24 @@ test('一時停止で音を止めたあとは、ドリフトの途中でも「�
   assert.deepEqual(soundEvents(afterPause(drifting), drifting, 3), ['driftStart']);
   assert.equal(afterPause(null), null);
 });
+
+test('バンプ: 乗り越えたら hump（コトン）、転がり始めたら tumble（バーン＋ピヨピヨ）', () => {
+  assert.deepEqual(soundEvents(st(), st({}, { hump: 0.3 }), 3), ['hump']);
+  assert.deepEqual(soundEvents(st(), st({}, { tumble: 3 }), 3), ['tumble']);
+  assert.deepEqual(soundEvents(st({}, { tumble: 3 }), st({}, { tumble: 2.9 }), 3), []);
+});
+
+test('牛にぶつかったら moo', () => {
+  assert.deepEqual(soundEvents(st({}, { cowHits: 0 }), st({}, { cowHits: 1 }), 3), ['moo']);
+});
+
+test('バンプの警告が出たら bumpWarn（ピッピッ）', () => {
+  assert.deepEqual(soundEvents(st({ bumpWarn: false }), st({ bumpWarn: true }), 3), ['bumpWarn']);
+  assert.deepEqual(soundEvents(st({ bumpWarn: true }), st({ bumpWarn: true }), 3), []);
+});
+
+test('スクールバスとすれちがうとき（近づいたとき）に busPass（ブウウーン）、ぶつかったら busHit（2026-10-16 のユーザー依頼）', () => {
+  assert.deepEqual(soundEvents(st({ busNear: false }), st({ busNear: true }), 3), ['busPass']);
+  assert.deepEqual(soundEvents(st({ busNear: true }), st({ busNear: true }), 3), [], '近くにいる間は1回だけ');
+  assert.deepEqual(soundEvents(st({}, { busHits: 0 }), st({}, { busHits: 1 }), 3), ['busHit']);
+});

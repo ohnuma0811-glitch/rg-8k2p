@@ -118,3 +118,25 @@ test('レースの最初で、まだ進んだ距離が分からない（-Infinit
   assert.equal(rubberFactor(-Infinity, 100, L), 1);
   assert.equal(rubberFactor(100, -Infinity, L), 1);
 });
+
+const OVAL_DEF = {
+  points: [[0, 0], [200, 0], [400, 0], [600, 0], [800, 0], [1000, 100], [800, 200], [600, 200], [400, 200], [200, 200], [0, 200], [-200, 100]],
+  length: 2400,
+  roadHalf: 12,
+  dirt: 4,
+};
+
+test('CPU はロータリーの島をよけて走る（近い側を回る）', () => {
+  const t = buildTrack({ ...OVAL_DEF, theme: 'town', marks: { A: 2, B: 4 }, roundabouts: [{ at: ['A', 'B', 0.5], r: 7 }] });
+  const isl = t.islands[0];
+  for (const k of [0, 1, 2, 3]) {
+    const cpu = createCpu(k);
+    const kart = createKart(t, (Math.round(isl.s) - 80 + t.length) % t.length, 0);
+    let minD = Infinity;
+    for (let s = 0; s < 8; s += 1 / 60) {
+      stepKart(kart, cpuControl(cpu, kart, t, s), t, params, 1 / 60);
+      minD = Math.min(minD, Math.hypot(kart.x - isl.x, kart.z - isl.z));
+    }
+    assert.ok(minD > isl.r + 1.5, `CPU ${k} が島にぶつかった: ${minD.toFixed(2)}`);
+  }
+});

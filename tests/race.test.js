@@ -158,3 +158,13 @@ test('ゴールしてから結果の画面が出るまで 12秒（カメラが�
   const { RESULTS_DELAY } = await import('../src/game/race.js');
   assert.equal(RESULTS_DELAY, 12);
 });
+
+test('コースの一覧: 1つ目は Kenta Circuit。どのコースにも名前・曲・見た目の種類がある', async () => {
+  const { COURSES } = await import('../src/data/tracks.js');
+  const { SONGS } = await import('../src/audio/songs.js');
+  assert.equal(COURSES[0].name, 'Kenta Circuit');
+  for (const c of COURSES) {
+    assert.ok(c.name && SONGS[c.music], c.name);
+    assert.ok(['circuit', 'town'].includes(c.theme), c.name);
+  }
+});

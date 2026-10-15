@@ -2,6 +2,7 @@
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
 import { locate, respawnIndex } from './track.js';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -26,6 +27,7 @@ export const PHYS = {
   COUNTER: 0.3, // 反対へ切った・戻したと見なすハンドルの量
   STAGE_TIME: 0.7, // ドリフトを続けて煙の色が1段進む時間（秒。1.4秒で赤）
   MT_BOOST: 1.2, // 赤で離したときのミニターボの時間（秒）
+  MT_FACTOR: 1.15, // ミニターボの最高速の倍率（加速板より弱く。ミニターボ中に加速板に乗ると、さらに速くなるように。2026-10-16 のユーザー依頼）
   PAD_BOOST: 1.0, // 加速板の加速の時間（秒）
   BOOST_FACTOR: 1.3, // 加速中の最高速の倍率
   GRAVITY: 15, // m/s²
@@ -38,6 +40,8 @@ export const PHYS = {
   WRONG_CLEAR: 0.5, // 前向きにこの秒数走ると、逆走の数えを0に戻す
   WRONG_FIX: 10, // 逆走がこの秒数続いたら、スピンして正しい向きに戻す（2026-10-14 のユーザー依頼で30秒から短く）
   SPIN_TIME: 1, // スピンしている時間（秒。ハンドルは効かない）
+  TUMBLE_BRAKE: 40, // バンプで転がっている間に止まる強さ（m/s²）
+  ISLAND_PAD: 1.2, // ロータリーの島のふちと、車の中心の間（車の半分の大きさ）
   FALL_Y: -2, // これより下に落ちたらコースに戻す
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
 };
@@ -63,10 +67,14 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.hop = 0;
   kart.prevDrift = false;
   kart.boost = 0;
+  kart.boostFactor = PHYS.BOOST_FACTOR;
   kart.surface = 'road';
   kart.respawn = 0;
   kart.respawnAt = i;
   kart.onWall = false;
+  kart.onIsland = false;
+  kart.tumble = 0; // バンプで転がっている残りの秒数
+  kart.hump = 0; // バンプを乗り越えている残りの秒数
   kart.prevGround = kart.y;
   kart.wrongWay = false; // 逆走の警告を出しているか
   kart.wrongTime = 0; // 逆向きに走っている秒数
@@ -93,15 +101,20 @@ export function startDash(kart, params, accelLevel) {
   startBoost(kart, params, DASH_BASE + DASH_PER_ACCEL * accelLevel);
 }
 
-function startBoost(kart, params, time) {
-  kart.boost = Math.max(kart.boost, time);
-  kart.speed = Math.max(kart.speed, params.topSpeed * PHYS.BOOST_FACTOR);
+// factor: 加速中の最高速の倍率（加速板・スタートダッシュは BOOST_FACTOR、ミニターボは MT_FACTOR）。
+// 加速中に、より強い加速を受けたら強い方に切りかえる。弱い加速は、強い加速の間は受けない
+function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
+  const going = kart.boost > 0;
+  if (going && factor < kart.boostFactor) return;
+  kart.boost = going && factor === kart.boostFactor ? Math.max(kart.boost, time) : time;
+  kart.boostFactor = factor;
+  kart.speed = Math.max(kart.speed, params.topSpeed * factor);
 }
 
 function endDrift(kart, params, release) {
   const lv = driftLevel(kart);
   kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
-  if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST);
+  if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST, PHYS.MT_FACTOR);
 }
 
 // ctl: { steer: -1〜1（右が正）, brake: bool, drift: bool }
@@ -111,6 +124,30 @@ export function stepKart(kart, ctl, track, params, dt) {
     if (kart.respawn <= 0) placeAt(kart, track, kart.respawnAt);
     return;
   }
+  // バンプで転がっている間: 操作は効かず、すぐに止まる（その場で転がる）。終わったら、止まった状態からコースの向きで走り出す
+  if (kart.tumble > 0) {
+    kart.tumble = Math.max(0, kart.tumble - dt);
+    kart.speed = Math.max(0, kart.speed - PHYS.TUMBLE_BRAKE * dt);
+    kart.x += Math.cos(kart.move) * kart.speed * dt;
+    kart.z += Math.sin(kart.move) * kart.speed * dt;
+    const loc = locate(track, kart.x, kart.z, kart.seg);
+    kart.seg = loc.i;
+    // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
+    const excess = Math.abs(loc.lateral) - loc.wall;
+    if (excess > 0) {
+      const side = Math.sign(loc.lateral);
+      kart.x -= -Math.sin(loc.heading) * side * excess;
+      kart.z -= Math.cos(loc.heading) * side * excess;
+      kart.speed *= 0.5;
+    }
+    if (kart.tumble === 0) {
+      kart.speed = 0;
+      kart.heading = loc.heading;
+      kart.move = loc.heading;
+    }
+    return;
+  }
+  kart.hump = Math.max(0, kart.hump - dt);
   // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
   if (kart.spin > 0) {
     kart.spin -= dt;
@@ -131,10 +168,10 @@ export function stepKart(kart, ctl, track, params, dt) {
   const steer = Math.max(-1, Math.min(1, ctl.steer));
 
   if (!kart.airborne) {
-    if (here.boost) startBoost(kart, params, PHYS.PAD_BOOST);
+    if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
     let maxV = params.topSpeed;
     if (here.surface !== 'road') maxV *= PHYS.DIRT_FACTOR;
-    if (kart.boost > 0) maxV *= PHYS.BOOST_FACTOR;
+    if (kart.boost > 0) maxV *= kart.boostFactor;
     // ハンドルを切ったりドリフトしたりすると、少し遅くなる
     maxV *= 1 - (kart.drift.active ? PHYS.DRIFT_DRAG : PHYS.STEER_DRAG * Math.abs(steer));
     // 路面のでこぼこで、最高速が少しずつ上下する（走っている場所で決まる。ダートは大きく）
@@ -213,6 +250,20 @@ export function stepKart(kart, ctl, track, params, dt) {
     // 止まっていても、逆向きに進もうとしていれば逆走の時間を数える（ずっと止まったままにならないように）
     if (Math.cos(wrapAngle(kart.heading - loc.heading)) < 0) kart.wrongTime += dt;
   }
+  // バンプ: メーター100を超えて乗ったら転がる。それ以下なら乗り越える（2026-10-15 のユーザー依頼）
+  if (!kart.airborne && kart.speed > 0) {
+    for (const b of track.bumps ?? []) {
+      if (!crossed(track, here.s, loc.s, b)) continue;
+      if (meterKmh(kart.speed) > BUMP_LIMIT_KMH) {
+        kart.tumble = TUMBLE_TIME;
+        if (kart.drift.active) endDrift(kart, params, false);
+        kart.hop = 0;
+        kart.boost = 0;
+      } else {
+        kart.hump = HUMP_TIME;
+      }
+    }
+  }
   kart.seg = loc.i;
   kart.surface = loc.surface;
 
@@ -268,7 +319,29 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.move = along;
     }
   }
-  kart.onWall = touching;
+  // ロータリーの島: 中に入ろうとしたら、まわりへ押し出す。速さを落とすのは、ぶつかった最初の1回だけ（柵と同じ）
+  // 島のふちにそって進む向きにそろえるので、まっすぐ当たっても、近い側へ抜けられる
+  let onIsland = false;
+  for (const isl of track.islands ?? []) {
+    const dx = kart.x - isl.x;
+    const dz = kart.z - isl.z;
+    const d = Math.hypot(dx, dz);
+    const min = isl.r + PHYS.ISLAND_PAD;
+    if (d >= min || d === 0) continue;
+    onIsland = true;
+    kart.x = isl.x + (dx / d) * min;
+    kart.z = isl.z + (dz / d) * min;
+    const into = -(Math.cos(kart.move) * dx + Math.sin(kart.move) * dz) / d; // 島の中心へ向かう割合
+    if (into > 0 && !kart.airborne) {
+      if (!kart.onIsland) kart.speed *= 1 - (1 - PHYS.WALL_KEEP) * Math.min(1, into / Math.sin(PHYS.WALL_FULL_ANGLE));
+      const tangent = Math.atan2(dx, -dz); // 島のふちにそう向き
+      const along = Math.cos(wrapAngle(kart.move - tangent)) >= 0 ? tangent : wrapAngle(tangent + Math.PI);
+      kart.move = along;
+      kart.heading = along;
+    }
+  }
+  kart.onIsland = onIsland;
+  kart.onWall = touching || onIsland;
 
   // 逆走: コースの向きと逆に走っている時間を数える。1秒で警告、10秒続いたらスピンして正しい向きに戻す
   const along = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed;

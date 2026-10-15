@@ -1,11 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
 import * as THREE from '../../vendor/three.module.min.js';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
+import { buildJungle } from './town/jungle.js';
+import { buildWater } from './town/water.js';
+import { BUMP_STRIPE_M } from '../game/hazards.js';
+import { cornerUW } from '../game/track.js';
 
 const COLORS = {
   dirt: 0xb08850,
   red: 0xd8262b,
   white: 0xffffff,
 };
+
+// 幅などは、数か、点ごとの関数（ロータリーで道が広がる所など）
+const at = (o, p) => (typeof o === 'function' ? o(p) : o);
 
 // 右向きのベクトル（右が正）
 function rightOf(p) {
@@ -36,10 +44,10 @@ function ribbon(samples, offA, offB, yOf, ok, { color, colorOf, map, vScale } = 
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
-    const a = [p.x + rpx * offA, yOf(p), p.z + rpz * offA];
-    const b = [p.x + rpx * offB, yOf(p), p.z + rpz * offB];
-    const cc = [q.x + rqx * offA, yOf(q), q.z + rqz * offA];
-    const d = [q.x + rqx * offB, yOf(q), q.z + rqz * offB];
+    const a = [p.x + rpx * at(offA, p), yOf(p), p.z + rpz * at(offA, p)];
+    const b = [p.x + rpx * at(offB, p), yOf(p), p.z + rpz * at(offB, p)];
+    const cc = [q.x + rqx * at(offA, q), yOf(q), q.z + rqz * at(offA, q)];
+    const d = [q.x + rqx * at(offB, q), yOf(q), q.z + rqz * at(offB, q)];
     pos.push(...a, ...cc, ...b, ...b, ...cc, ...d);
     if (colors) {
       c.setHex(colorOf(p));
@@ -66,10 +74,10 @@ function fence(samples, off, yBottom, yTop, ok, colorOf) {
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
-    const px = p.x + rpx * off;
-    const pz = p.z + rpz * off;
-    const qx = q.x + rqx * off;
-    const qz = q.z + rqz * off;
+    const px = p.x + rpx * at(off, p);
+    const pz = p.z + rpz * at(off, p);
+    const qx = q.x + rqx * at(off, q);
+    const qz = q.z + rqz * at(off, q);
     pos.push(px, yBottom(p), pz, qx, yBottom(q), qz, px, yTop(p), pz);
     pos.push(px, yTop(p), pz, qx, yBottom(q), qz, qx, yTop(q), qz);
     c.setHex(colorOf(p));
@@ -111,11 +119,16 @@ function chevrons(bg, fg) {
 }
 
 // コースを横切る板（スタートライン、加速板、ジャンプ台の模様）。from〜to は s（m）。tiles は模様をくり返す回数
-export function strip(track, from, to, y, material, tiles = 1) {
-  const { samples, roadHalf } = track;
+// side が 1 なら道の右半分（分離帯の外）だけ、-1 なら左半分だけ
+export function strip(track, from, to, y, material, tiles = 1, side = 0) {
+  const { samples } = track;
   const pos = [];
   const uv = [];
   const list = samples.filter((p) => p.s >= from && p.s < to);
+  const w = (p) => p.half ?? track.roadHalf;
+  // 板の左はし・右はし（右が正）
+  const lo = (p) => (side > 0 ? p.median || 0 : -w(p));
+  const hi = (p) => (side < 0 ? -(p.median || 0) : w(p));
   for (let k = 0; k + 1 < list.length; k++) {
     const p = list[k];
     const q = list[k + 1];
@@ -123,10 +136,10 @@ export function strip(track, from, to, y, material, tiles = 1) {
     const [rqx, rqz] = rightOf(q);
     const v0 = (k / (list.length - 1)) * tiles;
     const v1 = ((k + 1) / (list.length - 1)) * tiles;
-    const a = [p.x - rpx * roadHalf, y(p), p.z - rpz * roadHalf];
-    const b = [p.x + rpx * roadHalf, y(p), p.z + rpz * roadHalf];
-    const c = [q.x - rqx * roadHalf, y(q), q.z - rqz * roadHalf];
-    const d = [q.x + rqx * roadHalf, y(q), q.z + rqz * roadHalf];
+    const a = [p.x + rpx * lo(p), y(p), p.z + rpz * lo(p)];
+    const b = [p.x + rpx * hi(p), y(p), p.z + rpz * hi(p)];
+    const c = [q.x + rqx * lo(q), y(q), q.z + rqz * lo(q)];
+    const d = [q.x + rqx * hi(q), y(q), q.z + rqz * hi(q)];
     // 表が上を向く並び（上から見える）
     pos.push(...a, ...b, ...c, ...b, ...d, ...c);
     uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
@@ -231,7 +244,8 @@ function nearIndex(samples) {
 
 // 柵を立てられるか（点 i の左右 -1 / 1）。地面がある平らな所で、柵の位置がほかの道の舗装（＋1m）の上でなければ立てる
 // （交わる所の近くでも、下を通る道をふさがない所には柵を描く。ジャンプの着地の所も囲む）
-export function fenceSides(track) {
+// mouths: 通行止めの道の口（src/render/town/scenery.js の stubMouths）。口の前の壁はあける
+export function fenceSides(track, mouths = []) {
   const { samples, roadHalf } = track;
   const n = samples.length;
   const near = nearIndex(samples);
@@ -242,6 +256,7 @@ export function fenceSides(track) {
       if (p.y !== 0 || p.ramp) continue;
       const x = p.x - Math.sin(p.h) * side * p.wall;
       const z = p.z + Math.cos(p.h) * side * p.wall;
+      if (mouths.some((m) => inMouth(m, x, z))) continue;
       ok[side] = !near(x, z, roadHalf + 1, (j) => {
         const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
         const q = samples[j];
@@ -393,12 +408,16 @@ function roadside(track, sides) {
 }
 
 export function buildTrackMesh(track) {
-  const { samples, roadHalf } = track;
+  const { samples } = track;
   const dirt = track.def.dirt;
+  const town = track.def.theme === 'town';
   const group = new THREE.Group();
   const hasGround = (p) => p.y !== null;
   const flat = (p) => p.y === 0 && !p.ramp;
   const stripes = (len) => (p) => (Math.floor(p.s / len) % 2 ? COLORS.white : COLORS.red);
+  // 街の縁石は白黒のしま
+  const curb = town ? (p) => (Math.floor(p.s / 2) % 2 ? 0xf2f2f2 : 0x222222) : stripes(2);
+  const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
   const asphalt = canvasTexture(64, 64, (g, w, h) => {
@@ -409,22 +428,68 @@ export function buildTrackMesh(track) {
     g.fillRect(2, 0, 2, h);
     g.fillRect(w - 4, 0, 2, h);
   });
-  group.add(ribbon(samples, -roadHalf, roadHalf, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 4 }));
-  // 縁石（赤白）
-  group.add(ribbon(samples, -roadHalf - 1, -roadHalf, (p) => p.y + 0.04, hasGround, { colorOf: stripes(2) }));
-  group.add(ribbon(samples, roadHalf, roadHalf + 1, (p) => p.y + 0.04, hasGround, { colorOf: stripes(2) }));
-  group.add(ribbon(samples, -roadHalf - dirt, -roadHalf - 1, () => 0.02, flat, { color: COLORS.dirt }));
-  group.add(ribbon(samples, roadHalf + 1, roadHalf + dirt, () => 0.02, flat, { color: COLORS.dirt }));
+  // 直角の角の四角の中のコースの道は、両はしの白線なし（真ん中の破線はそのまま通す。2026-10-15 のユーザー依頼）
+  const corners = track.corners ?? [];
+  const inSquare = (p) => corners.some((c) => inCornerZone(c, p.x, p.z));
+  const asphaltMid = canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = '#55585e';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#e8e8e8';
+    g.fillRect(w / 2 - 1, 0, 2, h / 2);
+  });
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p), { color: 0xffffff, map: asphalt, vScale: 4 }));
+  if (corners.length) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && inSquare(p), { color: 0xffffff, map: asphaltMid, vScale: 4 }));
+  // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
+  const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
+  if (mouths.length || corners.length) group.add(junctionMesh(track, mouths, corners, asphalt));
+  if (corners.length) group.add(cornerWalls(corners, mouths));
+  // 縁石（交差点の口の所と、直角の角の外側の四角の中はなし）
+  const curbOk = (side) => (p) => {
+    if (!hasGround(p)) return false;
+    const [rx, rz] = rightOf(p);
+    const x = p.x + rx * side * (p.half + 0.5);
+    const z = p.z + rz * side * (p.half + 0.5);
+    return !mouths.some((m) => inMouth(m, x, z)) && !corners.some((c) => inCornerZone(c, x, z));
+  };
+  group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, curbOk(-1), { colorOf: curb }));
+  group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
+  // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
+  if (!town) {
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
+    group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
+  }
 
-  // 柵（ほかの道をふさぐ所だけ開ける）。ジャンプ台は道のすぐ横に側面と柵
-  const fences = fenceSides(track);
+  // 柵（ほかの道をふさぐ所だけ開ける）。街は低いコンクリートの壁。ジャンプ台は道のすぐ横に側面と柵
+  const fences = fenceSides(track, mouths);
   const index = new Map(samples.map((p, i) => [p, i]));
   for (const side of [-1, 1]) {
-    const fenceOk = (p) => fences[index.get(p)][side];
-    group.add(fence(samples, side * (roadHalf + dirt), () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
+    // 直角の角の外側の、丸い柵は描かない（かわりに cornerWalls の2本のまっすぐな壁）
+    const fenceOk = (p) => {
+      if (!fences[index.get(p)][side]) return false;
+      const [rx, rz] = rightOf(p);
+      return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
+    };
+    const off = (p) => side * p.wall;
+    if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
+    else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
-    group.add(fence(samples, side * roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
-    group.add(fence(samples, side * roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
+    group.add(fence(samples, side * track.roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
+    group.add(fence(samples, side * track.roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
+  }
+
+  // 分離帯（芝生）と、両はしの白黒の縁石
+  const hasMedian = (p) => p.median > 0;
+  if (samples.some(hasMedian)) {
+    group.add(ribbon(samples, (p) => -p.median, (p) => p.median, (p) => p.y + 0.12, hasMedian, { color: 0x5aa04a }));
+    for (const side of [-1, 1]) group.add(fence(samples, (p) => side * p.median, (p) => p.y, (p) => p.y + 0.15, hasMedian, curb));
+  }
+
+  // ロータリーの島: 芝生の丸い台と、白黒の縁石の輪、真ん中に木。G は島のまわりが赤レンガ
+  // 出口へ向かう所の道の上に、白い大きな矢印（出口が分かるように。2026-10-15 のユーザー依頼）
+  const exitMat = new THREE.MeshBasicMaterial({ map: roadArrows(), transparent: true });
+  for (const isl of track.islands ?? []) {
+    group.add(islandMesh(isl));
+    group.add(strip(track, isl.s + 14, isl.s + 22, (p) => p.y + 0.05, exitMat, 1));
   }
 
   const checker = canvasTexture(64, 16, (g, w, h) => {
@@ -438,20 +503,386 @@ export function buildTrackMesh(track) {
   const startS = samples[track.startIndex].s;
   group.add(strip(track, startS - 1, startS + 2, () => 0.05, new THREE.MeshBasicMaterial({ map: checker })));
 
+  // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
+  const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
+  for (const [from, to, side] of boostRuns(samples)) group.add(strip(track, from, to, () => 0.06, padMat, 1, side));
   if (track.cross) {
-    const b = track.def.jump.boost;
     const r = track.def.jump.ramp;
-    // 加速板: オレンジに黄色の矢印
-    group.add(strip(track, track.cross.sA + b.from, track.cross.sA + b.to, () => 0.06,
-      new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') }), 1));
     // ジャンプ台: 赤に黄色の矢印をくり返し（飛び出す方向を指す）
     group.add(strip(track, track.cross.sA + r.from, track.cross.sA + r.to, (p) => p.y + 0.06,
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
 
-  group.add(grandstand(track));
-  const sides = bankSides(track);
-  group.add(bank(track, sides, -1), bank(track, sides, 1));
-  group.add(roadside(track, sides));
+  // バンプ（Kampar Town）: 道の幅いっぱいの、大きな立体のでっぱり（黄色と黒のななめのしま）
+  // 手前の道に、バンプ専用のしま模様（白と黒のななめのしまと「BUMP」の文字。黄色のバンプと見分けられるように。しまに入ると警告が出る）。
+  // さらに手前の道ばたに BONGGOL の標識（2026-10-15 のユーザー依頼）
+  for (const b of track.bumps ?? []) {
+    group.add(bumpMesh(track, b));
+    group.add(strip(track, b - BUMP_STRIPE_M, b - 4, (p) => p.y + 0.05, BUMP_ROAD_MAT(), 6));
+    group.add(bumpSign(track, b - 78));
+  }
+
+  // 交差点の横断歩道（角の前と後ろ）
+  for (const m of track.def.intersections ?? []) {
+    const s = track.marks[m];
+    for (const from of [s - 24, s + 18]) group.add(strip(track, from, from + 5, (p) => p.y + 0.05, ZEBRA_MAT(), 1));
+  }
+
+  // 街の景色（部品セットを、コースのデータの置き場所に）
+  if (town) {
+    const scenery = buildScenery(track, track.def.scenery ?? []);
+    group.add(scenery);
+    // コースの外側の何もない所はジャングル（建物・通行止めの道のまわりはあける）
+    const avoid = [];
+    for (const sp of scenery.userData.spots) {
+      const r = sp.side === 2 ? 14 : Math.max(6, sp.radius ?? 1);
+      const back = sp.side === 2 ? 16 : r * 1.4; // 建物は道から奥へ広がる
+      avoid.push({ x: sp.x, z: sp.z, radius: r + 6 });
+      avoid.push({ x: sp.x - Math.sin(sp.ry) * back, z: sp.z - Math.cos(sp.ry) * back, radius: r * 1.6 + 6 });
+    }
+    // 通行止めの道の上にも木を置かない
+    for (const m of mouths) {
+      for (let d = 0; d <= m.length; d += 12) avoid.push({ x: m.x - Math.sin(m.ry) * d, z: m.z - Math.cos(m.ry) * d, radius: m.width / 2 + 10 });
+    }
+    group.add(buildJungle(track, avoid));
+    // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）
+    group.add(buildWater(track, avoid));
+  }
+
+  // 観客席・土手・木と看板は、サーキットだけ
+  if (track.def.theme === 'circuit') {
+    group.add(grandstand(track));
+    const sides = bankSides(track);
+    group.add(bank(track, sides, -1), bank(track, sides, 1));
+    group.add(roadside(track, sides));
+  }
+  return group;
+}
+
+// 加速板が続いている所（s の始まりと終わり）
+function boostRuns(samples) {
+  const runs = [];
+  let from = null;
+  let side = 0;
+  for (const p of samples) {
+    if (p.boost && from === null) {
+      from = p.s;
+      side = p.boostSide || 0;
+    }
+    if (!p.boost && from !== null) {
+      runs.push([from, p.s, side]);
+      from = null;
+    }
+  }
+  if (from !== null) runs.push([from, samples[samples.length - 1].s + 1, side]);
+  return runs;
+}
+
+// 道の上の白い矢印（進む向きを指す。左右の車線に1つずつ）
+function roadArrows() {
+  return canvasTexture(128, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#f4f4f4';
+    for (const cx of [w * 0.2, w * 0.8]) {
+      g.beginPath();
+      g.moveTo(cx - 12, h * 0.95);
+      g.lineTo(cx - 12, h * 0.45);
+      g.lineTo(cx - 24, h * 0.45);
+      g.lineTo(cx, h * 0.05);
+      g.lineTo(cx + 24, h * 0.45);
+      g.lineTo(cx + 12, h * 0.45);
+      g.lineTo(cx + 12, h * 0.95);
+      g.fill();
+    }
+  });
+}
+
+function islandMesh(isl) {
+  const g = new THREE.Group();
+  if (isl.brick) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(isl.r, isl.r + 12, 40), new THREE.MeshLambertMaterial({ color: 0xc06a4a }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(isl.x, 0.04, isl.z);
+    g.add(ring);
+  }
+  const grass = new THREE.Mesh(new THREE.CylinderGeometry(isl.r, isl.r, 0.25, 32), new THREE.MeshLambertMaterial({ color: 0x5aa04a }));
+  grass.position.set(isl.x, 0.125, isl.z);
+  g.add(grass);
+  for (let k = 0; k < 24; k++) {
+    const a = (k / 24) * Math.PI * 2;
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, (2 * Math.PI * isl.r) / 24), new THREE.MeshLambertMaterial({ color: k % 2 ? 0xf2f2f2 : 0x222222 }));
+    block.position.set(isl.x + Math.cos(a) * (isl.r + 0.2), 0.15, isl.z + Math.sin(a) * (isl.r + 0.2));
+    block.rotation.y = -a;
+    g.add(block);
+  }
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 2.5, 6), new THREE.MeshLambertMaterial({ color: 0x7a5a3a }));
+  trunk.position.set(isl.x, 1.4, isl.z);
+  const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3f8f3a }));
+  leaf.position.set(isl.x, 3.6, isl.z);
+  g.add(trunk, leaf);
+  return g;
+}
+
+// マレーシアのバンプの標識: 黄色いひし形に黒いでっぱりの絵、その下に白い板の「BONGGOL」。道の左の歩道に立てる
+function bumpSign(track, s) {
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  const d = p.wall - 1.2;
+  const g = new THREE.Group();
+  g.position.set(p.x + Math.sin(p.h) * d, 0, p.z - Math.cos(p.h) * d); // 左側（右向きのベクトルの反対）
+  g.rotation.y = -p.h - Math.PI / 2; // 板の表が、走ってくる車の方を向く
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+  pole.position.y = 1.3;
+  const diamond = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ map: canvasTexture(64, 64, (c, w, h) => {
+    c.fillStyle = '#111';
+    c.fillRect(0, 0, w, h);
+    c.fillStyle = '#ffd400';
+    c.fillRect(3, 3, w - 6, h - 6);
+    c.fillStyle = '#111';
+    c.save();
+    c.translate(w / 2, h / 2);
+    c.rotate(-Math.PI / 4); // ひし形に回すので、絵は逆に回して描く
+    c.beginPath();
+    c.moveTo(-22, 8);
+    c.quadraticCurveTo(0, -18, 22, 8);
+    c.lineTo(-22, 8);
+    c.fill();
+    c.fillRect(-24, 8, 48, 4);
+    c.restore();
+  }), side: THREE.DoubleSide }));
+  diamond.rotation.z = Math.PI / 4;
+  diamond.position.set(0, 2.55, 0.08);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.35), new THREE.MeshBasicMaterial({ map: canvasTexture(128, 40, (c, w, h) => {
+    c.fillStyle = '#fff';
+    c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#111';
+    c.lineWidth = 3;
+    c.strokeRect(2, 2, w - 4, h - 4);
+    c.fillStyle = '#111';
+    c.font = 'bold 26px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('BONGGOL', w / 2, h / 2 + 1);
+  }), side: THREE.DoubleSide }));
+  plate.position.set(0, 1.75, 0.08);
+  g.add(pole, diamond, plate);
+  return g;
+}
+
+// 遠くの山。サーキットはまわりをぐるりと。Kampar Town は写真のとおり、北（-z）と東（+x）に高く
+const MOUNTAIN = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
+function mountains(track) {
+  const g = new THREE.Group();
+  const town = track.def.theme === 'town';
+  const reach = Math.max(...track.samples.map((p) => Math.hypot(p.x, p.z)));
+  const radius = 700;
+  for (let k = 0; k < 14; k++) {
+    const a = (k / 14) * Math.PI * 2;
+    let h = 150 + ((k * 37) % 5) * 40;
+    if (town) {
+      const north = Math.max(0, -Math.sin(a)); // -z の向き
+      const east = Math.max(0, Math.cos(a)); // +x の向き
+      h = 90 + 260 * Math.max(north, east) + ((k * 37) % 5) * 25;
+    }
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), MOUNTAIN);
+    // 街では、山のすそがコースにかからないよう、すその広さの分だけ遠くに置く
+    const r = town ? reach + h * 1.4 + 60 : radius;
+    cone.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r);
+    g.add(cone);
+  }
+  return g;
+}
+
+// バンプの立体（長さ3m・高さ35cm、道の幅いっぱい。上と横は黄色と黒のななめのしま。2026-10-15 のユーザー依頼「もっと大きく目立つように」）
+export const BUMP_SIZE = { length: 3, height: 0.35 };
+let bumpTexture = null;
+function bumpMesh(track, s) {
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  if (!bumpTexture) {
+    bumpTexture = canvasTexture(128, 32, (g, w, h) => {
+      g.fillStyle = '#ffd400';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#111';
+      for (let x = -h; x < w + h; x += 24) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 12, 0);
+        g.lineTo(x + 12 + h, h);
+        g.lineTo(x + h, h);
+        g.fill();
+      }
+    });
+    bumpTexture.wrapS = THREE.RepeatWrapping;
+    bumpTexture.repeat.set(4, 1);
+  }
+  const geo = new THREE.BoxGeometry(BUMP_SIZE.length, BUMP_SIZE.height, p.half * 2 + 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: bumpTexture }));
+  m.position.set(p.x, (p.y ?? 0) + BUMP_SIZE.height / 2, p.z);
+  m.rotation.y = -p.h;
+  return m;
+}
+
+// バンプの手前の道の模様（白と黒のななめのしまに、黒い「BUMP」の文字。前は絵の上）
+let bumpRoad = null;
+function BUMP_ROAD_MAT() {
+  if (!bumpRoad) {
+    const tex = canvasTexture(128, 128, (g, w, h) => {
+      g.fillStyle = '#f4f4f4';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#111';
+      for (let x = -w; x < w * 2; x += 32) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 14, 0);
+        g.lineTo(x + 14 + 40, 40);
+        g.lineTo(x + 40, 40);
+        g.fill();
+        g.beginPath();
+        g.moveTo(x, h - 40);
+        g.lineTo(x + 14, h - 40);
+        g.lineTo(x + 14 + 40, h);
+        g.lineTo(x + 40, h);
+        g.fill();
+      }
+      g.font = 'bold 44px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('BUMP', w / 2, h / 2);
+    });
+    bumpRoad = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92 });
+  }
+  return bumpRoad;
+}
+
+// 横断歩道（白い太いしま。道の幅いっぱい）
+let zebra = null;
+function ZEBRA_MAT() {
+  if (!zebra) {
+    const tex = canvasTexture(128, 16, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = '#f4f4f4';
+      for (let x = 4; x < w; x += 12) g.fillRect(x, 0, 6, h);
+    });
+    zebra = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  }
+  return zebra;
+}
+
+// 直角の角の前後、まっすぐな幅の道で描く長さ（m）。この中のコースの道は、丸い縁石と両はしの白線を描かない
+const CORNER_REACH = 30;
+export function inCornerZone(c, x, z) {
+  const o = cornerUW(c, x, z);
+  return o.u > -CORNER_REACH && o.w > -CORNER_REACH && o.u < c.W + 2 && o.w < c.W + 2;
+}
+
+// 点が、直角の角の外側の四角の中か（内側の角の丸い柵・縁石はそのまま）
+export function inCornerOuter(c, x, z) {
+  const o = cornerUW(c, x, z);
+  return o.u > -c.W + 1 && o.w > -c.W + 1 && o.u < c.W + 1 && o.w < c.W + 1;
+}
+
+// 直角の角の外側の壁（w = W と u = W の線）の、通行止めの道の口であける所（線ごとに [から, まで]）。
+// 口は角の丸めのため、角から 6〜9m ほどの所にあるので、線より手前の口も数える（最終レビュー: あかない角があった）
+export function cornerWallCuts(c, mouths) {
+  const W = c.W;
+  const out = { u: [], w: [] };
+  for (const m of mouths) {
+    const o = cornerUW(c, m.x, m.z);
+    for (const line of ['w', 'u']) {
+      const along = line === 'w' ? o.u : o.w;
+      const off = line === 'w' ? o.w : o.u;
+      if (Math.abs(along) < W + m.width / 2 && off > 3 && off < W + 3) out[line].push([along - m.width / 2, along + m.width / 2]);
+    }
+  }
+  return out;
+}
+
+// 直角の角の外側の、2本のまっすぐな低い壁（w = W と u = W）。通行止めの道の口の所はあける
+function cornerWalls(corners, mouths) {
+  const pos = [];
+  const H = 0.9;
+  const quad = (a, b) => {
+    pos.push(a[0], 0, a[1], b[0], 0, b[1], b[0], H, b[1], a[0], 0, a[1], b[0], H, b[1], a[0], H, a[1]);
+  };
+  for (const c of corners) {
+    const W = c.W;
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, c.z + c.uz * u - c.vz * w];
+    const cutsOf = cornerWallCuts(c, mouths);
+    for (const line of ['w', 'u']) {
+      const cuts = cutsOf[line];
+      let from = -W;
+      const pieces = [];
+      for (const [a, b] of cuts.sort((x, y) => x[0] - y[0])) {
+        if (a > from) pieces.push([from, Math.min(a, W)]);
+        from = Math.max(from, b);
+      }
+      if (from < W) pieces.push([from, W]);
+      for (const [a, b] of pieces) quad(line === 'w' ? P(a, W) : P(W, a), line === 'w' ? P(b, W) : P(W, b));
+    }
+  }
+  return mesh(pos, { color: 0xd8d4cc });
+}
+
+// 通行止めの道の面（コースと同じ道の絵: 両はしの白線と真ん中の破線）と、角のまん中の四角。
+// コースの道より少し下に描き、口はコースの道の下まで少し入れて、すき間なくつなぐ
+function junctionMesh(track, mouths, corners, asphalt) {
+  const group = new THREE.Group();
+  const pos = [];
+  const uv = [];
+  const y = 0.025;
+  for (const m of mouths) {
+    const c = Math.cos(m.ry);
+    const s = Math.sin(m.ry);
+    const w = m.width;
+    const P = (lx, lz) => [m.x + lx * c + lz * s, y, m.z - lx * s + lz * c];
+    const [z0, z1] = [3, -m.length];
+    const a = P(-w / 2, z0), b = P(w / 2, z0), cc = P(-w / 2, z1), d = P(w / 2, z1);
+    pos.push(...a, ...cc, ...b, ...b, ...cc, ...d);
+    const v0 = -z0 / 4, v1 = -z1 / 4;
+    uv.push(0, v0, 0, v1, 1, v0, 1, v0, 0, v1, 1, v1);
+  }
+  group.add(mesh(pos, { color: 0xffffff, uv, map: asphalt }));
+  // 直角の角の四角（2本の道が重なる所から、外側の壁まで）。コースの道の下に、コースと同じ道の絵の、線のない所を貼る（色がそろうように）
+  const box = [];
+  const boxUv = [];
+  for (const c of corners) {
+    const h = c.W;
+    // 通行止めの道（y）より少し下（重なってちらつかないように）
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, y - 0.006, c.z + c.uz * u - c.vz * w];
+    // 入ってくる道と曲がった先の道を、角の前後 CORNER_REACH m まで、まっすぐな幅で（内側の角は芝生のまま）
+    const a = -track.roadHalf;
+    // コースの道は角の手前から少し丸いので、その下まで長めにしく（すき間ができないように）
+    const L = -CORNER_REACH - 15;
+    for (const [u0, u1, w0, w1] of [[L, h, a, -a], [a, -a, L, h], [a, h, a, h]]) {
+      const p1 = P(u0, w0), p2 = P(u1, w0), p3 = P(u1, w1), p4 = P(u0, w1);
+      for (const tri of [[p1, p2, p3], [p1, p3, p4]]) {
+        // 上向きの面にする（コースの道と同じ明るさに）
+        const [q0, q1, q2] = tri;
+        const ny = (q1[2] - q0[2]) * (q2[0] - q0[0]) - (q1[0] - q0[0]) * (q2[2] - q0[2]);
+        for (const q of ny >= 0 ? tri : [q0, q2, q1]) {
+          box.push(...q);
+          boxUv.push(0.25, 0.75); // 白線のない所
+        }
+      }
+    }
+  }
+  // 内側の角の、直角の縁石（2本のまっすぐな白黒）
+  const curbPos = [];
+  const curbCol = [];
+  const col = new THREE.Color();
+  for (const c of corners) {
+    const a = track.roadHalf;
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, 0.04, c.z + c.uz * u - c.vz * w];
+    for (let t = -CORNER_REACH; t < -a; t += 2) {
+      for (const [p1, p2, p3, p4] of [[P(t, -a), P(t + 2, -a), P(t + 2, -a - 1), P(t, -a - 1)], [P(-a, t), P(-a, t + 2), P(-a - 1, t + 2), P(-a - 1, t)]]) {
+        curbPos.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
+        col.setHex(Math.floor(t / 2) % 2 ? 0xf2f2f2 : 0x222222);
+        for (let k = 0; k < 6; k++) curbCol.push(col.r, col.g, col.b);
+      }
+    }
+  }
+  if (curbPos.length) group.add(mesh(curbPos, { colors: curbCol }));
+  if (box.length) group.add(mesh(box, { color: 0xffffff, uv: boxUv, map: asphalt }));
   return group;
 }

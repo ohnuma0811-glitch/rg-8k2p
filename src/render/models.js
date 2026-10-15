@@ -2,6 +2,50 @@
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
 import * as THREE from '../../vendor/three.module.min.js';
 import { PHYS } from '../game/kart.js';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js';
+
+// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
+const TUMBLE_FLY = 0.55;
+const TUMBLE_HEIGHT = 2; // 跳ねる高さ（m）
+
+// 頭の上を回る黄色い星（バンプで転がっている間。目が回っているように）
+// いつもこちらを向く板（Sprite）にする（横から見ても、後ろから見ても星の形に見える）
+let starTexture = null;
+function starMap() {
+  if (starTexture || typeof document === 'undefined') return starTexture;
+  const cv = document.createElement('canvas');
+  cv.width = 64;
+  cv.height = 64;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#ffffff';
+  c.strokeStyle = '#8a5a00';
+  c.lineWidth = 4;
+  c.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const r = k % 2 ? 12 : 28;
+    const a = (k / 10) * Math.PI * 2 - Math.PI / 2;
+    c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+  }
+  c.closePath();
+  c.fill();
+  c.stroke();
+  starTexture = new THREE.CanvasTexture(cv);
+  return starTexture;
+}
+function dizzyStars() {
+  const g = new THREE.Group();
+  const material = new THREE.SpriteMaterial({ color: 0xffd400, map: starMap() });
+  for (let k = 0; k < 5; k++) {
+    const star = new THREE.Sprite(material);
+    star.scale.set(0.6, 0.6, 1);
+    const a = (k / 5) * Math.PI * 2;
+    star.position.set(Math.cos(a) * 0.9, 0, Math.sin(a) * 0.9);
+    g.add(star);
+  }
+  g.position.set(-0.45, 3.4, 0); // キャラの頭の上
+  g.visible = false;
+  return g;
+}
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -221,6 +265,10 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
   d.position.set(-0.45, 0.5, 0);
   g.add(d);
   g.userData.wheels = wheels;
+  const stars = dizzyStars();
+  g.add(stars);
+  g.userData.stars = stars;
+  g.rotation.order = 'YXZ'; // 向き（y）のあとに、車の前後の軸（x）で転がる
   g.userData.head = d.userData.head;
   return g;
 }
@@ -228,8 +276,23 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
 export function syncKartModel(model, kart) {
   // ドリフトボタンで小さく跳ねる
   const hop = kart.hop > 0 ? Math.sin((1 - kart.hop / PHYS.HOP_TIME) * Math.PI) * PHYS.HOP_HEIGHT : 0;
-  model.position.set(kart.x, kart.y + hop, kart.z);
+  // バンプを乗り越える: 前が上がってから後ろが上がる（2026-10-15 のユーザー依頼）
+  const u = kart.hump > 0 ? 1 - kart.hump / HUMP_TIME : 0;
+  const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.4 : 0; // バンプの高さ（35cm）を越える
+  // バンプで転がる: はじめは大きく跳ねて2回転がり、そのあとは目が回る（星が回る）
+  const tumbling = kart.tumble > 0;
+  const since = tumbling ? TUMBLE_TIME - kart.tumble : 0;
+  const flying = tumbling && since < TUMBLE_FLY;
+  const fly = flying ? Math.sin((since / TUMBLE_FLY) * Math.PI) * TUMBLE_HEIGHT : 0;
+  model.position.set(kart.x, kart.y + hop + lift + fly, kart.z);
   model.rotation.y = -kart.heading;
+  model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.2 : 0;
+  model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
+  const stars = model.userData.stars;
+  if (stars) {
+    stars.visible = tumbling && !flying;
+    if (stars.visible) stars.rotation.y = since * 5;
+  }
   // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
   model.visible = kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0;
   for (const w of model.userData.wheels) w.rotation.z -= kart.speed * 0.05;
@@ -267,4 +330,84 @@ export function createNameTag(text, color) {
   sprite.scale.set(TAG_SCREEN * 4, TAG_SCREEN, 1);
   sprite.position.set(-0.45, 4.3, 0); // 頭のてっぺん（約3m）の上
   return sprite;
+}
+
+// 牛（Kampar Town。2026-10-15 のユーザー依頼）: 白に黒のまだら（2頭目・4頭目は茶色）。前は +x
+export function createCowModel(k = 0) {
+  const g = new THREE.Group();
+  const coat = k % 2 ? 0x8a5a33 : 0xf2f0ea;
+  g.add(box(2.4, 1.0, 1.1, coat, 0, 1.25, 0)); // 体
+  if (k % 2 === 0) {
+    g.add(box(0.8, 0.7, 1.12, 0x222222, -0.4, 1.35, 0)); // 黒いまだら
+    g.add(box(0.5, 0.5, 1.12, 0x222222, 0.6, 1.1, 0));
+  }
+  const head = new THREE.Group();
+  head.add(box(0.7, 0.6, 0.6, coat, 0, 0, 0));
+  head.add(box(0.25, 0.3, 0.5, 0xe8a0a0, 0.42, -0.12, 0)); // ピンクの鼻
+  for (const z of [-0.22, 0.22]) head.add(box(0.12, 0.3, 0.1, 0xf6f2e0, -0.1, 0.42, z)); // 角
+  head.position.set(1.45, 1.6, 0);
+  g.add(head);
+  const legs = [];
+  for (const [x, z] of [[0.85, 0.38], [0.85, -0.38], [-0.85, 0.38], [-0.85, -0.38]]) {
+    const leg = new THREE.Group();
+    leg.add(box(0.25, 0.85, 0.25, coat, 0, -0.42, 0));
+    leg.position.set(x, 0.8, z);
+    g.add(leg);
+    legs.push(leg);
+  }
+  g.add(box(0.1, 0.7, 0.1, coat, -1.25, 1.15, 0)); // しっぽ
+  // 歩く: 足を前後に振る（時刻で決まる）
+  g.userData.walk = (time) => {
+    legs.forEach((leg, i) => {
+      leg.rotation.z = Math.sin(time * 4 + (i % 2) * Math.PI + k) * 0.35;
+    });
+  };
+  return g;
+}
+
+// スクールバス（BAS SEKOLAH。写真のような、角の丸い黄色っぽいオレンジの小さなバス）。+x が前。2026-10-16 のユーザー依頼
+let busText = null;
+export function createBusModel() {
+  const g = new THREE.Group();
+  const orange = 0xf0a018;
+  const L = 7.5;
+  const W = 2.6;
+  g.add(box(L, 1.6, W, orange, 0, 0.95, 0)); // 下の車体（box の y は真ん中）
+  g.add(box(L - 0.2, 1.05, W - 0.1, orange, -0.05, 2.3, 0)); // 窓のある所（柱）
+  g.add(box(L - 0.5, 0.35, W - 0.2, orange, -0.1, 2.98, 0)); // 丸い屋根
+  g.add(box(L, 0.1, W + 0.02, 0x1a1a1a, 0, 1.78, 0)); // 窓の下の黒い線
+  g.add(box(L - 0.6, 0.08, W + 0.02, 0x1a1a1a, 0.1, 0.9, 0)); // 下の黒い線
+  // 横の窓（両側）と、前の大きな窓
+  for (const z of [W / 2 + 0.01, -W / 2 - 0.01]) {
+    for (const x of [-2.6, -1.3, 0, 1.5, 2.7]) {
+      const win = box(1.05, 0.8, 0.02, 0x2b3a44, x, 2.3, z);
+      g.add(win);
+    }
+  }
+  g.add(box(0.04, 0.9, W - 0.4, 0x2b3a44, L / 2 + 0.01, 2.3, 0)); // 前の窓
+  g.add(box(0.2, 0.3, W + 0.1, 0x222222, L / 2 + 0.05, 0.4, 0)); // 前のバンパー
+  g.add(box(0.2, 0.3, W + 0.1, 0x222222, -L / 2 - 0.05, 0.4, 0)); // 後ろのバンパー
+  // タイヤ
+  for (const x of [2.3, -2.4]) for (const z of [W / 2 - 0.15, -W / 2 + 0.15]) g.add(box(1.0, 1.0, 0.4, 0x151515, x, 0.5, z));
+  // 両側の「BAS SEKOLAH」の文字
+  if (!busText) {
+    const cv = document.createElement('canvas');
+    cv.width = 512;
+    cv.height = 96;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#1a1a1a';
+    c.font = 'bold 78px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('BAS SEKOLAH', 256, 50, 500);
+    busText = new THREE.CanvasTexture(cv);
+    busText.colorSpace = THREE.SRGBColorSpace;
+  }
+  for (const side of [1, -1]) {
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.85), new THREE.MeshBasicMaterial({ map: busText, transparent: true }));
+    plate.position.set(-0.9, 1.33, side * (W / 2 + 0.03));
+    if (side < 0) plate.rotation.y = Math.PI;
+    g.add(plate);
+  }
+  return g;
 }

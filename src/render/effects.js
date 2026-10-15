@@ -24,7 +24,22 @@ export function createEffects(scene) {
     Object.assign(p, { x, y, z, vx, vy, vz, c, life });
   }
 
+  const WHITE = new THREE.Color(0xf4f4f4);
+  const SPARK = new THREE.Color(0xffa22a);
   return {
+    // バンプで転がったときの小さな爆発: 白い煙が飛び散り、オレンジの火花（2026-10-15 のユーザー依頼）
+    burst(x, y, z) {
+      for (let k = 0; k < 24; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const v = 3 + Math.random() * 3;
+        emit(x, y, z, Math.cos(a) * v, 2 + Math.random() * 3, Math.sin(a) * v, WHITE, 0.8);
+      }
+      for (let k = 0; k < 16; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const v = 6 + Math.random() * 4;
+        emit(x, y, z, Math.cos(a) * v, 3 + Math.random() * 3, Math.sin(a) * v, SPARK, 0.4);
+      }
+    },
     update(kart, dt) {
       const fx = Math.cos(kart.heading);
       const fz = Math.sin(kart.heading);

@@ -10,7 +10,7 @@ export function createRenderer(canvas) {
   return renderer;
 }
 
-export function createWorld(track) {
+export function createWorld() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
   scene.fog = new THREE.Fog(SKY, 250, 1100);
@@ -23,18 +23,18 @@ export function createWorld(track) {
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
-  const mountain = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
-  for (let k = 0; k < 14; k++) {
-    const a = (k / 14) * Math.PI * 2;
-    const h = 150 + ((k * 37) % 5) * 40;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), mountain);
-    cone.position.set(Math.cos(a) * 700, h / 2 - 2, Math.sin(a) * 700);
-    scene.add(cone);
-  }
-
-  scene.add(buildTrackMesh(track));
+  // 遠くの山はコースごとにちがうので、コースの形と一緒に作る（src/render/trackMesh.js の mountains）
   const camera = new THREE.PerspectiveCamera(70, 1, 0.5, 2000);
   return { scene, camera };
+}
+
+// コースの形を入れかえる（レースごと）。形は一度作ったら、その track に取っておいて使い回す
+export function setCourse(scene, track) {
+  if (scene.userData.course === track) return;
+  if (scene.userData.course) scene.remove(scene.userData.course.mesh);
+  if (!track.mesh) track.mesh = buildTrackMesh(track);
+  scene.add(track.mesh);
+  scene.userData.course = track;
 }
 
 export function resizeRenderer(renderer, camera, w, h, ratio) {

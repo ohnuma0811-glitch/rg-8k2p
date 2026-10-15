@@ -76,6 +76,39 @@ html, body {
 #wrongway.show {
   display: block;
 }
+/* バンプの警告（自分の頭の上。赤いスタイリッシュな文字。2026-10-15 のユーザー依頼） */
+#bump-warn {
+  position: fixed;
+  z-index: 3;
+  display: none;
+  transform: translate(-50%, -100%) skewX(-10deg);
+  text-align: center;
+  color: #ff2a2a;
+  font-family: 'Racing Sans One', system-ui, sans-serif;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 2px #fff, 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 4px 5px 0 rgba(0, 0, 0, 0.35);
+  animation: bump-warn-pulse 0.4s ease-in-out infinite alternate;
+}
+#bump-warn b {
+  display: block;
+  font-size: clamp(34px, 9vh, 64px);
+  letter-spacing: 2px;
+}
+#bump-warn span {
+  display: block;
+  margin-top: 2px;
+  font-size: clamp(14px, 3.6vh, 24px);
+}
+#bump-warn.show {
+  display: block;
+}
+@keyframes bump-warn-pulse {
+  to {
+    transform: translate(-50%, -100%) skewX(-10deg) scale(1.08);
+  }
+}
 @keyframes wrongway-blink {
   50% {
     background: #ffd800;

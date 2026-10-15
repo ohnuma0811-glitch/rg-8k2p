@@ -180,11 +180,18 @@ export async function message(root, heading, text, buttons) {
 const ROW_STEP = 0.35; // 結果の行を1行ずつ出す間かく（秒）
 const POINT_STEP = 0.06; // ポイントを1つ数え上げる秒数（カウンターのように）
 const POINT_PAUSE = 0.15; // 次の順位のポイントを数え始めるまでの間（秒）
+export const AUTO_NEXT_SEC = 3; // 全部の表示が終わってから、次の画面へ移るまで（秒。ボタンはなし。2026-10-16 のユーザー依頼）
+
+// 表を全部出し終わるまでの秒数（行を1行ずつ出す ＋ ポイントを数え上げる）
+export function tableSeconds(rows) {
+  return rows.length * ROW_STEP + rows.reduce((t, r) => t + POINT_PAUSE + (r.to - r.from) * POINT_STEP, 0);
+}
 
 // 結果と大会の順位の表（2026-10-14 のユーザー依頼）
 // rows = [{ place: '1st', name, face: { color, character }, extra: タイム や '+10', from, to, me }]
-// 行は下の順位から1行ずつ出し、全部出たら、1位から順にポイントを from から to までカウンターのように数え上げる
-async function scoreTable(root, heading, rows, buttons) {
+// 行は下の順位から1行ずつ出し、全部出たら、1位から順にポイントを from から to までカウンターのように数え上げる。
+// ボタンはなく、全部の表示が終わって AUTO_NEXT_SEC 秒たったら、次の画面へ（2026-10-16 のユーザー依頼）
+async function scoreTable(root, heading, rows) {
   show(root, `
     ${heading}
     <table class="results">${rows
@@ -195,43 +202,36 @@ async function scoreTable(root, heading, rows, buttons) {
           <td class="time">${r.extra}</td>
           <td class="points"><span class="num">${r.from}</span><small>pt</small></td></tr>`,
       )
-      .join('')}</table>
-    <div class="choices">${buttons.map((b) => `<button type="button" data-pick="${b.id}">${b.label}</button>`).join('')}</div>`);
+      .join('')}</table>`);
   const cells = [...root.querySelectorAll('.points')];
   const trs = [...root.querySelectorAll('table.results tr')];
-  let stopped = false;
-  (async () => {
-    for (const n of revealOrder(rows.length)) {
-      if (stopped) return;
-      await wait(ROW_STEP);
-      trs[n].classList.remove('row-wait');
-      trs[n].classList.add('row-in');
+  for (const n of revealOrder(rows.length)) {
+    await wait(ROW_STEP);
+    trs[n].classList.remove('row-wait');
+    trs[n].classList.add('row-in');
+  }
+  for (let n = 0; n < rows.length; n++) {
+    await wait(POINT_PAUSE);
+    const num = cells[n].querySelector('.num');
+    for (let p = rows[n].from + 1; p <= rows[n].to; p++) {
+      num.textContent = String(p);
+      await wait(POINT_STEP);
     }
-    for (let n = 0; n < rows.length && !stopped; n++) {
-      await wait(POINT_PAUSE);
-      const num = cells[n].querySelector('.num');
-      for (let p = rows[n].from + 1; p <= rows[n].to && !stopped; p++) {
-        num.textContent = String(p);
-        await wait(POINT_STEP);
-      }
-      cells[n].classList.add('done'); // 数え終わったら、ぽんと大きくする
-    }
-  })();
-  const pick = await waitPick(root);
-  stopped = true;
+    cells[n].classList.add('done'); // 数え終わったら、ぽんと大きくする
+  }
+  await wait(AUTO_NEXT_SEC);
   hide(root);
-  return pick;
 }
 
 // そのレースの結果: rows = [{ place, name, time, points, face, me }]。title は「RACE 2/5」など
-export function results(root, rows, raceLabel, buttons) {
+export function results(root, rows, raceLabel) {
   const heading = `<h1 class="results-title">RESULTS<small>${raceLabel}</small></h1>`;
-  return scoreTable(root, heading, rows.map((r) => ({ ...r, extra: r.time, from: 0, to: r.points })), buttons);
+  return scoreTable(root, heading, rows.map((r) => ({ ...r, extra: r.time, from: 0, to: r.points })));
 }
 
 // 大会の順位（合計ポイント）: rows = [{ place, name, total, gained, face, me }]。
 // final なら「FINAL STANDINGS」と優勝の名前を出す
-export function standings(root, rows, raceLabel, final, buttons) {
+export function standings(root, rows, raceLabel, final) {
   const heading = final
     ? `<h1 class="results-title">FINAL STANDINGS</h1><p class="winner">🏆 WINNER: ${rows[0].name}</p>`
     : `<h1 class="results-title">STANDINGS<small>${raceLabel}</small></h1>`;
@@ -239,7 +239,6 @@ export function standings(root, rows, raceLabel, final, buttons) {
     root,
     heading,
     rows.map((r) => ({ ...r, extra: `+${r.gained}`, from: r.total - r.gained, to: r.total })),
-    buttons,
   );
 }
 
