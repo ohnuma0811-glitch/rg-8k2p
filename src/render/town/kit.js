@@ -230,11 +230,31 @@ function textDraw(text, fg, bg) {
 
 // 道の上の大きな横断幕（場所が分かるように。2026-10-15 のユーザー依頼）。道のふちに置き、前（+z）の向きに道をまたぐ
 // text は「 / 」で2行に。color は布の色
-export function banner(b, { text = '', span = 31, color = '#d8262b', fg = '#ffffff', height = 6.5 } = {}) {
+// 緑に白い文字、下に赤い帯（文字なし）の横断幕の布（2026-10-16 のユーザー依頼「ECONSAVE」）
+function facadeBannerDraw(text, green, red) {
+  const draw = (g, w, h) => {
+    const top = Math.round(h * 0.74);
+    g.fillStyle = green;
+    g.fillRect(0, 0, w, top);
+    g.fillStyle = red;
+    g.fillRect(0, top, w, h - top);
+    g.fillStyle = '#ffffff';
+    g.font = `italic bold ${Math.floor(top * 0.72)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, w / 2, top / 2 + 4, w * 0.94);
+  };
+  draw.key = `facadeBanner:${text}:${green}:${red}`;
+  return draw;
+}
+
+// style: 'greenRed' なら、緑に白い文字・下に赤い帯の布（ECONSAVE）
+export function banner(b, { text = '', span = 31, color = '#d8262b', fg = '#ffffff', height = 6.5, style } = {}) {
   for (const z of [0, span]) b.box(0.3, height + 2.2, 0.3, 0x9aa0a6, 0, 0, z);
   b.box(0.12, 0.12, span, 0x9aa0a6, 0, height + 2.2, span / 2);
   // 布（走ってくる車の方を向ける: 右の道ばたに置くと、部品の +x が走ってくる向き）
-  b.label(bannerDraw(text, color, fg), [1024, 160], 0.1, height + 1, span / 2, Math.PI / 2, span - 2, 3.2);
+  const draw = style === 'greenRed' ? facadeBannerDraw(text, '#1f9a3e', '#d8262b') : bannerDraw(text, color, fg);
+  b.label(draw, [1024, 160], 0.1, height + 1, span / 2, Math.PI / 2, span - 2, 3.2);
 }
 function bannerDraw(text, bg, fg) {
   const draw = (g, w, h) => {

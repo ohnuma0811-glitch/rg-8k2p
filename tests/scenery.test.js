@@ -232,3 +232,16 @@ test('F の交差点の奥の右手に「WIS→」の大きな看板。道にも
     for (const q of t.samples) assert.ok(Math.hypot(q.x - x, q.z - z) > q.half + 1, '看板が道にかかる');
   }
 });
+
+test('B を右に曲がったあと、右手の2つ目の建物（横道の先のショップハウス）の所に、道をまたぐ「ECONSAVE →」の横断幕（2026-10-16 のユーザー依頼）', () => {
+  const item = KAMPAR_SCENERY.find((i) => i.part === 'banner' && i.text === 'ECONSAVE →');
+  assert.ok(item);
+  assert.equal(item.style, 'greenRed');
+  const road = KAMPAR_SCENERY.find((i) => i.part === 'stubRoad' && i.at[0] === 'B' && i.at[1] === 'C' && i.side === 1);
+  assert.ok(item.at[2] > road.at[2], '横道の先（2つ目の建物）ではない');
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  const s = markS(t, item.at);
+  assert.ok(group.userData.spots.some((p) => p.part === 'banner' && Math.abs(p.s - s) < 1), '置かれていない');
+  const houses = group.userData.spots.filter((p) => p.part === 'shophouse' && p.side === 1);
+  assert.ok(houses.some((h) => Math.abs(h.s - s) < 4), 'その所に建物がない');
+});
