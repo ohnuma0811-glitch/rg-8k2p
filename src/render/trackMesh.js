@@ -7,6 +7,9 @@ const COLORS = {
   white: 0xffffff,
 };
 
+// 幅などは、数か、点ごとの関数（ロータリーで道が広がる所など）
+const at = (o, p) => (typeof o === 'function' ? o(p) : o);
+
 // 右向きのベクトル（右が正）
 function rightOf(p) {
   return [-Math.sin(p.h), Math.cos(p.h)];
@@ -36,10 +39,10 @@ function ribbon(samples, offA, offB, yOf, ok, { color, colorOf, map, vScale } = 
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
-    const a = [p.x + rpx * offA, yOf(p), p.z + rpz * offA];
-    const b = [p.x + rpx * offB, yOf(p), p.z + rpz * offB];
-    const cc = [q.x + rqx * offA, yOf(q), q.z + rqz * offA];
-    const d = [q.x + rqx * offB, yOf(q), q.z + rqz * offB];
+    const a = [p.x + rpx * at(offA, p), yOf(p), p.z + rpz * at(offA, p)];
+    const b = [p.x + rpx * at(offB, p), yOf(p), p.z + rpz * at(offB, p)];
+    const cc = [q.x + rqx * at(offA, q), yOf(q), q.z + rqz * at(offA, q)];
+    const d = [q.x + rqx * at(offB, q), yOf(q), q.z + rqz * at(offB, q)];
     pos.push(...a, ...cc, ...b, ...b, ...cc, ...d);
     if (colors) {
       c.setHex(colorOf(p));
@@ -66,10 +69,10 @@ function fence(samples, off, yBottom, yTop, ok, colorOf) {
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
-    const px = p.x + rpx * off;
-    const pz = p.z + rpz * off;
-    const qx = q.x + rqx * off;
-    const qz = q.z + rqz * off;
+    const px = p.x + rpx * at(off, p);
+    const pz = p.z + rpz * at(off, p);
+    const qx = q.x + rqx * at(off, q);
+    const qz = q.z + rqz * at(off, q);
     pos.push(px, yBottom(p), pz, qx, yBottom(q), qz, px, yTop(p), pz);
     pos.push(px, yTop(p), pz, qx, yBottom(q), qz, qx, yTop(q), qz);
     c.setHex(colorOf(p));
@@ -112,10 +115,11 @@ function chevrons(bg, fg) {
 
 // コースを横切る板（スタートライン、加速板、ジャンプ台の模様）。from〜to は s（m）。tiles は模様をくり返す回数
 export function strip(track, from, to, y, material, tiles = 1) {
-  const { samples, roadHalf } = track;
+  const { samples } = track;
   const pos = [];
   const uv = [];
   const list = samples.filter((p) => p.s >= from && p.s < to);
+  const w = (p) => p.half ?? track.roadHalf;
   for (let k = 0; k + 1 < list.length; k++) {
     const p = list[k];
     const q = list[k + 1];
@@ -123,10 +127,10 @@ export function strip(track, from, to, y, material, tiles = 1) {
     const [rqx, rqz] = rightOf(q);
     const v0 = (k / (list.length - 1)) * tiles;
     const v1 = ((k + 1) / (list.length - 1)) * tiles;
-    const a = [p.x - rpx * roadHalf, y(p), p.z - rpz * roadHalf];
-    const b = [p.x + rpx * roadHalf, y(p), p.z + rpz * roadHalf];
-    const c = [q.x - rqx * roadHalf, y(q), q.z - rqz * roadHalf];
-    const d = [q.x + rqx * roadHalf, y(q), q.z + rqz * roadHalf];
+    const a = [p.x - rpx * w(p), y(p), p.z - rpz * w(p)];
+    const b = [p.x + rpx * w(p), y(p), p.z + rpz * w(p)];
+    const c = [q.x - rqx * w(q), y(q), q.z - rqz * w(q)];
+    const d = [q.x + rqx * w(q), y(q), q.z + rqz * w(q)];
     // 表が上を向く並び（上から見える）
     pos.push(...a, ...b, ...c, ...b, ...d, ...c);
     uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
@@ -393,12 +397,16 @@ function roadside(track, sides) {
 }
 
 export function buildTrackMesh(track) {
-  const { samples, roadHalf } = track;
+  const { samples } = track;
   const dirt = track.def.dirt;
+  const town = track.def.theme === 'town';
   const group = new THREE.Group();
   const hasGround = (p) => p.y !== null;
   const flat = (p) => p.y === 0 && !p.ramp;
   const stripes = (len) => (p) => (Math.floor(p.s / len) % 2 ? COLORS.white : COLORS.red);
+  // 街の縁石は白黒のしま
+  const curb = town ? (p) => (Math.floor(p.s / 2) % 2 ? 0xf2f2f2 : 0x222222) : stripes(2);
+  const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
   const asphalt = canvasTexture(64, 64, (g, w, h) => {
@@ -409,23 +417,37 @@ export function buildTrackMesh(track) {
     g.fillRect(2, 0, 2, h);
     g.fillRect(w - 4, 0, 2, h);
   });
-  group.add(ribbon(samples, -roadHalf, roadHalf, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 4 }));
-  // 縁石（赤白）
-  group.add(ribbon(samples, -roadHalf - 1, -roadHalf, (p) => p.y + 0.04, hasGround, { colorOf: stripes(2) }));
-  group.add(ribbon(samples, roadHalf, roadHalf + 1, (p) => p.y + 0.04, hasGround, { colorOf: stripes(2) }));
-  group.add(ribbon(samples, -roadHalf - dirt, -roadHalf - 1, () => 0.02, flat, { color: COLORS.dirt }));
-  group.add(ribbon(samples, roadHalf + 1, roadHalf + dirt, () => 0.02, flat, { color: COLORS.dirt }));
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  // 縁石
+  group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, hasGround, { colorOf: curb }));
+  group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, hasGround, { colorOf: curb }));
+  // 道の外: サーキットはダート、街は歩道
+  const outside = town ? 0xb9b4a8 : COLORS.dirt;
+  group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: outside }));
+  group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: outside }));
 
-  // 柵（ほかの道をふさぐ所だけ開ける）。ジャンプ台は道のすぐ横に側面と柵
+  // 柵（ほかの道をふさぐ所だけ開ける）。街は低いコンクリートの壁。ジャンプ台は道のすぐ横に側面と柵
   const fences = fenceSides(track);
   const index = new Map(samples.map((p, i) => [p, i]));
   for (const side of [-1, 1]) {
     const fenceOk = (p) => fences[index.get(p)][side];
-    group.add(fence(samples, side * (roadHalf + dirt), () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
+    const off = (p) => side * p.wall;
+    if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
+    else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
-    group.add(fence(samples, side * roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
-    group.add(fence(samples, side * roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
+    group.add(fence(samples, side * track.roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
+    group.add(fence(samples, side * track.roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
+
+  // 分離帯（芝生）と、両はしの白黒の縁石
+  const hasMedian = (p) => p.median > 0;
+  if (samples.some(hasMedian)) {
+    group.add(ribbon(samples, (p) => -p.median, (p) => p.median, (p) => p.y + 0.12, hasMedian, { color: 0x5aa04a }));
+    for (const side of [-1, 1]) group.add(fence(samples, (p) => side * p.median, (p) => p.y, (p) => p.y + 0.15, hasMedian, curb));
+  }
+
+  // ロータリーの島: 芝生の丸い台と、白黒の縁石の輪、真ん中に木
+  for (const isl of track.islands ?? []) group.add(islandMesh(isl));
 
   const checker = canvasTexture(64, 16, (g, w, h) => {
     for (let x = 0; x < w; x += 8) {
@@ -438,12 +460,11 @@ export function buildTrackMesh(track) {
   const startS = samples[track.startIndex].s;
   group.add(strip(track, startS - 1, startS + 2, () => 0.05, new THREE.MeshBasicMaterial({ map: checker })));
 
+  // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
+  const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
+  for (const [from, to] of boostRuns(samples)) group.add(strip(track, from, to, () => 0.06, padMat, 1));
   if (track.cross) {
-    const b = track.def.jump.boost;
     const r = track.def.jump.ramp;
-    // 加速板: オレンジに黄色の矢印
-    group.add(strip(track, track.cross.sA + b.from, track.cross.sA + b.to, () => 0.06,
-      new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') }), 1));
     // ジャンプ台: 赤に黄色の矢印をくり返し（飛び出す方向を指す）
     group.add(strip(track, track.cross.sA + r.from, track.cross.sA + r.to, (p) => p.y + 0.06,
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
@@ -457,4 +478,39 @@ export function buildTrackMesh(track) {
     group.add(roadside(track, sides));
   }
   return group;
+}
+
+// 加速板が続いている所（s の始まりと終わり）
+function boostRuns(samples) {
+  const runs = [];
+  let from = null;
+  for (const p of samples) {
+    if (p.boost && from === null) from = p.s;
+    if (!p.boost && from !== null) {
+      runs.push([from, p.s]);
+      from = null;
+    }
+  }
+  if (from !== null) runs.push([from, samples[samples.length - 1].s + 1]);
+  return runs;
+}
+
+function islandMesh(isl) {
+  const g = new THREE.Group();
+  const grass = new THREE.Mesh(new THREE.CylinderGeometry(isl.r, isl.r, 0.25, 32), new THREE.MeshLambertMaterial({ color: 0x5aa04a }));
+  grass.position.set(isl.x, 0.125, isl.z);
+  g.add(grass);
+  for (let k = 0; k < 24; k++) {
+    const a = (k / 24) * Math.PI * 2;
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, (2 * Math.PI * isl.r) / 24), new THREE.MeshLambertMaterial({ color: k % 2 ? 0xf2f2f2 : 0x222222 }));
+    block.position.set(isl.x + Math.cos(a) * (isl.r + 0.2), 0.15, isl.z + Math.sin(a) * (isl.r + 0.2));
+    block.rotation.y = -a;
+    g.add(block);
+  }
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 2.5, 6), new THREE.MeshLambertMaterial({ color: 0x7a5a3a }));
+  trunk.position.set(isl.x, 1.4, isl.z);
+  const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3f8f3a }));
+  leaf.position.set(isl.x, 3.6, isl.z);
+  g.add(trunk, leaf);
+  return g;
 }
