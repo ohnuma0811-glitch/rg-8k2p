@@ -476,21 +476,13 @@ export function buildTrackMesh(track) {
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
 
-  // バンプ（Kampar Town）: 道の幅いっぱいの低いでっぱり（黄色と白のしま）と、手前の道ばたの BONGGOL の標識
-  const bumpMat = new THREE.MeshBasicMaterial({ map: canvasTexture(64, 16, (g, w, h) => {
-    for (let x = 0; x < w; x += 8) {
-      g.fillStyle = (x / 8) % 2 ? '#ffffff' : '#f5c400';
-      g.fillRect(x, 0, 8, h);
-    }
-  }) });
+  // バンプ（Kampar Town）: 道の幅いっぱいの、大きな立体のでっぱり（黄色と黒のななめのしま）
+  // 手前の道に、バンプ専用のしま模様（黄色と黒のななめのしまと「BUMP」の文字）。さらに手前の道ばたに BONGGOL の標識
   for (const b of track.bumps ?? []) {
-    const m = strip(track, b - 1, b + 1, (p) => p.y + 0.14, bumpMat, 1);
-    m.material.map.wrapS = THREE.RepeatWrapping;
-    group.add(m);
-    group.add(bumpSign(track, b - 25));
+    group.add(bumpMesh(track, b));
+    group.add(strip(track, b - 70, b - 4, (p) => p.y + 0.05, BUMP_ROAD_MAT(), 6));
+    group.add(bumpSign(track, b - 78));
   }
-
-  group.add(mountains(track));
 
   // 街の景色（部品セットを、コースのデータの置き場所に）
   if (town) group.add(buildScenery(track, track.def.scenery ?? []));
@@ -633,4 +625,66 @@ function mountains(track) {
     g.add(cone);
   }
   return g;
+}
+
+// バンプの立体（長さ3m・高さ35cm、道の幅いっぱい。上と横は黄色と黒のななめのしま。2026-10-15 のユーザー依頼「もっと大きく目立つように」）
+export const BUMP_SIZE = { length: 3, height: 0.35 };
+let bumpTexture = null;
+function bumpMesh(track, s) {
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  if (!bumpTexture) {
+    bumpTexture = canvasTexture(128, 32, (g, w, h) => {
+      g.fillStyle = '#ffd400';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#111';
+      for (let x = -h; x < w + h; x += 24) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 12, 0);
+        g.lineTo(x + 12 + h, h);
+        g.lineTo(x + h, h);
+        g.fill();
+      }
+    });
+    bumpTexture.wrapS = THREE.RepeatWrapping;
+    bumpTexture.repeat.set(4, 1);
+  }
+  const geo = new THREE.BoxGeometry(BUMP_SIZE.length, BUMP_SIZE.height, p.half * 2 + 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: bumpTexture }));
+  m.position.set(p.x, (p.y ?? 0) + BUMP_SIZE.height / 2, p.z);
+  m.rotation.y = -p.h;
+  return m;
+}
+
+// バンプの手前の道の模様（黄色と黒のななめのしまに、黒い「BUMP」の文字。前は絵の上）
+let bumpRoad = null;
+function BUMP_ROAD_MAT() {
+  if (!bumpRoad) {
+    const tex = canvasTexture(128, 128, (g, w, h) => {
+      g.fillStyle = '#ffd400';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#111';
+      for (let x = -w; x < w * 2; x += 32) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 14, 0);
+        g.lineTo(x + 14 + 40, 40);
+        g.lineTo(x + 40, 40);
+        g.fill();
+        g.beginPath();
+        g.moveTo(x, h - 40);
+        g.lineTo(x + 14, h - 40);
+        g.lineTo(x + 14 + 40, h);
+        g.lineTo(x + 40, h);
+        g.fill();
+      }
+      g.font = 'bold 44px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('BUMP', w / 2, h / 2);
+    });
+    bumpRoad = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92 });
+  }
+  return bumpRoad;
 }

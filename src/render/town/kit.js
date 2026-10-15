@@ -134,10 +134,12 @@ export function chevronBoard(b, { dir = 1, side = -1 } = {}) {
   b.pop();
 }
 
-// コースでない道の入口（少しだけ道を描き、赤白の柵でふさぐ）
-export function stubRoad(b, { width = 14 } = {}) {
-  b.box(width, 0.03, 20, 0x55585e, 0, 0, -10);
-  for (const x of [-width / 2, width / 2]) b.box(0.3, 0.2, 20, 0xf2f2f2, x, 0, -10);
+// コースでない道（少しだけ道を描き、コンクリートの壁と赤白の柵でふさぐ。2026-10-15 のユーザー依頼「街らしく」）
+export function stubRoad(b, { width = 14, length = 30 } = {}) {
+  b.box(width, 0.03, length, 0x55585e, 0, 0, -length / 2);
+  b.box(0.15, 0.04, length, 0xf2f2f2, 0, 0.01, -length / 2); // 真ん中の白線
+  for (const x of [-width / 2 - 1.5, width / 2 + 1.5]) b.box(3, 0.15, length, 0xb9b4a8, x, 0, -length / 2); // 歩道
+  b.box(width + 6, 0.9, 0.4, 0xd8d4cc, 0, 0, -0.2); // コンクリートの壁（通行止め）
   barrier(b, { length: width });
 }
 
@@ -223,5 +225,31 @@ function textDraw(text, fg, bg) {
     g.fillText(text, w / 2, h / 2, w * 0.94);
   };
   draw.key = `text:${text}:${fg}:${bg}`;
+  return draw;
+}
+
+// 道の上の大きな横断幕（場所が分かるように。2026-10-15 のユーザー依頼）。道のふちに置き、前（+z）の向きに道をまたぐ
+// text は「 / 」で2行に。color は布の色
+export function banner(b, { text = '', span = 31, color = '#d8262b', fg = '#ffffff', height = 6.5 } = {}) {
+  for (const z of [0, span]) b.box(0.3, height + 2.2, 0.3, 0x9aa0a6, 0, 0, z);
+  b.box(0.12, 0.12, span, 0x9aa0a6, 0, height + 2.2, span / 2);
+  // 布（走ってくる車の方を向ける: 右の道ばたに置くと、部品の +x が走ってくる向き）
+  b.label(bannerDraw(text, color, fg), [1024, 160], 0.1, height + 1, span / 2, Math.PI / 2, span - 2, 3.2);
+}
+function bannerDraw(text, bg, fg) {
+  const draw = (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 8;
+    g.strokeRect(6, 6, w - 12, h - 12);
+    g.fillStyle = fg;
+    const lines = text.split(' / ');
+    g.font = `italic bold ${Math.floor((h / lines.length) * 0.62)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    lines.forEach((l, k) => g.fillText(l, w / 2, (h * (k + 0.5)) / lines.length, w * 0.92));
+  };
+  draw.key = `banner:${text}:${bg}:${fg}`;
   return draw;
 }

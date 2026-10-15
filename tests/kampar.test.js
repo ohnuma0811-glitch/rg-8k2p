@@ -116,3 +116,33 @@ test('CPU は牛をよける（ぶつかってスピンするのは、ときど�
   const spins = kamparCpuRace().reduce((n, s) => n + s.spins, 0);
   assert.ok(spins <= 3, `4台×3周で ${spins} 回スピン`);
 });
+
+const turnDeg = (a, b) => {
+  const n = t.samples.length;
+  const h1 = t.samples[((Math.round(a) % n) + n) % n].h;
+  const h2 = t.samples[((Math.round(b) % n) + n) % n].h;
+  return (Math.abs(Math.atan2(Math.sin(h2 - h1), Math.cos(h2 - h1))) * 180) / Math.PI;
+};
+
+test('町の角（A・B・C・D・F・J）は直角（角の前後25mで70度以上曲がる。2026-10-15 のユーザー依頼）', () => {
+  const prev = { A: 0, B: t.marks.A, C: t.marks.B, D: t.marks.C, F: t.marks.E, J: t.marks.I };
+  for (const m of ['A', 'B', 'C', 'D', 'F', 'J']) {
+    const s = t.marks[m];
+    assert.ok(turnDeg(s - 25, s + 25) > 70, `${m}: ${turnDeg(s - 25, s + 25).toFixed(0)}度`);
+    // 角の手前（前の角から30m あと〜角の40m 手前）は、まっすぐ（C と D のように近い角は調べない）
+    const from = Math.max(prev[m] + 30, s - 70);
+    if (from < s - 40) assert.ok(turnDeg(from, s - 40) < 15, `${m} の手前: ${turnDeg(from, s - 40).toFixed(0)}度`);
+  }
+});
+
+test('中央分離帯はない（どこも1本の道。2026-10-15 のユーザー依頼）。ロータリーの島は半径12m', () => {
+  assert.ok(t.samples.every((p) => p.median === 0));
+  for (const isl of t.islands) assert.equal(isl.r, 12);
+});
+
+test('バンプは、ひとつ前の角やロータリーの出口から 70m 以上あとにある（見えてからバンプまでが長い）', () => {
+  const isl09 = t.islands[0];
+  const exit09 = isl09.s + isl09.r + t.roadHalf + 12;
+  assert.ok(t.bumps[0] - exit09 >= 70, `ロータリー 09 の出口からバンプまで ${(t.bumps[0] - exit09).toFixed(0)}m`);
+  assert.ok(t.bumps[1] - t.marks.D >= 70, `D からバンプまで ${(t.bumps[1] - t.marks.D).toFixed(0)}m`);
+});

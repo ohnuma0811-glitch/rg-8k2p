@@ -11,9 +11,9 @@ const t = buildTrack(COURSE2);
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
 const go = { steer: 0, brake: false, drift: false };
 
-test('「時速100km」はスピードメーターの数字（実際の速さの1.5倍）で決める（2026-10-15 のユーザーの判断）', () => {
-  assert.equal(BUMP_LIMIT_KMH, 100);
-  assert.ok(Math.abs(meterKmh(100 / 3.6 / 1.5) - 100) < 1e-9);
+test('バンプで転がる速さはスピードメーターの数字の150（実際の速さの1.5倍を出している。2026-10-15 に100から変更）', () => {
+  assert.equal(BUMP_LIMIT_KMH, 150);
+  assert.ok(Math.abs(meterKmh(150 / 3.6 / 1.5) - 150) < 1e-9);
 });
 
 test('バンプを越えたか: 前へ越えたときだけ。逆向き・1周の切れ目・1フレームで大きく進んでも正しく', () => {
@@ -24,11 +24,10 @@ test('バンプを越えたか: 前へ越えたときだけ。逆向き・1周�
   assert.equal(crossed(t, 100, 100.4, 100), false); // ちょうど上にいるだけでは、もう一度は数えない
 });
 
-test('バンプは3つ: A〜B・B〜C・D〜E に1つずつ（2026-10-15 のユーザー依頼）', () => {
-  assert.equal(t.bumps.length, 3);
-  const [ab, bc, de] = t.bumps;
+test('バンプは2つ: A〜B と D〜E に1つずつ（2026-10-15 のユーザー依頼で3つから減らした）', () => {
+  assert.equal(t.bumps.length, 2);
+  const [ab, de] = t.bumps;
   assert.ok(ab > t.marks.A && ab < t.marks.B);
-  assert.ok(bc > t.marks.B && bc < t.marks.C);
   assert.ok(de > t.marks.D && de < t.marks.E);
 });
 
@@ -40,7 +39,7 @@ function before(at, speed, back = 3) {
   return kart;
 }
 
-test('メーター100を超えてバンプに乗ると、3秒転がって走れない。そのあと止まった状態から走り出す', () => {
+test('メーター150を超えてバンプに乗ると、3秒転がって走れない。そのあと止まった状態から走り出す', () => {
   const kart = before(t.bumps[0], 30); // 30m/s = メーター162
   for (let k = 0; k < 20; k++) stepKart(kart, go, t, params, 1 / 60);
   assert.ok(kart.tumble > 0);
@@ -60,7 +59,7 @@ test('メーター100を超えてバンプに乗ると、3秒転がって走れ�
   assert.ok(kart.speed > 5, '走り出せない');
 });
 
-test('メーター100以下で乗ると、乗り越えるだけ（速さはそのまま）', () => {
+test('メーター150以下で乗ると、乗り越えるだけ（速さはそのまま）', () => {
   const kart = before(t.bumps[0], 16, 2); // 16m/s = メーター86（越えるまでに少し速くなっても100より下）
   let humped = false;
   for (let k = 0; k < 30; k++) {
@@ -108,13 +107,13 @@ function atCow(cow, time, speed) {
   return kart;
 }
 
-test('メーター100以上で牛にぶつかるとスピン（2026-10-15 のユーザー依頼）', () => {
-  const kart = atCow(t.cows[0], 5, 20); // メーター108
+test('メーター150以上で牛にぶつかるとスピン（2026-10-15 のユーザー依頼）', () => {
+  const kart = atCow(t.cows[0], 5, 30); // メーター162
   assert.equal(cowContact(kart, t, 5, PHYS), 'spin');
   assert.ok(kart.spin > 0);
 });
 
-test('メーター100より遅いと、壁と同じで跳ね返る（スピンしない）。こすっている間はもう一度は数えない', () => {
+test('メーター150より遅いと、壁と同じで跳ね返る（スピンしない）。こすっている間はもう一度は数えない', () => {
   const kart = atCow(t.cows[0], 5, 15); // メーター81
   assert.equal(cowContact(kart, t, 5, PHYS), 'bounce');
   assert.equal(kart.spin, 0);
@@ -179,4 +178,21 @@ test('バンプで転がって滑っても、柵の外に出ない（その場�
       assert.ok(Math.abs(loc.lateral) <= loc.wall + 1e-6, `${angle}: ${Math.abs(loc.lateral).toFixed(1)} > ${loc.wall}`);
     }
   }
+});
+
+test('バンプの警告: 今の速さで3秒以内にバンプに着くときだけ出す。越えたら消える（2026-10-15 のユーザー依頼）', async () => {
+  const { bumpWarning, BUMP_WARN_SEC } = await import('../src/game/hazards.js');
+  assert.equal(BUMP_WARN_SEC, 3);
+  const b = t.bumps[0];
+  const at = (dist, speed) => {
+    const i = (Math.round(b - dist) + t.length) % t.length;
+    const kart = createKart(t, i, 3);
+    kart.speed = speed;
+    return kart;
+  };
+  assert.equal(bumpWarning(t, at(80, 40)), true); // 2秒で着く
+  assert.equal(bumpWarning(t, at(150, 40)), false); // 3.75秒かかる
+  assert.equal(bumpWarning(t, at(20, 5)), false); // 4秒かかる（ゆっくり）
+  assert.equal(bumpWarning(t, at(-3, 40)), false); // 越えたあと
+  assert.equal(bumpWarning(t, { ...at(50, 40), tumble: 2 }), false); // 転がっている間は出さない
 });

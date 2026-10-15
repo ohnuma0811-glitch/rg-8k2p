@@ -278,7 +278,7 @@ export function syncKartModel(model, kart) {
   const hop = kart.hop > 0 ? Math.sin((1 - kart.hop / PHYS.HOP_TIME) * Math.PI) * PHYS.HOP_HEIGHT : 0;
   // バンプを乗り越える: 前が上がってから後ろが上がる（2026-10-15 のユーザー依頼）
   const u = kart.hump > 0 ? 1 - kart.hump / HUMP_TIME : 0;
-  const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.15 : 0;
+  const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.4 : 0; // バンプの高さ（35cm）を越える
   // バンプで転がる: はじめは大きく跳ねて2回転がり、そのあとは目が回る（星が回る）
   const tumbling = kart.tumble > 0;
   const since = tumbling ? TUMBLE_TIME - kart.tumble : 0;
@@ -286,7 +286,7 @@ export function syncKartModel(model, kart) {
   const fly = flying ? Math.sin((since / TUMBLE_FLY) * Math.PI) * TUMBLE_HEIGHT : 0;
   model.position.set(kart.x, kart.y + hop + lift + fly, kart.z);
   model.rotation.y = -kart.heading;
-  model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.12 : 0;
+  model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.2 : 0;
   model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
   const stars = model.userData.stars;
   if (stars) {

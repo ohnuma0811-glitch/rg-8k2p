@@ -176,6 +176,12 @@ export function createSfx(audio) {
       tone('square', 160, 0.25, 0.1, { to: 60 });
       burst('lowpass', 1500, 80, 0.5, 0.15, { at: 0.2 }); // こだま（小さく）
     },
+    // バンプの警告「ピッピッ」（高く短い音を2回）
+    bumpWarn: () => {
+      tone('square', 1320, 0.09, 0.18);
+      tone('square', 1320, 0.09, 0.18, { at: 0.14 });
+      tone('square', 1760, 0.12, 0.12, { at: 0.28 });
+    },
     // バンプを乗り越える「コトン」（小さく）
     hump: () => {
       tone('triangle', 180, 0.08, 0.25, { to: 120 });

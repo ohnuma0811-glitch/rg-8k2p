@@ -88,3 +88,27 @@ test('そのほかの目印（設計書 4 の表）も置かれている', () =>
   const parts = KAMPAR_SCENERY.map((i) => i.part);
   for (const p of ['curvedMall', 'museumSign', 'gBuilding', 'hotel', 'waterTowerBB', 'waterTowerUtar', 'utarHall', 'facultyBuilding', 'archGate']) assert.ok(parts.includes(p), p);
 });
+
+test('道の上の横断幕で場所が分かる: WestLake Villas、学校、病院、UTAR（2026-10-15 のユーザー依頼）', () => {
+  const texts = KAMPAR_SCENERY.filter((i) => i.part === 'banner').map((i) => i.text).join(' | ');
+  for (const w of ['WestLake Villas', 'Westlake International School', 'OPEN DAY', 'HOSPITAL UTAR', 'UTAR']) assert.ok(texts.includes(w), w);
+});
+
+test('直角の角の正面には通行止めの道が続く。町の横道の所には建物を置かない', async () => {
+  const { aheadSpot } = await import('../src/render/town/scenery.js');
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  const ahead = group.userData.spots.filter((s) => s.side === 2);
+  assert.ok(ahead.length >= 7, `${ahead.length}`);
+  // 正面の道は、角の外の柵より外にある（コースの上に出ない）
+  for (const sp of ahead) {
+    const n = t.samples.length;
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - sp.x, q.z - sp.z) >= q.wall - 1, `s=${sp.s.toFixed(0)} がコースの上`);
+    assert.ok(n > 0);
+  }
+  // 横道のある所の、同じ側には建物を置かない
+  const roads = KAMPAR_SCENERY.filter((i) => i.part === 'stubRoad' && !i.ahead).map((i) => ({ s: markS(t, i.at), side: i.side }));
+  for (const sp of group.userData.spots) {
+    if (sp.part !== 'shophouse') continue;
+    for (const r of roads) assert.ok(!(r.side === sp.side && Math.abs(r.s - sp.s) < 9), `s=${sp.s} の横道に建物`);
+  }
+});

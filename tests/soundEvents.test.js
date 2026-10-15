@@ -151,3 +151,8 @@ test('バンプ: 乗り越えたら hump（コトン）、転がり始めたら 
 test('牛にぶつかったら moo', () => {
   assert.deepEqual(soundEvents(st({}, { cowHits: 0 }), st({}, { cowHits: 1 }), 3), ['moo']);
 });
+
+test('バンプの警告が出たら bumpWarn（ピッピッ）', () => {
+  assert.deepEqual(soundEvents(st({ bumpWarn: false }), st({ bumpWarn: true }), 3), ['bumpWarn']);
+  assert.deepEqual(soundEvents(st({ bumpWarn: true }), st({ bumpWarn: true }), 3), []);
+});

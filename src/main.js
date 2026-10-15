@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -76,6 +76,7 @@ const speedLines = $('speed-lines');
 const speedo = $('speedo');
 const speedNum = speedo.querySelector('.num');
 const wrongWayEl = $('wrongway');
+const bumpWarnEl = $('bump-warn');
 const menu = $('menu');
 const raceHud = $('race-hud');
 const lapEl = $('lap');
@@ -593,7 +594,9 @@ function renderGame(alpha, dt) {
   showTop3(g, order.slice(0, 3), dt);
   setText(leftEl, remainingText(Math.max(0, g.leftBase - g.playSec)));
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart) });
+  // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
+  g.bumpWarn = !e.finished && bumpWarning(track, kart);
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
@@ -679,6 +682,7 @@ startLoop({
     }
     for (const n of BUTTONS) els[n].classList.toggle('active', controls.touch[n]);
     let wrong = false;
+    let warn = false;
     let mine = null;
     // 一時停止中は、車・タイヤ・カメラを動かさず、止めたときの画面のまま描く（2026-10-15 の実機確認）
     if (game && game.paused) {
@@ -687,6 +691,7 @@ startLoop({
       const r = renderGame(alpha, dt);
       mine = r.mine;
       wrong = r.kart.wrongWay;
+      warn = game.bumpWarn;
     } else {
       orbitCamera(dt);
     }
@@ -697,6 +702,13 @@ startLoop({
       overHead.set(mine.x, mine.y + 3.6, mine.z).project(camera);
       wrongWayEl.style.left = `${((overHead.x + 1) / 2) * window.innerWidth}px`;
       wrongWayEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
+    }
+    // バンプの警告: 自分の頭の上（逆走の警告より上）に、赤い文字で（2026-10-15 のユーザー依頼）
+    bumpWarnEl.classList.toggle('show', warn);
+    if (warn) {
+      overHead.set(mine.x, mine.y + 4.6, mine.z).project(camera);
+      bumpWarnEl.style.left = `${((overHead.x + 1) / 2) * window.innerWidth}px`;
+      bumpWarnEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
     }
     speedo.classList.toggle('hidden', !game);
     setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}`);
