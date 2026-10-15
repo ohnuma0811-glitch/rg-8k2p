@@ -1,12 +1,12 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=c293e1f';
-import { PHYS } from '../game/kart.js?v=c293e1f';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=c293e1f';
+import * as THREE from '../../vendor/three.module.min.js?v=aa4a14c';
+import { PHYS } from '../game/kart.js?v=aa4a14c';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=aa4a14c';
 
-// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る
-const TUMBLE_FLY = 0.8;
-const TUMBLE_HEIGHT = 2.5; // 跳ねる高さ（m）
+// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
+const TUMBLE_FLY = 0.55;
+const TUMBLE_HEIGHT = 2; // 跳ねる高さ（m）
 
 // 頭の上を回る黄色い星（バンプで転がっている間。目が回っているように）
 // いつもこちらを向く板（Sprite）にする（横から見ても、後ろから見ても星の形に見える）
@@ -278,7 +278,7 @@ export function syncKartModel(model, kart) {
   const hop = kart.hop > 0 ? Math.sin((1 - kart.hop / PHYS.HOP_TIME) * Math.PI) * PHYS.HOP_HEIGHT : 0;
   // バンプを乗り越える: 前が上がってから後ろが上がる（2026-10-15 のユーザー依頼）
   const u = kart.hump > 0 ? 1 - kart.hump / HUMP_TIME : 0;
-  const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.15 : 0;
+  const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.4 : 0; // バンプの高さ（35cm）を越える
   // バンプで転がる: はじめは大きく跳ねて2回転がり、そのあとは目が回る（星が回る）
   const tumbling = kart.tumble > 0;
   const since = tumbling ? TUMBLE_TIME - kart.tumble : 0;
@@ -286,7 +286,7 @@ export function syncKartModel(model, kart) {
   const fly = flying ? Math.sin((since / TUMBLE_FLY) * Math.PI) * TUMBLE_HEIGHT : 0;
   model.position.set(kart.x, kart.y + hop + lift + fly, kart.z);
   model.rotation.y = -kart.heading;
-  model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.12 : 0;
+  model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.2 : 0;
   model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
   const stars = model.userData.stars;
   if (stars) {

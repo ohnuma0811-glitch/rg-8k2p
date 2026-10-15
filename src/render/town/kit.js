@@ -134,10 +134,12 @@ export function chevronBoard(b, { dir = 1, side = -1 } = {}) {
   b.pop();
 }
 
-// コースでない道の入口（少しだけ道を描き、赤白の柵でふさぐ）
-export function stubRoad(b, { width = 14 } = {}) {
-  b.box(width, 0.03, 20, 0x55585e, 0, 0, -10);
-  for (const x of [-width / 2, width / 2]) b.box(0.3, 0.2, 20, 0xf2f2f2, x, 0, -10);
+// コースでない道（少しだけ道を描き、コンクリートの壁と赤白の柵でふさぐ。2026-10-15 のユーザー依頼「街らしく」）
+export function stubRoad(b, { width = 14, length = 30 } = {}) {
+  b.box(width, 0.03, length, 0x55585e, 0, 0, -length / 2);
+  b.box(0.15, 0.04, length, 0xf2f2f2, 0, 0.01, -length / 2); // 真ん中の白線
+  for (const x of [-width / 2 - 1.5, width / 2 + 1.5]) b.box(3, 0.15, length, 0xb9b4a8, x, 0, -length / 2); // 歩道
+  b.box(width + 6, 0.9, 0.4, 0xd8d4cc, 0, 0, -0.2); // コンクリートの壁（通行止め）
   barrier(b, { length: width });
 }
 
@@ -188,8 +190,8 @@ export function walkway(b, { length = 12, roof = 0x2a5fb8 } = {}) {
 }
 
 // 灰色の横長の平屋の店と、駐車場の屋根（写真 70〜72）
-export function shed(b) {
-  b.box(44, 7, 22, 0xd9dcdf, 0, 0, -18);
+export function shed(b, { color = 0xd9dcdf } = {}) {
+  b.box(44, 7, 22, color, 0, 0, -18);
   b.box(44.6, 0.8, 22.6, 0x9aa3ab, 0, 7, -18);
   b.box(30, 0.4, 8, 0x8f969c, 0, 3.2, -3); // 駐車場の屋根
   for (const x of [-14, -7, 0, 7, 14]) b.box(0.3, 3.2, 0.3, 0x9aa0a6, x, 0, -3);
@@ -224,4 +226,65 @@ function textDraw(text, fg, bg) {
   };
   draw.key = `text:${text}:${fg}:${bg}`;
   return draw;
+}
+
+// 道の上の大きな横断幕（場所が分かるように。2026-10-15 のユーザー依頼）。道のふちに置き、前（+z）の向きに道をまたぐ
+// text は「 / 」で2行に。color は布の色
+export function banner(b, { text = '', span = 31, color = '#d8262b', fg = '#ffffff', height = 6.5 } = {}) {
+  for (const z of [0, span]) b.box(0.3, height + 2.2, 0.3, 0x9aa0a6, 0, 0, z);
+  b.box(0.12, 0.12, span, 0x9aa0a6, 0, height + 2.2, span / 2);
+  // 布（走ってくる車の方を向ける: 右の道ばたに置くと、部品の +x が走ってくる向き）
+  b.label(bannerDraw(text, color, fg), [1024, 160], 0.1, height + 1, span / 2, Math.PI / 2, span - 2, 3.2);
+}
+function bannerDraw(text, bg, fg) {
+  const draw = (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 8;
+    g.strokeRect(6, 6, w - 12, h - 12);
+    g.fillStyle = fg;
+    const lines = text.split(' / ');
+    g.font = `italic bold ${Math.floor((h / lines.length) * 0.62)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    lines.forEach((l, k) => g.fillText(l, w / 2, (h * (k + 0.5)) / lines.length, w * 0.92));
+  };
+  draw.key = `banner:${text}:${bg}:${fg}`;
+  return draw;
+}
+
+// 走ってくる車の方を向いた、道ばたの大きな看板（道をまっすぐ走っていても見えるように。2026-10-15 のユーザー依頼）
+export function driverBoard(b, { text = '', bg = '#2a62b8', fg = '#ffffff', width = 14, height = 3.4, top = 8, side = -1 } = {}) {
+  b.push(0, 0, 0, towardDriver(side));
+  for (const x of [-width / 2 + 0.6, width / 2 - 0.6]) b.box(0.4, top, 0.4, 0x8f979c, x, 0, -0.3);
+  b.box(width + 0.4, height + 0.4, 0.3, 0xffffff, 0, top - height / 2 - 0.2, -0.2);
+  b.label(boardDraw(text, bg, fg), [1024, 256], 0, top, 0.02, 0, width, height);
+  b.pop();
+}
+function boardDraw(text, bg, fg) {
+  const draw = (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = fg;
+    const lines = text.split(' / ');
+    g.font = `bold ${Math.floor((h / lines.length) * 0.6)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    lines.forEach((l, k) => g.fillText(l, w / 2, (h * (k + 0.5)) / lines.length, w * 0.94));
+  };
+  draw.key = `board:${text}:${bg}:${fg}`;
+  return draw;
+}
+
+// 信号機（いつも青。2026-10-15 のユーザー依頼）。道ばたに立て、腕を道の上へのばし、走ってくる車の方を向ける
+export function trafficLight(b, { side = -1 } = {}) {
+  b.cyl(0.14, 0.18, 6, 8, 0x5f666c, 0, 0, 0);
+  b.box(0.18, 0.18, 6, 0x5f666c, 0, 5.8, 3); // 道の上へのびる腕（前 +z が道の方）
+  b.push(0, 5.2, 5.6, towardDriver(side));
+  b.box(1.9, 0.7, 0.5, 0x222222, 0, 0, 0); // 横長の信号の箱
+  b.box(0.45, 0.45, 0.1, 0x3a3a3a, -0.6, 0.12, 0.26); // 赤（消えている）
+  b.box(0.45, 0.45, 0.1, 0x3a3a3a, 0, 0.12, 0.26); // 黄（消えている）
+  b.box(0.45, 0.45, 0.1, 0x2bff6a, 0.6, 0.12, 0.26); // 青（ついている）
+  b.pop();
 }

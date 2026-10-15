@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=c293e1f';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=c293e1f';
+import { midiToHz } from './notes.js?v=aa4a14c';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=aa4a14c';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -176,6 +176,12 @@ export function createSfx(audio) {
       tone('square', 160, 0.25, 0.1, { to: 60 });
       burst('lowpass', 1500, 80, 0.5, 0.15, { at: 0.2 }); // こだま（小さく）
     },
+    // バンプの警告「ピッピッ」（高く短い音を2回）
+    bumpWarn: () => {
+      tone('square', 1320, 0.09, 0.18);
+      tone('square', 1320, 0.09, 0.18, { at: 0.14 });
+      tone('square', 1760, 0.12, 0.12, { at: 0.28 });
+    },
     // バンプを乗り越える「コトン」（小さく）
     hump: () => {
       tone('triangle', 180, 0.08, 0.25, { to: 120 });
@@ -208,14 +214,14 @@ export function createSfx(audio) {
         o.stop(t + 1);
       }
     },
-    // バンプで転がる: ジャンプ台の着地と同じ作りの派手な「バーン」と、0.4秒あとから3秒の「ピヨピヨ」
+    // バンプで転がる: ジャンプ台の着地と同じ作りの派手な「バーン」と、0.4秒あとから「ピヨピヨ」（走れない1秒の間）
     tumble: () => {
       burst('bandpass', 2500, 600, 0.12, 0.85);
       burst('lowpass', 3000, 60, 1.0, 0.95);
       tone('sine', 70, 0.9, 0.7, { to: 28 });
       burst('highpass', 7000, 2500, 1.1, 0.35);
       tone('square', 160, 0.25, 0.12, { to: 60 });
-      piyoPiyo(0.4, 12);
+      piyoPiyo(0.4, 3);
     },
   };
 

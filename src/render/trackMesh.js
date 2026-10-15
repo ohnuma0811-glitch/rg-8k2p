@@ -1,6 +1,6 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=c293e1f';
-import { buildScenery } from './town/scenery.js?v=c293e1f';
+import * as THREE from '../../vendor/three.module.min.js?v=aa4a14c';
+import { buildScenery } from './town/scenery.js?v=aa4a14c';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -115,12 +115,16 @@ function chevrons(bg, fg) {
 }
 
 // コースを横切る板（スタートライン、加速板、ジャンプ台の模様）。from〜to は s（m）。tiles は模様をくり返す回数
-export function strip(track, from, to, y, material, tiles = 1) {
+// side が 1 なら道の右半分（分離帯の外）だけ、-1 なら左半分だけ
+export function strip(track, from, to, y, material, tiles = 1, side = 0) {
   const { samples } = track;
   const pos = [];
   const uv = [];
   const list = samples.filter((p) => p.s >= from && p.s < to);
   const w = (p) => p.half ?? track.roadHalf;
+  // 板の左はし・右はし（右が正）
+  const lo = (p) => (side > 0 ? p.median || 0 : -w(p));
+  const hi = (p) => (side < 0 ? -(p.median || 0) : w(p));
   for (let k = 0; k + 1 < list.length; k++) {
     const p = list[k];
     const q = list[k + 1];
@@ -128,10 +132,10 @@ export function strip(track, from, to, y, material, tiles = 1) {
     const [rqx, rqz] = rightOf(q);
     const v0 = (k / (list.length - 1)) * tiles;
     const v1 = ((k + 1) / (list.length - 1)) * tiles;
-    const a = [p.x - rpx * w(p), y(p), p.z - rpz * w(p)];
-    const b = [p.x + rpx * w(p), y(p), p.z + rpz * w(p)];
-    const c = [q.x - rqx * w(q), y(q), q.z - rqz * w(q)];
-    const d = [q.x + rqx * w(q), y(q), q.z + rqz * w(q)];
+    const a = [p.x + rpx * lo(p), y(p), p.z + rpz * lo(p)];
+    const b = [p.x + rpx * hi(p), y(p), p.z + rpz * hi(p)];
+    const c = [q.x + rqx * lo(q), y(q), q.z + rqz * lo(q)];
+    const d = [q.x + rqx * hi(q), y(q), q.z + rqz * hi(q)];
     // 表が上を向く並び（上から見える）
     pos.push(...a, ...b, ...c, ...b, ...d, ...c);
     uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
@@ -468,7 +472,7 @@ export function buildTrackMesh(track) {
 
   // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
   const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
-  for (const [from, to] of boostRuns(samples)) group.add(strip(track, from, to, () => 0.06, padMat, 1));
+  for (const [from, to, side] of boostRuns(samples)) group.add(strip(track, from, to, () => 0.06, padMat, 1, side));
   if (track.cross) {
     const r = track.def.jump.ramp;
     // ジャンプ台: 赤に黄色の矢印をくり返し（飛び出す方向を指す）
@@ -476,21 +480,19 @@ export function buildTrackMesh(track) {
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
 
-  // バンプ（Kampar Town）: 道の幅いっぱいの低いでっぱり（黄色と白のしま）と、手前の道ばたの BONGGOL の標識
-  const bumpMat = new THREE.MeshBasicMaterial({ map: canvasTexture(64, 16, (g, w, h) => {
-    for (let x = 0; x < w; x += 8) {
-      g.fillStyle = (x / 8) % 2 ? '#ffffff' : '#f5c400';
-      g.fillRect(x, 0, 8, h);
-    }
-  }) });
+  // バンプ（Kampar Town）: 道の幅いっぱいの、大きな立体のでっぱり（黄色と黒のななめのしま）
+  // 手前の道に、バンプ専用のしま模様（黄色と黒のななめのしまと「BUMP」の文字）。さらに手前の道ばたに BONGGOL の標識
   for (const b of track.bumps ?? []) {
-    const m = strip(track, b - 1, b + 1, (p) => p.y + 0.14, bumpMat, 1);
-    m.material.map.wrapS = THREE.RepeatWrapping;
-    group.add(m);
-    group.add(bumpSign(track, b - 25));
+    group.add(bumpMesh(track, b));
+    group.add(strip(track, b - 70, b - 4, (p) => p.y + 0.05, BUMP_ROAD_MAT(), 6));
+    group.add(bumpSign(track, b - 78));
   }
 
-  group.add(mountains(track));
+  // 交差点の横断歩道（角の前と後ろ）
+  for (const m of track.def.intersections ?? []) {
+    const s = track.marks[m];
+    for (const from of [s - 24, s + 18]) group.add(strip(track, from, from + 5, (p) => p.y + 0.05, ZEBRA_MAT(), 1));
+  }
 
   // 街の景色（部品セットを、コースのデータの置き場所に）
   if (town) group.add(buildScenery(track, track.def.scenery ?? []));
@@ -509,14 +511,18 @@ export function buildTrackMesh(track) {
 function boostRuns(samples) {
   const runs = [];
   let from = null;
+  let side = 0;
   for (const p of samples) {
-    if (p.boost && from === null) from = p.s;
+    if (p.boost && from === null) {
+      from = p.s;
+      side = p.boostSide || 0;
+    }
     if (!p.boost && from !== null) {
-      runs.push([from, p.s]);
+      runs.push([from, p.s, side]);
       from = null;
     }
   }
-  if (from !== null) runs.push([from, samples[samples.length - 1].s + 1]);
+  if (from !== null) runs.push([from, samples[samples.length - 1].s + 1, side]);
   return runs;
 }
 
@@ -633,4 +639,80 @@ function mountains(track) {
     g.add(cone);
   }
   return g;
+}
+
+// バンプの立体（長さ3m・高さ35cm、道の幅いっぱい。上と横は黄色と黒のななめのしま。2026-10-15 のユーザー依頼「もっと大きく目立つように」）
+export const BUMP_SIZE = { length: 3, height: 0.35 };
+let bumpTexture = null;
+function bumpMesh(track, s) {
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  if (!bumpTexture) {
+    bumpTexture = canvasTexture(128, 32, (g, w, h) => {
+      g.fillStyle = '#ffd400';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#111';
+      for (let x = -h; x < w + h; x += 24) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 12, 0);
+        g.lineTo(x + 12 + h, h);
+        g.lineTo(x + h, h);
+        g.fill();
+      }
+    });
+    bumpTexture.wrapS = THREE.RepeatWrapping;
+    bumpTexture.repeat.set(4, 1);
+  }
+  const geo = new THREE.BoxGeometry(BUMP_SIZE.length, BUMP_SIZE.height, p.half * 2 + 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: bumpTexture }));
+  m.position.set(p.x, (p.y ?? 0) + BUMP_SIZE.height / 2, p.z);
+  m.rotation.y = -p.h;
+  return m;
+}
+
+// バンプの手前の道の模様（黄色と黒のななめのしまに、黒い「BUMP」の文字。前は絵の上）
+let bumpRoad = null;
+function BUMP_ROAD_MAT() {
+  if (!bumpRoad) {
+    const tex = canvasTexture(128, 128, (g, w, h) => {
+      g.fillStyle = '#ffd400';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#111';
+      for (let x = -w; x < w * 2; x += 32) {
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 14, 0);
+        g.lineTo(x + 14 + 40, 40);
+        g.lineTo(x + 40, 40);
+        g.fill();
+        g.beginPath();
+        g.moveTo(x, h - 40);
+        g.lineTo(x + 14, h - 40);
+        g.lineTo(x + 14 + 40, h);
+        g.lineTo(x + 40, h);
+        g.fill();
+      }
+      g.font = 'bold 44px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('BUMP', w / 2, h / 2);
+    });
+    bumpRoad = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92 });
+  }
+  return bumpRoad;
+}
+
+// 横断歩道（白い太いしま。道の幅いっぱい）
+let zebra = null;
+function ZEBRA_MAT() {
+  if (!zebra) {
+    const tex = canvasTexture(128, 16, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = '#f4f4f4';
+      for (let x = 4; x < w; x += 12) g.fillRect(x, 0, 6, h);
+    });
+    zebra = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  }
+  return zebra;
 }

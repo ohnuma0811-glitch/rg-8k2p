@@ -1,6 +1,6 @@
 // その場所だけの目印（設計書 4・4.1）。写真と見くらべて作る
 // 部品の前（道の側）は +z、道ぞいの長さは x、地面は y = 0（src/render/town/kit.js と同じ）
-import { COLORS, tower, bus } from './kit.js?v=c293e1f';
+import { COLORS, tower, bus } from './kit.js?v=aa4a14c';
 
 // 文字の板の絵（同じ文字は使い回す）
 function textDraw(text, fg, bg, weight = 'bold') {
@@ -85,14 +85,14 @@ function westlakeVillas(b, opts = {}) {
 function westlakeSchool(b) {
   // 道ぞいの灰色の金網のフェンスと、その奥の広い芝生のグラウンド（白いサッカーゴール）
   b.box(130, 1.8, 0.1, 0x8f979c, 0, 0, 0);
-  b.box(130, 0.04, 70, 0x6fb64f, 0, 0, -36);
-  for (const x of [-45, 45]) {
-    b.box(0.15, 2.4, 0.15, COLORS.white, x, 0, -32);
-    b.box(0.15, 2.4, 0.15, COLORS.white, x, 0, -39);
-    b.box(0.15, 0.15, 7.3, COLORS.white, x, 2.4, -35.5);
+  b.box(70, 0.04, 60, 0x6fb64f, -35, 0, -31); // グラウンド（校舎の左）
+  for (const x of [-62, -8]) {
+    b.box(0.15, 2.4, 0.15, COLORS.white, x, 0, -27);
+    b.box(0.15, 2.4, 0.15, COLORS.white, x, 0, -34);
+    b.box(0.15, 0.15, 7.3, COLORS.white, x, 2.4, -30.5);
   }
   // 校舎（白い5階建て、緑のパネル、オレンジのベランダの帯。屋上に濃い灰色の楕円の屋根と、オレンジの A の字の柱）
-  b.push(25, 0, -95);
+  b.push(25, 0, -50); // 校舎（道から見える所に。2026-10-15 のユーザー依頼「学校だと分からなかった」）
   b.box(46, 18, 22, COLORS.white, 0, 0, 0);
   for (let f = 0; f < 5; f++) for (let x = -18; x <= 18; x += 6) b.box(3.2, 1.8, 0.2, 0x3aa35a, x, f * 3.6 + 1.2, 11.1);
   for (const y of [3.4, 7]) b.box(46.4, 0.5, 22.6, 0xe0802a, 0, y, 0);
@@ -105,22 +105,25 @@ function westlakeSchool(b) {
     b.box(3.7, 0.5, 0.5, 0xe0702a, x, 21.5, 13);
   }
   b.label(textDraw('WESTLAKE / International School', '#2b6b3a', '#ffffff'), [512, 160], 10, 13.5, 11.25, 0, 13, 4);
+  // 屋上の大きな看板（遠くから学校だと分かるように）
+  b.box(36, 4.4, 0.4, COLORS.white, 4, 23, 11);
+  b.label(textDraw('WESTLAKE INTERNATIONAL SCHOOL', '#2b6b3a', '#ffffff'), [1024, 128], 4, 25.2, 11.25, 0, 35, 4.2);
   b.cyl(1.6, 1.6, 0.2, 16, 0x2b6b3a, -1, 12.5, 11.2);
   b.box(60, 0.4, 6, COLORS.white, -8, 3.6, 14); // 1階の前の、白い柱が並ぶ屋根付きの通路
   for (let x = -36; x <= 20; x += 4) b.box(0.4, 3.6, 0.4, COLORS.white, x, 0, 16.5);
   b.pop();
   // 校舎の前の、赤い舗装の前庭と、白い棒の人の形のオブジェの植え込み
-  b.box(50, 0.06, 26, 0xc85a3a, 25, 0, -66);
-  b.box(20, 0.3, 5, COLORS.grass, 25, 0, -60);
+  b.box(50, 0.06, 22, 0xc85a3a, 25, 0, -20);
+  b.box(20, 0.3, 5, COLORS.grass, 25, 0, -18);
   for (let x = 17; x <= 33; x += 4) {
-    b.box(0.2, 1.2, 0.2, COLORS.white, x - 0.3, 0.3, -60);
-    b.box(0.2, 1.2, 0.2, COLORS.white, x + 0.3, 0.3, -60);
-    b.box(0.2, 1.2, 0.2, COLORS.white, x, 1.5, -60);
-    b.box(1.6, 0.2, 0.2, COLORS.white, x, 2.2, -60);
+    b.box(0.2, 1.2, 0.2, COLORS.white, x - 0.3, 0.3, -18);
+    b.box(0.2, 1.2, 0.2, COLORS.white, x + 0.3, 0.3, -18);
+    b.box(0.2, 1.2, 0.2, COLORS.white, x, 1.5, -18);
+    b.box(1.6, 0.2, 0.2, COLORS.white, x, 2.2, -18);
   }
   // 黄色いスクールバス
   for (let k = 0; k < 4; k++) {
-    b.push(-25 + k * 12, 0, -72, Math.PI / 2);
+    b.push(58 + k * 4, 0, -40, 0);
     bus(b);
     b.pop();
   }
@@ -242,6 +245,9 @@ function hotel(b) {
   b.box(31, 1.2, 19, 0xe2ded2, 0, 26, -12);
   for (const x of [-15, 15]) b.box(3, 29, 3, 0xe8e4da, x, 0, -3); // 角の飾りの柱
   b.box(14, 0.5, 5, 0x3a3d42, 0, 4, 0); // 1階の屋根の張り出し
+  // 屋上の名前の看板（2026-10-15 のユーザー依頼）
+  b.box(24, 3.4, 0.4, 0x7a1f2b, 0, 27.2, -3.2);
+  b.label(textDraw('Grand Kampar Hotel', '#f2d48a', '#7a1f2b'), [1024, 128], 0, 28.9, -2.95, 0, 23, 2.9);
 }
 
 // E〜F の右の「Bandar Barat」の給水塔（写真 38）: 太い円柱の上に、白い大きな丸い水入れ
@@ -293,7 +299,9 @@ function archGate(b, { span = 34 } = {}) {
     for (const x of [-1.2, 1.2]) b.box(0.5, 0.9, 1.6, 0x2a6fd8, x, y, z);
     if (k % 3 === 0) b.box(2.4, 0.3, 0.3, 0x2a6fd8, 0, y + 0.3, z); // 2本の弧をつなぐ横の骨
   }
-  b.label(textDraw('UTAR', '#ffffff', '#2a6fd8'), [256, 64], 0, 11.6, span / 2, Math.PI / 2, 5, 1.3);
+  // アーチの上の大きな「UTAR」（走ってくる車の方を向く。2026-10-15 のユーザー依頼「良く見えるところに大きく」）
+  b.box(0.4, 4.4, 15, 0x2a6fd8, 0, 11.4, span / 2);
+  b.label(textDraw('UTAR', '#ffffff', '#2a6fd8'), [512, 160], 0.25, 13.6, span / 2, Math.PI / 2, 14, 4.2);
 }
 
 export const PARTS = { westlakeVillas, westlakeSchool, hospitalUtar, kamparSign, footbridge, pipeBridge, curvedMall, museumSign, gBuilding, hotel, waterTowerBB, waterTowerUtar, utarHall, facultyBuilding, archGate };

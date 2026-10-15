@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span } from './track.js?v=c293e1f';
-import { cowPose } from './hazards.js?v=c293e1f';
+import { locate, islandNear, span } from './track.js?v=aa4a14c';
+import { cowPose } from './hazards.js?v=aa4a14c';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -15,7 +15,7 @@ export const CPU = {
   SKILL: 0.98, // CPU の最高速の割合（プレイヤーが「がんばれば勝てる」くらいに。0.93 では弱すぎた: 2026-10-14 の実機確認）
   RUBBER: 0.6, // プレイヤーとの差（1周に対する割合）を、速さの倍率にする強さ
   RUBBER_MAX: 0.12, // 速さを変えるのは、この割合まで
-  BUMP_SPEED: 17, // バンプの手前で落とす速さ（m/s。メーター約92）
+  BUMP_SPEED: 26, // バンプ・牛の手前で落とす速さ（m/s。メーター約140）
   BUMP_MISS: 0.2, // バンプの手前で減速を忘れる割合（ときどき転がる）
 };
 

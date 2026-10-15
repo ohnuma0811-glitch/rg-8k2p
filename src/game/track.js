@@ -262,6 +262,7 @@ export function buildTrack(def) {
       if (between(t, p.s, at, at + pad.len)) {
         p.boost = true;
         p.boostTime = pad.time;
+        p.boostSide = pad.side ?? 0; // 片側だけの加速板（1 右、-1 左、0 道の幅いっぱい）
       }
     }
   }
@@ -311,7 +312,7 @@ export function locate(track, x, z, hint = null, win = 40) {
     wall: p.wall,
     half: p.half,
     surface,
-    boost: p.boost && onRoad,
+    boost: p.boost && onRoad && (!p.boostSide || Math.sign(lateral) === p.boostSide),
     boostTime: p.boostTime,
   };
 }
