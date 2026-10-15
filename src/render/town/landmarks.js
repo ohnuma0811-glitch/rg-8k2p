@@ -151,10 +151,11 @@ function hospitalUtar(b) {
   b.label(textDraw('HOSPITAL UTAR / HOSPITAL UNIVERSITI TUNKU ABDUL RAHMAN', '#1f6fb2', '#9a9fa3'), [512, 128], -10, 1.6, -3.2, 0, 26, 2.6);
   b.box(2.4, 2.4, 0.3, 0x2a9a8f, -24, 1.4, -3.1);
   // 入口の上をまたぐ、青い鉄骨のアーチの橋（三角の骨組み）
-  for (let k = 0; k <= 14; k++) {
-    const a = (k / 14) * Math.PI;
-    b.box(3.4, 0.5, 2.6, 0x2a6fd8, 30 - Math.cos(a) * 20, Math.sin(a) * 9 + 0.5, -12);
-    if (k % 2 === 0) b.box(0.25, 1.6, 2.6, 0x2a6fd8, 30 - Math.cos(a) * 20, Math.sin(a) * 9 - 0.8, -12);
+  for (let k = 0; k <= 40; k++) {
+    const a = (k / 40) * Math.PI;
+    const x = 30 - Math.cos(a) * 20;
+    b.box(1.8, 0.8, 2.6, 0x2a6fd8, x, Math.sin(a) * 9 + 0.3, -12);
+    if (k % 4 === 0) b.box(0.25, 1.6, 2.6, 0x2a6fd8, x, Math.max(0, Math.sin(a) * 9 - 1.3), -12); // 三角の骨組み
   }
   b.box(5, 3, 4, COLORS.white, 22, 0, -6); // 守衛所
   for (let x = 34; x <= 46; x += 2) b.box(1, 0.9, 0.4, x % 4 ? 0xd8262b : 0xffffff, x, 0, -4); // 赤白の車止め
@@ -207,4 +208,92 @@ function pipeBridge(b) {
   b.box(30, 0.05, 14, 0x6f8f9f, 0, 0.02, 0); // 川
 }
 
-export const PARTS = { westlakeVillas, westlakeSchool, hospitalUtar, kamparSign, footbridge, pipeBridge };
+// スタート〜A の右の、曲がった銀色の屋根の横長の建物（写真 04〜06）
+function curvedMall(b) {
+  b.box(60, 9, 24, 0xd9d6cf, 0, 0, -14);
+  for (let f = 1; f < 3; f++) b.box(60.2, 1.4, 0.2, COLORS.darkGlass, 0, f * 3.6 - 1, -1.9);
+  for (let k = 0; k <= 8; k++) {
+    const a = (k / 8) * Math.PI;
+    b.box(62, 0.6, 3.4, 0xb9bec4, 0, 9 + Math.sin(a) * 3, -14 - Math.cos(a) * 12); // 丸い屋根（細い板を弧に並べる）
+  }
+  b.box(60, 0.5, 4, 0xb4553a, 0, 3.2, 0.5); // 1階の赤い屋根の張り出し
+}
+
+// A〜B の右の、錫の鉱山の博物館の大きな文字の看板（写真 13）
+function museumSign(b) {
+  b.box(16, 2.4, 1.2, 0x55585e, 0, 0, 0);
+  b.label(textDraw('MUZIUM PERLOMBONGAN BIJIH TIMAH KINTA / KINTA TIN MINING (GRAVEL PUMP) MUSEUM', '#ffffff', '#55585e'), [1024, 128], 0, 1.3, 0.62, 0, 15.6, 2);
+  b.box(8, 0.3, 4, COLORS.grass, 0, 0, -2);
+}
+
+// C の角の、丸い「G」のロゴの黒っぽい2階建て（写真 19C）
+function gBuilding(b) {
+  b.box(20, 8, 16, 0x3a3d42, 0, 0, -8);
+  b.box(20.4, 0.6, 16.4, 0x2a2c30, 0, 8, -8);
+  b.box(14, 2.5, 0.3, 0xd8262b, 0, 0.3, 0.2); // 下の赤い日よけ
+  b.cyl(2.2, 2.2, 0.3, 20, 0x2a2c30, 4, 5, 0.3);
+  b.label(textDraw('G', '#e8b04a', '#2a2c30'), [128, 128], 4, 5.2, 0.5, 0, 3.6, 3.6);
+}
+
+// C〜D の右の、白い8階建てのホテル（写真 22・22右側）
+function hotel(b) {
+  b.box(30, 26, 18, 0xf0eee6, 0, 0, -12);
+  for (let f = 1; f < 8; f++) for (let x = -12; x <= 12; x += 4) b.box(2, 1.6, 0.2, COLORS.darkGlass, x, f * 3.2 + 0.6, -2.9);
+  b.box(31, 1.2, 19, 0xe2ded2, 0, 26, -12);
+  for (const x of [-15, 15]) b.box(3, 29, 3, 0xe8e4da, x, 0, -3); // 角の飾りの柱
+  b.box(14, 0.5, 5, 0x3a3d42, 0, 4, 0); // 1階の屋根の張り出し
+}
+
+// E〜F の右の「Bandar Barat」の給水塔（写真 38）: 太い円柱の上に、白い大きな丸い水入れ
+function waterTowerBB(b) {
+  b.cyl(2.2, 2.6, 18, 12, 0xe8e8e8, 0, 0, -6);
+  b.cyl(7, 4, 6, 16, 0xf4f4f4, 0, 18, -6);
+  b.cyl(7, 7, 4, 16, 0xf4f4f4, 0, 24, -6);
+  b.label(textDraw('Bandar Barat', '#1f5fbf', '#f4f4f4'), [512, 96], 0, 26, 1.05, 0, 9, 1.6);
+}
+
+// I〜J の左の UTAR の給水塔（写真 67）: 細い白い柱の組み合わせの上に、白い丸い水入れ、青い帯に「UTAR」
+function waterTowerUtar(b) {
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    b.box(0.4, 16, 0.4, 0xf2f2f2, Math.cos(a) * 4, 0, -6 + Math.sin(a) * 4);
+  }
+  for (const y of [5, 10]) b.cyl(4.3, 4.3, 0.4, 16, 0xf2f2f2, 0, y, -6);
+  b.cyl(6, 6, 5, 20, 0xf6f6f6, 0, 16, -6);
+  b.cyl(6.05, 6.05, 1.6, 20, 0x2a5fb8, 0, 18.5, -6);
+  b.label(textDraw('UTAR', '#ffffff', '#2a5fb8'), [256, 64], 0, 19.3, 0.1, 0, 5, 1.3);
+}
+
+// H の右の UTAR の大ホール（写真 62右H）: 中国風の灰色の大きな屋根（ゆるく反った箱を重ねる）と、ピンクの柱の並び
+function utarHall(b) {
+  b.box(50, 10, 34, 0xe8e2d8, 0, 0, -22);
+  for (let x = -24; x <= 24; x += 4) b.box(1, 10, 1, 0xd0457a, x, 0, -4); // ピンクの柱
+  for (let k = 0; k < 4; k++) b.box(60 - k * 10, 1.4, 44 - k * 8, k % 2 ? 0x8f969c : 0xa3aab0, 0, 10 + k * 1.6, -22); // 段々の屋根
+  b.box(16, 2, 10, 0x8f969c, 0, 16.4, -22);
+  b.box(30, 0.6, 6, 0x8f969c, 40, 4, -8); // 横の屋根付きの通路
+  for (let x = 28; x <= 52; x += 4) b.box(0.8, 4, 0.8, 0xd0457a, x, 0, -6);
+}
+
+// G〜H の右の学部の建物（写真 61右）: 白い長い2階建て、灰色の屋根、オレンジの看板
+function facultyBuilding(b) {
+  b.box(46, 8, 16, 0xf2f2f0, 0, 0, -10);
+  b.box(48, 0.8, 18, 0x8f969c, 0, 8, -10);
+  for (let x = -20; x <= 20; x += 5) b.box(0.6, 8, 0.6, 0xd8d8d8, x, 0, -1.6);
+  b.box(4, 3, 0.3, 0xe8742a, -16, 4, -1.7);
+}
+
+// I の青い鉄のアーチの門（写真 64I）: 道をまたぐ大きなアーチ（道のふちに置き、前の向きに道を越える）
+function archGate(b, { span = 34 } = {}) {
+  // 弧にそって、短い鉄骨を重なるくらい細かく並べる（すき間ができないように）
+  const N = 48;
+  for (let k = 0; k <= N; k++) {
+    const a = (k / N) * Math.PI;
+    const z = span / 2 - Math.cos(a) * (span / 2);
+    const y = Math.sin(a) * 11;
+    for (const x of [-1.2, 1.2]) b.box(0.5, 0.9, 1.6, 0x2a6fd8, x, y, z);
+    if (k % 3 === 0) b.box(2.4, 0.3, 0.3, 0x2a6fd8, 0, y + 0.3, z); // 2本の弧をつなぐ横の骨
+  }
+  b.label(textDraw('UTAR', '#ffffff', '#2a6fd8'), [256, 64], 0, 11.6, span / 2, Math.PI / 2, 5, 1.3);
+}
+
+export const PARTS = { westlakeVillas, westlakeSchool, hospitalUtar, kamparSign, footbridge, pipeBridge, curvedMall, museumSign, gBuilding, hotel, waterTowerBB, waterTowerUtar, utarHall, facultyBuilding, archGate };

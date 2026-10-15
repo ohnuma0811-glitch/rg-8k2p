@@ -176,6 +176,38 @@ export function createSfx(audio) {
       tone('square', 160, 0.25, 0.1, { to: 60 });
       burst('lowpass', 1500, 80, 0.5, 0.15, { at: 0.2 }); // こだま（小さく）
     },
+    // バンプを乗り越える「コトン」（小さく）
+    hump: () => {
+      tone('triangle', 180, 0.08, 0.25, { to: 120 });
+      burst('lowpass', 900, 300, 0.05, 0.15);
+    },
+    // 牛にぶつかった「モー」: のこぎりの波2つを、口の形のようなバンドパスに通し、ゆっくり下げる
+    moo: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.setValueAtTime(500, t);
+      band.frequency.linearRampToValueAtTime(700, t + 0.3);
+      band.frequency.linearRampToValueAtTime(450, t + 0.9);
+      band.Q.value = 2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.35, t + 0.1);
+      g.gain.setValueAtTime(0.35, t + 0.6);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.95);
+      band.connect(g).connect(audio.sfxOut);
+      for (const f of [110, 112]) {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f, t);
+        o.frequency.linearRampToValueAtTime(f * 1.08, t + 0.25);
+        o.frequency.exponentialRampToValueAtTime(f * 0.86, t + 0.9);
+        o.connect(band);
+        o.start(t);
+        o.stop(t + 1);
+      }
+    },
     // バンプで転がる: ジャンプ台の着地と同じ作りの派手な「バーン」と、0.4秒あとから3秒の「ピヨピヨ」
     tumble: () => {
       burst('bandpass', 2500, 600, 0.12, 0.85);

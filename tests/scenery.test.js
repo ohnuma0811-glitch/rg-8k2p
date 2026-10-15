@@ -51,7 +51,10 @@ test('道の真ん中（side 0）に置く物は、分離帯のある所だけ�
   const group = buildScenery(t, [{ part: 'lamp', from: ['E', 'F', 0.1], to: ['E', 'F', 0.9], every: 30, side: 0, radius: 1 }, ...KAMPAR_SCENERY]);
   const n = t.samples.length;
   for (const spot of group.userData.spots.filter((s) => s.side === 0)) {
-    assert.ok(t.samples[((Math.round(spot.s) % n) + n) % n].median > 0, `s=${spot.s}`);
+    if (spot.anywhere) {
+      // ロータリーの島の上の標識だけは、分離帯がなくてもよい（島の上にある）
+      assert.ok(t.islands.some((isl) => Math.hypot(isl.x - spot.x, isl.z - spot.z) < isl.r), `島の上にない: s=${spot.s}`);
+    } else assert.ok(t.samples[((Math.round(spot.s) % n) + n) % n].median > 0, `s=${spot.s}`);
   }
 });
 
@@ -70,4 +73,18 @@ test('大きな目印は、自分の前の道（同じ区間）ではなく、�
   const other = placeSpot(t, markS(t, ['C', 'D', 0.5]), 0, 0);
   const far = { ...placeSpot(t, markS(t, ['H', 'I', 0.5]), -1, 2), x: other.x, z: other.z };
   assert.equal(sceneryClear(t, far, 5), false);
+});
+
+test('ロータリーの出口に、矢印の標識と矢羽根の板がある。コースでない道はふさぐ（2026-10-15 のユーザー依頼）', () => {
+  const parts = KAMPAR_SCENERY.map((i) => i.part);
+  assert.ok(parts.filter((p) => p === 'arrowSign').length >= 3);
+  assert.ok(parts.filter((p) => p === 'chevronBoard').length >= 6);
+  assert.ok(parts.filter((p) => p === 'stubRoad').length >= 3); // 少しだけ描いた道と、赤白の柵
+  const group = buildScenery(t, KAMPAR_SCENERY);
+  assert.deepEqual(group.userData.skippedLandmarks, []);
+});
+
+test('そのほかの目印（設計書 4 の表）も置かれている', () => {
+  const parts = KAMPAR_SCENERY.map((i) => i.part);
+  for (const p of ['curvedMall', 'museumSign', 'gBuilding', 'hotel', 'waterTowerBB', 'waterTowerUtar', 'utarHall', 'facultyBuilding', 'archGate']) assert.ok(parts.includes(p), p);
 });

@@ -153,3 +153,13 @@ test('結果の曲は、かっこいい曲（E マイナー、分厚いスーパ
   assert.equal(r.bpm, 124);
   assert.equal(r.bars, 16);
 });
+
+test('Kampar Town の曲: 鉄琴ふうの丸い音、156 BPM・16小節、G メジャーのペンタトニック（ソ・ラ・シ・レ・ミの5つの音）', async () => {
+  const { COURSE2 } = await import('../src/data/tracks.js');
+  const song = SONGS[COURSE2.music];
+  assert.equal(COURSE2.music, 'kampar');
+  assert.equal(song.voice, 'bell');
+  assert.equal(song.bpm, 156);
+  assert.equal(song.bars, 16);
+  for (const n of parseTrack(song.lead).notes) assert.ok([7, 9, 11, 2, 4].includes(n.midi % 12), `${n.midi}`);
+});

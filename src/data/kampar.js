@@ -11,18 +11,47 @@ export const KAMPAR_SCENERY = [
   { part: 'kamparSign', at: ['J', 'S', 0.3], side: -1, back: 3, radius: 12 }, // KAMPAR の看板（75J右・76）
   { part: 'pipeBridge', at: ['J', 'S', 0.75], side: 1, back: 2, radius: 8 }, // 川と水道管の橋（77）
 
+  // そのほかの目印（設計書 4 の表）
+  { part: 'curvedMall', at: ['S', 'A', 0.8], side: 1, back: 6, radius: 15 }, // 曲がった屋根の大きな建物（04〜06）
+  { part: 'museumSign', at: ['A', 'B', 0.84], side: 1, back: 1, radius: 4 }, // 博物館の看板（13）
+  { part: 'gBuilding', at: ['B', 'C', 0.96], side: 1, back: 2, radius: 8 }, // 丸い「G」の建物（19C）
+  { part: 'hotel', at: ['C', 'D', 0.65], side: 1, back: 3, radius: 10 }, // 白い8階建てのホテル（22）
+  { part: 'waterTowerBB', at: ['E', 'F', 0.55], side: 1, back: 6, radius: 6 }, // 「Bandar Barat」の給水塔（38）
+  { part: 'facultyBuilding', at: ['G', 'H', 0.85], side: 1, back: 4, radius: 10 }, // 学部の建物（61右）
+  { part: 'utarHall', at: ['H', 'I', 0.12], side: 1, back: 6, radius: 18 }, // 大学の大ホール（62右H）
+  { part: 'archGate', at: ['H', 'I', 0.97], side: 1, back: 0, radius: 2 }, // I の青いアーチの門（64I）
+  { part: 'waterTowerUtar', at: ['I', 'J', 0.12], side: -1, back: 5, radius: 6 }, // UTAR の給水塔（67）
+
+  // ロータリーの出口の目印（2026-10-15 のユーザー依頼）: 島の上と出口の先に矢印の標識、出口の両わきに矢羽根の板、
+  // コースでない道は少しだけ描いて赤白の柵でふさぐ
+  { part: 'arrowSign', at: ['A', 'B', 0.45], side: 0, anywhere: true, dir: 0 },
+  { part: 'arrowSign', at: ['A', 'B', 0.55], side: 1, back: 0.5, dir: 0 },
+  { part: 'chevronBoard', at: ['A', 'B', 0.52], side: -1, back: 0.5, dir: 1 },
+  { part: 'chevronBoard', at: ['A', 'B', 0.52], side: 1, back: 0.5, dir: -1 },
+  { part: 'stubRoad', at: ['A', 'B', 0.45], side: -1, back: 0, radius: 3 },
+  { part: 'arrowSign', at: ['E', 'E', 0], side: 0, anywhere: true, dir: 0 },
+  { part: 'arrowSign', at: ['E', 'F', 0.08], side: 1, back: 0.5, dir: 0 },
+  { part: 'chevronBoard', at: ['E', 'F', 0.05], side: -1, back: 0.5, dir: 1 },
+  { part: 'chevronBoard', at: ['E', 'F', 0.05], side: 1, back: 0.5, dir: -1 },
+  { part: 'stubRoad', at: ['E', 'E', 0], side: 1, back: 0, radius: 3 },
+  { part: 'arrowSign', at: ['G', 'G', 0], side: 0, anywhere: true, dir: 0 },
+  { part: 'arrowSign', at: ['G', 'H', 0.09], side: 1, back: 0.5, dir: 0 },
+  { part: 'chevronBoard', at: ['G', 'H', 0.06], side: -1, back: 0.5, dir: 1 },
+  { part: 'chevronBoard', at: ['G', 'H', 0.06], side: 1, back: 0.5, dir: -1 },
+  { part: 'stubRoad', at: ['G', 'G', 0], side: 1, back: 0, radius: 3 },
+
   // スタート〜A（01〜06）: 分離帯のある広い道。左は草むらとやぶ、右は低い建物。分離帯に街灯
   { part: 'bush', from: ['S', 'A', 0.05], to: ['S', 'A', 0.95], every: 9, side: -1, back: 2, radius: 2 },
   { part: 'tree', from: ['S', 'A', 0.1], to: ['S', 'A', 0.9], every: 18, side: -1, back: 6, radius: 3, color: 0x2f7a2c },
   { part: 'lamp', from: ['S', 'A', 0.1], to: ['S', 'A', 0.85], every: 30, side: 0, radius: 1 },
-  { part: 'shophouse', from: ['S', 'A', 0.55], to: ['S', 'A', 0.85], every: 7, side: 1, back: 3, radius: 7, floors: 2, color: 0xe6e2da },
+  { part: 'shophouse', from: ['S', 'A', 0.5], to: ['S', 'A', 0.68], every: 7, side: 1, back: 3, radius: 7, floors: 2, color: 0xe6e2da },
   { part: 'tree', from: ['S', 'A', 0.1], to: ['S', 'A', 0.5], every: 16, side: 1, back: 3, radius: 3 },
 
   // A〜B（07〜14B）: ショップハウスの町なか。右にファストフード店とガソリンスタンド
   { part: 'shophouse', from: ['A', 'B', 0.1], to: ['A', 'B', 0.35], every: 6, side: 1, back: 2, radius: 7 },
   { part: 'shophouse', from: ['A', 'B', 0.1], to: ['A', 'B', 0.35], every: 6, side: -1, back: 2, radius: 7, color: 0xf2f0ea },
-  { part: 'fastFood', at: ['A', 'B', 0.62], side: 1, back: 3, radius: 8 },
-  { part: 'petrolStation', at: ['A', 'B', 0.88], side: 1, back: 3, radius: 9 },
+  { part: 'fastFood', at: ['A', 'B', 0.62], side: 1, back: 3, radius: 8 }, // ファストフード店（11）
+  { part: 'petrolStation', at: ['A', 'B', 0.72], side: 1, back: 3, radius: 9 }, // ガソリンスタンド（12）
   { part: 'tree', from: ['A', 'B', 0.6], to: ['A', 'B', 0.95], every: 14, side: -1, back: 3, radius: 3 },
 
   // B〜C（15〜19C）: ヤシの並木の分離帯と、赤い屋根の3階建てショップハウスの並び
@@ -32,7 +61,7 @@ export const KAMPAR_SCENERY = [
 
   // C〜D（20〜25）: レンガの道。白黒の木組みのショップハウス
   { part: 'timberHouse', from: ['C', 'D', 0.1], to: ['C', 'D', 0.9], every: 7, side: -1, back: 2, radius: 7 },
-  { part: 'shophouse', from: ['C', 'D', 0.1], to: ['C', 'D', 0.9], every: 6, side: 1, back: 2, radius: 7, color: 0xc77b5a },
+  { part: 'shophouse', from: ['C', 'D', 0.1], to: ['C', 'D', 0.45], every: 6, side: 1, back: 2, radius: 7, color: 0xc77b5a },
 
   // D〜E（26〜34）: 学校の横の道。学校の塀と、青い屋根の屋根付き通路。右は2階建ての家
   { part: 'wall', from: ['D', 'E', 0.15], to: ['D', 'E', 0.95], every: 10, side: -1, back: 1, radius: 2, length: 10, color: 0x2a5fb8, pattern: 'school' },
@@ -42,7 +71,7 @@ export const KAMPAR_SCENERY = [
   // E〜F（35E〜42F）: 白いテントの並び、家、木
   { part: 'tent', from: ['E', 'F', 0.1], to: ['E', 'F', 0.45], every: 6, side: 1, back: 3, radius: 3 },
   { part: 'tree', from: ['E', 'F', 0.1], to: ['E', 'F', 0.9], every: 15, side: -1, back: 3, radius: 3 },
-  { part: 'shophouse', from: ['E', 'F', 0.5], to: ['E', 'F', 0.9], every: 7, side: 1, back: 3, radius: 7, floors: 2, color: 0xe8e2d4 },
+  { part: 'shophouse', from: ['E', 'F', 0.63], to: ['E', 'F', 0.9], every: 7, side: 1, back: 3, radius: 7, floors: 2, color: 0xe8e2d4 },
 
   // F〜G（43〜60G）: 両側に木の並ぶ道。右は白い手すりの湖と、止まっている車
   { part: 'tree', from: ['F', 'G', 0.05], to: ['F', 'G', 0.9], every: 12, side: 1, back: 1, radius: 3 },
@@ -58,7 +87,7 @@ export const KAMPAR_SCENERY = [
   { part: 'lake', at: ['G', 'H', 0.6], side: 1, back: 8, radius: 4, width: 90, depth: 60 },
 
   // H〜I（63HI）: 大学の中。両側に大学の建物、木
-  { part: 'tower', from: ['H', 'I', 0.1], to: ['H', 'I', 0.9], every: 45, side: 1, back: 8, radius: 12, floors: 3, width: 36, depth: 16, color: 0xf2f2f0, stripe: 0x8fa0ad },
+  { part: 'tower', from: ['H', 'I', 0.35], to: ['H', 'I', 0.9], every: 45, side: 1, back: 8, radius: 12, floors: 3, width: 36, depth: 16, color: 0xf2f2f0, stripe: 0x8fa0ad },
   { part: 'tree', from: ['H', 'I', 0.05], to: ['H', 'I', 0.95], every: 15, side: -1, back: 3, radius: 3 },
 
   // I〜J（65〜75J）: Jalan Perdana。大きな木と止まっている車。左に大きな店、右に家具の店

@@ -228,7 +228,7 @@ export function buildTrack(def) {
   t.islands = [];
   for (const rb of def.roundabouts ?? []) {
     const p = samples[Math.round(markS(t, rb.at)) % samples.length];
-    const island = { x: p.x, z: p.z, r: rb.r, s: p.s };
+    const island = { x: p.x, z: p.z, r: rb.r, s: p.s, brick: !!rb.brick };
     t.islands.push(island);
     const reach = islandReach(t, island);
     for (const q of samples) {

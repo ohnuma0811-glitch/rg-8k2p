@@ -447,8 +447,13 @@ export function buildTrackMesh(track) {
     for (const side of [-1, 1]) group.add(fence(samples, (p) => side * p.median, (p) => p.y, (p) => p.y + 0.15, hasMedian, curb));
   }
 
-  // ロータリーの島: 芝生の丸い台と、白黒の縁石の輪、真ん中に木
-  for (const isl of track.islands ?? []) group.add(islandMesh(isl));
+  // ロータリーの島: 芝生の丸い台と、白黒の縁石の輪、真ん中に木。G は島のまわりが赤レンガ
+  // 出口へ向かう所の道の上に、白い大きな矢印（出口が分かるように。2026-10-15 のユーザー依頼）
+  const exitMat = new THREE.MeshBasicMaterial({ map: roadArrows(), transparent: true });
+  for (const isl of track.islands ?? []) {
+    group.add(islandMesh(isl));
+    group.add(strip(track, isl.s + 14, isl.s + 22, (p) => p.y + 0.05, exitMat, 1));
+  }
 
   const checker = canvasTexture(64, 16, (g, w, h) => {
     for (let x = 0; x < w; x += 8) {
@@ -515,8 +520,33 @@ function boostRuns(samples) {
   return runs;
 }
 
+// 道の上の白い矢印（進む向きを指す。左右の車線に1つずつ）
+function roadArrows() {
+  return canvasTexture(128, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#f4f4f4';
+    for (const cx of [w * 0.2, w * 0.8]) {
+      g.beginPath();
+      g.moveTo(cx - 12, h * 0.95);
+      g.lineTo(cx - 12, h * 0.45);
+      g.lineTo(cx - 24, h * 0.45);
+      g.lineTo(cx, h * 0.05);
+      g.lineTo(cx + 24, h * 0.45);
+      g.lineTo(cx + 12, h * 0.45);
+      g.lineTo(cx + 12, h * 0.95);
+      g.fill();
+    }
+  });
+}
+
 function islandMesh(isl) {
   const g = new THREE.Group();
+  if (isl.brick) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(isl.r, isl.r + 12, 40), new THREE.MeshLambertMaterial({ color: 0xc06a4a }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(isl.x, 0.04, isl.z);
+    g.add(ring);
+  }
   const grass = new THREE.Mesh(new THREE.CylinderGeometry(isl.r, isl.r, 0.25, 32), new THREE.MeshLambertMaterial({ color: 0x5aa04a }));
   grass.position.set(isl.x, 0.125, isl.z);
   g.add(grass);

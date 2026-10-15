@@ -76,10 +76,17 @@ export function barrier(b, { length = 10 } = {}) {
   for (let k = 0; k < length; k++) b.box(1, 1, 0.3, k % 2 ? 0xffffff : 0xd8262b, -length / 2 + k + 0.5, 0, 0);
 }
 
-// 進む向きの、青い丸い標識に白い矢印。dir: -1 左、0 まっすぐ、1 右
-export function arrowSign(b, { dir = 0 } = {}) {
+// 道ばたの標識を、走ってくる車の方へ向ける回転（左の道ばたでは部品の +x が進む向き、右では逆）
+function towardDriver(side) {
+  return side < 0 ? -Math.PI / 2 : side > 0 ? Math.PI / 2 : Math.PI;
+}
+
+// 進む向きの、青い丸い標識に白い矢印。dir: -1 左、0 まっすぐ、1 右。走ってくる車の方を向く
+export function arrowSign(b, { dir = 0, side = -1 } = {}) {
+  b.push(0, 0, 0, towardDriver(side));
   b.cyl(0.08, 0.08, 2.2, 6, 0x9aa0a6, 0, 0, 0);
   b.label(arrowDraw(dir), [128, 128], 0, 2.9, 0.06, 0, 1.4, 1.4);
+  b.pop();
 }
 function arrowDraw(dir) {
   const draw = (g, w, h) => {
@@ -104,7 +111,8 @@ function arrowDraw(dir) {
 }
 
 // 黄色と黒のしまの矢羽根の板（カーブの向きを指す）
-export function chevronBoard(b, { dir = 1 } = {}) {
+export function chevronBoard(b, { dir = 1, side = -1 } = {}) {
+  b.push(0, 0, 0, towardDriver(side));
   for (const x of [-0.6, 0.6]) b.cyl(0.06, 0.06, 1.2, 6, 0x9aa0a6, x, 0, 0);
   const draw = (g, w, h) => {
     g.fillStyle = '#ffd400';
@@ -123,6 +131,14 @@ export function chevronBoard(b, { dir = 1 } = {}) {
   };
   draw.key = `chevron${dir}`;
   b.label(draw, [256, 96], 0, 1.7, 0.06, 0, 2.4, 0.9);
+  b.pop();
+}
+
+// コースでない道の入口（少しだけ道を描き、赤白の柵でふさぐ）
+export function stubRoad(b, { width = 14 } = {}) {
+  b.box(width, 0.03, 20, 0x55585e, 0, 0, -10);
+  for (const x of [-width / 2, width / 2]) b.box(0.3, 0.2, 20, 0xf2f2f2, x, 0, -10);
+  barrier(b, { length: width });
 }
 
 export function tent(b) {
