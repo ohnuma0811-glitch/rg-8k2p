@@ -3,7 +3,8 @@ import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
-import { createKart, stepKart, startDash } from './game/kart.js';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
+import { cowContact, cowPose } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -14,7 +15,7 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -278,6 +279,22 @@ function createGame(name, charId) {
   };
 }
 
+// 牛の形（コースの形と一緒に取っておく。コースが変わると一緒に入れかわる）を、時刻 time の場所に置く
+function placeCows(time) {
+  if (!track.cows.length) return;
+  if (!track.cowModels) {
+    track.cowModels = track.cows.map((_, k) => createCowModel(k));
+    track.cowModels.forEach((m) => track.mesh.add(m));
+  }
+  track.cows.forEach((cow, k) => {
+    const p = cowPose(track, cow, time);
+    const m = track.cowModels[k];
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = -p.heading;
+    m.userData.walk(time);
+  });
+}
+
 function removeGame() {
   if (!game) return;
   sfx.stopAll();
@@ -330,6 +347,8 @@ function stepGame(dt) {
       stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber), dt);
     }
   });
+  // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
+  if (track.cows.length) karts.forEach((kart) => cowContact(kart, track, race.t, PHYS));
   const before = g.contacts;
   g.contacts = pushApart(karts, before);
   g.bumps += newBumps(before, g.contacts, me);
@@ -540,6 +559,7 @@ function renderGame(alpha, dt) {
     return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
+  placeCows(g.race.t);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;

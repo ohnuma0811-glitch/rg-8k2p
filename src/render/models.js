@@ -273,3 +273,36 @@ export function createNameTag(text, color) {
   sprite.position.set(-0.45, 4.3, 0); // 頭のてっぺん（約3m）の上
   return sprite;
 }
+
+// 牛（Kampar Town。2026-10-15 のユーザー依頼）: 白に黒のまだら（2頭目・4頭目は茶色）。前は +x
+export function createCowModel(k = 0) {
+  const g = new THREE.Group();
+  const coat = k % 2 ? 0x8a5a33 : 0xf2f0ea;
+  g.add(box(2.4, 1.0, 1.1, coat, 0, 1.25, 0)); // 体
+  if (k % 2 === 0) {
+    g.add(box(0.8, 0.7, 1.12, 0x222222, -0.4, 1.35, 0)); // 黒いまだら
+    g.add(box(0.5, 0.5, 1.12, 0x222222, 0.6, 1.1, 0));
+  }
+  const head = new THREE.Group();
+  head.add(box(0.7, 0.6, 0.6, coat, 0, 0, 0));
+  head.add(box(0.25, 0.3, 0.5, 0xe8a0a0, 0.42, -0.12, 0)); // ピンクの鼻
+  for (const z of [-0.22, 0.22]) head.add(box(0.12, 0.3, 0.1, 0xf6f2e0, -0.1, 0.42, z)); // 角
+  head.position.set(1.45, 1.6, 0);
+  g.add(head);
+  const legs = [];
+  for (const [x, z] of [[0.85, 0.38], [0.85, -0.38], [-0.85, 0.38], [-0.85, -0.38]]) {
+    const leg = new THREE.Group();
+    leg.add(box(0.25, 0.85, 0.25, coat, 0, -0.42, 0));
+    leg.position.set(x, 0.8, z);
+    g.add(leg);
+    legs.push(leg);
+  }
+  g.add(box(0.1, 0.7, 0.1, coat, -1.25, 1.15, 0)); // しっぽ
+  // 歩く: 足を前後に振る（時刻で決まる）
+  g.userData.walk = (time) => {
+    legs.forEach((leg, i) => {
+      leg.rotation.z = Math.sin(time * 4 + (i % 2) * Math.PI + k) * 0.35;
+    });
+  };
+  return g;
+}

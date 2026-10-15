@@ -247,6 +247,15 @@ export function buildTrack(def) {
     for (const p of samples) if (between(t, p.s, from, to) && p.half === def.roadHalf) p.median = m.half;
   }
   t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
+  // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
+  t.cows = [];
+  if (def.cows) {
+    const from = markS(t, def.cows.from);
+    const len = span(t, from, markS(t, def.cows.to));
+    for (let k = 0; k < def.cows.count; k++) {
+      t.cows.push({ s: (from + (len * (k + 0.5)) / def.cows.count) % t.length, period: 24 + k * 5, phase: k * 2.1 });
+    }
+  }
   for (const pad of def.pads ?? []) {
     const at = markS(t, pad.at);
     for (const p of samples) {

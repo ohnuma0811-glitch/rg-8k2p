@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, span } from '../src/game/track.js';
 import { COURSE2, COURSES } from '../src/data/tracks.js';
-import { createKart, stepKart } from '../src/game/kart.js';
+import { createKart, stepKart, PHYS } from '../src/game/kart.js';
+import { cowContact } from '../src/game/hazards.js';
 import { createCpu, cpuControl } from '../src/game/cpu.js';
 import { kartParams } from '../src/game/stats.js';
 
@@ -49,6 +50,7 @@ test('CPU は3周を止まらずに走りきる。1周は約1分（45〜80秒）
   let stuck = 0;
   for (let time = 0; time < 300 && dist < 3 * t.length; time += 1 / 60) {
     stepKart(kart, cpuControl(cpu, kart, t, time), t, params, 1 / 60);
+    cowContact(kart, t, time, PHYS);
     const s = t.samples[kart.seg].s;
     const d = span(t, last, s);
     if (d < t.length / 2) dist += d;

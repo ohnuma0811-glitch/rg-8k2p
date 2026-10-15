@@ -1,6 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
 import { locate, islandNear, span } from './track.js';
+import { cowPose } from './hazards.js';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -54,6 +55,16 @@ export function cpuControl(cpu, kart, track, t) {
     const turnTo = wrap(samples[(loc.i + 60) % n].h - loc.heading);
     const side = turnTo > 0.3 ? 1 : turnTo < -0.3 ? -1 : Math.sign(cpu.lane) || 1;
     lane = side * (isl.r + 5 + Math.abs(Math.sin(t * cpu.sway + cpu.phase)) * 2);
+  }
+  // 牛: 先の牛が、自分が着くころに走る線の近くにいたら、牛の横（5m 離れた所）を通る
+  for (const cow of track.cows ?? []) {
+    const ahead = span(track, loc.s, cow.s);
+    if (ahead > 35) continue;
+    const c = cowPose(track, cow, t + ahead / Math.max(5, kart.speed));
+    if (Math.abs(lane - c.lateral) < 4) {
+      lane = c.lateral + 5 * (Math.sign(lane - c.lateral) || 1);
+      lane = Math.max(-(track.roadHalf - 2), Math.min(track.roadHalf - 2, lane));
+    }
   }
   const tx = p.x - Math.sin(p.h) * lane;
   const tz = p.z + Math.cos(p.h) * lane;

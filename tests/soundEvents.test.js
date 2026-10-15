@@ -147,3 +147,7 @@ test('バンプ: 乗り越えたら hump（コトン）、転がり始めたら 
   assert.deepEqual(soundEvents(st(), st({}, { tumble: 3 }), 3), ['tumble']);
   assert.deepEqual(soundEvents(st({}, { tumble: 3 }), st({}, { tumble: 2.9 }), 3), []);
 });
+
+test('牛にぶつかったら moo', () => {
+  assert.deepEqual(soundEvents(st({}, { cowHits: 0 }), st({}, { cowHits: 1 }), 3), ['moo']);
+});
