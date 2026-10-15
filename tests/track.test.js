@@ -196,3 +196,18 @@ test('Kenta Circuit の加速板は今までどおり 1.0秒', () => {
   const p = track.samples.find((q) => q.boost);
   assert.equal(p.boostTime, 1.0);
 });
+
+test('ロータリー: 島のまわりだけ道を広げ、島の両側を道の幅で走れる（2026-10-15 のユーザーの判断）', () => {
+  const t = buildTrack({ ...TEST_DEF, roundabouts: [{ at: ['A', 'B', 0.5], r: 7 }] });
+  assert.equal(t.islands.length, 1);
+  const isl = t.islands[0];
+  const p = t.samples[Math.round(isl.s)];
+  assert.equal(p.half, 12 + 7);
+  assert.ok(Math.abs(p.wall - (12 + 7 + 3)) < 1e-9);
+  // 島から遠い所は、ふつうの幅
+  assert.equal(t.samples[Math.round(isl.s + 60)].half, 12);
+  // 島の両側（中心から ±13m）は道
+  for (const d of [-13, 13]) {
+    assert.equal(locate(t, p.x - Math.sin(p.h) * d, p.z + Math.cos(p.h) * d, null).surface, 'road');
+  }
+});

@@ -142,6 +142,16 @@ function pointS(samples, fit, pt) {
   return best.s;
 }
 
+// ロータリーの島の、道を広げる長さ（島の中心から前後に m）
+export function islandReach(track, island) {
+  return island.r + track.roadHalf + 12;
+}
+
+// s のまわりにある島（なければ null）
+export function islandNear(track, s) {
+  return (track.islands ?? []).find((isl) => Math.min(span(track, isl.s, s), span(track, s, isl.s)) < islandReach(track, isl)) ?? null;
+}
+
 // a から b まで、走る向きに進む長さ（m）
 export function span(track, a, b) {
   const L = track.length;
@@ -214,10 +224,27 @@ export function buildTrack(def) {
   const startIndex = samples.findIndex((p) => p.s >= startS);
   const t = { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross, marks: {} };
   for (const [name, i] of Object.entries(def.marks ?? {})) t.marks[name] = pointS(samples, fit, def.points[i]);
+  // ロータリー: 真ん中に島を置き、島のまわりだけ道を広げる（島の両側を道の幅で走れる）
+  t.islands = [];
+  for (const rb of def.roundabouts ?? []) {
+    const p = samples[Math.round(markS(t, rb.at)) % samples.length];
+    const island = { x: p.x, z: p.z, r: rb.r, s: p.s };
+    t.islands.push(island);
+    const reach = islandReach(t, island);
+    for (const q of samples) {
+      const d = Math.min(span(t, island.s, q.s), span(t, q.s, island.s));
+      if (d >= reach) continue;
+      // なめらかに広げる（中心で島の半径だけ広い）
+      const bulge = rb.r * Math.cos(((d / reach) * Math.PI) / 2) ** 2;
+      q.half = Math.max(q.half, def.roadHalf + bulge);
+      q.wall = q.half + def.dirt;
+    }
+  }
   for (const m of def.medians ?? []) {
     const from = markS(t, m.from);
     const to = markS(t, m.to);
-    for (const p of samples) if (between(t, p.s, from, to)) p.median = m.half;
+    // ロータリーの所には分離帯を通さない
+    for (const p of samples) if (between(t, p.s, from, to) && p.half === def.roadHalf) p.median = m.half;
   }
   for (const pad of def.pads ?? []) {
     const at = markS(t, pad.at);

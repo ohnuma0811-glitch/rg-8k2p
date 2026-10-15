@@ -38,6 +38,7 @@ export const PHYS = {
   WRONG_CLEAR: 0.5, // 前向きにこの秒数走ると、逆走の数えを0に戻す
   WRONG_FIX: 10, // 逆走がこの秒数続いたら、スピンして正しい向きに戻す（2026-10-14 のユーザー依頼で30秒から短く）
   SPIN_TIME: 1, // スピンしている時間（秒。ハンドルは効かない）
+  ISLAND_PAD: 1.2, // ロータリーの島のふちと、車の中心の間（車の半分の大きさ）
   FALL_Y: -2, // これより下に落ちたらコースに戻す
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
 };
@@ -67,6 +68,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.respawn = 0;
   kart.respawnAt = i;
   kart.onWall = false;
+  kart.onIsland = false;
   kart.prevGround = kart.y;
   kart.wrongWay = false; // 逆走の警告を出しているか
   kart.wrongTime = 0; // 逆向きに走っている秒数
@@ -268,7 +270,29 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.move = along;
     }
   }
-  kart.onWall = touching;
+  // ロータリーの島: 中に入ろうとしたら、まわりへ押し出す。速さを落とすのは、ぶつかった最初の1回だけ（柵と同じ）
+  // 島のふちにそって進む向きにそろえるので、まっすぐ当たっても、近い側へ抜けられる
+  let onIsland = false;
+  for (const isl of track.islands ?? []) {
+    const dx = kart.x - isl.x;
+    const dz = kart.z - isl.z;
+    const d = Math.hypot(dx, dz);
+    const min = isl.r + PHYS.ISLAND_PAD;
+    if (d >= min || d === 0) continue;
+    onIsland = true;
+    kart.x = isl.x + (dx / d) * min;
+    kart.z = isl.z + (dz / d) * min;
+    const into = -(Math.cos(kart.move) * dx + Math.sin(kart.move) * dz) / d; // 島の中心へ向かう割合
+    if (into > 0 && !kart.airborne) {
+      if (!kart.onIsland) kart.speed *= 1 - (1 - PHYS.WALL_KEEP) * Math.min(1, into / Math.sin(PHYS.WALL_FULL_ANGLE));
+      const tangent = Math.atan2(dx, -dz); // 島のふちにそう向き
+      const along = Math.cos(wrapAngle(kart.move - tangent)) >= 0 ? tangent : wrapAngle(tangent + Math.PI);
+      kart.move = along;
+      kart.heading = along;
+    }
+  }
+  kart.onIsland = onIsland;
+  kart.onWall = touching || onIsland;
 
   // 逆走: コースの向きと逆に走っている時間を数える。1秒で警告、10秒続いたらスピンして正しい向きに戻す
   const along = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed;

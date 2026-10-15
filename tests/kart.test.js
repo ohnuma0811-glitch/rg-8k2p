@@ -1,17 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, locate } from '../src/game/track.js';
+import { buildTrack, locate, span } from '../src/game/track.js';
 import { COURSE1 } from '../src/data/tracks.js';
 import { createKart, stepKart, driftLevel, startDash, PHYS, DASH_BASE, DASH_PER_ACCEL } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 
 // 動きを確かめるための、長い直線がある楕円のコース（ジャンプなし）
-const OVAL = buildTrack({
+const OVAL_DEF = {
   points: [[0, 0], [200, 0], [400, 0], [600, 0], [800, 0], [1000, 100], [800, 200], [600, 200], [400, 200], [200, 200], [0, 200], [-200, 100]],
   length: 2400,
   roadHalf: 9,
   dirt: 4,
-});
+};
+const OVAL = buildTrack(OVAL_DEF);
 const course = buildTrack(COURSE1);
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
 const DT = 1 / 60;
@@ -516,4 +517,18 @@ test('スタートダッシュ: 止まっていても一気に速くなる。加
   startDash(b, params, 5);
   assert.ok(b.boost > a.boost);
   assert.ok(Math.abs(a.boost - (DASH_BASE + DASH_PER_ACCEL)) < 1e-9);
+});
+
+test('ロータリーの島は通り抜けられない。まっすぐ当たっても止まらず、横へ抜けて先へ進める', () => {
+  const t = buildTrack({ ...OVAL_DEF, theme: 'town', marks: { A: 2, B: 4 }, roundabouts: [{ at: ['A', 'B', 0.5], r: 7 }] });
+  const isl = t.islands[0];
+  const i = (Math.round(isl.s) - 40 + t.length) % t.length;
+  const kart = createKart(t, i, 0.5); // 島の真ん中より少し右を、まっすぐ
+  let minD = Infinity;
+  run(t, kart, { steer: 0, brake: false, drift: false }, 6, (k) => {
+    minD = Math.min(minD, Math.hypot(k.x - isl.x, k.z - isl.z));
+  });
+  assert.ok(minD >= isl.r, `島に入った: ${minD.toFixed(2)}`);
+  const ahead = span(t, isl.s, t.samples[kart.seg].s);
+  assert.ok(ahead > 20 && ahead < t.length / 2, `島の先へ進めなかった: ${ahead}`);
 });
