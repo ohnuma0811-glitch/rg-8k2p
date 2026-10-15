@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=150f95c';
-import { PHYS } from '../game/kart.js?v=150f95c';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=150f95c';
+import * as THREE from '../../vendor/three.module.min.js?v=07a9ae7';
+import { PHYS } from '../game/kart.js?v=07a9ae7';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=07a9ae7';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
 const TUMBLE_FLY = 0.55;

@@ -142,6 +142,11 @@ function pointS(samples, fit, pt) {
   return best.s;
 }
 
+// スタートのとき、バスを置かない所（スタートの線から前へ・うしろへ m）と、その間にバスが動く長さ（13m/s で 3秒のカウント＋3秒）
+export const BUS_HIDE_AHEAD = 300;
+export const BUS_HIDE_BACK = 200;
+const BUS_HIDE_MOVE = 13 * 6;
+
 // 直角の角の、ほんとうの角（道の真ん中の線どうしが交わる所）と、入ってくる向き u・曲がった先の向き v
 export function cornerCenter(track, s) {
   const n = track.samples.length;
@@ -303,8 +308,13 @@ export function buildTrack(def) {
   }
   // スクールバス（2026-10-16 のユーザー依頼）: 1周に等しい間をあけて並べる。動きは src/game/hazards.js の busPose
   t.buses = [];
-  // スタートしてすぐ、車が固まっている A の角でバスと出会わないよう、少しずらす
-  for (let k = 0; k < (def.buses ?? 0); k++) t.buses.push({ s0: ((t.length * (k + 0.5)) / def.buses + 200) % t.length });
+  // スタートの前後（うしろ BUS_HIDE_BACK m 〜 前 BUS_HIDE_AHEAD m）には、スタートの前（カメラが回る間・カウント）から
+  // スタートして少しの間まで、バスが見えないように並べる（2026-10-16 のユーザー依頼）。その外に等しい間で
+  if (def.buses) {
+    const from = BUS_HIDE_AHEAD + BUS_HIDE_MOVE;
+    const to = t.length - BUS_HIDE_BACK - BUS_HIDE_MOVE;
+    for (let k = 0; k < def.buses; k++) t.buses.push({ s0: from + ((to - from) * k) / Math.max(1, def.buses - 1) });
+  }
   for (const pad of def.pads ?? []) {
     const at = markS(t, pad.at);
     for (const p of samples) {

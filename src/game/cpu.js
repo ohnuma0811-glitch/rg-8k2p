@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span } from './track.js?v=150f95c';
-import { cowPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js?v=150f95c';
+import { locate, islandNear, span } from './track.js?v=07a9ae7';
+import { cowPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js?v=07a9ae7';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -128,7 +128,9 @@ export function cpuControl(cpu, kart, track, t) {
     const stop = (kart.speed ** 2 - CPU.BUMP_SPEED ** 2) / (2 * 25) + 6;
     if (ahead < Math.max(6, stop) && kart.speed > CPU.BUMP_SPEED && !bumpMiss(cpu, k, cpu.lap)) bumpBrake = true;
   });
-  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED);
+  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) ||
+    // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
+    (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
   if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne && !busNearby) cpu.drifting = true;
   if (busNearby) cpu.drifting = false;
