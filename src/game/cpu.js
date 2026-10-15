@@ -1,6 +1,6 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear } from './track.js';
+import { locate, islandNear, span } from './track.js';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -14,6 +14,8 @@ export const CPU = {
   SKILL: 0.98, // CPU の最高速の割合（プレイヤーが「がんばれば勝てる」くらいに。0.93 では弱すぎた: 2026-10-14 の実機確認）
   RUBBER: 0.6, // プレイヤーとの差（1周に対する割合）を、速さの倍率にする強さ
   RUBBER_MAX: 0.12, // 速さを変えるのは、この割合まで
+  BUMP_SPEED: 17, // バンプの手前で落とす速さ（m/s。メーター約92）
+  BUMP_MISS: 0.2, // バンプの手前で減速を忘れる割合（ときどき転がる）
 };
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -26,6 +28,7 @@ export function createCpu(k) {
     phase: k * 1.7,
     drifting: false,
     dash: k % 2 === 0, // スタートダッシュをするか（4台のうち2台）
+    id: k,
   };
 }
 
@@ -58,13 +61,26 @@ export function cpuControl(cpu, kart, track, t) {
   const steer = Math.max(-1, Math.min(1, angle * CPU.STEER_GAIN));
   const bendTo = wrap(samples[(loc.i + CPU.BEND_AHEAD) % n].h - loc.heading);
   const bend = Math.abs(bendTo);
-  const brake = bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED;
+  // バンプ: 手前で、メーター100より下まで落とす（ときどき間に合わず転がる: 2割くらい。周ごとに変わる）
+  let bumpBrake = false;
+  (track.bumps ?? []).forEach((b, k) => {
+    const ahead = span(track, loc.s, b);
+    const stop = (kart.speed ** 2 - CPU.BUMP_SPEED ** 2) / (2 * 25) + 6;
+    if (ahead < Math.max(6, stop) && kart.speed > CPU.BUMP_SPEED && !bumpMiss(cpu, k, t)) bumpBrake = true;
+  });
+  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake;
   if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne) cpu.drifting = true;
   if (cpu.drifting && (bend < CPU.DRIFT_END || kart.speed < 14)) cpu.drifting = false;
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
   const starting = cpu.drifting && !kart.drift.active;
   const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
   return { steer: out, brake, drift: cpu.drifting };
+}
+
+// CPU が、このバンプで減速を忘れるか（2割。同じ周の間は変わらない）
+function bumpMiss(cpu, b, t) {
+  const r = Math.sin((cpu.id ?? 0) * 12.9898 + b * 78.233 + Math.floor(t / 50) * 37.719) * 43758.5453;
+  return r - Math.floor(r) < CPU.BUMP_MISS;
 }
 
 // CPU の車の数字（キャラの数字に、CPU の強さと、プレイヤーとの差の倍率をかける）

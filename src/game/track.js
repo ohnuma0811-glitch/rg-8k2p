@@ -246,6 +246,7 @@ export function buildTrack(def) {
     // ロータリーの所には分離帯を通さない
     for (const p of samples) if (between(t, p.s, from, to) && p.half === def.roadHalf) p.median = m.half;
   }
+  t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
   for (const pad of def.pads ?? []) {
     const at = markS(t, pad.at);
     for (const p of samples) {

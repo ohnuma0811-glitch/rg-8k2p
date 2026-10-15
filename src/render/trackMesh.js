@@ -470,6 +470,20 @@ export function buildTrackMesh(track) {
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
 
+  // バンプ（Kampar Town）: 道の幅いっぱいの低いでっぱり（黄色と白のしま）と、手前の道ばたの BONGGOL の標識
+  const bumpMat = new THREE.MeshBasicMaterial({ map: canvasTexture(64, 16, (g, w, h) => {
+    for (let x = 0; x < w; x += 8) {
+      g.fillStyle = (x / 8) % 2 ? '#ffffff' : '#f5c400';
+      g.fillRect(x, 0, 8, h);
+    }
+  }) });
+  for (const b of track.bumps ?? []) {
+    const m = strip(track, b - 1, b + 1, (p) => p.y + 0.14, bumpMat, 1);
+    m.material.map.wrapS = THREE.RepeatWrapping;
+    group.add(m);
+    group.add(bumpSign(track, b - 25));
+  }
+
   // 観客席・土手・木と看板は、サーキットだけ
   if (track.def.theme === 'circuit') {
     group.add(grandstand(track));
@@ -512,5 +526,51 @@ function islandMesh(isl) {
   const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3f8f3a }));
   leaf.position.set(isl.x, 3.6, isl.z);
   g.add(trunk, leaf);
+  return g;
+}
+
+// マレーシアのバンプの標識: 黄色いひし形に黒いでっぱりの絵、その下に白い板の「BONGGOL」。道の左の歩道に立てる
+function bumpSign(track, s) {
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  const d = p.wall - 1.2;
+  const g = new THREE.Group();
+  g.position.set(p.x + Math.sin(p.h) * d, 0, p.z - Math.cos(p.h) * d); // 左側（右向きのベクトルの反対）
+  g.rotation.y = -p.h - Math.PI / 2; // 板の表が、走ってくる車の方を向く
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+  pole.position.y = 1.3;
+  const diamond = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ map: canvasTexture(64, 64, (c, w, h) => {
+    c.fillStyle = '#111';
+    c.fillRect(0, 0, w, h);
+    c.fillStyle = '#ffd400';
+    c.fillRect(3, 3, w - 6, h - 6);
+    c.fillStyle = '#111';
+    c.save();
+    c.translate(w / 2, h / 2);
+    c.rotate(-Math.PI / 4); // ひし形に回すので、絵は逆に回して描く
+    c.beginPath();
+    c.moveTo(-22, 8);
+    c.quadraticCurveTo(0, -18, 22, 8);
+    c.lineTo(-22, 8);
+    c.fill();
+    c.fillRect(-24, 8, 48, 4);
+    c.restore();
+  }), side: THREE.DoubleSide }));
+  diamond.rotation.z = Math.PI / 4;
+  diamond.position.set(0, 2.55, 0.08);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.35), new THREE.MeshBasicMaterial({ map: canvasTexture(128, 40, (c, w, h) => {
+    c.fillStyle = '#fff';
+    c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#111';
+    c.lineWidth = 3;
+    c.strokeRect(2, 2, w - 4, h - 4);
+    c.fillStyle = '#111';
+    c.font = 'bold 26px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('BONGGOL', w / 2, h / 2 + 1);
+  }), side: THREE.DoubleSide }));
+  plate.position.set(0, 1.75, 0.08);
+  g.add(pole, diamond, plate);
   return g;
 }

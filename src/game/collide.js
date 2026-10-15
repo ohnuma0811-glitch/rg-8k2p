@@ -12,7 +12,7 @@ export function pushApart(karts, prev = new Set()) {
     for (let b = a + 1; b < karts.length; b++) {
       const A = karts[a];
       const B = karts[b];
-      if (A.respawn > 0 || B.respawn > 0 || Math.abs(A.y - B.y) > 1.5) continue;
+      if (A.respawn > 0 || B.respawn > 0 || A.tumble > 0 || B.tumble > 0 || Math.abs(A.y - B.y) > 1.5) continue;
       const dx = B.x - A.x;
       const dz = B.z - A.z;
       const d = Math.hypot(dx, dz);

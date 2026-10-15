@@ -141,3 +141,9 @@ test('一時停止で音を止めたあとは、ドリフトの途中でも「�
   assert.deepEqual(soundEvents(afterPause(drifting), drifting, 3), ['driftStart']);
   assert.equal(afterPause(null), null);
 });
+
+test('バンプ: 乗り越えたら hump（コトン）、転がり始めたら tumble（バーン＋ピヨピヨ）', () => {
+  assert.deepEqual(soundEvents(st(), st({}, { hump: 0.3 }), 3), ['hump']);
+  assert.deepEqual(soundEvents(st(), st({}, { tumble: 3 }), 3), ['tumble']);
+  assert.deepEqual(soundEvents(st({}, { tumble: 3 }), st({}, { tumble: 2.9 }), 3), []);
+});

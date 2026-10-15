@@ -2,6 +2,7 @@
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
 import * as THREE from '../../vendor/three.module.min.js';
 import { PHYS } from '../game/kart.js';
+import { HUMP_TIME } from '../game/hazards.js';
 
 const mats = new Map();
 // 同じ色の材質は使い回す（8台になっても軽く）
@@ -228,8 +229,12 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
 export function syncKartModel(model, kart) {
   // ドリフトボタンで小さく跳ねる
   const hop = kart.hop > 0 ? Math.sin((1 - kart.hop / PHYS.HOP_TIME) * Math.PI) * PHYS.HOP_HEIGHT : 0;
-  model.position.set(kart.x, kart.y + hop, kart.z);
+  // バンプを乗り越える: 前が上がってから後ろが上がる（2026-10-15 のユーザー依頼）
+  const u = kart.hump > 0 ? 1 - kart.hump / HUMP_TIME : 0;
+  const lift = kart.hump > 0 ? Math.sin(u * Math.PI) * 0.15 : 0;
+  model.position.set(kart.x, kart.y + hop + lift, kart.z);
   model.rotation.y = -kart.heading;
+  model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.12 : 0;
   // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
   model.visible = kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0;
   for (const w of model.userData.wheels) w.rotation.z -= kart.speed * 0.05;

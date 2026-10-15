@@ -2,6 +2,7 @@
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
 import { locate, respawnIndex } from './track.js';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -38,6 +39,7 @@ export const PHYS = {
   WRONG_CLEAR: 0.5, // 前向きにこの秒数走ると、逆走の数えを0に戻す
   WRONG_FIX: 10, // 逆走がこの秒数続いたら、スピンして正しい向きに戻す（2026-10-14 のユーザー依頼で30秒から短く）
   SPIN_TIME: 1, // スピンしている時間（秒。ハンドルは効かない）
+  TUMBLE_BRAKE: 40, // バンプで転がっている間に止まる強さ（m/s²）
   ISLAND_PAD: 1.2, // ロータリーの島のふちと、車の中心の間（車の半分の大きさ）
   FALL_Y: -2, // これより下に落ちたらコースに戻す
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
@@ -69,6 +71,8 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.respawnAt = i;
   kart.onWall = false;
   kart.onIsland = false;
+  kart.tumble = 0; // バンプで転がっている残りの秒数
+  kart.hump = 0; // バンプを乗り越えている残りの秒数
   kart.prevGround = kart.y;
   kart.wrongWay = false; // 逆走の警告を出しているか
   kart.wrongTime = 0; // 逆向きに走っている秒数
@@ -113,6 +117,22 @@ export function stepKart(kart, ctl, track, params, dt) {
     if (kart.respawn <= 0) placeAt(kart, track, kart.respawnAt);
     return;
   }
+  // バンプで転がっている間: 操作は効かず、すぐに止まる（その場で転がる）。終わったら、止まった状態からコースの向きで走り出す
+  if (kart.tumble > 0) {
+    kart.tumble = Math.max(0, kart.tumble - dt);
+    kart.speed = Math.max(0, kart.speed - PHYS.TUMBLE_BRAKE * dt);
+    kart.x += Math.cos(kart.move) * kart.speed * dt;
+    kart.z += Math.sin(kart.move) * kart.speed * dt;
+    const loc = locate(track, kart.x, kart.z, kart.seg);
+    kart.seg = loc.i;
+    if (kart.tumble === 0) {
+      kart.speed = 0;
+      kart.heading = loc.heading;
+      kart.move = loc.heading;
+    }
+    return;
+  }
+  kart.hump = Math.max(0, kart.hump - dt);
   // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
   if (kart.spin > 0) {
     kart.spin -= dt;
@@ -214,6 +234,20 @@ export function stepKart(kart, ctl, track, params, dt) {
     loc = locate(track, kart.x, kart.z, kart.seg);
     // 止まっていても、逆向きに進もうとしていれば逆走の時間を数える（ずっと止まったままにならないように）
     if (Math.cos(wrapAngle(kart.heading - loc.heading)) < 0) kart.wrongTime += dt;
+  }
+  // バンプ: メーター100を超えて乗ったら転がる。それ以下なら乗り越える（2026-10-15 のユーザー依頼）
+  if (!kart.airborne && kart.speed > 0) {
+    for (const b of track.bumps ?? []) {
+      if (!crossed(track, here.s, loc.s, b)) continue;
+      if (meterKmh(kart.speed) > BUMP_LIMIT_KMH) {
+        kart.tumble = TUMBLE_TIME;
+        if (kart.drift.active) endDrift(kart, params, false);
+        kart.hop = 0;
+        kart.boost = 0;
+      } else {
+        kart.hump = HUMP_TIME;
+      }
+    }
   }
   kart.seg = loc.i;
   kart.surface = loc.surface;

@@ -39,6 +39,8 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     bumps,
     wallQuiet,
     jumpSoon,
+    hump: (kart.hump || 0) > 0, // バンプを乗り越えている
+    tumble: (kart.tumble || 0) > 0, // バンプで転がっている
   };
 }
 
@@ -63,6 +65,8 @@ export function soundEvents(prev, cur, laps) {
   if (cur.lap > prev.lap && !cur.finished) ev.push(cur.lap === laps - 1 ? 'finalLap' : 'lap');
   if (cur.finished && !prev.finished) ev.push('finish');
   if (cur.hop && !prev.hop) ev.push('hop');
+  if (cur.hump && !prev.hump) ev.push('hump');
+  if (cur.tumble && !prev.tumble) ev.push('tumble');
   // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
   // （ドリフトの跳ねは airborne にならない）
   if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');
