@@ -66,7 +66,7 @@ function emblemDraw() {
 
 // F の手前の左の WestLake Villas（写真 40・41・42F）: 20階くらいの塔が4本、少しずつずらして並ぶ
 // 明るい灰色と白、縦に濃い灰緑の窓の列。下に白い横じまの長い駐車場。角の植え込みに、青い曲がった看板
-function westlakeVillas(b, opts = {}) {
+function westlakeVillas(b) {
   b.box(110, 12, 36, COLORS.white, 0, 0, -22); // 駐車場（多階）
   for (let f = 1; f < 5; f++) b.box(110.4, 0.6, 36.4, 0xaeb4b4, 0, f * 2.6, -22); // 横じまの帯
   for (const [x, z] of [[-40, -28], [-13, -34], [14, -28], [41, -34]]) {
@@ -74,11 +74,6 @@ function westlakeVillas(b, opts = {}) {
     tower(b, { floors: 20, width: 18, depth: 16, color: 0xe2e3df, stripe: 0x5f7f78 });
     b.pop();
   }
-  // 交差点の角の植え込みと、青い曲がった看板「WestLake Villas」（建物は道から奥にあるが、看板は道ばた: front で道ばたまでの距離）
-  const front = opts.front ?? 26;
-  b.box(16, 0.4, 6, COLORS.grass, -46, 0, front);
-  b.box(9, 1.6, 0.4, 0x2a62b8, -46, 0.4, front + 1);
-  b.label(textDraw('WestLake Villas', '#ffffff', '#2a62b8', 'italic bold'), [512, 96], -46, 1.2, front + 1.25, 0, 8.6, 1.4);
 }
 
 // F〜H の左の Westlake International School（写真 44〜48、学校（道から）.png）
@@ -104,7 +99,6 @@ function westlakeSchool(b) {
     b.box(0.5, 4.2, 0.5, 0xe0702a, x + 1.6, 18, 13);
     b.box(3.7, 0.5, 0.5, 0xe0702a, x, 21.5, 13);
   }
-  b.label(textDraw('WESTLAKE / International School', '#2b6b3a', '#ffffff'), [512, 160], 10, 13.5, 11.25, 0, 13, 4);
   // 屋上の大きな看板（遠くから学校だと分かるように）
   b.box(36, 4.4, 0.4, COLORS.white, 4, 23, 11);
   b.label(textDraw('WESTLAKE INTERNATIONAL SCHOOL', '#2b6b3a', '#ffffff'), [1024, 128], 4, 25.2, 11.25, 0, 35, 4.2);
@@ -133,11 +127,6 @@ function westlakeSchool(b) {
   for (let k = -4; k <= 4; k += 2) b.box(10, 0.08, 0.3, 0xf2c200, 55, 0.01, -3 + k);
   b.box(4, 0.1, 30, 0x5f9fc8, 63, 0, -15);
   b.box(0.2, 1, 6, 0x5fae4b, 61, 0, -2);
-  // 道ぞいの紫の大きな看板
-  b.box(0.3, 4.5, 0.3, 0x333333, 32, 0, 1);
-  b.box(0.3, 4.5, 0.3, 0x333333, 40, 0, 1);
-  b.box(10, 5, 0.3, 0x3b2a6b, 36, 4.5, 1);
-  b.label(textDraw('SEKOLAH ANTARABANGSA / Westlake / International School', '#ffffff', '#3b2a6b'), [512, 256], 36, 7, 1.2, 0, 9.6, 4.6);
 }
 
 // G のロータリーの所の UTAR の病院（写真 49・50・60G）
@@ -149,9 +138,8 @@ function hospitalUtar(b) {
   b.box(18, 22, 22, 0xe6e6e6, 40, 0, 6);
   b.label(textDraw('HOSPITAL UTAR', '#1f6fb2', '#ffffff'), [512, 96], 0, 31.5, 15.3, 0, 20, 3.4);
   b.pop();
-  // 道ばたの、灰色の低い壁の看板（青と緑の病院のマーク、青い大きな文字）
+  // 道ばたの、灰色の低い壁（病院のマーク）。名前は横断幕と屋上だけ（看板の重複をなくす。2026-10-15 のユーザー依頼）
   b.box(28, 3, 1.5, 0x9a9fa3, -10, 0, -4);
-  b.label(textDraw('HOSPITAL UTAR / HOSPITAL UNIVERSITI TUNKU ABDUL RAHMAN', '#1f6fb2', '#9a9fa3'), [512, 128], -10, 1.6, -3.2, 0, 26, 2.6);
   b.box(2.4, 2.4, 0.3, 0x2a9a8f, -24, 1.4, -3.1);
   // 入口の上をまたぐ、青い鉄骨のアーチの橋（三角の骨組み）
   for (let k = 0; k <= 40; k++) {
@@ -165,21 +153,21 @@ function hospitalUtar(b) {
 }
 
 // J〜スタートの左の KAMPAR の看板（写真 75J右・76・76左）: 1文字ずつ色がちがう立体の文字
+// T字路 J の正面（Lotus's を抜けて右に曲がる所。2026-10-15 のユーザー依頼）に置く。前（+z）が、角に入ってくる車の方
 function kamparSign(b) {
-  b.box(30, 1.5, 12, COLORS.grass, 0, 0, -6); // 芝生の土手
-  b.box(16, 0.1, 6, 0xc8604a, 0, 1.5, 3); // レンガの広場
-  for (let k = 0; k < 4; k++) b.box(3, 0.38, 1, 0xb8b2a8, -12, k * 0.38, 2 - k); // 土手を上る階段
+  b.box(34, 1.5, 14, COLORS.grass, 0, 0, -7); // 芝生の土手
+  b.box(26, 0.1, 4, 0xc8604a, 0, 1.5, -2.5); // レンガの広場
   const letters = [['K', '#1d2f6b'], ['A', '#6a2c8f'], ['M', '#1f5fbf'], ['P', '#f2b51f'], ['A', '#2e8f3e'], ['R', '#e8742a']];
   letters.forEach(([ch, color], k) => {
-    const x = -7.5 + k * 3;
-    b.box(2.5, 3.4, 0.6, parseInt(color.slice(1), 16), x, 1.5, -1.4); // 文字の厚み
-    b.label(letterDraw(ch, color), [128, 160], x, 3.3, -1.05, 0, 2.9, 3.6);
+    const x = -9.75 + k * 3.9;
+    b.box(3.4, 4.6, 0.7, parseInt(color.slice(1), 16), x, 1.5, -2.2); // 文字の厚み
+    b.label(letterDraw(ch, color), [128, 160], x, 3.8, -1.8, 0, 3.9, 4.9);
   });
-  b.label(emblemDraw(), [128, 128], -11.5, 3.6, -1.2, 0, 3, 3); // 丸い紋章（緑の山）
-  b.box(0.4, 3, 0.4, 0x7a7a7a, -11.5, 1.5, -1.6);
+  b.label(emblemDraw(), [128, 128], -14.5, 4.1, -1.8, 0, 4, 4); // 丸い紋章（緑の山）
+  b.box(0.4, 2.6, 0.4, 0x7a7a7a, -14.5, 1.5, -2.1);
   // 後ろの4階建ての古いショップハウスの並び
-  for (let k = 0; k < 6; k++) b.box(6, 13.6, 12, [0xe6dcc0, 0xc79a6a, 0xd9a48a][k % 3], -15 + k * 6, 0, -24);
-  b.label(textDraw('RESTORAN', '#ffffff', '#7a2a1a'), [256, 64], -9, 3.6, -17.9, 0, 6, 1.4);
+  for (let k = 0; k < 6; k++) b.box(6, 13.6, 12, [0xe6dcc0, 0xc79a6a, 0xd9a48a][k % 3], -15 + k * 6, 0, -22);
+  b.label(textDraw('RESTORAN', '#ffffff', '#7a2a1a'), [256, 64], -9, 3.6, -15.9, 0, 6, 1.4);
 }
 
 // スタートの近くの歩道橋（写真 02）: 道をまるごとまたぐ。四角いコンクリートの柱、灰色の手すり、
@@ -246,8 +234,9 @@ function hotel(b) {
   for (const x of [-15, 15]) b.box(3, 29, 3, 0xe8e4da, x, 0, -3); // 角の飾りの柱
   b.box(14, 0.5, 5, 0x3a3d42, 0, 4, 0); // 1階の屋根の張り出し
   // 屋上の名前の看板（2026-10-15 のユーザー依頼）
-  b.box(24, 3.4, 0.4, 0x7a1f2b, 0, 27.2, -3.2);
-  b.label(textDraw('Grand Kampar Hotel', '#f2d48a', '#7a1f2b'), [1024, 128], 0, 28.9, -2.95, 0, 23, 2.9);
+  // 屋根のふち（z=-2.5）や柱より前に出して、建物にうもれないように
+  b.box(24, 3.4, 0.4, 0x7a1f2b, 0, 27.2, -1.2);
+  b.label(textDraw('Grand Kampar Hotel', '#f2d48a', '#7a1f2b'), [1024, 128], 0, 28.9, -0.95, 0, 23, 2.9);
 }
 
 // E〜F の右の「Bandar Barat」の給水塔（写真 38）: 太い円柱の上に、白い大きな丸い水入れ

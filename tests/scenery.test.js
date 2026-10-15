@@ -99,11 +99,9 @@ test('直角の角の正面には通行止めの道が続く。町の横道の�
   const group = buildScenery(t, KAMPAR_SCENERY);
   const ahead = group.userData.spots.filter((s) => s.side === 2);
   assert.ok(ahead.length >= 7, `${ahead.length}`);
-  // 正面の道は、角の外の柵より外にある（コースの上に出ない）
+  // 角の道の口は、コースの道のふちにある（コースの上に出ない）
   for (const sp of ahead) {
-    const n = t.samples.length;
-    for (const q of t.samples) assert.ok(Math.hypot(q.x - sp.x, q.z - sp.z) >= q.wall - 1, `s=${sp.s.toFixed(0)} がコースの上`);
-    assert.ok(n > 0);
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - sp.x, q.z - sp.z) >= q.half - 1, `s=${sp.s.toFixed(0)} がコースの上`);
   }
   // 横道のある所の、同じ側には建物を置かない
   const roads = KAMPAR_SCENERY.filter((i) => i.part === 'stubRoad' && !i.ahead).map((i) => ({ s: markS(t, i.at), side: i.side }));
@@ -113,9 +111,12 @@ test('直角の角の正面には通行止めの道が続く。町の横道の�
   }
 });
 
-test('走ってくる車の方を向いた大きな看板: 学校・病院・Lotus\'s・Grand Kampar Hotel（WestLake Villas は角の看板と横断幕だけ。2026-10-15 のユーザー依頼）', () => {
-  const texts = KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard').map((i) => i.text).join(' | ');
-  for (const w of ['WESTLAKE INTERNATIONAL SCHOOL', 'HOSPITAL UTAR', "Lotus's", 'Grand Kampar Hotel']) assert.ok(texts.includes(w), w);
+test('看板は場所ごとに1つ（重複をなくす）: 道の上の横断幕・道ばたの看板で、同じ名前を2回出さない（2026-10-15 のユーザー依頼）', () => {
+  const signs = KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard' || i.part === 'banner').map((i) => i.text);
+  for (const w of ['WestLake Villas', 'Westlake International School', 'HOSPITAL UTAR', "Lotus's", 'UTAR', 'Grand Kampar Hotel']) {
+    assert.ok(signs.filter((t) => t.includes(w)).length <= 1, w);
+  }
+  assert.ok(signs.some((t) => t.includes("Lotus's")), "Lotus's");
   const group = buildScenery(t, KAMPAR_SCENERY);
   assert.equal(group.userData.spots.filter((s) => s.part === 'driverBoard').length, KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard').length);
 });
@@ -128,17 +129,19 @@ test('WestLake Villas・学校・病院は道の左のふちにくっつける�
   }
 });
 
-test('A・B・F は交差点: 正面と反対側にも通行止めの道、横断歩道、信号機（いつも青）', () => {
+test('A・B は十字路、F は T字路: 反対側に通行止めの道、横断歩道、信号機（いつも青）', () => {
   assert.deepEqual(COURSE2.intersections, ['A', 'B', 'F']);
   for (const m of ['A', 'B', 'F']) {
     const at = (i) => i.at && i.at[0] === m && i.at[1] === m;
-    assert.ok(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === true && at(i)), `${m} の正面`);
+    assert.equal(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === true && at(i)), m !== 'F', `${m} の正面`);
     assert.ok(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === 'back' && at(i)), `${m} の反対側`);
-    assert.ok(KAMPAR_SCENERY.filter((i) => i.part === 'trafficLight' && i.at[0] === m).length >= 2, `${m} の信号`);
+    // 信号は、交差点に入ってくる手前の両側（走ってくる車から見える所）
+    const lights = KAMPAR_SCENERY.filter((i) => i.part === 'trafficLight' && i.at[1] === m && i.at[2] > 0.9);
+    assert.deepEqual(lights.map((i) => i.side).sort(), [-1, 1], `${m} の信号`);
   }
   const group = buildScenery(t, KAMPAR_SCENERY);
   for (const sp of group.userData.spots.filter((s) => s.side === 2)) {
-    for (const q of t.samples) assert.ok(Math.hypot(q.x - sp.x, q.z - sp.z) >= q.wall - 1, `s=${sp.s.toFixed(0)} の道がコースの上`);
+    for (const q of t.samples) assert.ok(Math.hypot(q.x - sp.x, q.z - sp.z) >= q.half - 1, `s=${sp.s.toFixed(0)} の道がコースの上`);
   }
 });
 
@@ -146,4 +149,37 @@ test('UTAR の敷地の入口（H の手前）と I の門に、アーチと大�
   const arches = KAMPAR_SCENERY.filter((i) => i.part === 'archGate');
   assert.ok(arches.some((i) => i.at[1] === 'H'), 'H の手前のアーチ');
   assert.ok(arches.some((i) => i.at[1] === 'I' || i.at[0] === 'I'), 'I の門');
+});
+
+test('直角の角は T字路: 曲がる先の道が反対側にも続き、正面はふさぐ（A・B は十字路。2026-10-15 のユーザー依頼）', () => {
+  const corner = (m) => (i) => i.part === 'stubRoad' && i.at && JSON.stringify(i.at) === JSON.stringify(m);
+  for (const m of [['C', 'C', 0], ['D', 'D', 0], ['D', 'E', 0.7], ['F', 'F', 0], ['J', 'J', 0]]) {
+    assert.ok(KAMPAR_SCENERY.some((i) => corner(m)(i) && i.ahead === 'back'), `${m} の反対側の道`);
+    assert.ok(!KAMPAR_SCENERY.some((i) => corner(m)(i) && i.ahead === true), `${m} の正面はふさぐ`);
+  }
+});
+
+test('通行止めの道はコースの道につながる: 道のふちから始まり、そこだけコースの壁をあける', async () => {
+  const { stubMouths, inMouth } = await import('../src/render/town/scenery.js');
+  const { fenceSides } = await import('../src/render/trackMesh.js');
+  const mouths = stubMouths(t, KAMPAR_SCENERY);
+  assert.equal(mouths.length, KAMPAR_SCENERY.filter((i) => i.part === 'stubRoad').length);
+  for (const m of mouths) {
+    // 口は、いちばん近いコースの道のふちにある
+    let best = Infinity;
+    for (const q of t.samples) best = Math.min(best, Math.hypot(q.x - m.x, q.z - m.z) - q.half);
+    assert.ok(Math.abs(best) < 2.5, `s=${m.s.toFixed(0)}: 道のふちから ${best.toFixed(1)}m`);
+  }
+  // 口の前の壁はあけ、それ以外の所の壁は残す
+  const fences = fenceSides(t, mouths);
+  let opened = 0;
+  t.samples.forEach((p, i) => {
+    for (const side of [-1, 1]) {
+      const x = p.x - Math.sin(p.h) * side * p.wall;
+      const z = p.z + Math.cos(p.h) * side * p.wall;
+      if (mouths.some((m) => inMouth(m, x, z))) { assert.equal(fences[i][side], false); opened++; }
+    }
+  });
+  assert.ok(opened >= mouths.length * 5, `${opened}`);
+  assert.ok(fences.filter((f) => f[-1]).length > t.samples.length * 0.6);
 });

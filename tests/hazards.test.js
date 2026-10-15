@@ -81,8 +81,8 @@ test('転がっている車は、ほかの車と押し合わない', () => {
   assert.equal(a.x, ax);
 });
 
-test('牛は I〜J の J の近くに4頭。時刻で場所が決まり、道の中をゆっくり左右に動く', () => {
-  assert.equal(t.cows.length, 4);
+test('牛は I〜J の J の近く（UTAR 側まで）に9頭。時刻で場所が決まり、道の中をゆっくり左右に動く', () => {
+  assert.equal(t.cows.length, 9);
   for (const cow of t.cows) {
     assert.ok(cow.s > t.marks.I && cow.s < t.marks.J);
     const a = cowPose(t, cow, 10);
@@ -181,9 +181,9 @@ test('バンプで転がって滑っても、柵の外に出ない（その場�
   }
 });
 
-test('バンプの警告: 今の速さで3秒以内にバンプに着くときだけ出す。越えたら消える（2026-10-15 のユーザー依頼）', async () => {
-  const { bumpWarning, BUMP_WARN_SEC } = await import('../src/game/hazards.js');
-  assert.equal(BUMP_WARN_SEC, 3);
+test('バンプの警告: バンプの手前のしま模様（BUMP_STRIPE_M）に入ったら出す。越えたら消える（2026-10-15 のユーザー依頼で遅らせた）', async () => {
+  const { bumpWarning, BUMP_STRIPE_M } = await import('../src/game/hazards.js');
+  assert.equal(BUMP_STRIPE_M, 26);
   const b = t.bumps[0];
   const at = (dist, speed) => {
     const i = (Math.round(b - dist) + t.length) % t.length;
@@ -191,9 +191,10 @@ test('バンプの警告: 今の速さで3秒以内にバンプに着くとき�
     kart.speed = speed;
     return kart;
   };
-  assert.equal(bumpWarning(t, at(80, 40)), true); // 2秒で着く
-  assert.equal(bumpWarning(t, at(150, 40)), false); // 3.75秒かかる
-  assert.equal(bumpWarning(t, at(20, 5)), false); // 4秒かかる（ゆっくり）
+  assert.equal(bumpWarning(t, at(20, 40)), true); // しまの上
+  assert.equal(bumpWarning(t, at(20, 5)), true); // ゆっくりでも、しまの上なら出す
+  assert.equal(bumpWarning(t, at(40, 40)), false); // しまの手前
+  assert.equal(bumpWarning(t, at(80, 40)), false);
   assert.equal(bumpWarning(t, at(-3, 40)), false); // 越えたあと
-  assert.equal(bumpWarning(t, { ...at(50, 40), tumble: 2 }), false); // 転がっている間は出さない
+  assert.equal(bumpWarning(t, { ...at(15, 40), tumble: 2 }), false); // 転がっている間は出さない
 });

@@ -113,8 +113,10 @@ test('CPU は分離帯の芝生の上を走らない（走る線が分離帯に�
 });
 
 test('CPU は牛をよける（ぶつかってスピンするのは、ときどきだけ）', () => {
+  // 牛の横を通る回数（4台×3周×頭数）の 7% 以下（9頭で 7 回まで）
   const spins = kamparCpuRace().reduce((n, s) => n + s.spins, 0);
-  assert.ok(spins <= 3, `4台×3周で ${spins} 回スピン`);
+  const passes = 4 * 3 * t.cows.length;
+  assert.ok(spins <= passes * 0.07, `4台×3周（牛 ${t.cows.length} 頭）で ${spins} 回スピン`);
 });
 
 const turnDeg = (a, b) => {

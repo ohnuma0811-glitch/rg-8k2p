@@ -35,19 +35,56 @@ export function sceneryClear(track, spot, radius) {
   return true;
 }
 
-// 直角の角の「正面に続く道」の場所: 角に入ってくる向きのまま、まっすぐ進んで、角の外の柵を越えた所。前（+z）が角の方を向く
-// mode が 'back' のときは、曲がった先の道の反対側（交差点の4本目の道）
+// 直角の角の「正面に続く道」の口の場所: 角に入ってくる向きのまま、まっすぐ進んで、コースの道のふちの所。前（+z）が角の方を向く
+// mode が 'back' のときは、曲がった先の道の反対側（T字路・十字路の、曲がる先の道の続き）
 export function aheadSpot(track, s, mode = true) {
   const n = track.samples.length;
   const at = (k) => track.samples[((Math.round(k) % n) + n) % n];
   const back = mode === 'back';
-  const p0 = at(back ? s + 40 : s - 40);
-  const c = at(s);
-  const dx = Math.cos(p0.h) * (back ? -1 : 1);
-  const dz = Math.sin(p0.h) * (back ? -1 : 1);
-  // 角の点まで進む長さ ＋ 角の外の柵まで
-  const d = (c.x - p0.x) * dx + (c.z - p0.z) * dz + c.wall + 9;
-  return { x: p0.x + dx * d, z: p0.z + dz * d, ry: Math.atan2(-dx, -dz), s: c.s, side: 2 };
+  // 角に入ってくる道と、曲がった先の道のまっすぐな線が交わる所が、ほんとうの角（道の真ん中）
+  // 向きは、角の丸めの外の2点を結んで決める
+  const a1 = at(s - 32), a2 = at(s - 16), b1 = at(s + 16), b2 = at(s + 32);
+  const ul = Math.hypot(a2.x - a1.x, a2.z - a1.z), vl = Math.hypot(b2.x - b1.x, b2.z - b1.z);
+  const pin = a2, pout = b1;
+  const ux = (a2.x - a1.x) / ul, uz = (a2.z - a1.z) / ul;
+  const vx = (b2.x - b1.x) / vl, vz = (b2.z - b1.z) / vl;
+  const den = ux * vz - uz * vx;
+  const k = ((pout.x - pin.x) * vz - (pout.z - pin.z) * vx) / den;
+  const cx = pin.x + ux * k, cz = pin.z + uz * k;
+  // 正面の道は入ってくる向きのまま、反対側の道は曲がった先の道の逆向きに、道のふちまで（コースの道につながるように）
+  const dx = back ? -vx : ux;
+  const dz = back ? -vz : uz;
+  // 角の丸めで道のふちが内へ入っているので、角から外へ進んで、道（の面）が終わる所を口にする
+  const onRoad = (x, z) => track.samples.some((q) => Math.hypot(q.x - x, q.z - z) < q.half);
+  let d = 0;
+  while (d < track.roadHalf * 2 && onRoad(cx + dx * d, cz + dz * d)) d += 0.25;
+  return { x: cx + dx * d, z: cz + dz * d, ry: Math.atan2(-dx, -dz), s: at(s).s, side: 2 };
+}
+
+// 通行止めの道の口（コースの道のふちの所）と幅。コースの壁は、ここだけあける
+export function stubMouths(track, list) {
+  const out = [];
+  for (const item of list) {
+    if (item.part !== 'stubRoad' || !item.at) continue;
+    out.push(stubSpot(track, item, markS(track, item.at)));
+  }
+  return out;
+}
+function stubSpot(track, item, s) {
+  const width = item.width ?? (item.ahead === 'back' || item.ahead === true ? track.roadHalf * 2 : 14);
+  if (item.ahead) return { ...aheadSpot(track, s, item.ahead), width };
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  // 横道は、コースの道のふちから始まる
+  return { ...placeSpot(track, s, item.side ?? -1, p.half - p.wall), width };
+}
+// 点 (x, z) が、口の前のコースの壁の所か（口の幅の中で、道のふちから少し外まで）
+export function inMouth(m, x, z) {
+  const dx = x - m.x;
+  const dz = z - m.z;
+  const lx = dx * Math.cos(m.ry) - dz * Math.sin(m.ry);
+  const lz = dx * Math.sin(m.ry) + dz * Math.cos(m.ry);
+  return Math.abs(lx) < m.width / 2 + 0.5 && lz > -8 && lz < 1.5;
 }
 
 export function buildScenery(track, list) {
@@ -58,9 +95,25 @@ export function buildScenery(track, list) {
   const openings = list.filter((i) => i.part === 'stubRoad' && i.at).map((i) => ({ s: markS(track, i.at), side: i.side }));
   const opened = (item, s) => item.every && openings.some((o) => o.side === item.side && Math.min(span(track, o.s, s), span(track, s, o.s)) < 11);
   const put = (item, s) => {
+    if (item.part === 'stubRoad') {
+      const spot = stubSpot(track, item, s);
+      spot.radius = 1;
+      spot.side = item.ahead ? 2 : spot.side;
+      spot.part = item.part;
+      spots.push(spot);
+      b.push(spot.x, 0, spot.z, spot.ry);
+      PARTS[item.part](b, { ...item, width: spot.width });
+      b.pop();
+      return;
+    }
+    // 角の正面に置く物（T字路の正面の看板など）: 道のふちから back m 奥
     if (item.ahead) {
       const spot = aheadSpot(track, s, item.ahead);
-      spot.radius = 1;
+      const back = item.back ?? 4;
+      spot.x -= Math.sin(spot.ry) * back;
+      spot.z -= Math.cos(spot.ry) * back;
+      spot.radius = item.radius ?? 1;
+      spot.part = item.part;
       spots.push(spot);
       b.push(spot.x, 0, spot.z, spot.ry);
       PARTS[item.part](b, item);
