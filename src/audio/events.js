@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=b595e01';
+import { locate } from '../game/track.js?v=c293e1f';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -39,6 +39,9 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     bumps,
     wallQuiet,
     jumpSoon,
+    hump: (kart.hump || 0) > 0, // バンプを乗り越えている
+    tumble: (kart.tumble || 0) > 0, // バンプで転がっている
+    cowHits: kart.cowHits || 0, // 牛にぶつかった回数
   };
 }
 
@@ -63,6 +66,9 @@ export function soundEvents(prev, cur, laps) {
   if (cur.lap > prev.lap && !cur.finished) ev.push(cur.lap === laps - 1 ? 'finalLap' : 'lap');
   if (cur.finished && !prev.finished) ev.push('finish');
   if (cur.hop && !prev.hop) ev.push('hop');
+  if (cur.hump && !prev.hump) ev.push('hump');
+  if (cur.tumble && !prev.tumble) ev.push('tumble');
+  if (cur.cowHits > prev.cowHits) ev.push('moo');
   // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
   // （ドリフトの跳ねは airborne にならない）
   if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');

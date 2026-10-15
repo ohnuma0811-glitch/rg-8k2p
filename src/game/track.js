@@ -228,7 +228,7 @@ export function buildTrack(def) {
   t.islands = [];
   for (const rb of def.roundabouts ?? []) {
     const p = samples[Math.round(markS(t, rb.at)) % samples.length];
-    const island = { x: p.x, z: p.z, r: rb.r, s: p.s };
+    const island = { x: p.x, z: p.z, r: rb.r, s: p.s, brick: !!rb.brick };
     t.islands.push(island);
     const reach = islandReach(t, island);
     for (const q of samples) {
@@ -245,6 +245,16 @@ export function buildTrack(def) {
     const to = markS(t, m.to);
     // ロータリーの所には分離帯を通さない
     for (const p of samples) if (between(t, p.s, from, to) && p.half === def.roadHalf) p.median = m.half;
+  }
+  t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
+  // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
+  t.cows = [];
+  if (def.cows) {
+    const from = markS(t, def.cows.from);
+    const len = span(t, from, markS(t, def.cows.to));
+    for (let k = 0; k < def.cows.count; k++) {
+      t.cows.push({ s: (from + (len * (k + 0.5)) / def.cows.count) % t.length, period: 24 + k * 5, phase: k * 2.1 });
+    }
   }
   for (const pad of def.pads ?? []) {
     const at = markS(t, pad.at);

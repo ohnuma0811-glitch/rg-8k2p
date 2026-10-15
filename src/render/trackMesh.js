@@ -1,5 +1,6 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=b595e01';
+import * as THREE from '../../vendor/three.module.min.js?v=c293e1f';
+import { buildScenery } from './town/scenery.js?v=c293e1f';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -446,8 +447,13 @@ export function buildTrackMesh(track) {
     for (const side of [-1, 1]) group.add(fence(samples, (p) => side * p.median, (p) => p.y, (p) => p.y + 0.15, hasMedian, curb));
   }
 
-  // ロータリーの島: 芝生の丸い台と、白黒の縁石の輪、真ん中に木
-  for (const isl of track.islands ?? []) group.add(islandMesh(isl));
+  // ロータリーの島: 芝生の丸い台と、白黒の縁石の輪、真ん中に木。G は島のまわりが赤レンガ
+  // 出口へ向かう所の道の上に、白い大きな矢印（出口が分かるように。2026-10-15 のユーザー依頼）
+  const exitMat = new THREE.MeshBasicMaterial({ map: roadArrows(), transparent: true });
+  for (const isl of track.islands ?? []) {
+    group.add(islandMesh(isl));
+    group.add(strip(track, isl.s + 14, isl.s + 22, (p) => p.y + 0.05, exitMat, 1));
+  }
 
   const checker = canvasTexture(64, 16, (g, w, h) => {
     for (let x = 0; x < w; x += 8) {
@@ -469,6 +475,25 @@ export function buildTrackMesh(track) {
     group.add(strip(track, track.cross.sA + r.from, track.cross.sA + r.to, (p) => p.y + 0.06,
       new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') }), 6));
   }
+
+  // バンプ（Kampar Town）: 道の幅いっぱいの低いでっぱり（黄色と白のしま）と、手前の道ばたの BONGGOL の標識
+  const bumpMat = new THREE.MeshBasicMaterial({ map: canvasTexture(64, 16, (g, w, h) => {
+    for (let x = 0; x < w; x += 8) {
+      g.fillStyle = (x / 8) % 2 ? '#ffffff' : '#f5c400';
+      g.fillRect(x, 0, 8, h);
+    }
+  }) });
+  for (const b of track.bumps ?? []) {
+    const m = strip(track, b - 1, b + 1, (p) => p.y + 0.14, bumpMat, 1);
+    m.material.map.wrapS = THREE.RepeatWrapping;
+    group.add(m);
+    group.add(bumpSign(track, b - 25));
+  }
+
+  group.add(mountains(track));
+
+  // 街の景色（部品セットを、コースのデータの置き場所に）
+  if (town) group.add(buildScenery(track, track.def.scenery ?? []));
 
   // 観客席・土手・木と看板は、サーキットだけ
   if (track.def.theme === 'circuit') {
@@ -495,8 +520,33 @@ function boostRuns(samples) {
   return runs;
 }
 
+// 道の上の白い矢印（進む向きを指す。左右の車線に1つずつ）
+function roadArrows() {
+  return canvasTexture(128, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#f4f4f4';
+    for (const cx of [w * 0.2, w * 0.8]) {
+      g.beginPath();
+      g.moveTo(cx - 12, h * 0.95);
+      g.lineTo(cx - 12, h * 0.45);
+      g.lineTo(cx - 24, h * 0.45);
+      g.lineTo(cx, h * 0.05);
+      g.lineTo(cx + 24, h * 0.45);
+      g.lineTo(cx + 12, h * 0.45);
+      g.lineTo(cx + 12, h * 0.95);
+      g.fill();
+    }
+  });
+}
+
 function islandMesh(isl) {
   const g = new THREE.Group();
+  if (isl.brick) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(isl.r, isl.r + 12, 40), new THREE.MeshLambertMaterial({ color: 0xc06a4a }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(isl.x, 0.04, isl.z);
+    g.add(ring);
+  }
   const grass = new THREE.Mesh(new THREE.CylinderGeometry(isl.r, isl.r, 0.25, 32), new THREE.MeshLambertMaterial({ color: 0x5aa04a }));
   grass.position.set(isl.x, 0.125, isl.z);
   g.add(grass);
@@ -512,5 +562,75 @@ function islandMesh(isl) {
   const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3f8f3a }));
   leaf.position.set(isl.x, 3.6, isl.z);
   g.add(trunk, leaf);
+  return g;
+}
+
+// マレーシアのバンプの標識: 黄色いひし形に黒いでっぱりの絵、その下に白い板の「BONGGOL」。道の左の歩道に立てる
+function bumpSign(track, s) {
+  const n = track.samples.length;
+  const p = track.samples[((Math.round(s) % n) + n) % n];
+  const d = p.wall - 1.2;
+  const g = new THREE.Group();
+  g.position.set(p.x + Math.sin(p.h) * d, 0, p.z - Math.cos(p.h) * d); // 左側（右向きのベクトルの反対）
+  g.rotation.y = -p.h - Math.PI / 2; // 板の表が、走ってくる車の方を向く
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+  pole.position.y = 1.3;
+  const diamond = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ map: canvasTexture(64, 64, (c, w, h) => {
+    c.fillStyle = '#111';
+    c.fillRect(0, 0, w, h);
+    c.fillStyle = '#ffd400';
+    c.fillRect(3, 3, w - 6, h - 6);
+    c.fillStyle = '#111';
+    c.save();
+    c.translate(w / 2, h / 2);
+    c.rotate(-Math.PI / 4); // ひし形に回すので、絵は逆に回して描く
+    c.beginPath();
+    c.moveTo(-22, 8);
+    c.quadraticCurveTo(0, -18, 22, 8);
+    c.lineTo(-22, 8);
+    c.fill();
+    c.fillRect(-24, 8, 48, 4);
+    c.restore();
+  }), side: THREE.DoubleSide }));
+  diamond.rotation.z = Math.PI / 4;
+  diamond.position.set(0, 2.55, 0.08);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.35), new THREE.MeshBasicMaterial({ map: canvasTexture(128, 40, (c, w, h) => {
+    c.fillStyle = '#fff';
+    c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#111';
+    c.lineWidth = 3;
+    c.strokeRect(2, 2, w - 4, h - 4);
+    c.fillStyle = '#111';
+    c.font = 'bold 26px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('BONGGOL', w / 2, h / 2 + 1);
+  }), side: THREE.DoubleSide }));
+  plate.position.set(0, 1.75, 0.08);
+  g.add(pole, diamond, plate);
+  return g;
+}
+
+// 遠くの山。サーキットはまわりをぐるりと。Kampar Town は写真のとおり、北（-z）と東（+x）に高く
+const MOUNTAIN = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
+function mountains(track) {
+  const g = new THREE.Group();
+  const town = track.def.theme === 'town';
+  const reach = Math.max(...track.samples.map((p) => Math.hypot(p.x, p.z)));
+  const radius = 700;
+  for (let k = 0; k < 14; k++) {
+    const a = (k / 14) * Math.PI * 2;
+    let h = 150 + ((k * 37) % 5) * 40;
+    if (town) {
+      const north = Math.max(0, -Math.sin(a)); // -z の向き
+      const east = Math.max(0, Math.cos(a)); // +x の向き
+      h = 90 + 260 * Math.max(north, east) + ((k * 37) % 5) * 25;
+    }
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), MOUNTAIN);
+    // 街では、山のすそがコースにかからないよう、すその広さの分だけ遠くに置く
+    const r = town ? reach + h * 1.4 + 60 : radius;
+    cone.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r);
+    g.add(cone);
+  }
   return g;
 }

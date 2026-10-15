@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=b595e01';
-import { buildTrackMesh } from './trackMesh.js?v=b595e01';
+import * as THREE from '../../vendor/three.module.min.js?v=c293e1f';
+import { buildTrackMesh } from './trackMesh.js?v=c293e1f';
 
 const SKY = 0x8fd3ff;
 
@@ -23,15 +23,7 @@ export function createWorld() {
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
-  const mountain = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
-  for (let k = 0; k < 14; k++) {
-    const a = (k / 14) * Math.PI * 2;
-    const h = 150 + ((k * 37) % 5) * 40;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 1.4, h, 7), mountain);
-    cone.position.set(Math.cos(a) * 700, h / 2 - 2, Math.sin(a) * 700);
-    scene.add(cone);
-  }
-
+  // 遠くの山はコースごとにちがうので、コースの形と一緒に作る（src/render/trackMesh.js の mountains）
   const camera = new THREE.PerspectiveCamera(70, 1, 0.5, 2000);
   return { scene, camera };
 }

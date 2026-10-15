@@ -1,40 +1,41 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=b595e01';
-import { startLoop } from './loop.js?v=b595e01';
-import { COURSES } from './data/tracks.js?v=b595e01';
-import { buildTrack } from './game/track.js?v=b595e01';
-import { createKart, stepKart, startDash } from './game/kart.js?v=b595e01';
-import { kartParams } from './game/stats.js?v=b595e01';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=b595e01';
-import { pushApart, newBumps } from './game/collide.js?v=b595e01';
+import * as THREE from '../vendor/three.module.min.js?v=c293e1f';
+import { startLoop } from './loop.js?v=c293e1f';
+import { COURSES } from './data/tracks.js?v=c293e1f';
+import { buildTrack } from './game/track.js?v=c293e1f';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=c293e1f';
+import { cowContact, cowPose } from './game/hazards.js?v=c293e1f';
+import { kartParams } from './game/stats.js?v=c293e1f';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=c293e1f';
+import { pushApart, newBumps } from './game/collide.js?v=c293e1f';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=b595e01';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=b595e01';
-import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=b595e01';
-import { createMinimap } from './render/minimap.js?v=b595e01';
-import { grandstandSpot } from './render/trackMesh.js?v=b595e01';
-import { createKartModel, syncKartModel, createNameTag } from './render/models.js?v=b595e01';
-import { faceSvg } from './titleArt.js?v=b595e01';
-import { createEffects } from './render/effects.js?v=b595e01';
-import { nextQuality, pixelRatio } from './render/quality.js?v=b595e01';
-import { blendPose, poseOf } from './render/interp.js?v=b595e01';
-import { speedText } from './hud.js?v=b595e01';
-import { addRecent, cleanRecent } from './names.js?v=b595e01';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=b595e01';
-import { load, save } from './storage.js?v=b595e01';
-import * as screens from './screens.js?v=b595e01';
-import { createAudio } from './audio/audio.js?v=b595e01';
-import { createSfx } from './audio/sfx.js?v=b595e01';
-import { createVoices } from './audio/voice.js?v=b595e01';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=b595e01';
-import { createCrowd } from './audio/crowd.js?v=b595e01';
-import { crowdMix } from './audio/mix.js?v=b595e01';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=b595e01';
-import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=b595e01';
+} from './game/race.js?v=c293e1f';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=c293e1f';
+import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=c293e1f';
+import { createMinimap } from './render/minimap.js?v=c293e1f';
+import { grandstandSpot } from './render/trackMesh.js?v=c293e1f';
+import { createKartModel, syncKartModel, createNameTag, createCowModel } from './render/models.js?v=c293e1f';
+import { faceSvg } from './titleArt.js?v=c293e1f';
+import { createEffects } from './render/effects.js?v=c293e1f';
+import { nextQuality, pixelRatio } from './render/quality.js?v=c293e1f';
+import { blendPose, poseOf } from './render/interp.js?v=c293e1f';
+import { speedText } from './hud.js?v=c293e1f';
+import { addRecent, cleanRecent } from './names.js?v=c293e1f';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=c293e1f';
+import { load, save } from './storage.js?v=c293e1f';
+import * as screens from './screens.js?v=c293e1f';
+import { createAudio } from './audio/audio.js?v=c293e1f';
+import { createSfx } from './audio/sfx.js?v=c293e1f';
+import { createVoices } from './audio/voice.js?v=c293e1f';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=c293e1f';
+import { createCrowd } from './audio/crowd.js?v=c293e1f';
+import { crowdMix } from './audio/mix.js?v=c293e1f';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=c293e1f';
+import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=c293e1f';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'b595e01';
+const VERSION = 'c293e1f';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -223,13 +224,14 @@ function createGame(name, charId) {
   const karts = [];
   const models = [];
   const cpus = [];
+  const seed = Math.floor(Math.random() * 100000); // レースごとの数（CPU がバンプで減速を忘れる所が、レースごとに変わる）
   let cpuNo = 0;
   for (let k = 0; k < count; k++) {
     const slot = gridSlot(track, k);
     karts.push(createKart(track, slot.i, slot.lateral));
     const isMe = k === PLAYER_SLOT;
     const look = isMe ? { body: me.body, character: me.id } : CPU_LOOKS[cpuNo];
-    cpus.push(isMe ? createCpu(7) : createCpu(cpuNo));
+    cpus.push(isMe ? createCpu(7, seed) : createCpu(cpuNo, seed));
     models.push(createKartModel(look));
     if (!isMe) cpuNo++;
   }
@@ -276,6 +278,22 @@ function createGame(name, charId) {
     paused: false,
     onEnd: null,
   };
+}
+
+// 牛の形（コースの形と一緒に取っておく。コースが変わると一緒に入れかわる）を、時刻 time の場所に置く
+function placeCows(time) {
+  if (!track.cows.length) return;
+  if (!track.cowModels) {
+    track.cowModels = track.cows.map((_, k) => createCowModel(k));
+    track.cowModels.forEach((m) => track.mesh.add(m));
+  }
+  track.cows.forEach((cow, k) => {
+    const p = cowPose(track, cow, time);
+    const m = track.cowModels[k];
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = -p.heading;
+    m.userData.walk(time);
+  });
 }
 
 function removeGame() {
@@ -329,6 +347,13 @@ function stepGame(dt) {
       const rubber = k === me ? 1 : rubberFactor(progress(race, k, track), myProgress, L);
       stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber), dt);
     }
+  });
+  // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
+  if (track.cows.length) karts.forEach((kart) => cowContact(kart, track, race.t, PHYS));
+  // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）
+  karts.forEach((kart) => {
+    if (kart.tumble > 0 && !kart.tumbleShown) effects.burst(kart.x, kart.y + 0.5, kart.z);
+    kart.tumbleShown = kart.tumble > 0;
   });
   const before = g.contacts;
   g.contacts = pushApart(karts, before);
@@ -540,6 +565,7 @@ function renderGame(alpha, dt) {
     return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
+  placeCows(g.race.t);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;

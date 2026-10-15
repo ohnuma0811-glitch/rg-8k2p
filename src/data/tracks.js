@@ -1,3 +1,5 @@
+import { KAMPAR_SCENERY } from './kampar.js?v=c293e1f';
+
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
 // きついカーブは3か所だけにして、どれも大きく曲がるようにする（小さなくねくねは入れない）
@@ -37,8 +39,9 @@ export const COURSE1 = {
 // 仕掛けと景色の場所は、区間の印（marks）からの割合で書く: ['A', 'B', 0.5] = A と B の真ん中
 export const COURSE2 = {
   name: 'Kampar Town',
-  music: 'kenta', // Task 30 で Kampar Town の曲（'kampar'）にする
+  music: 'kampar', // このコースの曲（src/audio/songs.js）
   theme: 'town',
+  scenery: KAMPAR_SCENERY, // 景色の置き場所（src/data/kampar.js）
   points: [
     [1000, 530], [990, 590], [962, 655], [932, 712], // 0〜3: スタート（歩道橋）から A へ、ゆるやかなカーブ
     [902, 744], // 4: A（右へ曲がる）
@@ -69,16 +72,20 @@ export const COURSE2 = {
   roundabouts: [
     { at: ['A', 'B', 0.45], r: 7 }, // 09（直進）
     { at: ['E', 'E', 0], r: 7 }, // E
-    { at: ['G', 'G', 0], r: 7 }, // G（赤レンガ）
+    { at: ['G', 'G', 0], r: 7, brick: true }, // G（赤レンガ）
   ],
   medians: [
     { from: ['S', 'A', 0.05], to: ['S', 'A', 0.85], half: 1.5 },
-    { from: ['B', 'C', 0.15], to: ['B', 'C', 0.85], half: 1.5 },
-    { from: ['F', 'G', 0.15], to: ['F', 'G', 0.7], half: 1.5 },
+    { from: ['B', 'C', 0.25], to: ['B', 'C', 0.85], half: 1.5 },
+    { from: ['F', 'G', 0.32], to: ['F', 'G', 0.7], half: 1.5 },
     { from: ['G', 'H', 0.3], to: ['G', 'H', 0.85], half: 1.5 },
     { from: ['I', 'J', 0.1], to: ['I', 'J', 0.6], half: 1.5 },
-    { from: ['J', 'S', 0.15], to: ['J', 'S', 0.9], half: 1.5 },
+    { from: ['J', 'S', 0.25], to: ['J', 'S', 0.9], half: 1.5 },
   ],
+  // バンプ（2026-10-15 のユーザー依頼）: メーター100を超えて乗ると3秒転がる
+  bumps: [['A', 'B', 0.75], ['B', 'C', 0.5], ['D', 'E', 0.5]],
+  // 牛（2026-10-15 のユーザー依頼）: J の近くで、ゆっくり左右に動く。メーター100以上でぶつかるとスピン
+  cows: { from: ['I', 'J', 0.7], to: ['I', 'J', 0.95], count: 4 },
   pads: [
     { at: ['S', 'A', 0.4], len: 6, time: 1.0 },
     { at: ['I', 'J', 0.3], len: 6, time: 1.0 },
