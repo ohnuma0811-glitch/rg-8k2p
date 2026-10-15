@@ -187,6 +187,33 @@ export function createSfx(audio) {
       tone('triangle', 180, 0.08, 0.25, { to: 120 });
       burst('lowpass', 900, 300, 0.05, 0.15);
     },
+    // スクールバスとすれちがう「ブウウーン」（2026-10-16 のユーザー依頼）: 低いエンジンの音が近づいて大きくなり、
+    // すれちがうと高さが少し下がって（ドップラー）遠ざかる
+    busPass: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const low = ctx.createBiquadFilter();
+      low.type = 'lowpass';
+      low.frequency.value = 420;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.55);
+      g.gain.setValueAtTime(0.5, t + 0.7);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+      low.connect(g).connect(audio.sfxOut);
+      for (const f of [58, 87]) {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f * 1.12, t);
+        o.frequency.setValueAtTime(f * 1.12, t + 0.6);
+        o.frequency.exponentialRampToValueAtTime(f * 0.82, t + 1.0);
+        o.connect(low);
+        o.start(t);
+        o.stop(t + 1.7);
+      }
+    },
+    // スクールバスにぶつかった音（車どうしの「バン」と同じ）
+    busHit: () => SOUNDS.bump(),
     // 牛にぶつかった「モー」: のこぎりの波2つを、口の形のようなバンドパスに通し、ゆっくり下げる
     moo: () => {
       const ctx = audio.ctx;

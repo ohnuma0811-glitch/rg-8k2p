@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildTrack, span, markS } from '../src/game/track.js';
 import { COURSE2, COURSES } from '../src/data/tracks.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
-import { cowContact } from '../src/game/hazards.js';
+import { cowContact, busContact } from '../src/game/hazards.js';
 import { createCpu, cpuControl } from '../src/game/cpu.js';
 import { kartParams } from '../src/game/stats.js';
 
@@ -74,7 +74,7 @@ function kamparCpuRace(seed = 1) {
     return createKart(t, slot.i, slot.lateral);
   });
   const cpus = [0, 1, 2, 3].map((k) => createCpu(k, seed));
-  const stats = karts.map(() => ({ dist: 0, last: null, median: 0, spins: 0, tumbles: 0, finish: null }));
+  const stats = karts.map(() => ({ dist: 0, last: null, median: 0, spins: 0, tumbles: 0, busHits: 0, finish: null }));
   let contacts = new Set();
   for (let time = 0; time < 300 && stats.some((s) => s.finish === null); time += 1 / 60) {
     karts.forEach((kart, k) => {
@@ -83,6 +83,7 @@ function kamparCpuRace(seed = 1) {
       const wasTumble = kart.tumble > 0;
       stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60);
       cowContact(kart, t, time, PHYS);
+      if (busContact(kart, t, time, PHYS)) st.busHits++;
       if (kart.spin > 0 && !wasSpin) st.spins++;
       if (kart.tumble > 0 && !wasTumble) st.tumbles++;
       const loc = locate(t, kart.x, kart.z, kart.seg);
@@ -114,7 +115,7 @@ test('CPU は分離帯の芝生の上を走らない（走る線が分離帯に�
 
 test('CPU は牛をよける（ぶつかってスピンするのは、ときどきだけ）', () => {
   // 牛の横を通る回数（4台×3周×頭数）の 7% 以下（9頭で 7 回まで）
-  const spins = kamparCpuRace().reduce((n, s) => n + s.spins, 0);
+  const spins = kamparCpuRace().reduce((n, s) => n + s.spins - s.busHits, 0); // バスでのスピンは別に数える
   const passes = 4 * 3 * t.cows.length;
   assert.ok(spins <= passes * 0.07, `4台×3周（牛 ${t.cows.length} 頭）で ${spins} 回スピン`);
 });
@@ -181,4 +182,9 @@ test('町の直角の角は、外側が四角い（角のすみまで走れて�
     const loc2 = locate(t, x2, z2);
     assert.ok(Math.abs(loc2.lateral) > loc2.wall - 0.01, `s=${c.s.toFixed(0)}: 正面の壁の外に出られる`);
   }
+});
+
+test('CPU は、逆向きに走ってくるスクールバスをよける（ぶつかるのは、ときどきだけ。2026-10-16 のユーザー依頼）', () => {
+  const hits = kamparCpuRace().reduce((n, s) => n + s.busHits, 0);
+  assert.ok(hits <= 2, `4台×3周でバスに ${hits} 回ぶつかった`);
 });

@@ -90,3 +90,80 @@ export function bumpWarning(track, kart) {
     return ahead > 0 && ahead < track.length / 2 && ahead - BUMP_STRIPE_M <= BUMP_WARN_EARLY * kart.speed;
   });
 }
+
+// スクールバス（BAS SEKOLAH。2026-10-16 のユーザー依頼）: レースの進む向きの右側の車線を、いつも逆向きに走ってくる。
+// 牛とはぶつからずに通り過ぎる。カートが触れると、速さに関係なくスピンする
+export const BUS_SPEED = 13; // バスの速さ（m/s。メーター約70）
+export const BUS_LANE = 6; // 道の真ん中から右へ（m）。ロータリーでは、道が広がった分だけ外（島の右側）を回る
+export const BUS_LENGTH = 7.5; // バスの長さ（m）
+export const BUS_WIDTH = 2.6; // バスの幅（m）
+export const BUS_NEAR = 20; // すれちがいの音を鳴らす近さ（m）
+
+// 時刻 time のバスの場所: s はコースの上の場所（逆に進む）、lateral は右へ
+export function busPose(track, bus, time) {
+  const L = track.length;
+  const n = track.samples.length;
+  const s = ((((bus.s0 - BUS_SPEED * time) % L) + L) % L);
+  const i = Math.floor(s) % n;
+  const p = track.samples[i];
+  const q = track.samples[(i + 1) % n];
+  const f = s - Math.floor(s);
+  const lateral = BUS_LANE + (p.half - track.roadHalf);
+  const px = p.x + (q.x - p.x) * f;
+  const pz = p.z + (q.z - p.z) * f;
+  return {
+    s,
+    x: px - Math.sin(p.h) * lateral,
+    z: pz + Math.cos(p.h) * lateral,
+    lateral,
+    heading: p.h + Math.PI, // コースと逆向き
+  };
+}
+
+// 車とバスの当たり（バスは長い四角）。触れた最初だけ 'spin' を返し、横へ押し出す
+export function busContact(kart, track, time, phys) {
+  let hit = null;
+  let touching = false;
+  for (const bus of track.buses ?? []) {
+    const b = busPose(track, bus, time);
+    const fx = Math.cos(b.heading);
+    const fz = Math.sin(b.heading);
+    const dx = kart.x - b.x;
+    const dz = kart.z - b.z;
+    const along = dx * fx + dz * fz;
+    const side = dx * -fz + dz * fx;
+    const halfL = BUS_LENGTH / 2 + COW_PAD;
+    const halfW = BUS_WIDTH / 2 + COW_PAD;
+    if (Math.abs(along) >= halfL || Math.abs(side) >= halfW || kart.airborne) continue;
+    touching = true;
+    // 横（近い側）へ押し出す
+    const out = (Math.sign(side) || -1) * halfW - side;
+    kart.x += -fz * out;
+    kart.z += fx * out;
+    if (kart.onBus || kart.spin > 0) continue;
+    kart.busHits = (kart.busHits || 0) + 1;
+    kart.spin = phys.SPIN_TIME;
+    kart.spinTo = track.samples[kart.seg].h;
+    kart.speed *= 0.5;
+    hit = 'spin';
+  }
+  if (touching) {
+    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const excess = Math.abs(loc.lateral) - loc.wall;
+    if (excess > 0) {
+      const sd = Math.sign(loc.lateral);
+      kart.x -= -Math.sin(loc.heading) * sd * excess;
+      kart.z -= Math.cos(loc.heading) * sd * excess;
+    }
+  }
+  kart.onBus = touching;
+  return hit;
+}
+
+// 近くにバスがいるか（すれちがいの音）
+export function busNear(track, pos, time) {
+  return (track.buses ?? []).some((bus) => {
+    const b = busPose(track, bus, time);
+    return Math.hypot(b.x - pos.x, b.z - pos.z) < BUS_NEAR;
+  });
+}

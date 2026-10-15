@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -15,7 +15,7 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -297,6 +297,21 @@ function placeCows(time) {
   });
 }
 
+// スクールバスの形（牛と同じく、コースの形と一緒に取っておく）を、時刻 time の場所に置く（2026-10-16 のユーザー依頼）
+function placeBuses(time) {
+  if (!track.buses.length) return;
+  if (!track.busModels) {
+    track.busModels = track.buses.map(() => createBusModel());
+    track.busModels.forEach((m) => track.mesh.add(m));
+  }
+  track.buses.forEach((bus, k) => {
+    const p = busPose(track, bus, time);
+    const m = track.busModels[k];
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = -p.heading;
+  });
+}
+
 function removeGame() {
   if (!game) return;
   sfx.stopAll();
@@ -351,6 +366,8 @@ function stepGame(dt) {
   });
   // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
   if (track.cows.length) karts.forEach((kart) => cowContact(kart, track, race.t, PHYS));
+  // スクールバス（Kampar Town）: 触れたらスピン
+  if (track.buses.length) karts.forEach((kart) => busContact(kart, track, race.t, PHYS));
   // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）
   karts.forEach((kart) => {
     if (kart.tumble > 0 && !kart.tumbleShown) effects.burst(kart.x, kart.y + 0.5, kart.z);
@@ -559,6 +576,7 @@ function renderGame(alpha, dt) {
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
   placeCows(g.race.t);
+  placeBuses(g.race.t);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -588,7 +606,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t) });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);

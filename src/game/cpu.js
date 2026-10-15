@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
 import { locate, islandNear, span } from './track.js';
-import { cowPose } from './hazards.js';
+import { cowPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -99,8 +99,24 @@ export function cpuControl(cpu, kart, track, t) {
     const side = Math.abs(lane) > median + 1 ? Math.sign(lane) : Math.sign(cpu.lane) || 1;
     lane = side * Math.max(Math.abs(lane), median + 2);
   }
-  const tx = p.x - Math.sin(p.h) * lane;
-  const tz = p.z + Math.cos(p.h) * lane;
+  // スクールバス（逆向きに走ってくる）: 先から来るバスの横を、左の車線でよける（2026-10-16 のユーザー依頼）。
+  // ロータリーでは島の左側を回る。分離帯のある所で右の側を走っているときは、バスの右（柵の側）。
+  // よけている間は、目指す点を近くにして、角でも内側へ切れこまない（右の角の内側はバスの車線）
+  let aim = p;
+  let busNearby = false;
+  for (const bus of track.buses ?? []) {
+    const b = busPose(track, bus, t);
+    const ahead = span(track, loc.s, b.s);
+    if (ahead > 110 && ahead < track.length - 12) continue; // 先 110m から、すれちがって 12m 過ぎるまで
+    busNearby = true;
+    const edge = samples[loc.i].half - 2;
+    if (isl || islandNear(track, loc.s)) lane = -Math.abs(lane) - (isl ? 0 : 2);
+    else if (median > 0 && lane > 0) lane = Math.max(lane, Math.min(edge, b.lateral + BUS_WIDTH / 2 + 4.5));
+    else lane = Math.min(lane, b.lateral - BUS_WIDTH / 2 - 6.2);
+    if (ahead < 40 || ahead > track.length - 12) aim = samples[(loc.i + 8) % n];
+  }
+  const tx = aim.x - Math.sin(aim.h) * lane;
+  const tz = aim.z + Math.cos(aim.h) * lane;
   const angle = wrap(Math.atan2(tz - kart.z, tx - kart.x) - kart.move);
   const steer = Math.max(-1, Math.min(1, angle * CPU.STEER_GAIN));
   const bendTo = wrap(samples[(loc.i + CPU.BEND_AHEAD) % n].h - loc.heading);
@@ -113,7 +129,9 @@ export function cpuControl(cpu, kart, track, t) {
     if (ahead < Math.max(6, stop) && kart.speed > CPU.BUMP_SPEED && !bumpMiss(cpu, k, cpu.lap)) bumpBrake = true;
   });
   const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED);
-  if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne) cpu.drifting = true;
+  // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
+  if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne && !busNearby) cpu.drifting = true;
+  if (busNearby) cpu.drifting = false;
   if (cpu.drifting && (bend < CPU.DRIFT_END || kart.speed < 14)) cpu.drifting = false;
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
   const starting = cpu.drifting && !kart.drift.active;

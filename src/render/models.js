@@ -364,3 +364,50 @@ export function createCowModel(k = 0) {
   };
   return g;
 }
+
+// スクールバス（BAS SEKOLAH。写真のような、角の丸い黄色っぽいオレンジの小さなバス）。+x が前。2026-10-16 のユーザー依頼
+let busText = null;
+export function createBusModel() {
+  const g = new THREE.Group();
+  const orange = 0xf0a018;
+  const L = 7.5;
+  const W = 2.6;
+  g.add(box(L, 1.6, W, orange, 0, 0.95, 0)); // 下の車体（box の y は真ん中）
+  g.add(box(L - 0.2, 1.05, W - 0.1, orange, -0.05, 2.3, 0)); // 窓のある所（柱）
+  g.add(box(L - 0.5, 0.35, W - 0.2, orange, -0.1, 2.98, 0)); // 丸い屋根
+  g.add(box(L, 0.1, W + 0.02, 0x1a1a1a, 0, 1.78, 0)); // 窓の下の黒い線
+  g.add(box(L - 0.6, 0.08, W + 0.02, 0x1a1a1a, 0.1, 0.9, 0)); // 下の黒い線
+  // 横の窓（両側）と、前の大きな窓
+  for (const z of [W / 2 + 0.01, -W / 2 - 0.01]) {
+    for (const x of [-2.6, -1.3, 0, 1.5, 2.7]) {
+      const win = box(1.05, 0.8, 0.02, 0x2b3a44, x, 2.3, z);
+      g.add(win);
+    }
+  }
+  g.add(box(0.04, 0.9, W - 0.4, 0x2b3a44, L / 2 + 0.01, 2.3, 0)); // 前の窓
+  g.add(box(0.2, 0.3, W + 0.1, 0x222222, L / 2 + 0.05, 0.4, 0)); // 前のバンパー
+  g.add(box(0.2, 0.3, W + 0.1, 0x222222, -L / 2 - 0.05, 0.4, 0)); // 後ろのバンパー
+  // タイヤ
+  for (const x of [2.3, -2.4]) for (const z of [W / 2 - 0.15, -W / 2 + 0.15]) g.add(box(1.0, 1.0, 0.4, 0x151515, x, 0.5, z));
+  // 両側の「BAS SEKOLAH」の文字
+  if (!busText) {
+    const cv = document.createElement('canvas');
+    cv.width = 512;
+    cv.height = 96;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#1a1a1a';
+    c.font = 'bold 78px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('BAS SEKOLAH', 256, 50, 500);
+    busText = new THREE.CanvasTexture(cv);
+    busText.colorSpace = THREE.SRGBColorSpace;
+  }
+  for (const side of [1, -1]) {
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.85), new THREE.MeshBasicMaterial({ map: busText, transparent: true }));
+    plate.position.set(-0.9, 1.33, side * (W / 2 + 0.03));
+    if (side < 0) plate.rotation.y = Math.PI;
+    g.add(plate);
+  }
+  return g;
+}

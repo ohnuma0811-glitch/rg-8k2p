@@ -156,3 +156,9 @@ test('バンプの警告が出たら bumpWarn（ピッピッ）', () => {
   assert.deepEqual(soundEvents(st({ bumpWarn: false }), st({ bumpWarn: true }), 3), ['bumpWarn']);
   assert.deepEqual(soundEvents(st({ bumpWarn: true }), st({ bumpWarn: true }), 3), []);
 });
+
+test('スクールバスとすれちがうとき（近づいたとき）に busPass（ブウウーン）、ぶつかったら busHit（2026-10-16 のユーザー依頼）', () => {
+  assert.deepEqual(soundEvents(st({ busNear: false }), st({ busNear: true }), 3), ['busPass']);
+  assert.deepEqual(soundEvents(st({ busNear: true }), st({ busNear: true }), 3), [], '近くにいる間は1回だけ');
+  assert.deepEqual(soundEvents(st({}, { busHits: 0 }), st({}, { busHits: 1 }), 3), ['busHit']);
+});

@@ -301,6 +301,10 @@ export function buildTrack(def) {
       t.cows.push({ s: (from + (len * (k + 0.5)) / def.cows.count) % t.length, period: 24 + k * 5, phase: k * 2.1 });
     }
   }
+  // スクールバス（2026-10-16 のユーザー依頼）: 1周に等しい間をあけて並べる。動きは src/game/hazards.js の busPose
+  t.buses = [];
+  // スタートしてすぐ、車が固まっている A の角でバスと出会わないよう、少しずらす
+  for (let k = 0; k < (def.buses ?? 0); k++) t.buses.push({ s0: ((t.length * (k + 0.5)) / def.buses + 200) % t.length });
   for (const pad of def.pads ?? []) {
     const at = markS(t, pad.at);
     for (const p of samples) {
