@@ -4,6 +4,7 @@ import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
 import { buildJungle } from './town/jungle.js';
 import { buildWater } from './town/water.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
+import { cornerUW } from '../game/track.js';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -428,9 +429,21 @@ export function buildTrackMesh(track) {
     g.fillRect(w - 4, 0, 2, h);
   });
   group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, hasGround, { color: 0xffffff, map: asphalt, vScale: 4 }));
-  // 縁石
-  group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, hasGround, { colorOf: curb }));
-  group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, hasGround, { colorOf: curb }));
+  // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
+  const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
+  const corners = track.corners ?? [];
+  if (mouths.length || corners.length) group.add(junctionMesh(track, mouths, corners, asphalt));
+  if (corners.length) group.add(cornerWalls(corners, mouths));
+  // 縁石（交差点の口の所と、直角の角の外側の四角の中はなし）
+  const curbOk = (side) => (p) => {
+    if (!hasGround(p)) return false;
+    const [rx, rz] = rightOf(p);
+    const x = p.x + rx * side * (p.half + 0.5);
+    const z = p.z + rz * side * (p.half + 0.5);
+    return !mouths.some((m) => inMouth(m, x, z)) && !corners.some((c) => inCornerOuter(c, x, z));
+  };
+  group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, curbOk(-1), { colorOf: curb }));
+  group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
   if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
@@ -438,10 +451,15 @@ export function buildTrackMesh(track) {
   }
 
   // 柵（ほかの道をふさぐ所だけ開ける）。街は低いコンクリートの壁。ジャンプ台は道のすぐ横に側面と柵
-  const fences = fenceSides(track, town ? stubMouths(track, track.def.scenery ?? []) : []);
+  const fences = fenceSides(track, mouths);
   const index = new Map(samples.map((p, i) => [p, i]));
   for (const side of [-1, 1]) {
-    const fenceOk = (p) => fences[index.get(p)][side];
+    // 直角の角の外側の、丸い柵は描かない（かわりに cornerWalls の2本のまっすぐな壁）
+    const fenceOk = (p) => {
+      if (!fences[index.get(p)][side]) return false;
+      const [rx, rz] = rightOf(p);
+      return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
+    };
     const off = (p) => side * p.wall;
     if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
@@ -512,6 +530,10 @@ export function buildTrackMesh(track) {
       const back = sp.side === 2 ? 16 : r * 1.4; // 建物は道から奥へ広がる
       avoid.push({ x: sp.x, z: sp.z, radius: r + 6 });
       avoid.push({ x: sp.x - Math.sin(sp.ry) * back, z: sp.z - Math.cos(sp.ry) * back, radius: r * 1.6 + 6 });
+    }
+    // 通行止めの道の上にも木を置かない
+    for (const m of mouths) {
+      for (let d = 0; d <= m.length; d += 12) avoid.push({ x: m.x - Math.sin(m.ry) * d, z: m.z - Math.cos(m.ry) * d, radius: m.width / 2 + 10 });
     }
     group.add(buildJungle(track, avoid));
     // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）
@@ -736,4 +758,75 @@ function ZEBRA_MAT() {
     zebra = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
   }
   return zebra;
+}
+
+// 点が、直角の角の外側の四角の中か（内側の角の丸い柵・縁石はそのまま）
+export function inCornerOuter(c, x, z) {
+  const o = cornerUW(c, x, z);
+  return o.u > -c.W + 1 && o.w > -c.W + 1 && o.u < c.W + 1 && o.w < c.W + 1;
+}
+
+// 直角の角の外側の、2本のまっすぐな低い壁（w = W と u = W）。通行止めの道の口の所はあける
+function cornerWalls(corners, mouths) {
+  const pos = [];
+  const H = 0.9;
+  const quad = (a, b) => {
+    pos.push(a[0], 0, a[1], b[0], 0, b[1], b[0], H, b[1], a[0], 0, a[1], b[0], H, b[1], a[0], H, a[1]);
+  };
+  for (const c of corners) {
+    const W = c.W;
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, c.z + c.uz * u - c.vz * w];
+    for (const line of ['w', 'u']) {
+      // 口のある所（線の上の、あける幅）
+      const cuts = [];
+      for (const m of mouths) {
+        const o = cornerUW(c, m.x, m.z);
+        const along = line === 'w' ? o.u : o.w;
+        const off = line === 'w' ? o.w : o.u;
+        if (Math.abs(along) < W + m.width / 2 && off > W - 6 && off < W + 3) cuts.push([along - m.width / 2, along + m.width / 2]);
+      }
+      let from = -W;
+      const pieces = [];
+      for (const [a, b] of cuts.sort((x, y) => x[0] - y[0])) {
+        if (a > from) pieces.push([from, Math.min(a, W)]);
+        from = Math.max(from, b);
+      }
+      if (from < W) pieces.push([from, W]);
+      for (const [a, b] of pieces) quad(line === 'w' ? P(a, W) : P(W, a), line === 'w' ? P(b, W) : P(W, b));
+    }
+  }
+  return mesh(pos, { color: 0xd8d4cc });
+}
+
+// 通行止めの道の面（コースと同じ道の絵: 両はしの白線と真ん中の破線）と、角のまん中の四角。
+// コースの道より少し下に描き、口はコースの道の下まで少し入れて、すき間なくつなぐ
+function junctionMesh(track, mouths, corners, asphalt) {
+  const group = new THREE.Group();
+  const pos = [];
+  const uv = [];
+  const y = 0.025;
+  for (const m of mouths) {
+    const c = Math.cos(m.ry);
+    const s = Math.sin(m.ry);
+    const w = m.width;
+    const P = (lx, lz) => [m.x + lx * c + lz * s, y, m.z - lx * s + lz * c];
+    const [z0, z1] = [3, -m.length];
+    const a = P(-w / 2, z0), b = P(w / 2, z0), cc = P(-w / 2, z1), d = P(w / 2, z1);
+    pos.push(...a, ...cc, ...b, ...b, ...cc, ...d);
+    const v0 = -z0 / 4, v1 = -z1 / 4;
+    uv.push(0, v0, 0, v1, 1, v0, 1, v0, 0, v1, 1, v1);
+  }
+  group.add(mesh(pos, { color: 0xffffff, uv, map: asphalt }));
+  // 直角の角の四角（2本の道が重なる所から、外側の壁まで）。コースの道の上に、線のない道の色でかぶせる
+  // （コースの道の丸い白線や破線が、交差点の中に出ないように。2026-10-15 のユーザー依頼「つぎはぎに見える」）
+  const box = [];
+  for (const c of corners) {
+    const a = -track.roadHalf;
+    const h = c.W;
+    const P = (u, w) => [c.x + c.ux * u - c.vx * w, 0.036, c.z + c.uz * u - c.vz * w];
+    const p1 = P(a, a), p2 = P(h, a), p3 = P(h, h), p4 = P(a, h);
+    box.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
+  }
+  if (box.length) group.add(mesh(box, { color: 0x55585e }));
+  return group;
 }

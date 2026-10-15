@@ -135,10 +135,8 @@ export function chevronBoard(b, { dir = 1, side = -1 } = {}) {
 }
 
 // コースでない道（少しだけ道を描き、コンクリートの壁と赤白の柵でふさぐ。2026-10-15 のユーザー依頼「街らしく」）
-// 通行止めの道: 口（z=0）がコースの道のふちにつながり、少し先で、赤白の柵とコンクリートの壁でふさぐ。その先にも道が続いて見える
-export function stubRoad(b, { width = 14, length = 34, stop = 14 } = {}) {
-  b.box(width, 0.06, length, 0x55585e, 0, 0, -length / 2); // コースの縁石の上までおおう
-  b.box(0.15, 0.07, length - 2, 0xf2f2f2, 0, 0, -length / 2 - 1); // 真ん中の白線
+// 通行止めの道の、柵と壁（道の面は src/render/trackMesh.js が、コースと同じ道の絵で描く）。口（z=0）から stop m 先でふさぐ
+export function stubRoad(b, { width = 14, stop = 14 } = {}) {
   b.push(0, 0, -stop);
   barrier(b, { length: Math.round(width) });
   b.box(width + 2, 0.9, 0.4, 0xd8d4cc, 0, 0, -0.5); // コンクリートの壁（通行止め）

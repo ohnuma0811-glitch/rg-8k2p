@@ -129,11 +129,11 @@ test('WestLake Villas・学校・病院は道の左のふちにくっつける�
   }
 });
 
-test('A・B は十字路、F は T字路: 反対側に通行止めの道、横断歩道、信号機（いつも青）', () => {
+test('A・B・F は十字路: 正面と反対側に通行止めの道、横断歩道、信号機（いつも青）', () => {
   assert.deepEqual(COURSE2.intersections, ['A', 'B', 'F']);
   for (const m of ['A', 'B', 'F']) {
     const at = (i) => i.at && i.at[0] === m && i.at[1] === m;
-    assert.equal(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === true && at(i)), m !== 'F', `${m} の正面`);
+    assert.equal(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === true && at(i)), true, `${m} の正面`);
     assert.ok(KAMPAR_SCENERY.some((i) => i.part === 'stubRoad' && i.ahead === 'back' && at(i)), `${m} の反対側`);
     // 信号は、交差点に入ってくる手前の両側（走ってくる車から見える所）
     const lights = KAMPAR_SCENERY.filter((i) => i.part === 'trafficLight' && i.at[1] === m && i.at[2] > 0.9);
@@ -153,7 +153,7 @@ test('UTAR の敷地の入口（H の手前）と I の門に、アーチと大�
 
 test('直角の角は T字路: 曲がる先の道が反対側にも続き、正面はふさぐ（A・B は十字路。2026-10-15 のユーザー依頼）', () => {
   const corner = (m) => (i) => i.part === 'stubRoad' && i.at && JSON.stringify(i.at) === JSON.stringify(m);
-  for (const m of [['C', 'C', 0], ['D', 'D', 0], ['D', 'E', 0.7], ['F', 'F', 0], ['J', 'J', 0]]) {
+  for (const m of [['C', 'C', 0], ['D', 'D', 0], ['D', 'E', 0.7], ['J', 'J', 0]]) {
     assert.ok(KAMPAR_SCENERY.some((i) => corner(m)(i) && i.ahead === 'back'), `${m} の反対側の道`);
     assert.ok(!KAMPAR_SCENERY.some((i) => corner(m)(i) && i.ahead === true), `${m} の正面はふさぐ`);
   }

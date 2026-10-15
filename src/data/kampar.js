@@ -28,7 +28,7 @@ export const KAMPAR_SCENERY = [
   { part: 'fastFood', at: ['A', 'B', 0.6], side: 1, back: 3, radius: 8 }, // ファストフード店（11）
   { part: 'petrolStation', at: ['A', 'B', 0.72], side: 1, back: 3, radius: 9 }, // ガソリンスタンド（12）
   { part: 'museumSign', at: ['A', 'B', 0.93], side: 1, back: 1, radius: 4 }, // 博物館の看板（13）
-  { part: 'gBuilding', at: ['B', 'C', 0.94], side: 1, back: 2, radius: 8 }, // 丸い「G」の建物（19C）
+  { part: 'gBuilding', at: ['B', 'C', 0.85], side: 1, back: 2, radius: 8 }, // 丸い「G」の建物（19C）
   { part: 'hotel', at: ['C', 'D', 0.6], side: 1, back: 3, radius: 10 }, // 白い8階建てのホテル（22）
   { part: 'waterTowerBB', at: ['E', 'F', 0.4], side: 1, back: 6, radius: 6 }, // 「Bandar Barat」の給水塔（38）
   { part: 'facultyBuilding', at: ['G', 'H', 0.8], side: 1, back: 4, radius: 10 }, // 学部の建物（61右）
@@ -59,13 +59,14 @@ export const KAMPAR_SCENERY = [
   { part: 'stubRoad', at: ['A', 'A', 0], ahead: true },
   { part: 'stubRoad', at: ['B', 'B', 0], ahead: true },
   // 直角の角は T字路（2026-10-15 のユーザー依頼）: 曲がる先の道が反対側にも続き（通行止め）、正面はコースの壁でふさぐ。
-  // A・B は十字路（正面にも道が続く）。交差点 A・B・F には信号機（いつも青）を、入ってくる手前の両側に
+  // A・B・F は十字路（正面にも道が続く）。交差点 A・B・F には信号機（いつも青）を、入ってくる手前の両側に
   { part: 'stubRoad', at: ['A', 'A', 0], ahead: 'back' },
   { part: 'stubRoad', at: ['B', 'B', 0], ahead: 'back' },
   { part: 'stubRoad', at: ['C', 'C', 0], ahead: 'back' },
   { part: 'stubRoad', at: ['D', 'D', 0], ahead: 'back' },
   { part: 'stubRoad', at: ['D', 'E', 0.7], ahead: 'back' }, // D〜E の角
-  { part: 'stubRoad', at: ['F', 'F', 0], ahead: 'back' }, // WestLake Villas の前の角
+  { part: 'stubRoad', at: ['F', 'F', 0], ahead: 'back' }, // WestLake Villas の前の角（左の道）
+  { part: 'stubRoad', at: ['F', 'F', 0], ahead: true, length: 200 }, // F は十字路: 正面にも 200m の道（入口でふさぐ。2026-10-15 のユーザー依頼）
   { part: 'stubRoad', at: ['J', 'J', 0], ahead: 'back' },
   { part: 'trafficLight', at: ['S', 'A', 0.96], side: -1, back: 0.5, radius: 1 },
   { part: 'trafficLight', at: ['S', 'A', 0.96], side: 1, back: 0.5, radius: 1 },

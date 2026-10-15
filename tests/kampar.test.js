@@ -164,3 +164,21 @@ test('バンプは、ひとつ前の角やロータリーの出口から 70m 以
   assert.ok(t.bumps[0] - exit09 >= 70, `ロータリー 09 の出口からバンプまで ${(t.bumps[0] - exit09).toFixed(0)}m`);
   assert.ok(t.bumps[1] - t.marks.D >= 70, `D からバンプまで ${(t.bumps[1] - t.marks.D).toFixed(0)}m`);
 });
+
+test('町の直角の角は、外側が四角い（角のすみまで走れて、壁は2本のまっすぐな線。2026-10-15 のユーザー依頼）', async () => {
+  const { locate } = await import('../src/game/track.js');
+  assert.deepEqual(COURSE2.squareCorners.map((c) => JSON.stringify(c)).sort(), [['A', 'A', 0], ['B', 'B', 0], ['C', 'C', 0], ['D', 'D', 0], ['D', 'E', 0.7], ['F', 'F', 0], ['J', 'J', 0]].map((c) => JSON.stringify(c)).sort());
+  assert.equal(t.corners.length, 7);
+  const W = COURSE2.roadHalf + COURSE2.dirt;
+  for (const c of t.corners) {
+    // 四角のすみ（外側。入ってくる向きの先、曲がる向きと反対）の少し内側は、壁の中
+    const x = c.x + c.ux * (W - 1.5) - c.vx * (W - 1.5);
+    const z = c.z + c.uz * (W - 1.5) - c.vz * (W - 1.5);
+    const loc = locate(t, x, z);
+    assert.ok(Math.abs(loc.lateral) <= loc.wall, `s=${c.s.toFixed(0)}: すみが壁の外 (${Math.abs(loc.lateral).toFixed(1)} > ${loc.wall.toFixed(1)})`);
+    // 四角の壁の外は、壁の外
+    const x2 = c.x + c.ux * (W + 2), z2 = c.z + c.uz * (W + 2);
+    const loc2 = locate(t, x2, z2);
+    assert.ok(Math.abs(loc2.lateral) > loc2.wall - 0.01, `s=${c.s.toFixed(0)}: 正面の壁の外に出られる`);
+  }
+});

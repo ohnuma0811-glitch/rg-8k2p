@@ -142,6 +142,27 @@ function pointS(samples, fit, pt) {
   return best.s;
 }
 
+// 直角の角の、ほんとうの角（道の真ん中の線どうしが交わる所）と、入ってくる向き u・曲がった先の向き v
+export function cornerCenter(track, s) {
+  const n = track.samples.length;
+  const at = (k) => track.samples[((Math.round(k) % n) + n) % n];
+  // 向きは、角の丸めの外の2点を結んで決める
+  const a1 = at(s - 32), a2 = at(s - 16), b1 = at(s + 16), b2 = at(s + 32);
+  const ul = Math.hypot(a2.x - a1.x, a2.z - a1.z), vl = Math.hypot(b2.x - b1.x, b2.z - b1.z);
+  const ux = (a2.x - a1.x) / ul, uz = (a2.z - a1.z) / ul;
+  const vx = (b2.x - b1.x) / vl, vz = (b2.z - b1.z) / vl;
+  const den = ux * vz - uz * vx;
+  const k = ((b1.x - a2.x) * vz - (b1.z - a2.z) * vx) / den;
+  return { x: a2.x + ux * k, z: a2.z + uz * k, ux, uz, vx, vz, s: at(s).s };
+}
+
+// 点 (x, z) の、角 c の向きでの場所: u（入ってくる向き）と w（曲がる向きと反対 = 外側の向き -v）
+export function cornerUW(c, x, z) {
+  const dx = x - c.x;
+  const dz = z - c.z;
+  return { u: dx * c.ux + dz * c.uz, w: -(dx * c.vx + dz * c.vz) };
+}
+
 // ロータリーの島の、道を広げる長さ（島の中心から前後に m）
 export function islandReach(track, island) {
   return island.r + track.roadHalf + 12;
@@ -246,6 +267,30 @@ export function buildTrack(def) {
     // ロータリーの所には分離帯を通さない
     for (const p of samples) if (between(t, p.s, from, to) && p.half === def.roadHalf) p.median = m.half;
   }
+  // 町の直角の角（2026-10-15 のユーザー依頼「交差点はカーブではなく直角に」）: 道の真ん中の線は少し丸いままだが、
+  // 角の外側は四角くし、四角のすみまで走れるようにする（外側の壁は、四角の2本のまっすぐな線 u = W と w = W）
+  t.corners = [];
+  for (const ref of def.squareCorners ?? []) {
+    const c = cornerCenter(t, markS(t, ref));
+    c.W = fullWall;
+    t.corners.push(c);
+    for (const p of samples) {
+      if (Math.min(span(t, c.s, p.s), span(t, p.s, c.s)) > 45) continue;
+      // 外側（右か左か）と、その向き
+      const rx = -Math.sin(p.h), rz = Math.cos(p.h);
+      const side = rx * (c.ux - c.vx) + rz * (c.uz - c.vz) > 0 ? 1 : -1;
+      const nx = rx * side, nz = rz * side;
+      const o = cornerUW(c, p.x, p.z);
+      const nu = nx * c.ux + nz * c.uz;
+      const nw = -(nx * c.vx + nz * c.vz);
+      let d = Infinity;
+      if (nu > 1e-6) d = Math.min(d, (c.W - o.u) / nu);
+      if (nw > 1e-6) d = Math.min(d, (c.W - o.w) / nw);
+      if (!(d > p.wall) || d === Infinity) continue;
+      p.outerSide = side;
+      p.wallOuter = Math.min(d, c.W * 2.5);
+    }
+  }
   t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
   // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
   t.cows = [];
@@ -301,15 +346,18 @@ export function locate(track, x, z, hint = null, win = 40) {
   const s = ((((p.s + dx * fx + dz * fz) % length) + length) % length);
   const a = Math.abs(lateral);
   // 分離帯（芝生）の上はダートと同じ
-  const onRoad = a <= p.half && !(p.median > 0 && a < p.median);
-  const surface = onRoad ? 'road' : a <= p.wall ? 'dirt' : 'out';
+  // 町の直角の角の外側は、四角のすみまで（道と同じ）
+  const outer = p.outerSide && Math.sign(lateral) === p.outerSide;
+  const wall = outer ? p.wallOuter : p.wall;
+  const onRoad = (a <= p.half || (outer && a <= wall - 1)) && !(p.median > 0 && a < p.median);
+  const surface = onRoad ? 'road' : a <= wall ? 'dirt' : 'out';
   return {
     i: best,
     s,
     lateral,
     heading: p.h,
     ground: p.y,
-    wall: p.wall,
+    wall,
     half: p.half,
     surface,
     boost: p.boost && onRoad && (!p.boostSide || Math.sign(lateral) === p.boostSide),
