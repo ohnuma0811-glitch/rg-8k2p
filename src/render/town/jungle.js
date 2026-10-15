@@ -1,5 +1,5 @@
 // コースの外側の、何もない所をジャングルにする（2026-10-15 のユーザー依頼。コースの内側は今のまま）
-import { createBuilder } from './builder.js?v=8d6c692';
+import { createBuilder } from './builder.js?v=fb0d64c';
 
 const GRID = 20; // 木のかたまりを置く間（m）
 const NEAR = 8; // 道のふち（柵）からこれだけ離す

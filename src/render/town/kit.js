@@ -135,12 +135,14 @@ export function chevronBoard(b, { dir = 1, side = -1 } = {}) {
 }
 
 // コースでない道（少しだけ道を描き、コンクリートの壁と赤白の柵でふさぐ。2026-10-15 のユーザー依頼「街らしく」）
-export function stubRoad(b, { width = 14, length = 30 } = {}) {
-  b.box(width, 0.03, length, 0x55585e, 0, 0, -length / 2);
-  b.box(0.15, 0.04, length, 0xf2f2f2, 0, 0.01, -length / 2); // 真ん中の白線
-  for (const x of [-width / 2 - 1.5, width / 2 + 1.5]) b.box(3, 0.15, length, 0xb9b4a8, x, 0, -length / 2); // 歩道
-  b.box(width + 6, 0.9, 0.4, 0xd8d4cc, 0, 0, -0.2); // コンクリートの壁（通行止め）
-  barrier(b, { length: width });
+// 通行止めの道: 口（z=0）がコースの道のふちにつながり、少し先で、赤白の柵とコンクリートの壁でふさぐ。その先にも道が続いて見える
+export function stubRoad(b, { width = 14, length = 34, stop = 14 } = {}) {
+  b.box(width, 0.06, length, 0x55585e, 0, 0, -length / 2); // コースの縁石の上までおおう
+  b.box(0.15, 0.07, length - 2, 0xf2f2f2, 0, 0, -length / 2 - 1); // 真ん中の白線
+  b.push(0, 0, -stop);
+  barrier(b, { length: Math.round(width) });
+  b.box(width + 2, 0.9, 0.4, 0xd8d4cc, 0, 0, -0.5); // コンクリートの壁（通行止め）
+  b.pop();
 }
 
 export function tent(b) {

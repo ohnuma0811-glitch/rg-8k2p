@@ -1,7 +1,8 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=8d6c692';
-import { buildScenery } from './town/scenery.js?v=8d6c692';
-import { buildJungle } from './town/jungle.js?v=8d6c692';
+import * as THREE from '../../vendor/three.module.min.js?v=fb0d64c';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=fb0d64c';
+import { buildJungle } from './town/jungle.js?v=fb0d64c';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=fb0d64c';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -241,7 +242,8 @@ function nearIndex(samples) {
 
 // 柵を立てられるか（点 i の左右 -1 / 1）。地面がある平らな所で、柵の位置がほかの道の舗装（＋1m）の上でなければ立てる
 // （交わる所の近くでも、下を通る道をふさがない所には柵を描く。ジャンプの着地の所も囲む）
-export function fenceSides(track) {
+// mouths: 通行止めの道の口（src/render/town/scenery.js の stubMouths）。口の前の壁はあける
+export function fenceSides(track, mouths = []) {
   const { samples, roadHalf } = track;
   const n = samples.length;
   const near = nearIndex(samples);
@@ -252,6 +254,7 @@ export function fenceSides(track) {
       if (p.y !== 0 || p.ramp) continue;
       const x = p.x - Math.sin(p.h) * side * p.wall;
       const z = p.z + Math.cos(p.h) * side * p.wall;
+      if (mouths.some((m) => inMouth(m, x, z))) continue;
       ok[side] = !near(x, z, roadHalf + 1, (j) => {
         const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
         const q = samples[j];
@@ -427,13 +430,14 @@ export function buildTrackMesh(track) {
   // 縁石
   group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, hasGround, { colorOf: curb }));
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, hasGround, { colorOf: curb }));
-  // 道の外: サーキットはダート、街は歩道
-  const outside = town ? 0xb9b4a8 : COLORS.dirt;
-  group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: outside }));
-  group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: outside }));
+  // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
+  if (!town) {
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
+    group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
+  }
 
   // 柵（ほかの道をふさぐ所だけ開ける）。街は低いコンクリートの壁。ジャンプ台は道のすぐ横に側面と柵
-  const fences = fenceSides(track);
+  const fences = fenceSides(track, town ? stubMouths(track, track.def.scenery ?? []) : []);
   const index = new Map(samples.map((p, i) => [p, i]));
   for (const side of [-1, 1]) {
     const fenceOk = (p) => fences[index.get(p)][side];
@@ -482,10 +486,11 @@ export function buildTrackMesh(track) {
   }
 
   // バンプ（Kampar Town）: 道の幅いっぱいの、大きな立体のでっぱり（黄色と黒のななめのしま）
-  // 手前の道に、バンプ専用のしま模様（黄色と黒のななめのしまと「BUMP」の文字）。さらに手前の道ばたに BONGGOL の標識
+  // 手前の道に、バンプ専用のしま模様（白と黒のななめのしまと「BUMP」の文字。黄色のバンプと見分けられるように。しまに入ると警告が出る）。
+  // さらに手前の道ばたに BONGGOL の標識（2026-10-15 のユーザー依頼）
   for (const b of track.bumps ?? []) {
     group.add(bumpMesh(track, b));
-    group.add(strip(track, b - 70, b - 4, (p) => p.y + 0.05, BUMP_ROAD_MAT(), 6));
+    group.add(strip(track, b - BUMP_STRIPE_M, b - 4, (p) => p.y + 0.05, BUMP_ROAD_MAT(), 6));
     group.add(bumpSign(track, b - 78));
   }
 
@@ -684,12 +689,12 @@ function bumpMesh(track, s) {
   return m;
 }
 
-// バンプの手前の道の模様（黄色と黒のななめのしまに、黒い「BUMP」の文字。前は絵の上）
+// バンプの手前の道の模様（白と黒のななめのしまに、黒い「BUMP」の文字。前は絵の上）
 let bumpRoad = null;
 function BUMP_ROAD_MAT() {
   if (!bumpRoad) {
     const tex = canvasTexture(128, 128, (g, w, h) => {
-      g.fillStyle = '#ffd400';
+      g.fillStyle = '#f4f4f4';
       g.fillRect(0, 0, w, h);
       g.fillStyle = '#111';
       for (let x = -w; x < w * 2; x += 32) {
