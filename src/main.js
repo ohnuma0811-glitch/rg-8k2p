@@ -1,41 +1,41 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=667e655';
-import { startLoop } from './loop.js?v=667e655';
-import { COURSES } from './data/tracks.js?v=667e655';
-import { buildTrack, span, locate } from './game/track.js?v=667e655';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=667e655';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, DINO_BLACK } from './game/hazards.js?v=667e655';
-import { kartParams } from './game/stats.js?v=667e655';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=667e655';
-import { pushApart, newBumps } from './game/collide.js?v=667e655';
+import * as THREE from '../vendor/three.module.min.js?v=2840473';
+import { startLoop } from './loop.js?v=2840473';
+import { COURSES } from './data/tracks.js?v=2840473';
+import { buildTrack, span, locate } from './game/track.js?v=2840473';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=2840473';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, DINO_BLACK } from './game/hazards.js?v=2840473';
+import { kartParams } from './game/stats.js?v=2840473';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=2840473';
+import { pushApart, newBumps } from './game/collide.js?v=2840473';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=667e655';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=667e655';
-import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=667e655';
-import { createMinimap } from './render/minimap.js?v=667e655';
-import { grandstandSpot } from './render/trackMesh.js?v=667e655';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, mergeStatic } from './render/models.js?v=667e655';
-import { faceSvg } from './titleArt.js?v=667e655';
-import { createEffects } from './render/effects.js?v=667e655';
-import { nextQuality, pixelRatio } from './render/quality.js?v=667e655';
-import { blendPose, poseOf } from './render/interp.js?v=667e655';
-import { speedText } from './hud.js?v=667e655';
-import { addRecent, cleanRecent } from './names.js?v=667e655';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=667e655';
-import { load, save } from './storage.js?v=667e655';
-import * as screens from './screens.js?v=667e655';
-import { createAudio } from './audio/audio.js?v=667e655';
-import { createSfx } from './audio/sfx.js?v=667e655';
-import { createVoices } from './audio/voice.js?v=667e655';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=667e655';
-import { createCrowd } from './audio/crowd.js?v=667e655';
-import { crowdMix } from './audio/mix.js?v=667e655';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=667e655';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=667e655';
+} from './game/race.js?v=2840473';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=2840473';
+import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=2840473';
+import { createMinimap } from './render/minimap.js?v=2840473';
+import { grandstandSpot } from './render/trackMesh.js?v=2840473';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, mergeStatic } from './render/models.js?v=2840473';
+import { faceSvg } from './titleArt.js?v=2840473';
+import { createEffects } from './render/effects.js?v=2840473';
+import { nextQuality, pixelRatio } from './render/quality.js?v=2840473';
+import { blendPose, poseOf } from './render/interp.js?v=2840473';
+import { speedText } from './hud.js?v=2840473';
+import { addRecent, cleanRecent } from './names.js?v=2840473';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=2840473';
+import { load, save } from './storage.js?v=2840473';
+import * as screens from './screens.js?v=2840473';
+import { createAudio } from './audio/audio.js?v=2840473';
+import { createSfx } from './audio/sfx.js?v=2840473';
+import { createVoices } from './audio/voice.js?v=2840473';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=2840473';
+import { createCrowd } from './audio/crowd.js?v=2840473';
+import { crowdMix } from './audio/mix.js?v=2840473';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=2840473';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=2840473';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '667e655';
+const VERSION = '2840473';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -772,7 +772,7 @@ function renderGame(alpha, dt) {
     const ground = loc.ground ?? (track.def.theme === 'forest' ? -1.15 : 0);
     const h = Math.max(0, v.y - ground);
     sh.position.set(v.x, ground + 0.12, v.z);
-    sh.scale.setScalar(Math.max(0.6, 1.4 - h * 0.06));
+    sh.scale.setScalar(0.7 * Math.max(0.6, 1.4 - h * 0.06)); // 2026-10-17 のユーザー依頼で 7割の大きさに
     sh.material.opacity = Math.max(0.12, 0.45 - h * 0.025);
   });
   placeCows(g.race.t);
