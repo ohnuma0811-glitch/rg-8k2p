@@ -46,3 +46,12 @@ test('何レース目にどのコースを走るか: 1レース目から順に�
   // 新しい大会はまた1レース目から
   assert.equal(courseOf(courses, createCup(5, courses.length)).name, 'Kenta Circuit');
 });
+
+test('スタートの並び: 1レース目はいつもの順。2レース目からは、前のレースで勝った車ほど後ろ（弱い車が前。2026-10-17 のユーザー依頼）', async () => {
+  const { createCup, addRace, gridOrder } = await import('../src/game/cup.js');
+  const cup = createCup(5, 3);
+  assert.deepEqual(gridOrder(cup), [0, 1, 2, 3, 4]);
+  addRace(cup, [3, 0, 4, 1, 2]); // 3 が1位、2 が5位
+  // 前（スタートの1番目）から: 5位 → 1位
+  assert.deepEqual(gridOrder(cup), [2, 1, 4, 0, 3]);
+});

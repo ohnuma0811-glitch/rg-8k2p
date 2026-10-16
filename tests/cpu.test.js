@@ -140,3 +140,13 @@ test('CPU はロータリーの島をよけて走る（近い側を回る）', (
     assert.ok(minD > isl.r + 1.5, `CPU ${k} が島にぶつかった: ${minD.toFixed(2)}`);
   }
 });
+
+test('CPU の速さは3段階: Level 1 は今の 7割くらい、Level 2 は今のまま、Level 3 は大人に3周で 1/4周の差をつけさせない速さ（2026-10-17 のユーザー依頼）', async () => {
+  const { cpuParams, CPU_LEVELS } = await import('../src/game/cpu.js');
+  const base = { topSpeed: 40 };
+  assert.equal(cpuParams(base, 1, 2).topSpeed, cpuParams(base, 1).topSpeed, '何も言わなければ Level 2');
+  assert.ok(Math.abs(CPU_LEVELS[1] - 0.66) < 0.05);
+  assert.equal(CPU_LEVELS[2], 1);
+  assert.ok(CPU_LEVELS[3] >= 1.08 && CPU_LEVELS[3] <= 1.16);
+  assert.ok(cpuParams(base, 1, 1).topSpeed < cpuParams(base, 1, 2).topSpeed && cpuParams(base, 1, 2).topSpeed < cpuParams(base, 1, 3).topSpeed);
+});

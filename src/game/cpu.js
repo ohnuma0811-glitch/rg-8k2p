@@ -289,6 +289,11 @@ export function bumpMiss(cpu, b, lap) {
 }
 
 // CPU の車の数字（キャラの数字に、CPU の強さと、プレイヤーとの差の倍率をかける）
-export function cpuParams(base, rubber) {
-  return { ...base, topSpeed: base.topSpeed * CPU.SKILL * rubber };
+// CPU の速さの段階（2026-10-17 のユーザー依頼）。最高速の倍率
+// Level 1: Soki が遊ぶ用。3周の時間が今の約1.4倍（今の 7割くらいの速さ）
+// Level 2: 今のまま
+// Level 3: 大人が Level 2 に3周で 1/4周（約8%）の差をつけるので、その速さについてこられる（3周の時間が約8%短い）
+export const CPU_LEVELS = { 1: 0.66, 2: 1, 3: 1.12 };
+export function cpuParams(base, rubber, level = 2) {
+  return { ...base, topSpeed: base.topSpeed * CPU.SKILL * rubber * (CPU_LEVELS[level] ?? 1) };
 }

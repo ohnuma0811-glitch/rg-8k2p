@@ -6,7 +6,7 @@ const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
 // 前の画面に戻る（名前入力とキャラ選びの左上の ◀ BACK、パソコンでは Esc。2026-10-15 のユーザー依頼）
 export const BACK = 'back';
-const SCREENS = ['title', 'name', 'character'];
+const SCREENS = ['title', 'name', 'character', 'level'];
 export function prevScreen(screen) {
   return SCREENS[Math.max(0, SCREENS.indexOf(screen) - 1)];
 }
@@ -144,12 +144,17 @@ export function askName(root, recent) {
   });
 }
 
+// キャラのボタン: 名前の上に顔（2026-10-17 のユーザー依頼。炎と星はなし）
+export function characterButton(c) {
+  return `<button type="button" data-pick="${c.id}" style="background:${c.color}"><span class="racer-face">${faceSvg(c.id)}</span><span>${c.name}</span></button>`;
+}
+
 // キャラ選び（M2 は Kyugo と Soki。M3 で8人）。note は残り時間など
 export async function chooseCharacter(root, chars, note) {
   show(root, `
     ${BACK_BUTTON}
     <h1>Choose your racer</h1>
-    <div class="choices">${chars.map((c) => `<button type="button" data-pick="${c.id}" style="background:${c.color}"><span class="icon">${c.icon}</span>${c.name}</button>`).join('')}</div>
+    <div class="choices">${chars.map(characterButton).join('')}</div>
     <p class="note">${note}</p>`);
   // パソコンでは Esc でも戻る
   let onKey;
@@ -164,6 +169,33 @@ export async function chooseCharacter(root, chars, note) {
   root.onclick = null;
   hide(root);
   return pick;
+}
+
+// CPU の速さ（2026-10-17 のユーザー依頼）。Level 1 は Soki 用、Level 2 はふつう、Level 3 は大人用
+export const LEVELS = [
+  { id: 1, label: 'Level 1', sub: 'Easy' },
+  { id: 2, label: 'Level 2', sub: 'Normal' },
+  { id: 3, label: 'Level 3', sub: 'Hard' },
+];
+// レースの画面: CPU の速さを選ぶ。選んだ Level（1〜3）か BACK を返す。last は前に選んだ Level（ふちを光らせる）
+export async function chooseLevel(root, last = 2) {
+  show(root, `
+    ${BACK_BUTTON}
+    <h1>Race</h1>
+    <p class="text">CPU speed</p>
+    <div class="choices levels">${LEVELS.map((l) => `<button type="button" data-pick="${l.id}"${l.id === last ? ' class="last"' : ''}>${l.label}<small>${l.sub}</small></button>`).join('')}</div>`);
+  let onKey;
+  const esc = new Promise((resolve) => {
+    onKey = (e) => {
+      if (e.code === 'Escape') resolve(BACK);
+    };
+    window.addEventListener('keydown', onKey);
+  });
+  const pick = await Promise.race([waitPick(root), esc]);
+  window.removeEventListener('keydown', onKey);
+  root.onclick = null;
+  hide(root);
+  return pick === BACK ? BACK : Number(pick);
 }
 
 // お知らせ（ボタンをいくつか出して、押されたものを返す）

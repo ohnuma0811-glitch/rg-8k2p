@@ -31,6 +31,14 @@ export function standings(cup) {
     .sort((a, b) => cup.totals[b] - cup.totals[a] || cup.lastPlace[a] - cup.lastPlace[b]);
 }
 
+// スタートの並び（前から車の番号）。1レース目は番号の順。2レース目からは、前のレースで勝った車ほど後ろ
+// （弱い車が前に出る。2026-10-17 のユーザー依頼）
+export function gridOrder(cup) {
+  const cars = cup.totals.map((_, k) => k);
+  if (!cup.done) return cars;
+  return cars.sort((a, b) => cup.lastPlace[b] - cup.lastPlace[a]);
+}
+
 export function isOver(cup) {
   return cup.done >= cup.races;
 }

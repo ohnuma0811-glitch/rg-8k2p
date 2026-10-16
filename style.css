@@ -365,6 +365,28 @@ html, body {
 #menu .icon {
   font-size: 34px;
 }
+/* キャラ選びのボタンの顔（名前の上。2026-10-17 のユーザー依頼） */
+#menu .racer-face {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.25);
+}
+#menu .racer-face .face-svg {
+  width: 100%;
+  height: 100%;
+}
+/* CPU の速さ（Level）のボタン。前に選んだ Level は黄色いふち */
+#menu .choices.levels button {
+  min-width: 140px;
+}
+#menu .choices.levels button.last {
+  border-color: #ffd84a;
+  box-shadow: 0 0 0 3px #ffd84a;
+}
 #menu .note,
 #menu .text {
   min-height: 1.5em;

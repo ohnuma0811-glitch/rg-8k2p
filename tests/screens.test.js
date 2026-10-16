@@ -36,3 +36,18 @@ test('結果・大会の順位の表は、ボタンなし。全部の表示（�
   // 前の合計から数える（大会の順位）
   assert.ok(Math.abs(tableSeconds([{ from: 20, to: 23 }]) - (0.35 + 0.15 + 3 * 0.06)) < 1e-9);
 });
+
+test('SOLO では、キャラ選びのあとに CPU の速さ（Level 1〜3）を選ぶ画面。BACK でキャラ選びへ（2026-10-17 のユーザー依頼）', async () => {
+  const { prevScreen, LEVELS } = await import('../src/screens.js');
+  assert.equal(prevScreen('level'), 'character');
+  assert.deepEqual(LEVELS.map((l) => l.id), [1, 2, 3]);
+  assert.deepEqual(LEVELS.map((l) => l.label), ['Level 1', 'Level 2', 'Level 3']);
+});
+
+test('キャラ選びのボタンは、名前の上に Kyugo と Soki の顔（炎と星はなし。2026-10-17 のユーザー依頼）', async () => {
+  const { characterButton } = await import('../src/screens.js');
+  const html = characterButton({ id: 'soki', name: 'Soki', color: '#1c3c88', icon: '⭐' });
+  assert.ok(html.includes('face-svg'), '顔の絵');
+  assert.ok(!html.includes('⭐'), '星はなし');
+  assert.ok(html.indexOf('face-svg') < html.indexOf('Soki</'), '顔が名前の上');
+});

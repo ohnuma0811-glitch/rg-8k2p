@@ -32,7 +32,7 @@ import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './a
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
 import { createMusic, FINAL_LAP_RATE } from './audio/music.js';
-import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
@@ -218,7 +218,7 @@ function commitPlay() {
 }
 
 // ---- レース ----
-function createGame(name, charId) {
+function createGame(name, charId, level = 2, cup = null) {
   const me = PLAYER_CHARS.find((c) => c.id === charId);
   const count = CPU_COUNT + 1;
   const race = createRace(count);
@@ -228,8 +228,10 @@ function createGame(name, charId) {
   const cpus = [];
   const seed = Math.floor(Math.random() * 100000); // レースごとの数（CPU がバンプで減速を忘れる所が、レースごとに変わる）
   let cpuNo = 0;
+  // スタートの並び: 2レース目からは、前のレースで勝った車ほど後ろ（2026-10-17 のユーザー依頼）
+  const order = cup ? gridOrder(cup) : [...Array(count).keys()];
   for (let k = 0; k < count; k++) {
-    const slot = gridSlot(track, k);
+    const slot = gridSlot(track, order.indexOf(k));
     karts.push(createKart(track, slot.i, slot.lateral));
     const isMe = k === PLAYER_SLOT;
     const look = isMe ? { body: me.body, character: me.id } : CPU_LOOKS[cpuNo];
@@ -261,6 +263,7 @@ function createGame(name, charId) {
     race,
     base,
     karts,
+    level, // CPU の速さ（1〜3）
     models,
     shadows,
     cpus,
@@ -511,7 +514,7 @@ function stepGame(dt) {
     } else {
       // CPU（ゴールしたプレイヤーの車も CPU が運転する）
       const rubber = k === me ? 1 : rubberFactor(progress(race, k, track), myProgress, L);
-      stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber), dt);
+      stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber, k === me ? 2 : g.level), dt);
     }
   });
   // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
@@ -584,7 +587,7 @@ function resultRows(g) {
 }
 
 // 大会の1レース。'next'（次のレースへ）か 'title'（タイトルへ。最後のレースのあとも）を返す
-async function runRace(name, charId, cup) {
+async function runRace(name, charId, cup, level = 2) {
   // 確かめ用: URL の後ろに #course2 / #course3 を付けると、1レース目からそのコース
   useCourse(dev.has('course3') ? COURSES[2] : dev.has('course2') ? COURSES[1] : courseOf(COURSES, cup));
   const label = `RACE ${cup.done + 1}/${cup.races}`;
@@ -592,7 +595,7 @@ async function runRace(name, charId, cup) {
   music.stop(1.5);
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, course.name, label, COURSE_INTRO);
-  game = createGame(name, charId);
+  game = createGame(name, charId, level, cup);
   track.dinoChomp = null; // 恐竜の口を閉じた時刻は、レースごとに消す
   buildTop3(game);
   sfx.engine.start();
@@ -684,7 +687,8 @@ async function flow() {
     let screen = 'title';
     let name = null;
     let charId = null;
-    while (!charId) {
+    let level = null; // CPU の速さ（1〜3。2026-10-17 のユーザー依頼）
+    while (!level) {
       if (screen === 'title') {
         await screens.title(menu, audio);
         screen = 'name';
@@ -702,16 +706,27 @@ async function flow() {
           continue;
         }
         screen = 'character';
-      } else {
+      } else if (screen === 'character') {
         const pick = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
         if (pick === screens.BACK) screen = screens.prevScreen('character');
-        else charId = pick;
+        else {
+          charId = pick;
+          screen = 'level';
+        }
+      } else {
+        // レースの画面: CPU の速さを選ぶ（前に選んだ Level を覚えておく）
+        const pick = await screens.chooseLevel(menu, load('level', 2));
+        if (pick === screens.BACK) screen = screens.prevScreen('level');
+        else {
+          level = pick;
+          save('level', level);
+        }
       }
     }
     // 大会（コースの数のレースの、合計ポイントで優勝を決める）
     const cup = createCup(CPU_COUNT + 1, COURSES.length);
     for (;;) {
-      const pick = await runRace(name, charId, cup);
+      const pick = await runRace(name, charId, cup, level);
       if (remainingSec(playStore(), name, Date.now()) <= 0) {
         await seeYouTomorrow(name);
         break;
