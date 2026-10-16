@@ -1,9 +1,9 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=0afdf1b';
-import { span, locate, ahead, behind } from './track.js?v=0afdf1b';
+import { SPEED_SHOW } from '../hud.js?v=667e655';
+import { span, locate, ahead, behind } from './track.js?v=667e655';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
-export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
+export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
 export const HUMP_TIME = 0.35; // 乗り越える動きの秒数
 export const BUMP_STRIPE_M = 26; // バンプの手前のしま模様の長さ（m）
 export const BUMP_WARN_EARLY = 2; // しまに入るこの秒数前（今の速さで）から、警告を出す（2026-10-15 のユーザー依頼）
@@ -225,15 +225,26 @@ const DINO_RISE = 0.25; // 川から飛び出す秒数
 const DINO_UP = 3.0; // 顔を出している秒数
 const DINO_SINK = 2.2; // ゆっくりもぐる秒数
 // 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
+// side: 恐竜が出る側（1 か -1。道のまん中から DINO_SHIFT m ずらす。反対側は通りぬけられる。2026-10-17 のユーザー依頼）。出るたびに決まる
+export const DINO_SHIFT = 5.5;
+export const DINO_FREE_LANE = 8.5; // 通りぬけられる側の、すき間のまん中（道のまん中から m）
+function dinoSide(cycle) {
+  let h = Math.imul(cycle + 17, 2654435761);
+  h = Math.imul(h ^ (h >>> 15), 2246822519);
+  h ^= h >>> 13;
+  return (h >>> 0) % 2 ? 1 : -1;
+}
 export function dinoPose(track, time) {
   const d = track.dino;
-  if (!d) return { state: 'hide', rise: 0 };
-  const tin = (((time + d.phase) % d.period) + d.period) % d.period;
+  if (!d) return { state: 'hide', rise: 0, side: 1 };
+  const cycle = Math.floor((time + d.phase) / d.period);
+  const side = dinoSide(cycle);
+  const tin = time + d.phase - cycle * d.period;
   const a = d.period - DINO_RISE - DINO_UP - DINO_SINK;
-  if (tin < a) return { state: 'hide', rise: 0 };
-  if (tin < a + DINO_RISE) return { state: 'rise', rise: (tin - a) / DINO_RISE };
-  if (tin < a + DINO_RISE + DINO_UP) return { state: 'up', rise: 1 };
-  return { state: 'sink', rise: 1 - (tin - a - DINO_RISE - DINO_UP) / DINO_SINK };
+  if (tin < a) return { state: 'hide', rise: 0, side };
+  if (tin < a + DINO_RISE) return { state: 'rise', rise: (tin - a) / DINO_RISE, side };
+  if (tin < a + DINO_RISE + DINO_UP) return { state: 'up', rise: 1, side };
+  return { state: 'sink', rise: 1 - (tin - a - DINO_RISE - DINO_UP) / DINO_SINK, side };
 }
 
 // 車が恐竜に食べられるか。ジャンプ②から飛び出して川の上にいて、恐竜が口を開けて出ているとき 'eaten'
@@ -241,7 +252,9 @@ export function dinoPose(track, time) {
 export function dinoPlace(track, time) {
   const d = track.dino;
   const p = track.samples[Math.round(d.s + 2) % track.length];
-  return { x: p.x, z: p.z, h: p.h, y: -17 + 16 * dinoPose(track, time).rise };
+  const pose = dinoPose(track, time);
+  const lat = pose.side * DINO_SHIFT; // 左か右にずらす（横の向きは、CPU の走る線と同じ）
+  return { x: p.x - Math.sin(p.h) * lat, z: p.z + Math.cos(p.h) * lat, h: p.h, y: -17 + 16 * pose.rise };
 }
 // 顔の中（形の中か、開いた口の中）か。u は顔の前（走ってくる車の方）へ、w は横、v は顔の下からの高さ（m。src/render/models.js の createDinoModel の形）
 const DINO_W = 19 / 2 + 1; // 顔の半分のはば（車の大きさの分を足す）
@@ -272,6 +285,37 @@ export function dinoContact(kart, track, time) {
   kart.speed = 0;
   cancelDrift(kart);
   return 'eaten';
+}
+
+// 橋の下の橋脚（Soki Forest。2026-10-17）: 下の道の車が、橋のはばいっぱいの石の壁にぶつかるとスピン。壁は通りぬけられない
+// ぶつかったあと BOAR_PASS 秒は、続けてスピンしない（押し出すだけ）
+const KART_PAD = 1.1; // 車の大きさ（半径 m）
+export function pierContact(kart, track, time, phys) {
+  let hit = null;
+  for (const pier of track.bridgePiers ?? []) {
+    if ((kart.y ?? 0) > pier.top - 1) continue; // 橋の上の車
+    const dx = kart.x - pier.x;
+    const dz = kart.z - pier.z;
+    const c = Math.cos(pier.h);
+    const s = Math.sin(pier.h);
+    const a = dx * c + dz * s; // 本線の向き（壁の厚さの向き）
+    const w = -dx * s + dz * c; // 橋のはばの向き
+    const reach = pier.halfThick + KART_PAD;
+    if (Math.abs(a) >= reach || Math.abs(w) > pier.halfLen) continue;
+    // 近い方の面へ押し出す
+    const push = (Math.sign(a) || 1) * reach - a;
+    kart.x += c * push;
+    kart.z += s * push;
+    if (time < (kart.pierPassUntil ?? -Infinity) || kart.airborne || kart.spin > 0) continue;
+    kart.pierPassUntil = time + BOAR_PASS;
+    kart.pierHits = (kart.pierHits || 0) + 1;
+    kart.spin = phys.SPIN_TIME;
+    kart.spinTo = track.samples[kart.seg].h;
+    kart.speed *= 0.5;
+    cancelDrift(kart);
+    hit = 'spin';
+  }
+  return hit;
 }
 
 // ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）

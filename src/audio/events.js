@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=0afdf1b';
+import { locate } from '../game/track.js?v=667e655';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -34,7 +34,8 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     airborne: kart.airborne,
     rampJump: !!kart.airborne && !!kart.launched, // ジャンプ台から飛び出して空中にいる（坂の頂上で浮いたときは false）
     // もうすぐ着地する（落ちている途中で、いまの速さのままなら LAND_LEAD 秒以内に高さ 0 に着く）
-    landingSoon: !!kart.airborne && (kart.vy || 0) < 0 && (kart.y || 0) / -kart.vy <= LAND_LEAD,
+    // ジャンプ台から飛んだときだけ（坂やでこぼこで浮いたときは、着地の音を鳴らさない。2026-10-17 のユーザー依頼）
+    landingSoon: !!kart.airborne && !!kart.launched && (kart.vy || 0) < 0 && (kart.y || 0) / -kart.vy <= LAND_LEAD,
     hop: (kart.hop || 0) > 0, // ドリフトのボタンで跳ねている
     onWall: kart.onWall,
     bumps,
@@ -48,6 +49,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     busHits: kart.busHits || 0, // スクールバスにぶつかった回数
     boarWarn, // 近くのイノシシが、飛び出す前（しげみがゆれている）
     boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
+    pierHits: kart.pierHits || 0, // 橋脚にぶつかった回数
     monkeyThrows, // 近くのサルが投げた数の合計
     nutHits: kart.nutHits || 0, // 木の実が当たった回数
     dashes: kart.dashes || 0, // スタートダッシュをした回数
@@ -85,7 +87,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.busNear && !prev.busNear) ev.push('busPass');
   if (cur.busHits > prev.busHits) ev.push('busHit');
   if (cur.boarWarn && !prev.boarWarn) ev.push('boarWarn');
-  if (cur.boarHits > prev.boarHits) ev.push('bump');
+  if (cur.boarHits > prev.boarHits || cur.pierHits > prev.pierHits) ev.push('bump');
   if (cur.monkeyThrows > prev.monkeyThrows) ev.push('monkey');
   if (cur.nutHits > prev.nutHits) ev.push('nutHit');
   if (cur.eaten > prev.eaten) ev.push('eaten');
@@ -104,7 +106,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.onWall && !prev.onWall && !cur.airborne && prev.wallQuiet >= WALL_QUIET) ev.push('wall');
   // 着地: もうすぐ着くと分かったときに鳴らす。分からないまま着いたときは、着いたときに鳴らす
   if (cur.landingSoon && !prev.landingSoon) ev.push('land');
-  else if (!cur.airborne && prev.airborne && !prev.landingSoon) ev.push('land');
+  else if (!cur.airborne && prev.rampJump && !prev.landingSoon) ev.push('land');
   if (cur.bumps > prev.bumps) ev.push('bump');
   return ev;
 }
