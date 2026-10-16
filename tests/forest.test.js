@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { buildTrack } from '../src/game/track.js';
 import { COURSE3 } from '../src/data/tracks.js';
 import { terrainHeight } from '../src/render/terrain.js';
+import { buildScenery } from '../src/render/town/scenery.js';
+import { SOKI_SCENERY } from '../src/data/soki.js';
+import { locate } from '../src/game/track.js';
+import { jungleSpots } from '../src/render/town/jungle.js';
 
 const t = buildTrack(COURSE3);
 
@@ -32,4 +36,32 @@ test('川の上は、まわりより低い（水が見える）', () => {
     const p = t.toWorld(x, z);
     assert.ok(terrainHeight(t, p.x, p.z) < -1, `${x},${z}`);
   }
+});
+
+test('スタートの丸太の門に「Soki Forest」（小文字もまぜる）。森の名前の看板はない', () => {
+  const gate = SOKI_SCENERY.find((i) => i.part === 'logGate');
+  assert.equal(gate.text, 'Soki Forest');
+  assert.ok(!SOKI_SCENERY.some((i) => (i.text ?? '').includes('ブリッジ')));
+});
+
+test('見どころ: 大きな丘の大きな木、きのこと岩の広場、道ばたの花と切り株', () => {
+  for (const part of ['bigTree', 'mushroom', 'rock', 'flowers', 'stump']) assert.ok(SOKI_SCENERY.some((i) => i.part === part), part);
+});
+
+test('地面に立つ景色は、走れる所に置かない。置く高さは地面の高さ', () => {
+  const group = buildScenery(t, SOKI_SCENERY, (x, z) => terrainHeight(t, x, z));
+  assert.ok(group.userData.spots.some((sp) => sp.path > 0), '分かれ道の道ばたにも置く');
+  for (const sp of group.userData.spots) {
+    if (sp.side === 0) continue;
+    const loc = locate(t, sp.x, sp.z);
+    assert.equal(loc.surface, 'out', `${sp.part}（s=${sp.s.toFixed(0)}）`);
+    assert.ok(Math.abs(sp.y - terrainHeight(t, sp.x, sp.z)) < 0.01, `${sp.part} の高さ`);
+  }
+});
+
+test('外周はジャングル、森の中（コースに囲まれた所）はブロッコリーの木。どちらも道にかからない', () => {
+  const outside = jungleSpots(t, [], { inside: false });
+  const inside = jungleSpots(t, [], { inside: true });
+  assert.ok(outside.length > 200 && inside.length > 100, `${outside.length} ${inside.length}`);
+  for (const p of [...outside, ...inside]) assert.equal(locate(t, p.x, p.z).surface, 'out');
 });

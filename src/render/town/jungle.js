@@ -1,5 +1,6 @@
 // コースの外側の、何もない所をジャングルにする（2026-10-15 のユーザー依頼。コースの内側は今のまま）
 import { createBuilder } from './builder.js';
+import { broccoliTree } from '../forest/kit.js';
 
 const GRID = 20; // 木のかたまりを置く間（m）
 const NEAR = 8; // 道のふち（柵）からこれだけ離す
@@ -17,8 +18,10 @@ export function insideLoop(samples, x, z) {
 }
 
 // ジャングルの木のかたまりを置く場所。avoid（景色の建物など {x, z, radius}）のまわりはあける
-export function jungleSpots(track, avoid) {
+// inside: true のときは、コース（本線の輪）に囲まれた所だけ（森の中。Soki Forest 2026-10-16）。false は外だけ
+export function jungleSpots(track, avoid, { inside = false } = {}) {
   const { samples } = track;
+  const loop = samples.slice(0, track.length); // 分かれ道は輪に入れない
   const xs = samples.map((p) => p.x);
   const zs = samples.map((p) => p.z);
   const out = [];
@@ -41,7 +44,7 @@ export function jungleSpots(track, avoid) {
       }
       if (!ok || nearest > FAR) continue;
       if (avoid.some((a) => Math.hypot(a.x - jx, a.z - jz) < a.radius)) continue;
-      if (insideLoop(samples, jx, jz)) continue;
+      if (insideLoop(loop, jx, jz) !== inside) continue;
       out.push({ x: jx, z: jz, k });
     }
   }
@@ -50,8 +53,18 @@ export function jungleSpots(track, avoid) {
 
 // ジャングルの形（濃い緑の高い木のかたまりと、ときどきヤシ）
 const LEAVES = [0x1f5a2a, 0x2a6b2e, 0x245f32, 0x337a35];
-export function buildJungle(track, avoid) {
+// groundY(x, z): 地面の高さ（森の坂。省けば 0）。inside: 森の中のブロッコリーの木（Soki Forest）
+export function buildJungle(track, avoid, { groundY = () => 0, inside = false } = {}) {
   const b = createBuilder();
+  if (inside) {
+    // 1か所に1本（三角の数を減らす。2026-10-16 のブラウザ確認で 28万 → 少なく）
+    for (const p of jungleSpots(track, avoid, { inside: true })) {
+      b.push(p.x, groundY(p.x, p.z), p.z, p.k);
+      broccoliTree(b, { size: 1.3 + (p.k % 4) * 0.25, k: p.k });
+      b.pop();
+    }
+    return b.build();
+  }
   for (const p of jungleSpots(track, avoid)) {
     const n = 2 + (p.k % 2);
     for (let i = 0; i < n; i++) {
@@ -59,8 +72,9 @@ export function buildJungle(track, avoid) {
       const oz = ((p.k * (i + 5) * 11) % 13) - 6;
       const h = 10 + ((p.k * (i + 1)) % 9);
       const color = LEAVES[(p.k + i) % LEAVES.length];
-      b.cyl(0.4, 0.6, h * 0.4, 5, 0x5a4030, p.x + ox, 0, p.z + oz);
-      b.cyl(0, 5 + (i % 2) * 2, h * 0.75, 6, color, p.x + ox, h * 0.3, p.z + oz);
+      const y = groundY(p.x + ox, p.z + oz);
+      b.cyl(0.4, 0.6, h * 0.4, 5, 0x5a4030, p.x + ox, y, p.z + oz);
+      b.cyl(0, 5 + (i % 2) * 2, h * 0.75, 6, color, p.x + ox, y + h * 0.3, p.z + oz);
     }
   }
   return b.build();

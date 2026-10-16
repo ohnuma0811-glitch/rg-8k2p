@@ -1,4 +1,5 @@
 import { KAMPAR_SCENERY } from './kampar.js';
+import { SOKI_SCENERY } from './soki.js';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -152,6 +153,7 @@ export const COURSE3 = {
   river: [[650, 1120], [700, 960], [745, 840], [750, 760], [790, 640], [870, 565], [960, 545], [1120, 535], [1300, 620], [1486, 690], [1650, 760], [1780, 800], [1950, 850]],
   // 滝（2026-10-16 のユーザー依頼「ジャンプ②の手前に滝、川に合流」）。右がわの道の、コースの外（東。走りながら左手）
   waterfall: { at: ['HILL', 'J2', 0.55], side: -1, height: 9 },
+  scenery: SOKI_SCENERY, // 景色の置き場所（src/data/soki.js）
   length: 2500,
   roadHalf: 12,
   dirt: 3,

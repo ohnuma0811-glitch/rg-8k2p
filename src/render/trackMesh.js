@@ -5,9 +5,9 @@ import { buildJungle } from './town/jungle.js';
 import { buildWater } from './town/water.js';
 import { buildBridge } from './forest/bridge.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
-import { buildTerrain } from './terrain.js';
+import { buildTerrain, terrainHeight } from './terrain.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
-import { cornerUW } from '../game/track.js';
+import { cornerUW, markS } from '../game/track.js';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -575,6 +575,26 @@ export function buildTrackMesh(track) {
     group.add(buildTerrain(track));
     group.add(buildRiver(track));
     group.add(buildWaterfall(track));
+    // 景色（門・大きな木・きのこの広場・道ばた）と、外のジャングル・中のブロッコリーの木（2026-10-16 のユーザー依頼）
+    const groundY = (x, z) => terrainHeight(track, x, z);
+    const scenery = buildScenery(track, track.def.scenery ?? [], groundY);
+    group.add(scenery);
+    const avoid = scenery.userData.spots.map((sp) => ({ x: sp.x, z: sp.z, radius: Math.max(4, sp.radius ?? 1) + 6 }));
+    // 川と滝のまわりにも木を置かない
+    const river = (track.def.river ?? []).map(([x, z]) => track.toWorld(x, z));
+    for (let k = 0; k + 1 < river.length; k++) {
+      const a = river[k];
+      const b = river[k + 1];
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 8);
+      for (let u = 0; u <= n; u++) avoid.push({ x: a.x + ((b.x - a.x) * u) / n, z: a.z + ((b.z - a.z) * u) / n, radius: 16 });
+    }
+    const wf = track.def.waterfall;
+    if (wf) {
+      const p = track.samples[Math.round(markS(track, wf.at)) % track.length];
+      for (const d of [p.wall + 20, p.wall + 34]) avoid.push({ x: p.x - Math.sin(p.h) * wf.side * d, z: p.z + Math.cos(p.h) * wf.side * d, radius: 24 });
+    }
+    group.add(buildJungle(track, avoid, { groundY }));
+    group.add(buildJungle(track, avoid, { groundY, inside: true }));
   }
 
   // 観客席・土手・木と看板は、サーキットだけ

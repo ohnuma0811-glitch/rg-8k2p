@@ -1,20 +1,27 @@
 // 置き場所のデータから、コースの景色を作る（部品の前が道を向くように、道ぞいに置く）
 import * as kit from './kit.js';
 import * as landmarks from './landmarks.js';
+import * as forestKit from '../forest/kit.js';
 import { createBuilder } from './builder.js';
 import { markS, span, cornerCenter, locate } from '../../game/track.js';
 
 const PARTS = { ...kit, ...landmarks.PARTS };
+// 森のコースは、森の部品を使う（しげみ bush などは森の形）
+const FOREST_PARTS = { ...PARTS, ...forestKit };
+const PARTS_ALL = PARTS;
 
 // コースの s の、side 側（-1 左、1 右、0 真ん中）の、道のふちから back m 奥の場所。部品の前（+z）が道を向く
 export function placeSpot(track, s, side, back) {
-  const n = track.samples.length;
-  const p = track.samples[((Math.round(s) % n) + n) % n];
+  const n = track.length;
+  return placeAt(track.samples[((Math.round(s) % n) + n) % n], side, back);
+}
+// 点 p（本線でも分かれ道でも）の横の場所
+function placeAt(p, side, back) {
   const d = side === 0 ? 0 : p.wall + back;
   const x = p.x - Math.sin(p.h) * side * d;
   const z = p.z + Math.cos(p.h) * side * d;
   const ry = side === 0 ? Math.PI / 2 - p.h : Math.atan2(side * Math.sin(p.h), -side * Math.cos(p.h));
-  return { x, z, ry, s: p.s, side };
+  return { x, z, ry, s: p.s, side, path: p.path ?? 0 };
 }
 
 // 半径 radius の物を spot に置いても、ほかの区間の道や、ほかの区間のロータリーの島にかからないか
@@ -23,7 +30,8 @@ export function sceneryClear(track, spot, radius) {
   const near = (spot.side === 0 ? 40 : 25) + radius * 1.5;
   const along = (s) => Math.min(span(track, s, spot.s), span(track, spot.s, s));
   for (const q of track.samples) {
-    if (along(q.s) < near) continue;
+    // 自分の道の近くは数えない（分かれ道は、ほかの道なら近くても数える）
+    if ((q.path ?? 0) === (spot.path ?? 0) && along(q.s) < near) continue;
     if (Math.hypot(q.x - spot.x, q.z - spot.z) < q.wall + radius) return false;
   }
   for (const isl of track.islands ?? []) {
@@ -93,7 +101,9 @@ export function onStub(mouths, spot, radius) {
   });
 }
 
-export function buildScenery(track, list) {
+// groundY(x, z): 置く所の地面の高さ（森の坂。省けば 0）
+export function buildScenery(track, list, groundY = () => 0) {
+  const PARTS = track.def.theme === 'forest' ? FOREST_PARTS : PARTS_ALL;
   const mouths = stubMouths(track, list);
   const b = createBuilder();
   const spots = [];
@@ -101,7 +111,8 @@ export function buildScenery(track, list) {
   // 横道（通行止めの道）の場所。並べる建物は、ここをあけて置く
   const openings = list.filter((i) => i.part === 'stubRoad' && i.at).map((i) => ({ s: markS(track, i.at), side: i.side }));
   const opened = (item, s) => item.every && openings.some((o) => o.side === item.side && Math.min(span(track, o.s, s), span(track, s, o.s)) < 11);
-  const put = (item, s) => {
+  // p: 分かれ道の上の点（本線なら null で、s の所）
+  const put = (item, s, p = null) => {
     if (item.part === 'stubRoad') {
       const spot = stubSpot(track, item, s);
       spot.radius = 1;
@@ -143,8 +154,8 @@ export function buildScenery(track, list) {
       b.pop();
       return;
     }
-    if (opened(item, s)) return;
-    const spot = placeSpot(track, s, item.side ?? -1, item.back ?? 2);
+    if (!p && opened(item, s)) return;
+    const spot = p ? placeAt(p, item.side ?? -1, item.back ?? 2) : placeSpot(track, s, item.side ?? -1, item.back ?? 2);
     spot.radius = item.radius ?? 1;
     spot.anywhere = !!item.anywhere; // ロータリーの島の上の標識（分離帯がなくても置く）
     // 道の真ん中に置く物は、分離帯のある所だけ（道の上に立たないように）
@@ -152,17 +163,34 @@ export function buildScenery(track, list) {
     if (spot.side === 0 && !item.anywhere && !(track.samples[((Math.round(s) % n) + n) % n].median > 0)) return;
     // 地面に立つ物は、カートが走れる所（直角の角の外側の四角も）に置かない（最終レビュー）
     const onCourse = !OVERHEAD.has(item.part) && spot.side !== 0 && !item.anywhere && locate(track, spot.x, spot.z).surface !== 'out';
-    if (onCourse || !sceneryClear(track, spot, spot.radius) || (item.part !== 'trafficLight' && onStub(mouths, spot, spot.radius))) {
+    spot.y = groundY(spot.x, spot.z);
+    const inWater = !OVERHEAD.has(item.part) && spot.y < -0.5; // 川の中には立てない
+    if (onCourse || inWater || !sceneryClear(track, spot, spot.radius) || (item.part !== 'trafficLight' && onStub(mouths, spot, spot.radius))) {
       if (landmarks.PARTS[item.part]) skippedLandmarks.push(item.part);
       return;
     }
     spot.part = item.part;
     spots.push(spot);
-    b.push(spot.x, 0, spot.z, spot.ry);
+    b.push(spot.x, spot.y, spot.z, spot.ry);
     PARTS[item.part](b, item);
     b.pop();
   };
-  for (const item of list) {
+  for (let item of list) {
+    // 分かれ道の上: path（道の id）と、その道の上の割合
+    // （at: ['middle', 0.5] のように、道の id と割合でも書ける）
+    const byAt = Array.isArray(item.at) && item.at.length === 2;
+    const pathId = byAt ? item.at[0] : item.path;
+    const path = pathId && pathId !== 'main' ? (track.paths ?? []).find((q) => q.id === pathId) : null;
+    if (path) {
+      if (byAt) item = { ...item, at: item.at[1] };
+      const at = (f) => path.start + Math.min(path.count - 1, Math.max(0, Math.round(f * (path.count - 1))));
+      if (item.at !== undefined) put(item, 0, track.samples[at(item.at)]);
+      else {
+        const step = Math.max(1, Math.round(item.every / (path.len / path.count)));
+        for (let i = at(item.from); i <= at(item.to); i += step) put(item, 0, track.samples[i]);
+      }
+      continue;
+    }
     if (item.at) put(item, markS(track, item.at));
     else {
       const from = markS(track, item.from);
