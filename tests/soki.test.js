@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, markS, locate, ahead, behind } from '../src/game/track.js';
-import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS } from '../src/game/hazards.js';
+import { buildTrack, markS, locate, ahead, behind, span } from '../src/game/track.js';
+import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK } from '../src/game/hazards.js';
 import { boarPose, boarContact, BOAR_RADIUS } from '../src/game/hazards.js';
 import { COURSE3, COURSES } from '../src/data/tracks.js';
 
@@ -255,4 +255,57 @@ test('近道の手前に、杭の案内板「本線↑」「近道（危険）�
   const at = mid.start + Math.round(sign.at * (mid.count - 1));
   const before = inner.fork - at;
   assert.ok(before > 20 && before < 70, `分かれる所の ${before}m 手前`);
+});
+
+test('恐竜: ジャンプ②の川から、ときどき口を開けて顔を出す（出る前に少しずつ上がってくる）', () => {
+  assert.ok(t.dino);
+  const states = new Set();
+  let prev = null;
+  let ups = 0;
+  for (let time = 0; time < 60; time += 0.05) {
+    const d = dinoPose(t, time);
+    states.add(d.state);
+    if (prev === 'hide' && d.state === 'up') assert.fail('いきなり出た');
+    if (prev !== 'up' && d.state === 'up') ups++;
+    prev = d.state;
+  }
+  assert.deepEqual([...states].sort(), ['hide', 'rise', 'sink', 'up']);
+  assert.ok(ups >= 3 && ups <= 6, `60秒で ${ups} 回`);
+});
+
+// ジャンプ②で飛び出してすぐの車（時刻 time）
+function flyingAtJ2(time) {
+  const j = Math.round(markS(t, ['J2', 'J2', 0]));
+  const kart = createKart(t, j - 40, 0);
+  kart.speed = 30;
+  for (let k = 0; k < 600 && !kart.airborne; k++) stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+  for (let k = 0; k < 10; k++) stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+  assert.ok(kart.airborne);
+  return kart;
+}
+
+test('恐竜が顔を出しているときにジャンプ②を飛ぶと食べられる: 3秒真っ暗で、ジャンプ台の 30m 手前から走り直し', () => {
+  let up = 0;
+  while (dinoPose(t, up).state !== 'up') up += 0.05;
+  const kart = flyingAtJ2(up);
+  assert.equal(dinoContact(kart, t, up + 0.2), 'eaten');
+  assert.equal(kart.eaten, 1);
+  assert.ok(kart.swallowed);
+  assert.ok(Math.abs(kart.respawn - DINO_BLACK) < 0.01 && DINO_BLACK >= 2.5 && DINO_BLACK <= 3.5);
+  for (let k = 0; k < 60 * DINO_BLACK + 5; k++) stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+  assert.ok(!kart.swallowed && kart.respawn <= 0);
+  const back = span(t, t.samples[kart.seg].s, markS(t, ['J2', 'J2', 0]));
+  assert.ok(Math.abs(back - 30) < 2, `${back}m 手前`);
+});
+
+test('恐竜がかくれているときは、ジャンプ②を飛んでも食べられない。道を走っているだけでも食べられない', () => {
+  let hide = 0;
+  while (dinoPose(t, hide).state !== 'hide') hide += 0.05;
+  hide += 0.1;
+  const kart = flyingAtJ2(hide);
+  assert.equal(dinoContact(kart, t, hide), null);
+  let up = 0;
+  while (dinoPose(t, up).state !== 'up') up += 0.05;
+  const ground = createKart(t, Math.round(markS(t, ['J2', 'J2', 0])) + 40, 0);
+  assert.equal(dinoContact(ground, t, up + 0.2), null);
 });

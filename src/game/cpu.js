@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
 import { locate, islandNear, span, ahead as aheadOf, branchesBeyond } from './track.js';
-import { cowPose, boarPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -161,7 +161,16 @@ export function cpuControl(cpu, kart, track, t) {
     const stop = (kart.speed ** 2 - CPU.BUMP_SPEED ** 2) / (2 * 25) + 6;
     if (ahead < Math.max(6, stop) && kart.speed > CPU.BUMP_SPEED && !bumpMiss(cpu, k, cpu.lap)) bumpBrake = true;
   });
-  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) ||
+  // 恐竜（Soki Forest）: ジャンプ②に着くころ恐竜が顔を出していそうなら、ジャンプ台の手前で速さを落として待つ
+  let dinoBrake = false;
+  if (track.dino && samples[loc.i].path === 0) {
+    const ahead = span(track, loc.s, track.dino.s);
+    if (ahead < 110 && ahead > 20) {
+      const arrive = t + ahead / Math.max(8, kart.speed);
+      dinoBrake = dinoPose(track, arrive).rise > 0.3 || dinoPose(track, arrive + 0.8).rise > 0.3;
+    }
+  }
+  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || (dinoBrake && kart.speed > 10) ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）

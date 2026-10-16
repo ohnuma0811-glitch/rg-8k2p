@@ -174,3 +174,7 @@ test('サルが投げたら monkey（キキッ）、木の実が当たったら 
   assert.deepEqual(soundEvents(st({ monkeyThrows: 0 }), st({ monkeyThrows: 1 }), 3), ['monkey']);
   assert.deepEqual(soundEvents(st({}, { nutHits: 0 }), st({}, { nutHits: 1 }), 3), ['nutHit']);
 });
+
+test('恐竜に食べられたら eaten（ぎゃーーー）', () => {
+  assert.deepEqual(soundEvents(st({}, { eaten: 0 }), st({}, { eaten: 1 }), 3), ['eaten']);
+});

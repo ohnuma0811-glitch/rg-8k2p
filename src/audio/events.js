@@ -50,6 +50,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
     monkeyThrows, // 近くのサルが投げた数の合計
     nutHits: kart.nutHits || 0, // 木の実が当たった回数
+    eaten: kart.eaten || 0, // 恐竜に食べられた回数
   };
 }
 
@@ -84,6 +85,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.boarHits > prev.boarHits) ev.push('bump');
   if (cur.monkeyThrows > prev.monkeyThrows) ev.push('monkey');
   if (cur.nutHits > prev.nutHits) ev.push('nutHit');
+  if (cur.eaten > prev.eaten) ev.push('eaten');
   // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
   // （ドリフトの跳ねは airborne にならない）
   if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');

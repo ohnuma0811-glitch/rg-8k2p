@@ -206,6 +206,44 @@ export function dropFallen(nuts, time) {
   nuts.list = nuts.list.filter((n) => time - n.t0 < NUT_FALL);
 }
 
+// 恐竜（Soki Forest。2026-10-16 のユーザー依頼）: ジャンプ②の下の川から、大きな顔が口を開けて、ジャンプの通り道に出てくる
+// そのとき飛んだ車は食べられて、DINO_BLACK 秒まっくら。そのあとジャンプ台の DINO_BACK m 手前から走り直し
+export const DINO_BLACK = 3; // 食べられて、まっくらの秒数
+export const DINO_BACK = 30; // 走り直す所（ジャンプ②の印の手前 m）
+const DINO_RISE = 1.2; // 川から上がってくる秒数（このあいだに気づける）
+const DINO_UP = 2.6; // 顔を出している秒数
+const DINO_SINK = 0.8; // もぐる秒数
+// 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
+export function dinoPose(track, time) {
+  const d = track.dino;
+  if (!d) return { state: 'hide', rise: 0 };
+  const tin = (((time + d.phase) % d.period) + d.period) % d.period;
+  const a = d.period - DINO_RISE - DINO_UP - DINO_SINK;
+  if (tin < a) return { state: 'hide', rise: 0 };
+  if (tin < a + DINO_RISE) return { state: 'rise', rise: (tin - a) / DINO_RISE };
+  if (tin < a + DINO_RISE + DINO_UP) return { state: 'up', rise: 1 };
+  return { state: 'sink', rise: 1 - (tin - a - DINO_RISE - DINO_UP) / DINO_SINK };
+}
+
+// 車が恐竜に食べられるか。ジャンプ②から飛び出して川の上にいて、恐竜が口を開けて出ているとき 'eaten'
+export function dinoContact(kart, track, time) {
+  const d = track.dino;
+  if (!d || kart.respawn > 0 || !kart.airborne || !kart.launched) return null;
+  const pose = dinoPose(track, time);
+  if (pose.rise < 0.6) return null;
+  const p = track.samples[kart.seg];
+  if (!p || p.path !== 0) return null;
+  const along = ((p.s - d.s + track.length * 1.5) % track.length) - track.length / 2;
+  if (along < d.from || along > d.to) return null;
+  kart.eaten = (kart.eaten || 0) + 1;
+  kart.swallowed = true; // 見えなくする（自分の車なら画面をまっくらに）
+  kart.respawn = DINO_BLACK;
+  kart.respawnAt = Math.round(d.s - DINO_BACK + track.length) % track.length;
+  kart.speed = 0;
+  cancelDrift(kart);
+  return 'eaten';
+}
+
 // 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）
 export function boarWarning(track, kart, time, range = 60) {
   return (track.boars ?? []).some((boar) => {

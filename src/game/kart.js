@@ -72,6 +72,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.surface = 'road';
   kart.respawn = 0;
   kart.respawnAt = i;
+  kart.swallowed = false; // 恐竜に食べられて見えない（Soki Forest）
   kart.onWall = false;
   kart.onIsland = false;
   kart.tumble = 0; // バンプで転がっている残りの秒数

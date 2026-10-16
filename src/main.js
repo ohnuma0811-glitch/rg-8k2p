@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoContact } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -15,7 +15,7 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -315,6 +315,27 @@ function placeBoars(time) {
   });
 }
 
+// 恐竜の顔（Soki Forest）: ジャンプ②の川の中から、時刻で上がってくる
+function placeDino(time) {
+  if (!track.dino) return;
+  if (!track.dinoModel) {
+    track.dinoModel = createDinoModel();
+    track.mesh.add(track.dinoModel);
+  }
+  const d = track.dino;
+  const p = track.samples[Math.round(d.s + 2) % track.length]; // 川の真ん中（ジャンプ②の地面のない所）
+  const pose = dinoPose(track, time);
+  const m = track.dinoModel;
+  m.visible = pose.rise > 0;
+  m.position.set(p.x, -17 + 16 * pose.rise, p.z); // いちばん上で、上あごがジャンプの通り道（高さ 5〜10m）にかかる
+  m.rotation.y = -(p.h + Math.PI); // 前（+x）を、走ってくる車の方へ
+}
+
+// 恐竜に食べられている間、画面をまっくらに（自分の車だけ）
+const dinoBlack = document.createElement('div');
+dinoBlack.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:50';
+document.body.appendChild(dinoBlack);
+
 // サルと木の実と影（Soki Forest）。サルは木の上に置いたまま、木の実は投げた所から落ちる所へ放物線で
 function placeMonkeys(time, nuts) {
   if (!track.monkeys.length) return;
@@ -425,6 +446,8 @@ function stepGame(dt) {
   if (track.buses.length) karts.forEach((kart) => busContact(kart, track, race.t, PHYS));
   // イノシシ（Soki Forest）: 牛と同じ
   if (track.boars.length) karts.forEach((kart) => boarContact(kart, track, race.t, PHYS));
+  // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
+  if (track.dino) karts.forEach((kart) => dinoContact(kart, track, race.t));
   // サル（Soki Forest）: 投げて、落ちた木の実の当たりを全部の車で見てから消す
   if (track.monkeys.length) {
     track.nuts = g.nuts; // CPU が影をよけるため
@@ -501,6 +524,7 @@ async function runRace(name, charId, cup) {
     game.onEnd = resolve;
   });
   commitPlay();
+  dinoBlack.style.opacity = '0'; // 恐竜でまっくらのまま、レースをやめたとき
   if (why === 'title') {
     raceHud.classList.remove('show');
     removeGame();
@@ -645,6 +669,8 @@ function renderGame(alpha, dt) {
   placeBuses(g.race.t);
   placeBoars(g.race.t);
   placeMonkeys(g.race.t, g.nuts);
+  placeDino(g.race.t);
+  dinoBlack.style.opacity = g.karts[g.me].swallowed ? '1' : '0';
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -680,6 +706,7 @@ function renderGame(alpha, dt) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
+    else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
     if (name === 'go') music.play(course.music);

@@ -15,8 +15,8 @@ function fakeAudio() {
 }
 const fakeFetch = async (url) => ({ ok: true, arrayBuffer: async () => ({ name: url }) });
 
-test('声のファイルは男の子用と女の子用の2つ（男衆「イヤッホー！」・女衆「おう！」、フリー素材）', () => {
-  assert.deepEqual(VOICE_FILES, { male: 'sounds/yahoo-male.mp3', female: 'sounds/yahoo-female.mp3' });
+test('声のファイルは男の子用と女の子用（男衆「イヤッホー！」・女衆「おう！」、フリー素材）と、恐竜に食べられたときの「ぎゃーーー」', () => {
+  assert.deepEqual(VOICE_FILES, { male: 'sounds/yahoo-male.mp3', female: 'sounds/yahoo-female.mp3', scream: 'sounds/dino-scream.mp3' });
   assert.ok(VOICE_GAIN.female > VOICE_GAIN.male); // 女の子の声のファイルは少し小さいので、大きめに鳴らす
 });
 

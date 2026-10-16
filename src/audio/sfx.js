@@ -255,6 +255,36 @@ export function createSfx(audio) {
         o.stop(t + 0.11);
       }
     },
+    // 恐竜に食べられた「ぎゃーーー」（ファイルがないときの代わり）: 高い声のような音を、ふるわせながら下げる
+    eaten: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 1400;
+      band.Q.value = 1.2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.45, t + 0.05);
+      g.gain.setValueAtTime(0.45, t + 1.0);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+      band.connect(g).connect(audio.sfxOut);
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(700, t);
+      o.frequency.linearRampToValueAtTime(900, t + 0.15);
+      o.frequency.exponentialRampToValueAtTime(380, t + 1.6);
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 9;
+      const depth = ctx.createGain();
+      depth.gain.value = 40;
+      lfo.connect(depth).connect(o.frequency);
+      o.connect(band);
+      o.start(t);
+      lfo.start(t);
+      o.stop(t + 1.65);
+      lfo.stop(t + 1.65);
+    },
     // 木の実が当たった「コツン」: 短い木の音（高めの三角の波、0.06秒）
     nutHit: () => {
       const ctx = audio.ctx;
