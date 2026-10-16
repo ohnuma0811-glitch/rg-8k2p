@@ -40,7 +40,7 @@ function ribbon(samples, offA, offB, yOf, ok, { color, colorOf, map, vScale } = 
   const n = samples.length;
   for (let i = 0; i < n; i++) {
     const p = samples[i];
-    const q = samples[(i + 1) % n];
+    const q = samples[p.next ?? (i + 1) % n]; // 分かれ道は、点のつながりの次の点と（番号の次ではなく）
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
@@ -70,7 +70,7 @@ function fence(samples, off, yBottom, yTop, ok, colorOf) {
   const c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     const p = samples[i];
-    const q = samples[(i + 1) % n];
+    const q = samples[p.next ?? (i + 1) % n];
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
@@ -253,14 +253,15 @@ export function fenceSides(track, mouths = []) {
     const ok = {};
     for (const side of [-1, 1]) {
       ok[side] = false;
-      if (p.y !== 0 || p.ramp) continue;
+      if (p.y === null || p.ramp) continue;
       const x = p.x - Math.sin(p.h) * side * p.wall;
       const z = p.z + Math.cos(p.h) * side * p.wall;
       if (mouths.some((m) => inMouth(m, x, z))) continue;
       ok[side] = !near(x, z, roadHalf + 1, (j) => {
-        const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
         const q = samples[j];
-        return gap >= 60 && q.y !== null && Math.hypot(q.x - x, q.z - z) <= roadHalf + 1;
+        // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
+        const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
+        return other && q.y !== null && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }
     return ok;

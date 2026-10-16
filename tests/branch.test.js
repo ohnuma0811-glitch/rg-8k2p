@@ -79,3 +79,26 @@ test('分かれ道がないコースでは、locate と点のつながりは今�
     assert.equal(behind(c, 1, 3), c.length - 2);
   }
 });
+
+test('分かれる所・合流する所では、柵がほかの道の上に立たない（道がふさがらない）', async () => {
+  const { fenceSides } = await import('../src/render/trackMesh.js');
+  const fences = fenceSides(t);
+  for (const [i, p] of t.samples.entries()) {
+    for (const side of [-1, 1]) {
+      if (!fences[i][side]) continue;
+      const x = p.x - Math.sin(p.h) * side * p.wall;
+      const z = p.z + Math.cos(p.h) * side * p.wall;
+      for (const q of t.samples) {
+        if (q.path === p.path) continue;
+        assert.ok(Math.hypot(q.x - x, q.z - z) > q.half - 0.5, `道 ${p.path} の柵が道 ${q.path} の上（点 ${i}）`);
+      }
+    }
+  }
+});
+
+test('ミニマップは3本の道をどれも描く', async () => {
+  const { minimapPaths } = await import('../src/render/minimap.js');
+  const paths = minimapPaths(t);
+  assert.equal(paths.length, 3);
+  assert.ok(paths.every((ps) => ps.length > 50));
+});

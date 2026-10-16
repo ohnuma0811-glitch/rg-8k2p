@@ -19,6 +19,16 @@ export function mapFit(samples, w, h, pad) {
   return (x, z) => ({ x: ox + x * scale, y: oy + z * scale });
 }
 
+// 地図に描く道ごとの点の並び: 本線（閉じる）と、分かれ道ごとに「分かれる所＋道の点＋合流する所」
+export function minimapPaths(track) {
+  const { samples } = track;
+  const paths = track.paths ?? [{ start: 0, count: track.length }];
+  return paths.map((p, k) => {
+    if (k === 0) return samples.slice(0, track.length);
+    return [samples[p.fork], ...samples.slice(p.start, p.start + p.count), samples[p.join]];
+  });
+}
+
 // 地図を作る。draw(dots) で毎回、車の点を描く。dots = [{ x, z, color, me }]（me は自分の車。大きく、白いふち）
 // 大きさは resize() のときだけ調べ、コースの形はそのとき別のキャンバスに1回だけ描いておく（毎フレームは写すだけ）
 export function createMinimap(canvas, track) {
@@ -46,12 +56,14 @@ export function createMinimap(canvas, track) {
     const rc = roadCanvas.getContext('2d');
     rc.setTransform(ratio, 0, 0, ratio, 0, 0);
     const road = new Path2D();
-    track.samples.forEach((p, i) => {
-      const q = fit(p.x, p.z);
-      if (i === 0) road.moveTo(q.x, q.y);
-      else road.lineTo(q.x, q.y);
+    minimapPaths(track).forEach((ps, k) => {
+      ps.forEach((p, i) => {
+        const q = fit(p.x, p.z);
+        if (i === 0) road.moveTo(q.x, q.y);
+        else road.lineTo(q.x, q.y);
+      });
+      if (k === 0) road.closePath();
     });
-    road.closePath();
     rc.lineJoin = 'round';
     rc.strokeStyle = 'rgba(255,255,255,0.9)';
     rc.lineWidth = 7;
