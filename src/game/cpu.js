@@ -63,7 +63,7 @@ export function routeChoice(cpu, fork, paths, lap, track) {
 export function cpuControl(cpu, kart, track, t) {
   const { samples } = track;
   const n = samples.length;
-  const loc = locate(track, kart.x, kart.z, kart.seg);
+  const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   const look = Math.round(CPU.LOOK + Math.max(0, kart.speed) * CPU.LOOK_PER_SPEED);
   // 周を数える（スタートの線を越えたら1つ増やす）
   if (cpu.lastS !== null && loc.s < cpu.lastS - track.length / 2) cpu.lap++;

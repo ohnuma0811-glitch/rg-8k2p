@@ -72,3 +72,54 @@ test('どの坂も、止まらずに上れる（自動のアクセルで、ハ�
   }
   assert.ok(minSpeed > 8, `${minSpeed}`);
 });
+
+// 上の道（本線）と内の道が交わる所（橋）: 内の道の点で、本線の点にいちばん近い所
+function crossing() {
+  const inner = t.paths[2];
+  let best = { d: Infinity };
+  for (let i = inner.start; i < inner.start + inner.count; i++) {
+    const q = t.samples[i];
+    for (let j = 0; j < t.length; j++) {
+      const p = t.samples[j];
+      const d = Math.hypot(p.x - q.x, p.z - q.z);
+      if (d < best.d) best = { d, top: j, under: i };
+    }
+  }
+  return best;
+}
+
+test('橋: 上の道は内の道より 6m 以上高く、橋の点（p.bridge）になっている。内の道は橋の下で平ら', () => {
+  const c = crossing();
+  const top = t.samples[c.top];
+  const under = t.samples[c.under];
+  assert.ok(top.y - under.y > 6, `${top.y} ${under.y}`);
+  assert.ok(top.bridge, '橋の点ではない');
+  assert.ok(Math.abs(under.y) < 0.3, `${under.y}`);
+});
+
+test('橋の上を走る車は上の道、橋の下を走る車は下の道（内の道）にいると分かる', () => {
+  const c = crossing();
+  const top = t.samples[c.top];
+  const under = t.samples[c.under];
+  const onTop = locate(t, top.x, top.z, c.top, 40, top.y);
+  assert.equal(t.samples[onTop.i].path, 0);
+  const below = locate(t, under.x, under.z, c.under, 40, under.y);
+  assert.equal(t.samples[below.i].path, 2);
+});
+
+test('橋の上と下を、車が続けて走っても、もう一方の道にワープしない', () => {
+  const c = crossing();
+  for (const [start, path] of [[c.top - 80, 0], [c.under - 80, 2]]) {
+    const kart = createKart(t, start, 0);
+    kart.speed = 30;
+    let last = { x: kart.x, z: kart.z };
+    for (let k = 0; k < 60 * 5; k++) {
+      stepKart(kart, STRAIGHT, t, params, 1 / 60);
+      assert.ok(Math.hypot(kart.x - last.x, kart.z - last.z) < 2, 'ワープした');
+      if (k === 60 * 3) assert.equal(t.samples[kart.seg].path === 0 || path === 2, true);
+      last = { x: kart.x, z: kart.z };
+    }
+    // 下の道を走った車は、橋の下を通って、内の道のまま（上の道に飛び乗らない）
+    if (path === 2) assert.ok(kart.y < 3, `橋の下の車が高い: ${kart.y}`);
+  }
+});

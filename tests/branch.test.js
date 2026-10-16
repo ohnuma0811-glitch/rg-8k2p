@@ -89,7 +89,7 @@ test('分かれる所・合流する所では、柵がほかの道の上に立�
       const x = p.x - Math.sin(p.h) * side * p.wall;
       const z = p.z + Math.cos(p.h) * side * p.wall;
       for (const q of t.samples) {
-        if (q.path === p.path) continue;
+        if (q.path === p.path || Math.abs(q.y - p.y) >= 3) continue; // 橋の上と下はふさがない
         assert.ok(Math.hypot(q.x - x, q.z - z) > q.half - 0.5, `道 ${p.path} の柵が道 ${q.path} の上（点 ${i}）`);
       }
     }

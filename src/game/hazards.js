@@ -76,7 +76,7 @@ export function cowContact(kart, track, time, phys) {
   }
   // 押し出したあと、柵の外に出ないように戻す
   if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     const excess = Math.abs(loc.lateral) - loc.wall;
     if (excess > 0) {
       const side = Math.sign(loc.lateral);
@@ -156,7 +156,7 @@ export function busContact(kart, track, time, phys) {
     hit = 'spin';
   }
   if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     const excess = Math.abs(loc.lateral) - loc.wall;
     if (excess > 0) {
       const sd = Math.sign(loc.lateral);

@@ -131,7 +131,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = Math.max(0, kart.speed - PHYS.TUMBLE_BRAKE * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;
     kart.z += Math.sin(kart.move) * kart.speed * dt;
-    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     kart.seg = loc.i;
     // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
     const excess = Math.abs(loc.lateral) - loc.wall;
@@ -155,7 +155,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = Math.max(0, kart.speed - 20 * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;
     kart.z += Math.sin(kart.move) * kart.speed * dt;
-    kart.seg = locate(track, kart.x, kart.z, kart.seg).i;
+    kart.seg = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null).i;
     if (kart.spin <= 0) {
       kart.spin = 0;
       kart.heading = kart.spinTo;
@@ -165,7 +165,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     }
     return;
   }
-  const here = locate(track, kart.x, kart.z, kart.seg);
+  const here = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   const steer = Math.max(-1, Math.min(1, ctl.steer));
 
   if (!kart.airborne) {
@@ -245,7 +245,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   const fromZ = kart.z;
   kart.x += Math.cos(kart.move) * kart.speed * dt;
   kart.z += Math.sin(kart.move) * kart.speed * dt;
-  let loc = locate(track, kart.x, kart.z, kart.seg);
+  let loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   if (!kart.airborne && loc.ground === null && Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる
     // （2026-10-14 の実機確認で、逆走して飛び越えてしまった）
@@ -254,7 +254,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = 0;
     if (kart.drift.active) endDrift(kart, params, false);
     kart.hop = 0;
-    loc = locate(track, kart.x, kart.z, kart.seg);
+    loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     // 止まっていても、逆向きに進もうとしていれば逆走の時間を数える（ずっと止まったままにならないように）
     if (Math.cos(wrapAngle(kart.heading - loc.heading)) < 0) kart.wrongTime += dt;
   }

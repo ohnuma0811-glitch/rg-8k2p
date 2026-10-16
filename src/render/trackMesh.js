@@ -3,6 +3,7 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
 import { buildJungle } from './town/jungle.js';
 import { buildWater } from './town/water.js';
+import { buildBridge } from './forest/bridge.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
 import { cornerUW } from '../game/track.js';
 
@@ -261,7 +262,9 @@ export function fenceSides(track, mouths = []) {
         const q = samples[j];
         // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
         const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
-        return other && q.y !== null && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
+        // 橋の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
+        const overBridge = (p.bridge || q.bridge) && Math.abs(q.y - (p.y ?? 0)) >= 3;
+        return other && q.y !== null && !overBridge && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }
     return ok;
@@ -446,7 +449,9 @@ export function buildTrackMesh(track) {
     g.fillStyle = '#e8e8e8';
     g.fillRect(w / 2 - 1, 0, 2, h / 2);
   });
-  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p), { color: 0xffffff, map: asphalt, vScale: 4 }));
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p) && !p.bridge, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  // 橋の上の道は石の色（Soki Forest。2026-10-16）
+  if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
   if (corners.length) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && inSquare(p), { color: 0xffffff, map: asphaltMid, vScale: 4 }));
   // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
   const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
@@ -482,7 +487,7 @@ export function buildTrackMesh(track) {
       return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
     };
     const off = (p) => side * p.wall;
-    if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, fenceOk, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m）
+    if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
     else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
@@ -561,6 +566,9 @@ export function buildTrackMesh(track) {
     // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）
     group.add(buildWater(track, avoid));
   }
+
+  // 森（Soki Forest）: 石のアーチ橋
+  if (forest) group.add(buildBridge(track));
 
   // 観客席・土手・木と看板は、サーキットだけ
   if (track.def.theme === 'circuit') {

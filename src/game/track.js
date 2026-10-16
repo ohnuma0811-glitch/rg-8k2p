@@ -494,6 +494,25 @@ function addBranches(t, def, fit) {
     (t.joins[join] ??= []).push(samples.length - 1);
     t.paths.push({ id: b.id, start, count: points.length, fork, join, len: total });
   }
+  markBridges(t);
+}
+
+// 橋（2026-10-16 のユーザー依頼）: 本線が、高さが 4m 以上ちがうほかの道の上を通る所の前後 BRIDGE_REACH m を、橋の点にする
+export const BRIDGE_REACH = 40;
+function markBridges(t) {
+  const { samples } = t;
+  t.bridges = [];
+  for (let i = t.length; i < samples.length; i++) {
+    const q = samples[i];
+    for (let j = 0; j < t.length; j++) {
+      const p = samples[j];
+      if (p.y === null || p.y - q.y < 4 || Math.hypot(p.x - q.x, p.z - q.z) > 1.5) continue;
+      if (!t.bridges.some((b) => Math.abs(b.s - p.s) < BRIDGE_REACH)) t.bridges.push({ s: p.s, i: j, under: i });
+    }
+  }
+  for (const p of samples.slice(0, t.length)) {
+    if (t.bridges.some((b) => Math.min(span(t, b.s, p.s), span(t, p.s, b.s)) < BRIDGE_REACH)) p.bridge = true;
+  }
 }
 
 // 点 i から k 個先の点の番号。分かれる所では choose(i, 分かれる道の番号の配列) が返す道へ（null なら本線のまま）
