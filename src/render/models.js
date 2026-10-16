@@ -442,8 +442,8 @@ export function createBoarModel(k = 0, size = 1) {
 // 幅 19m。前（+x）が、走ってくる車の方。口を大きく上に開ける。y = 0 が下あごの下
 export function createDinoModel() {
   const g = new THREE.Group();
-  const skin = 0x4e9a3a;
-  const dark = 0x3b7a2c;
+  const skin = 0xf08a24; // オレンジ（2026-10-16 のユーザー依頼「ワニに見えるのでオレンジに」）
+  const dark = 0xc4601a;
   const W = 19;
   const lower = new THREE.Group(); // 下あご（前へのびる）
   lower.add(box(10, 2.2, W, skin, 1.5, 1.1, 0));

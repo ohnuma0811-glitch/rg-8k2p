@@ -493,3 +493,41 @@ test('大きな丘のあと（滝のあたり）: 少し急な左カーブのあ
 test('滝は大きい（はば 18m 以上、高さ 14m 以上）', () => {
   assert.ok(COURSE3.waterfall.width >= 18 && COURSE3.waterfall.height >= 14);
 });
+
+test('イノシシにぶつかっても、CPU がはまって動けなくならない（2026-10-16 のユーザー依頼）', () => {
+  for (let seed = 0; seed < 4; seed++) {
+    const karts = [0, 1, 2, 3].map((k) => createKart(t, (t.startIndex - k * 8 + t.length) % t.length, k % 2 ? 4 : -4));
+    const cpus = karts.map((_, k) => createCpu(k, seed));
+    const hist = karts.map(() => []);
+    let time = seed * 0.37;
+    for (let f = 0; f < 60 * 60; f++) {
+      karts.forEach((kart, k) => stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60));
+      karts.forEach((kart) => boarContact(kart, t, time, PHYS));
+      time += 1 / 60;
+      if (f % 30) continue;
+      karts.forEach((kart, k) => {
+        const h = hist[k];
+        h.push({ x: kart.x, z: kart.z });
+        if (h.length < 13) return;
+        const a = h[h.length - 13];
+        assert.ok(Math.hypot(a.x - kart.x, a.z - kart.z) > 15, `seed ${seed} の CPU ${k} が 6秒動けない（点 ${kart.seg}）`);
+      });
+    }
+  }
+});
+
+test('イノシシにぶつかったあと少しのあいだは、イノシシに押されずに通りぬけられる', () => {
+  const boar = t.boars[0];
+  let time = 0;
+  while (boarPose(t, boar, time).state !== 'run' || Math.abs(boarPose(t, boar, time).lateral) > 2) time += 0.02;
+  const p = boarPose(t, boar, time);
+  const kart = createKart(t, 0, 0);
+  kart.x = p.x;
+  kart.z = p.z + 0.5;
+  kart.speed = 15;
+  assert.equal(boarContact(kart, t, time, PHYS), 'bounce');
+  const x = kart.x;
+  const z = kart.z;
+  assert.equal(boarContact(kart, t, time + 0.5, PHYS), null);
+  assert.ok(kart.x === x && kart.z === z, '押された');
+});

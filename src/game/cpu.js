@@ -199,7 +199,9 @@ export function cpuControl(cpu, kart, track, t) {
       dinoBrake = (dinoPose(track, arrive).rise > 0.3 || dinoPose(track, arrive + 0.8).rise > 0.3) && kart.speed > 10;
     }
   }
-  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake ||
+  // 目指す向きと大きくずれた（柵にぶつかった・ななめに着地した）ら、速さを落として向き直る（2026-10-16: 左右の柵を行き来して動けなくなった）
+  const lost = Math.abs(angle) > 1.0 && kart.speed > 12 && !kart.airborne;
+  const brake = lost || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）

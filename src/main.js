@@ -370,7 +370,7 @@ const jawDiv = (top) => {
   for (let k = 0; k <= 12; k++) teeth.push(`${(k / 12) * 100}% ${top ? (k % 2 ? 100 : 82) : k % 2 ? 0 : 18}%`);
   el.style.cssText = `position:absolute;left:0;right:0;height:56%;${top ? 'top:0' : 'bottom:0'};background:#fff;clip-path:polygon(${top ? `0 0,100% 0,${teeth.reverse().join(',')}` : `${teeth.join(',')},100% 100%,0 100%`})`;
   const skin = document.createElement('div');
-  skin.style.cssText = `position:absolute;left:0;right:0;${top ? 'top:0' : 'bottom:0'};height:80%;background:#4e9a3a;border-${top ? 'bottom' : 'top'}:6px solid #3b7a2c`;
+  skin.style.cssText = `position:absolute;left:0;right:0;${top ? 'top:0' : 'bottom:0'};height:80%;background:#f08a24;border-${top ? 'bottom' : 'top'}:6px solid #c4601a`;
   el.appendChild(skin);
   return el;
 };
