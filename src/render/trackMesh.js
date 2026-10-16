@@ -614,6 +614,13 @@ export function buildTrackMesh(track) {
         }
       }
     }
+    // サルのいる高い木（枝が道の方へのびる）
+    for (const m of track.monkeys ?? []) {
+      const q = track.samples[m.i];
+      hide.push(m.x, groundY(m.x, m.z), m.z, Math.atan2(-(q.z - m.z), q.x - m.x));
+      forestKit.monkeyTree(hide);
+      hide.pop();
+    }
     group.add(hide.build());
   }
 

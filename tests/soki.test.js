@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, markS, locate } from '../src/game/track.js';
+import { buildTrack, markS, locate, ahead, behind } from '../src/game/track.js';
+import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS } from '../src/game/hazards.js';
 import { boarPose, boarContact, BOAR_RADIUS } from '../src/game/hazards.js';
 import { COURSE3, COURSES } from '../src/data/tracks.js';
 
@@ -167,4 +168,36 @@ test('イノシシに、メーター150以上でぶつかるとスピン、遅�
     assert.equal(boarContact(kart, t, time, PHYS), want);
     assert.equal(kart.drift.active, false);
   }
+});
+
+test('サルは内の道だけに3匹。40m 以内に車がいると、その車が少し先で通る所をねらって投げる', () => {
+  assert.equal(t.monkeys.length, 3);
+  for (const m of t.monkeys) assert.equal(t.samples[m.i].path, 2);
+  const nuts = createNuts(t);
+  const m = t.monkeys[0];
+  const far = createKart(t, 0, 0);
+  const thrown = stepNuts(nuts, t, [far], 0);
+  assert.equal(thrown.length, 0, '遠い車にはなげない');
+  const kart = createKart(t, behind(t, m.i, 20), 0);
+  kart.speed = 25;
+  assert.deepEqual(stepNuts(nuts, t, [kart], 1), [0]);
+  const nut = nuts.list[0];
+  // ねらう所は、車がいまの速さで NUT_FALL 秒後にいる所の近く（道の上）
+  const target = t.samples[ahead(t, kart.seg, Math.round(25 * NUT_FALL))];
+  assert.ok(Math.hypot(nut.x - target.x, nut.z - target.z) < 4);
+  assert.equal(stepNuts(nuts, t, [kart], 1.5).length, 0, '3秒に1回');
+});
+
+test('木の実が落ちたとき、落ちる所の近く（1.6m）にいる車はスピン。外れた木の実は消える', () => {
+  const nuts = createNuts(t);
+  const kart = createKart(t, t.paths[2].start + 50, 0);
+  nuts.list.push({ x: kart.x, z: kart.z, from: { x: kart.x, y: 20, z: kart.z }, t0: 0, monkey: 0 });
+  assert.equal(nutContact(kart, nuts, NUT_FALL - 0.1, PHYS), null, 'まだ落ちていない');
+  assert.equal(nutContact(kart, nuts, NUT_FALL, PHYS), 'spin');
+  assert.ok(kart.spin > 0);
+  assert.equal(nuts.list.length, 0);
+  nuts.list.push({ x: kart.x + 10, z: kart.z, from: { x: 0, y: 20, z: 0 }, t0: 0, monkey: 0 });
+  assert.equal(nutContact(kart, nuts, NUT_FALL + 0.1, PHYS), null);
+  assert.equal(nuts.list.length, 0, '外れた木の実が残っている');
+  assert.ok(NUT_RADIUS > 1);
 });

@@ -400,6 +400,49 @@ export function createBoarModel(k = 0) {
   return g;
 }
 
+// サル（Soki Forest。2026-10-16 のユーザー依頼）: 茶色の体、うすだいだいの顔、長いしっぽ。木の枝の上にすわる。前は +x
+// throwAt(time): 投げてからしばらく、腕をふり上げる
+export function createMonkeyModel() {
+  const g = new THREE.Group();
+  const fur = 0x7a4e2a;
+  g.add(box(3.2, 0.35, 0.35, 0x6b4a2f, 0, -0.2, 0)); // すわっている枝
+  g.add(box(0.7, 0.8, 0.6, fur, 0, 0.4, 0)); // 体
+  const head = new THREE.Group();
+  head.add(box(0.6, 0.55, 0.55, fur, 0, 0, 0));
+  head.add(box(0.12, 0.4, 0.45, 0xf0c49a, 0.3, -0.03, 0)); // 顔
+  for (const z of [-0.33, 0.33]) head.add(box(0.12, 0.22, 0.12, 0xf0c49a, 0, 0.05, z)); // 耳
+  head.position.set(0.05, 1.05, 0);
+  g.add(head);
+  const arm = new THREE.Group();
+  arm.add(box(0.18, 0.6, 0.18, fur, 0, 0.3, 0));
+  arm.position.set(0.1, 0.65, 0.35);
+  g.add(arm);
+  g.add(box(0.18, 0.6, 0.18, fur, 0.1, 0.35, -0.35)); // もう片方の腕
+  const tail = box(0.12, 1.4, 0.12, fur, -0.4, -0.5, 0); // 長いしっぽ（下へたれる）
+  g.add(tail);
+  g.userData.throwAt = (time, since) => {
+    arm.rotation.z = since < 0.4 ? -2.2 * (1 - since / 0.4) : 0;
+    tail.rotation.x = Math.sin(time * 2) * 0.25;
+  };
+  g.scale.setScalar(1.5); // 木の上でも見えるように（2026-10-16 のブラウザ確認）
+  return g;
+}
+
+// 木の実（茶色の小さな丸）
+export function createNutModel() {
+  return ball(0.45, 0x8a5a2b, 0, 0, 0, 8);
+}
+
+// 木の実の影（黒い半透明の円の板）。落ちる所に、だんだん大きく濃く
+export function createNutShadow() {
+  const m = new THREE.Mesh(
+    new THREE.CircleGeometry(1.6, 16),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  return m;
+}
+
 // スクールバス（BAS SEKOLAH。写真のような、角の丸い黄色っぽいオレンジの小さなバス）。+x が前。2026-10-16 のユーザー依頼
 let busText = null;
 export function createBusModel() {

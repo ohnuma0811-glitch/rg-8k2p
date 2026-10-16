@@ -160,6 +160,12 @@ export const COURSE3 = {
     { at: ['S', 'J1', 0.7], side: -1, period: 11, phase: 4 },
     { at: ['M2', 'HILL', 0.4], side: 1, period: 10, phase: 2 },
   ],
+  // サル（2026-10-16 のユーザー依頼）: 内の道（近道）の道ばたの木の上。at は内の道の割合、side は木のある側
+  monkeys: [
+    { at: ['inner', 0.25], side: -1 },
+    { at: ['inner', 0.45], side: 1 },
+    { at: ['inner', 0.85], side: -1 },
+  ],
   length: 2500,
   roadHalf: 12,
   dirt: 3,

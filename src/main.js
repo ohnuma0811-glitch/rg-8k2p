@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -15,7 +15,7 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -264,6 +264,8 @@ function createGame(name, charId) {
     }),
     top3Key: '',
     bumps: 0, // 自分がぶつかった回数（効果音用）
+    nuts: createNuts(track), // サルが投げた木の実（Soki Forest）
+    monkeyThrows: 0, // 自分の車の近くのサルが投げた数（効果音用）
     wallQuiet: Infinity, // 壁から離れている秒数（壁の音を最初だけ鳴らす）
     sound: null, // 前のフレームの音の様子
     me: PLAYER_SLOT,
@@ -310,6 +312,43 @@ function placeBoars(time) {
     m.position.set(p.x, track.samples[Math.round(boar.s) % track.length].y ?? 0, p.z);
     m.rotation.y = -p.heading;
     m.userData.walk(time, p.state);
+  });
+}
+
+// サルと木の実と影（Soki Forest）。サルは木の上に置いたまま、木の実は投げた所から落ちる所へ放物線で
+function placeMonkeys(time, nuts) {
+  if (!track.monkeys.length) return;
+  if (!track.monkeyModels) {
+    track.monkeyModels = track.monkeys.map((m) => {
+      const model = createMonkeyModel();
+      model.position.set(m.x, m.y + MONKEY_HEIGHT, m.z);
+      // 道の方を向く
+      const q = track.samples[m.i];
+      model.rotation.y = Math.atan2(-(q.z - m.z), q.x - m.x);
+      track.mesh.add(model);
+      return model;
+    });
+    track.nutModels = [];
+  }
+  track.monkeyModels.forEach((model, k) => {
+    const last = nuts.list.filter((n) => n.monkey === k).reduce((a, n) => Math.max(a, n.t0), -Infinity);
+    model.userData.throwAt(time, time - last);
+  });
+  while (track.nutModels.length < nuts.list.length) {
+    const nut = createNutModel();
+    const shadow = createNutShadow();
+    track.mesh.add(nut, shadow);
+    track.nutModels.push({ nut, shadow });
+  }
+  track.nutModels.forEach(({ nut, shadow }, k) => {
+    const n = nuts.list[k];
+    nut.visible = shadow.visible = !!n;
+    if (!n) return;
+    const u = Math.min(1, Math.max(0, (time - n.t0) / NUT_FALL));
+    nut.position.set(n.from.x + (n.x - n.from.x) * u, n.from.y + (n.y + 0.4 - n.from.y) * u + 6 * u * (1 - u), n.from.z + (n.z - n.from.z) * u);
+    shadow.position.set(n.x, n.y + 0.06, n.z);
+    shadow.scale.setScalar(0.4 + 0.6 * u);
+    shadow.material.opacity = 0.15 + 0.4 * u;
   });
 }
 
@@ -386,6 +425,15 @@ function stepGame(dt) {
   if (track.buses.length) karts.forEach((kart) => busContact(kart, track, race.t, PHYS));
   // イノシシ（Soki Forest）: 牛と同じ
   if (track.boars.length) karts.forEach((kart) => boarContact(kart, track, race.t, PHYS));
+  // サル（Soki Forest）: 投げて、落ちた木の実の当たりを全部の車で見てから消す
+  if (track.monkeys.length) {
+    track.nuts = g.nuts; // CPU が影をよけるため
+    const thrown = stepNuts(g.nuts, track, karts, race.t);
+    const mine = karts[g.me];
+    g.monkeyThrows += thrown.filter((k) => Math.hypot(track.monkeys[k].x - mine.x, track.monkeys[k].z - mine.z) < 60).length;
+    karts.forEach((kart) => nutContact(kart, g.nuts, race.t, PHYS, { keep: true }));
+    dropFallen(g.nuts, race.t);
+  }
   // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）
   karts.forEach((kart) => {
     if (kart.tumble > 0 && !kart.tumbleShown) effects.burst(kart.x, kart.y + 0.5, kart.z);
@@ -596,6 +644,7 @@ function renderGame(alpha, dt) {
   placeCows(g.race.t);
   placeBuses(g.race.t);
   placeBoars(g.race.t);
+  placeMonkeys(g.race.t, g.nuts);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -625,7 +674,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t) });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);

@@ -376,6 +376,14 @@ export function buildTrack(def) {
   applyHeights(t, def);
   applyJumps(t, def);
   addBranches(t, def, fit);
+  // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
+  t.monkeys = (def.monkeys ?? []).map((m) => {
+    const path = t.paths.find((q) => q.id === m.at[0]);
+    const i = path.start + Math.round(m.at[1] * (path.count - 1));
+    const p = t.samples[i];
+    const d = p.wall + 3;
+    return { i, path: p.path, side: m.side, x: p.x - Math.sin(p.h) * m.side * d, z: p.z + Math.cos(p.h) * m.side * d, y: p.y ?? 0 };
+  });
   return t;
 }
 

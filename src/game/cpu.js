@@ -137,6 +137,17 @@ export function cpuControl(cpu, kart, track, t) {
     else lane = Math.min(lane, b.lateral - BUS_WIDTH / 2 - 6.2);
     if (ahead < 40 || ahead > track.length - 12) aim = at(8);
   }
+  // 木の実の影（Soki Forest）: まだ落ちていない木の実の落ちる所が、自分の走る線の近く（3m）なら、その横へずれる
+  for (const nut of track.nuts?.list ?? []) {
+    if (Math.hypot(nut.x - kart.x, nut.z - kart.z) > 35) continue;
+    const q = locate(track, nut.x, nut.z, loc.i, 40, nut.y ?? null);
+    if (Math.abs(q.lateral - lane) >= 3) continue;
+    const edge = samples[loc.i].half - 2;
+    const side = Math.sign(lane - q.lateral) || 1;
+    let dodge = q.lateral + 4.5 * side;
+    if (Math.abs(dodge) > edge) dodge = q.lateral - 4.5 * side;
+    lane = Math.max(-edge, Math.min(edge, dodge));
+  }
   const tx = aim.x - Math.sin(aim.h) * lane;
   const tz = aim.z + Math.cos(aim.h) * lane;
   const angle = wrap(Math.atan2(tz - kart.z, tx - kart.x) - kart.move);

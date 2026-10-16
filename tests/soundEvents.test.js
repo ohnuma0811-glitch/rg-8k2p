@@ -167,3 +167,8 @@ test('イノシシが飛び出す前（予告）に boarWarn（ブヒッ）。�
   assert.deepEqual(soundEvents(st({ boarWarn: false }), st({ boarWarn: true }), 3), ['boarWarn']);
   assert.deepEqual(soundEvents(st({}, { boarHits: 0 }), st({}, { boarHits: 1 }), 3), ['bump']);
 });
+
+test('サルが投げたら monkey（キキッ）、木の実が当たったら nutHit（コツン）', () => {
+  assert.deepEqual(soundEvents(st({ monkeyThrows: 0 }), st({ monkeyThrows: 1 }), 3), ['monkey']);
+  assert.deepEqual(soundEvents(st({}, { nutHits: 0 }), st({}, { nutHits: 1 }), 3), ['nutHit']);
+});

@@ -234,6 +234,43 @@ export function createSfx(audio) {
       o.start(t);
       o.stop(t + 0.26);
     },
+    // サルが投げるときの「キキッ」: 高い三角の波を2回、すばやく上げ下げ（2026-10-16）
+    monkey: () => {
+      const ctx = audio.ctx;
+      const t0 = ctx.currentTime;
+      for (const d of [0, 0.13]) {
+        const t = t0 + d;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.28, t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        g.connect(audio.sfxOut);
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(1300, t);
+        o.frequency.linearRampToValueAtTime(2300, t + 0.04);
+        o.frequency.exponentialRampToValueAtTime(1100, t + 0.1);
+        o.connect(g);
+        o.start(t);
+        o.stop(t + 0.11);
+      }
+    },
+    // 木の実が当たった「コツン」: 短い木の音（高めの三角の波、0.06秒）
+    nutHit: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.5, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      g.connect(audio.sfxOut);
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(900, t);
+      o.frequency.exponentialRampToValueAtTime(600, t + 0.06);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.07);
+    },
     // スクールバスにぶつかった音（車どうしの「バン」と同じ）
     busHit: () => SOUNDS.bump(),
     // 牛にぶつかった「モー」: のこぎりの波2つを、口の形のようなバンドパスに通し、ゆっくり下げる

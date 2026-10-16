@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
 import { SPEED_SHOW } from '../hud.js';
-import { span, locate } from './track.js';
+import { span, locate, ahead } from './track.js';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -148,6 +148,62 @@ export function boarContact(kart, track, time, phys) {
   }
   kart.onBoar = touching;
   return hit;
+}
+
+// サルと木の実（Soki Forest。2026-10-16 のユーザー依頼「猿が木の実を投げてくる」）。内の道（近道）だけ
+export const NUT_FALL = 1.0; // 投げてから落ちるまで（秒。そのあいだ落ちる所に影が見える）
+export const NUT_RADIUS = 1.6; // 落ちた所からこの距離の車に当たる（m）
+export const MONKEY_RANGE = 40; // この距離より近い車をねらう（m）
+export const MONKEY_EVERY = 3; // 1匹が投げる間（秒）
+export const MONKEY_HEIGHT = 9; // 木の上の高さ（m）
+
+export function createNuts(track) {
+  return { list: [], next: (track.monkeys ?? []).map(() => 0) };
+}
+
+// サルが投げる。内の道にいて MONKEY_RANGE m 以内でいちばん近い車の、NUT_FALL 秒後の場所（道の上、点をたどって先）をねらう
+// 投げたサルの番号の配列を返す（音のため）
+export function stepNuts(nuts, track, karts, time) {
+  const thrown = [];
+  (track.monkeys ?? []).forEach((m, k) => {
+    if (time < nuts.next[k]) return;
+    let best = null;
+    for (const kart of karts) {
+      if (track.samples[kart.seg]?.path !== m.path) continue; // 橋の上（本線）の車はねらわない
+      const d = Math.hypot(kart.x - m.x, kart.z - m.z);
+      if (d < MONKEY_RANGE && (!best || d < best.d)) best = { kart, d };
+    }
+    if (!best) return;
+    const j = ahead(track, best.kart.seg, Math.max(0, Math.round(best.kart.speed * NUT_FALL)));
+    const target = track.samples[j];
+    nuts.list.push({ x: target.x, z: target.z, y: target.y ?? 0, from: { x: m.x, y: (m.y ?? 0) + MONKEY_HEIGHT, z: m.z }, t0: time, monkey: k });
+    nuts.next[k] = time + MONKEY_EVERY;
+    thrown.push(k);
+  });
+  return thrown;
+}
+
+// 落ちた木の実の当たり（速さに関係なくスピン。ドリフトは解除）。落ちた時刻をすぎた木の実は、当たっても外れても消す
+// keep: true のときは消さない（全部の車で見てから dropFallen で消す）
+export function nutContact(kart, nuts, time, phys, { keep = false } = {}) {
+  let hit = null;
+  for (const n of nuts.list) {
+    if (time - n.t0 < NUT_FALL) continue;
+    if (Math.hypot(kart.x - n.x, kart.z - n.z) < NUT_RADIUS && !kart.airborne && !(kart.spin > 0) && !(kart.tumble > 0)) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = kart.move ?? kart.heading;
+      kart.speed *= 0.5;
+      kart.nutHits = (kart.nutHits || 0) + 1;
+      cancelDrift(kart);
+      hit = 'spin';
+    }
+  }
+  if (!keep) dropFallen(nuts, time);
+  return hit;
+}
+
+export function dropFallen(nuts, time) {
+  nuts.list = nuts.list.filter((n) => time - n.t0 < NUT_FALL);
 }
 
 // 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）
