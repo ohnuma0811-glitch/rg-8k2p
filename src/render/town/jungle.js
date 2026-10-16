@@ -5,6 +5,7 @@ import { broccoliTree } from '../forest/kit.js';
 const GRID = 20; // 木のかたまりを置く間（m）
 const NEAR = 8; // 道のふち（柵）からこれだけ離す
 const FAR = 170; // 道からこれより遠くには置かない（見えない所に作らない）
+const CELL = 20; // 点を探すます目（m）
 
 // 点 (x, z) がコースの線で囲まれた内側にあるか（線を横切る回数が奇数なら内側）
 export function insideLoop(samples, x, z) {
@@ -22,6 +23,25 @@ export function insideLoop(samples, x, z) {
 export function jungleSpots(track, avoid, { inside = false } = {}) {
   const { samples } = track;
   const loop = samples.slice(0, track.length); // 分かれ道は輪に入れない
+  const grid = new Map();
+  for (const q of samples) {
+    const key = `${Math.floor(q.x / CELL)},${Math.floor(q.z / CELL)}`;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(q);
+  }
+  const reach = Math.max(...samples.map((q) => q.wall)) + NEAR;
+  // (x, z) から r 以内の点で、test(点, 距離) が true になるものがあるか
+  const near = (x, z, r, test) => {
+    const span = Math.ceil(r / CELL);
+    const cx = Math.floor(x / CELL);
+    const cz = Math.floor(z / CELL);
+    for (let gx = cx - span; gx <= cx + span; gx++) {
+      for (let gz = cz - span; gz <= cz + span; gz++) {
+        for (const q of grid.get(`${gx},${gz}`) ?? []) if (test(q, Math.hypot(q.x - x, q.z - z))) return true;
+      }
+    }
+    return false;
+  };
   const xs = samples.map((p) => p.x);
   const zs = samples.map((p) => p.z);
   const out = [];
@@ -32,17 +52,9 @@ export function jungleSpots(track, avoid, { inside = false } = {}) {
       // 少しずらして、並びが格子に見えないように（決まった数で）
       const jx = x + (((k * 73) % 11) - 5);
       const jz = z + (((k * 37) % 11) - 5);
-      let nearest = Infinity;
-      let ok = true;
-      for (const q of samples) {
-        const d = Math.hypot(q.x - jx, q.z - jz);
-        if (d < q.wall + NEAR) {
-          ok = false;
-          break;
-        }
-        nearest = Math.min(nearest, d);
-      }
-      if (!ok || nearest > FAR) continue;
+      // 道のすぐ近く（柵から NEAR m）は置かない。道から FAR m より遠い所にも置かない（近くのます目の点だけ見る）
+      if (near(jx, jz, reach, (q, d) => d < q.wall + NEAR)) continue;
+      if (!near(jx, jz, FAR, (q, d) => d <= FAR)) continue;
       if (avoid.some((a) => Math.hypot(a.x - jx, a.z - jz) < a.radius)) continue;
       if (insideLoop(loop, jx, jz) !== inside) continue;
       out.push({ x: jx, z: jz, k });
