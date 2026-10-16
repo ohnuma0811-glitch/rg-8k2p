@@ -135,7 +135,7 @@ test('川の上（地面のない所）は、ジャンプ①②の2か所だけ'
   assert.equal(gaps.length, 2);
 });
 
-test('イノシシは3頭の親子が5か所。ふだんは道の外のしげみにかくれ、ときどき約2秒で道を横切る。飛び出す前に予告がある', () => {
+test('イノシシは3頭の親子が5か所。いつも道を左右に突進して行ったり来たり（はしで一瞬止まって向きを変える）', () => {
   // 3頭の親子（横一列に並んで同時に渡る）が、5か所（2026-10-16 のユーザー依頼「全然当たらない」）
   assert.equal(t.boars.length, 15);
   const fams = new Map();
@@ -150,20 +150,24 @@ test('イノシシは3頭の親子が5か所。ふだんは道の外のしげみ
     const ss = f.map((b) => b.s).sort((a, b) => a - b);
     assert.ok(ss[2] - ss[0] > 4 && ss[2] - ss[0] < 12, '道に沿って横一列');
   }
+  // 2026-10-16 のユーザー依頼「常に道を左右に突進するように。接触が少なすぎる」
   for (const boar of t.boars) {
     const states = new Set();
     let crossings = 0;
     let prev = null;
+    let onRoad = 0;
+    let n = 0;
     for (let time = 0; time < 60; time += 0.05) {
       const p = boarPose(t, boar, time);
       states.add(p.state);
-      if (p.state === 'hide') assert.ok(Math.abs(p.lateral) > t.roadHalf + 1, 'かくれているのに道の上');
       if (prev === 'warn' && p.state === 'run') crossings++;
-      if (p.state === 'run' && prev === 'hide') assert.fail('予告なしに飛び出した');
+      if (Math.abs(p.lateral) < t.roadHalf) onRoad++;
+      n++;
       prev = p.state;
     }
-    assert.ok(crossings >= 4 && crossings <= 8, `60秒で ${crossings} 回`);
-    assert.deepEqual([...states].sort(), ['hide', 'run', 'warn']);
+    assert.ok(crossings >= 20, `60秒で ${crossings} 回`);
+    assert.ok(onRoad / n > 0.6, `道の上にいる割合 ${(onRoad / n).toFixed(2)}`);
+    assert.ok(!states.has('hide'), 'かくれない');
   }
 });
 
@@ -198,6 +202,10 @@ test('サルは内の道だけに5匹。40m 以内に車がいると、その車
   // ねらう所は、車がいまの速さで NUT_FALL 秒後にいる所の近く（道の上）
   const target = t.samples[ahead(t, kart.seg, Math.round(25 * NUT_FALL))];
   assert.ok(Math.hypot(nut.x - target.x, nut.z - target.z) < 4);
+  // 1回に3つ、道に沿って続けて落とす（当たる所が3倍。2026-10-16 のユーザー依頼）
+  assert.equal(nuts.list.length, 3);
+  const ds = nuts.list.map((n) => Math.hypot(n.x - target.x, n.z - target.z)).sort((a, b) => a - b);
+  assert.ok(ds[1] > NUT_RADIUS * 1.5 && ds[2] < NUT_RADIUS * 6, ds.join(' '));
   assert.equal(stepNuts(nuts, t, [kart], 2.5).length, 0, '2.5秒に1回');
 });
 
@@ -244,12 +252,13 @@ test('右上の丘のあたり（M2〜J2）は、左右にくねくね曲がる'
   assert.ok(turns >= 4, `左右の切りかえ ${turns} 回`);
 });
 
-test('近道の手前に、杭の案内板「本線↑」「近道（危険）→」がある', async () => {
+test('近道の手前に、杭の案内板「Main ↑」「Shortcut (Danger) →」がある', async () => {
   const { SOKI_SCENERY } = await import('../src/data/soki.js');
   const sign = SOKI_SCENERY.find((i) => i.part === 'forkSign');
   assert.ok(sign && sign.path === 'middle');
-  assert.equal(sign.main, '本線↑');
-  assert.equal(sign.short, '近道（危険）→');
+  // 英語で（2026-10-16 のユーザー依頼）
+  assert.equal(sign.main, 'Main ↑');
+  assert.equal(sign.short, 'Shortcut (Danger) →');
   const inner = t.paths.find((p) => p.id === 'inner');
   const mid = t.paths.find((p) => p.id === 'middle');
   const at = mid.start + Math.round(sign.at * (mid.count - 1));
@@ -296,6 +305,34 @@ test('恐竜が顔を出しているときにジャンプ②を飛ぶと食べ�
   assert.ok(!kart.swallowed && kart.respawn <= 0);
   const back = span(t, t.samples[kart.seg].s, markS(t, ['J2', 'J2', 0]));
   assert.ok(Math.abs(back - 30) < 2, `${back}m 手前`);
+});
+
+test('恐竜: ジャンプ②に来る時刻をずらすと、3割くらいが食べられる（2026-10-16 のユーザー依頼）', () => {
+  const j = Math.round(markS(t, ['J2', 'J2', 0]));
+  let eaten = 0;
+  let n = 0;
+  for (let t0 = 0; t0 < t.dino.period; t0 += 0.25) {
+    const k = createKart(t, j - 60, 0);
+    k.speed = 35;
+    let time = t0;
+    let got = false;
+    for (let s = 0; s < 60 * 5 && !got; s++) {
+      stepKart(k, { steer: 0, drift: false }, t, params, 1 / 60);
+      time += 1 / 60;
+      got = !!dinoContact(k, t, time);
+    }
+    n++;
+    if (got) eaten++;
+  }
+  assert.ok(eaten / n > 0.22 && eaten / n < 0.4, `${(eaten / n).toFixed(2)}`);
+});
+
+test('いちばん遠い外の道に、加速板が2つ（2026-10-16 のユーザー依頼）', () => {
+  const a = markS(t, ['F1', 'F1', 0]);
+  const b = markS(t, ['M1', 'M1', 0]);
+  let pads = 0;
+  for (let i = Math.round(a); i < Math.round(b); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) pads++;
+  assert.equal(pads, 2);
 });
 
 test('恐竜がかくれているときは、ジャンプ②を飛んでも食べられない。道を走っているだけでも食べられない', () => {
