@@ -239,11 +239,11 @@
 |---|---|---|
 | 1 | Kenta Circuit（Kentaサーキット） | できている（8.1） |
 | 2 | Kampar Town | 作っている（設計書: `docs/superpowers/specs/2026-10-15-kampar-town-design.md`。M3 より先に作る: 2026-10-15 のユーザー依頼） |
-| 3 | Kyugo Mountain | これから |
-| 4 | Soki Forest | これから |
+| 3 | Soki Forest | これから（次に作る） |
+| 4 | Kyugo Mountain | これから |
 | 5 | Global City | これから（はじめの名前は World Travel） |
 
-- 3〜5 の名前は 2026-10-15 のユーザー依頼。5 は「Grobal City」と依頼されたが、英語のつづりの Global City にした。
+- 3〜5 の名前は 2026-10-15 のユーザー依頼。3 と 4 の順番は 2026-10-16 のユーザー依頼で入れかえ（3 Soki Forest、4 Kyugo Mountain）。5 は「Grobal City」と依頼されたが、英語のつづりの Global City にした。
 
 - 大会では、1レース目から順に 1〜5 のコースを1回ずつ走る（2026-10-14 に KENTA が OK）。
 - 大会のレースの数は、できているコースの数にする（2026-10-15 のユーザー依頼）。Kampar Town ができたら2レース（Kenta Circuit → Kampar Town）の大会にし、コースが1つできるたびに1レースずつ増やして、最後は5レースにする。同じコースをくり返しては走らない。画面の「RACE 1/2」なども、その数に合わせる。
@@ -528,7 +528,7 @@ tests/                  自動テスト
 | M1 | 1人でコースを走る（ドリフト、ダート、ジャンプ、ボタン・キーボード） | スマホでの操作感 |
 | M2 | タイトル（SOLO / VERSUS。VERSUS は準備中の表示）、名前とキャラ選び、SOLO のレース（自分＋CPU 4台）、カウント、スタートダッシュ（DRIFT ボタン）、3周、順位、結果、一時停止、遊べる時間（まず端末の中で数える） | レースとして面白いか |
 | M5 | BGM・効果音、ホーム画面に追加して全画面で遊べる（PWA） | 音で楽しくなるか |
-| Kampar | コース2 Kampar Town（M5 のあと、M3 の前に作る。2026-10-15 のユーザー依頼）。3 Kyugo Mountain・4 Soki Forest・5 Global City は時期を相談 | 新しいコースが楽しいか |
+| Kampar | コース2 Kampar Town（M5 のあと、M3 の前に作る。2026-10-15 のユーザー依頼）。3 Soki Forest（次に作る）・4 Kyugo Mountain・5 Global City | 新しいコースが楽しいか |
 | M3 | アイテム6つ（Feather をなくし、Green Shell ×3 を足した）、スピンの動き、キャラ8人と能力の違い | バランス |
 | （時期は追って決める） | TIME TRIAL（コースを選んで1人で3周、タイム）、BATTLE（3回攻撃されたら負け） | 練習とバトルが楽しいか |
 | M4 | Firebase: VERSUS（GAME CODE、待合室、チャット、2〜8人の対戦、5台に足りない分の CPU と割り振り）、GM 画面、遊べる時間をサーバーにも記録して端末をまたいで合計 | 日本 ⇔ マレーシアで実際に対戦 |

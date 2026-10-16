@@ -99,6 +99,6 @@ export const COURSE2 = {
   ],
 };
 
-// 大会で走る順のコースの一覧（2026-10-15 のユーザー依頼: 1 Kenta Circuit、2 Kampar Town、3 Kyugo Mountain、4 Soki Forest、5 Global City）
+// 大会で走る順のコースの一覧（2026-10-15 のユーザー依頼: 1 Kenta Circuit、2 Kampar Town、3 Soki Forest、4 Kyugo Mountain、5 Global City。3と4は 2026-10-16 に入れかえ）
 // できたコースから足す。大会のレースの数はこの数
 export const COURSES = [COURSE1, COURSE2];
