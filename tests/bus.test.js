@@ -73,3 +73,15 @@ test('スタートの前後（うしろ 200m〜前 300m）には、スタート�
     }
   }
 });
+
+test('ドリフト中にバスに触れると、ドリフトが解除される（ミニターボはしない。2026-10-16 のユーザー依頼）', () => {
+  const p = busPose(t, t.buses[0], 5);
+  const kart = createKart(t, 0, 0);
+  kart.x = p.x;
+  kart.z = p.z;
+  kart.speed = 30;
+  kart.drift = { active: true, dir: -1, stage: 2, counter: false, flicks: 0, time: 2 };
+  assert.equal(busContact(kart, t, 5, PHYS), 'spin');
+  assert.equal(kart.drift.active, false);
+  assert.equal(kart.boost, 0);
+});

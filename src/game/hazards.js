@@ -21,6 +21,12 @@ export function crossed(track, from, to, at) {
   return reach > 0 && reach <= moved;
 }
 
+// 牛やバスにぶつかったら、ドリフトをやめる（ミニターボはしない。2026-10-16 のユーザー依頼）。
+// ドリフトはボタンを押した瞬間に始まるので、押したままでもドリフトにはもどらない（src/game/kart.js）
+function cancelDrift(kart) {
+  kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
+}
+
 export const COW_RADIUS = 1.6; // 牛の大きさ（半径 m）
 const COW_PAD = 1.1; // 車の大きさ（src/game/collide.js の KART_RADIUS と同じ）
 
@@ -57,6 +63,7 @@ export function cowContact(kart, track, time, phys) {
     kart.z = c.z + (dz / d) * min;
     if (kart.onCow) continue;
     kart.cowHits = (kart.cowHits || 0) + 1;
+    cancelDrift(kart);
     if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
       kart.spin = phys.SPIN_TIME;
       kart.spinTo = track.samples[kart.seg].h;
@@ -142,6 +149,7 @@ export function busContact(kart, track, time, phys) {
     kart.z += fx * out;
     if (kart.onBus || kart.spin > 0) continue;
     kart.busHits = (kart.busHits || 0) + 1;
+    cancelDrift(kart);
     kart.spin = phys.SPIN_TIME;
     kart.spinTo = track.samples[kart.seg].h;
     kart.speed *= 0.5;

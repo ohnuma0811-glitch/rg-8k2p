@@ -200,3 +200,16 @@ test('バンプの警告: しま模様（BUMP_STRIPE_M）に入る2秒前（今�
   assert.equal(bumpWarning(t, at(-3, 40)), false); // 越えたあと
   assert.equal(bumpWarning(t, { ...at(15, 40), tumble: 2 }), false); // 転がっている間は出さない
 });
+
+test('ドリフト中に牛にぶつかると、ドリフトが解除される（ミニターボはしない。スピンでも跳ね返りでも。2026-10-16 のユーザー依頼）', () => {
+  for (const speed of [30, 15]) {
+    const kart = atCow(t.cows[0], 5, speed);
+    kart.drift = { active: true, dir: 1, stage: 2, counter: false, flicks: 0, time: 2 };
+    assert.ok(cowContact(kart, t, 5, PHYS));
+    assert.equal(kart.drift.active, false);
+    assert.equal(kart.boost, 0, 'ミニターボが出た');
+    // ボタンを押したままでも、ドリフトにもどらない
+    stepKart(kart, { steer: 1, drift: true }, t, kartParams({ accel: 3, top: 3, handling: 3 }), 1 / 60);
+    assert.equal(kart.drift.active, false);
+  }
+});
