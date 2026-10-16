@@ -1,41 +1,41 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=36dde81';
-import { startLoop } from './loop.js?v=36dde81';
-import { COURSES } from './data/tracks.js?v=36dde81';
-import { buildTrack, span } from './game/track.js?v=36dde81';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=36dde81';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, DINO_BLACK } from './game/hazards.js?v=36dde81';
-import { kartParams } from './game/stats.js?v=36dde81';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=36dde81';
-import { pushApart, newBumps } from './game/collide.js?v=36dde81';
+import * as THREE from '../vendor/three.module.min.js?v=0afdf1b';
+import { startLoop } from './loop.js?v=0afdf1b';
+import { COURSES } from './data/tracks.js?v=0afdf1b';
+import { buildTrack, span } from './game/track.js?v=0afdf1b';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=0afdf1b';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, DINO_BLACK } from './game/hazards.js?v=0afdf1b';
+import { kartParams } from './game/stats.js?v=0afdf1b';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=0afdf1b';
+import { pushApart, newBumps } from './game/collide.js?v=0afdf1b';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=36dde81';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=36dde81';
-import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=36dde81';
-import { createMinimap } from './render/minimap.js?v=36dde81';
-import { grandstandSpot } from './render/trackMesh.js?v=36dde81';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, mergeStatic } from './render/models.js?v=36dde81';
-import { faceSvg } from './titleArt.js?v=36dde81';
-import { createEffects } from './render/effects.js?v=36dde81';
-import { nextQuality, pixelRatio } from './render/quality.js?v=36dde81';
-import { blendPose, poseOf } from './render/interp.js?v=36dde81';
-import { speedText } from './hud.js?v=36dde81';
-import { addRecent, cleanRecent } from './names.js?v=36dde81';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=36dde81';
-import { load, save } from './storage.js?v=36dde81';
-import * as screens from './screens.js?v=36dde81';
-import { createAudio } from './audio/audio.js?v=36dde81';
-import { createSfx } from './audio/sfx.js?v=36dde81';
-import { createVoices } from './audio/voice.js?v=36dde81';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=36dde81';
-import { createCrowd } from './audio/crowd.js?v=36dde81';
-import { crowdMix } from './audio/mix.js?v=36dde81';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=36dde81';
-import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=36dde81';
+} from './game/race.js?v=0afdf1b';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=0afdf1b';
+import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=0afdf1b';
+import { createMinimap } from './render/minimap.js?v=0afdf1b';
+import { grandstandSpot } from './render/trackMesh.js?v=0afdf1b';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, mergeStatic } from './render/models.js?v=0afdf1b';
+import { faceSvg } from './titleArt.js?v=0afdf1b';
+import { createEffects } from './render/effects.js?v=0afdf1b';
+import { nextQuality, pixelRatio } from './render/quality.js?v=0afdf1b';
+import { blendPose, poseOf } from './render/interp.js?v=0afdf1b';
+import { speedText } from './hud.js?v=0afdf1b';
+import { addRecent, cleanRecent } from './names.js?v=0afdf1b';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=0afdf1b';
+import { load, save } from './storage.js?v=0afdf1b';
+import * as screens from './screens.js?v=0afdf1b';
+import { createAudio } from './audio/audio.js?v=0afdf1b';
+import { createSfx } from './audio/sfx.js?v=0afdf1b';
+import { createVoices } from './audio/voice.js?v=0afdf1b';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=0afdf1b';
+import { createCrowd } from './audio/crowd.js?v=0afdf1b';
+import { crowdMix } from './audio/mix.js?v=0afdf1b';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=0afdf1b';
+import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=0afdf1b';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '36dde81';
+const VERSION = '0afdf1b';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -370,7 +370,7 @@ const jawDiv = (top) => {
   for (let k = 0; k <= 12; k++) teeth.push(`${(k / 12) * 100}% ${top ? (k % 2 ? 100 : 82) : k % 2 ? 0 : 18}%`);
   el.style.cssText = `position:absolute;left:0;right:0;height:56%;${top ? 'top:0' : 'bottom:0'};background:#fff;clip-path:polygon(${top ? `0 0,100% 0,${teeth.reverse().join(',')}` : `${teeth.join(',')},100% 100%,0 100%`})`;
   const skin = document.createElement('div');
-  skin.style.cssText = `position:absolute;left:0;right:0;${top ? 'top:0' : 'bottom:0'};height:80%;background:#4e9a3a;border-${top ? 'bottom' : 'top'}:6px solid #3b7a2c`;
+  skin.style.cssText = `position:absolute;left:0;right:0;${top ? 'top:0' : 'bottom:0'};height:80%;background:#f08a24;border-${top ? 'bottom' : 'top'}:6px solid #c4601a`;
   el.appendChild(skin);
   return el;
 };

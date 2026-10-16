@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=36dde81';
-import { span, locate, ahead, behind } from './track.js?v=36dde81';
+import { SPEED_SHOW } from '../hud.js?v=0afdf1b';
+import { span, locate, ahead, behind } from './track.js?v=0afdf1b';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -113,9 +113,11 @@ export function boarPose(track, boar, time) {
 }
 
 // 車とイノシシの当たり（牛と同じ）。最初に当たったときだけ 'spin'（メーター150以上）か 'bounce' を返す。ドリフトは解除
+export const BOAR_PASS = 1.5; // ぶつかったあと、イノシシに押されずに通りぬけられる秒数（2026-10-16: 押し戻され続けて動けなくなった）
 export function boarContact(kart, track, time, phys) {
   let hit = null;
   let touching = false;
+  if (time < (kart.boarPassUntil ?? -Infinity)) return null;
   for (const boar of track.boars ?? []) {
     const c = boarPose(track, boar, time);
     if (c.state === 'hide') continue;
@@ -129,6 +131,7 @@ export function boarContact(kart, track, time, phys) {
     kart.z = c.z + (dz / d) * min;
     if (kart.onBoar) continue;
     kart.boarHits = (kart.boarHits || 0) + 1;
+    kart.boarPassUntil = time + BOAR_PASS;
     cancelDrift(kart);
     if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
       kart.spin = phys.SPIN_TIME;

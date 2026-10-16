@@ -1,6 +1,6 @@
 // 箱と円柱と文字の板を集めて、まとめて描ける形にする
 // 街の景色は形がとても多いので、色ごとに分けず、頂点の色にして1つの形にまとめる（描く回数を減らす）
-import * as THREE from '../../../vendor/three.module.min.js?v=36dde81';
+import * as THREE from '../../../vendor/three.module.min.js?v=0afdf1b';
 
 const MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true });
 

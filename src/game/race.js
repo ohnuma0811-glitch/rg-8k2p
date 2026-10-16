@@ -1,5 +1,5 @@
 // レースの決まり: スタートの並び、カウント、スタートダッシュ、周回、順位
-import { behind } from './track.js?v=36dde81';
+import { behind } from './track.js?v=0afdf1b';
 export const LAPS = 3; // 周回
 export const COUNTDOWN = 3; // 3, 2, 1 のあと GO（秒）
 // ゴールしてから結果の画面を出すまでの秒数（カメラが前に回って顔を映し、そのまま走り続けるのを見せる。7秒から5秒のばした: 2026-10-15 のユーザー依頼）

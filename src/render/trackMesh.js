@@ -1,16 +1,16 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=36dde81';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=36dde81';
-import { buildJungle } from './town/jungle.js?v=36dde81';
-import { buildWater } from './town/water.js?v=36dde81';
-import { buildBridge } from './forest/bridge.js?v=36dde81';
-import * as forestKit from './forest/kit.js?v=36dde81';
-import { createBuilder } from './town/builder.js?v=36dde81';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=36dde81';
-import { buildTerrain, terrainHeight } from './terrain.js?v=36dde81';
-import { mergeMeshes } from './mergeMeshes.js?v=36dde81';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=36dde81';
-import { cornerUW, markS } from '../game/track.js?v=36dde81';
+import * as THREE from '../../vendor/three.module.min.js?v=0afdf1b';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0afdf1b';
+import { buildJungle } from './town/jungle.js?v=0afdf1b';
+import { buildWater } from './town/water.js?v=0afdf1b';
+import { buildBridge } from './forest/bridge.js?v=0afdf1b';
+import * as forestKit from './forest/kit.js?v=0afdf1b';
+import { createBuilder } from './town/builder.js?v=0afdf1b';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=0afdf1b';
+import { buildTerrain, terrainHeight } from './terrain.js?v=0afdf1b';
+import { mergeMeshes } from './mergeMeshes.js?v=0afdf1b';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=0afdf1b';
+import { cornerUW, markS } from '../game/track.js?v=0afdf1b';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -251,6 +251,50 @@ function nearIndex(samples) {
 
 // 柵を立てられるか（点 i の左右 -1 / 1）。地面がある平らな所で、柵の位置がほかの道の舗装（＋1m）の上でなければ立てる
 // （交わる所の近くでも、下を通る道をふさがない所には柵を描く。ジャンプの着地の所も囲む）
+// 合流の手前の、進む向きの白い矢印（地面にかいた白線）。合流する所の MERGE_ARROWS m 手前に1つずつ
+export const MERGE_ARROWS = [15, 30, 45];
+export function mergeArrowSpots(track) {
+  const { samples } = track;
+  const out = [];
+  const defs = track.def.branches ?? [];
+  for (const path of (track.paths ?? []).slice(1)) {
+    // 高速道路のような合流（横に並んでから1本になる）は、並び始める所の手前に（矢印どうしが重ならないように）
+    const lead = defs.find((b) => b.id === path.id)?.merge ?? 0;
+    for (const d0 of MERGE_ARROWS) {
+      const d = d0 + lead;
+      // 分かれ道の上（合流する所から d m 手前）
+      const k = path.count - Math.round(d / (path.len / path.count));
+      if (k >= 0) out.push(samples[path.start + k]);
+      // 本線の上（合流する所から d m 手前）
+      out.push(samples[(path.join - d + track.length) % track.length]);
+    }
+  }
+  return out.filter((p) => p && p.y !== null);
+}
+function mergeArrows(track) {
+  const g = new THREE.Group();
+  const shape = new THREE.Shape();
+  // 前（+x）を向いた矢印（長さ 8m、はば 4m）
+  shape.moveTo(-4, -0.6);
+  shape.lineTo(1.2, -0.6);
+  shape.lineTo(1.2, -2);
+  shape.lineTo(4, 0);
+  shape.lineTo(1.2, 2);
+  shape.lineTo(1.2, 0.6);
+  shape.lineTo(-4, 0.6);
+  shape.closePath();
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const p of mergeArrowSpots(track)) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(p.x, p.y + 0.08, p.z);
+    m.rotation.y = -p.h; // 進む向きへ
+    g.add(m);
+  }
+  return g;
+}
+
 // 点 p から横に lat m の所が、ほかの道（ほかの path、または同じ道の遠い所）の道の面の上か。高さが 3m 以上ちがう道（橋の上と下）は数えない
 const otherRoadCache = new WeakMap();
 export function onOtherRoad(track, p, lat) {
@@ -644,6 +688,8 @@ export function buildTrackMesh(track) {
         group.add(disc);
       });
     }
+    // 合流の手前の地面に、進む向きの白い矢印（2026-10-16 のユーザー依頼）。合流に入ってくる道（本線と分かれ道）の両方に
+    group.add(mergeArrows(track));
     // サルのいる高い木（枝が道の方へのびる）
     for (const m of track.monkeys ?? []) {
       const q = track.samples[m.i];
