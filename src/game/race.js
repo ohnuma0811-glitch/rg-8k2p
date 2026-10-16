@@ -1,4 +1,5 @@
 // レースの決まり: スタートの並び、カウント、スタートダッシュ、周回、順位
+import { behind } from './track.js?v=ffd7966';
 export const LAPS = 3; // 周回
 export const COUNTDOWN = 3; // 3, 2, 1 のあと GO（秒）
 // ゴールしてから結果の画面を出すまでの秒数（カメラが前に回って顔を映し、そのまま走り続けるのを見せる。7秒から5秒のばした: 2026-10-15 のユーザー依頼）
@@ -11,9 +12,8 @@ export const GRID_SIDE = 4.5; // スタートの並びの、左右の間（中�
 
 // スタートの並び: 2列に並べる。k 番目の車の { i（点の番号）, lateral（中心線から右へ m） }
 export function gridSlot(track, k) {
-  const n = track.samples.length;
   const back = 5 + Math.floor(k / 2) * GRID_GAP;
-  return { i: (track.startIndex - back + n) % n, lateral: k % 2 ? GRID_SIDE : -GRID_SIDE };
+  return { i: behind(track, track.startIndex, back), lateral: k % 2 ? GRID_SIDE : -GRID_SIDE };
 }
 
 // t は GO からの秒（カウント中はマイナス）

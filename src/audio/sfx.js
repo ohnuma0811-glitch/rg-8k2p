@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=a7bde86';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=a7bde86';
+import { midiToHz } from './notes.js?v=ffd7966';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=ffd7966';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -211,6 +211,65 @@ export function createSfx(audio) {
         o.start(t);
         o.stop(t + 1.7);
       }
+    },
+    // イノシシが飛び出す前の「ブヒッ」: のこぎりの波を、低い所から上げて下げる（0.25秒。2026-10-16）
+    boarWarn: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 900;
+      band.Q.value = 1.5;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.4, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      band.connect(g).connect(audio.sfxOut);
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(180, t);
+      o.frequency.linearRampToValueAtTime(340, t + 0.08);
+      o.frequency.exponentialRampToValueAtTime(150, t + 0.25);
+      o.connect(band);
+      o.start(t);
+      o.stop(t + 0.26);
+    },
+    // サルが投げるときの「キキッ」: 高い三角の波を2回、すばやく上げ下げ（2026-10-16）
+    monkey: () => {
+      const ctx = audio.ctx;
+      const t0 = ctx.currentTime;
+      for (const d of [0, 0.13]) {
+        const t = t0 + d;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.28, t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        g.connect(audio.sfxOut);
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(1300, t);
+        o.frequency.linearRampToValueAtTime(2300, t + 0.04);
+        o.frequency.exponentialRampToValueAtTime(1100, t + 0.1);
+        o.connect(g);
+        o.start(t);
+        o.stop(t + 0.11);
+      }
+    },
+    // 木の実が当たった「コツン」: 短い木の音（高めの三角の波、0.06秒）
+    nutHit: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.5, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      g.connect(audio.sfxOut);
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(900, t);
+      o.frequency.exponentialRampToValueAtTime(600, t + 0.06);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.07);
     },
     // スクールバスにぶつかった音（車どうしの「バン」と同じ）
     busHit: () => SOUNDS.bump(),

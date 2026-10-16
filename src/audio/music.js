@@ -1,6 +1,6 @@
 // 曲: 楽譜のデータから音の並びを作り（テストできる）、OfflineAudioContext で一度だけ音にして、ループで流す
-import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=a7bde86';
-import { SONGS } from './songs.js?v=a7bde86';
+import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=ffd7966';
+import { SONGS } from './songs.js?v=ffd7966';
 
 // 16分音符1つの秒数と、曲1回分の秒数
 export const stepSec = (song) => 60 / song.bpm / 4;
@@ -103,6 +103,17 @@ export const LEAD_VOICES = {
     attack: 0.01,
     sustain: 0.8,
     release: 0.1,
+  },
+  // 木の楽器ふう（マリンバ。Soki Forest。2026-10-16）: やわらかい三角の波に、すぐ消える高い音を重ね、短く減衰
+  marimba: {
+    layers: [{ type: 'triangle', detune: 0, gain: 1 }, { type: 'sine', detune: 2400, gain: 0.25 }, { type: 'sine', detune: 3986, gain: 0.08 }],
+    gain: 0.16,
+    cutoff: null,
+    vibrato: 0,
+    attack: 0.002,
+    sustain: 0.1,
+    release: 0.18,
+    decay: 0.07,
   },
   // 鉄琴ふう（ポーンと鳴って、すぐ小さくなる。はじめの結果の曲で使っていた）
   bell: {

@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=a7bde86';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=a7bde86';
+import { locate, respawnIndex } from './track.js?v=ffd7966';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=ffd7966';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -31,6 +31,7 @@ export const PHYS = {
   PAD_BOOST: 1.0, // 加速板の加速の時間（秒）
   BOOST_FACTOR: 1.3, // 加速中の最高速の倍率
   GRAVITY: 15, // m/s²
+  SLOPE: 0.6, // 坂で速さが変わる強さ（上りは遅く、下りは速く。2026-10-16）
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
@@ -130,7 +131,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = Math.max(0, kart.speed - PHYS.TUMBLE_BRAKE * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;
     kart.z += Math.sin(kart.move) * kart.speed * dt;
-    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     kart.seg = loc.i;
     // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
     const excess = Math.abs(loc.lateral) - loc.wall;
@@ -154,7 +155,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = Math.max(0, kart.speed - 20 * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;
     kart.z += Math.sin(kart.move) * kart.speed * dt;
-    kart.seg = locate(track, kart.x, kart.z, kart.seg).i;
+    kart.seg = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null).i;
     if (kart.spin <= 0) {
       kart.spin = 0;
       kart.heading = kart.spinTo;
@@ -164,7 +165,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     }
     return;
   }
-  const here = locate(track, kart.x, kart.z, kart.seg);
+  const here = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   const steer = Math.max(-1, Math.min(1, ctl.steer));
 
   if (!kart.airborne) {
@@ -185,6 +186,13 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.speed = Math.min(maxV, kart.speed + params.accel * taper * dt);
     } else {
       kart.speed = Math.max(maxV, kart.speed - PHYS.DRAG * dt);
+    }
+    // 坂: 上りは少し遅く、下りは少し速く（2026-10-16 のユーザー依頼「オフロード」）。ジャンプ台の坂はのぞく（いつも同じ速さで飛ぶ）
+    const p0 = track.samples[here.i];
+    const p1 = track.samples[p0.next];
+    if (here.ground !== null && p1.y !== null && !p0.ramp && !p1.ramp) {
+      const fwd = Math.cos(wrapAngle(kart.move - here.heading)) >= 0 ? 1 : -1;
+      kart.speed -= PHYS.GRAVITY * (p1.y - p0.y) * fwd * PHYS.SLOPE * dt;
     }
 
     // ドリフト: ボタンを押した瞬間に小さく跳ね、着地のときハンドルを切っていれば、その向きに滑り出す
@@ -237,7 +245,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   const fromZ = kart.z;
   kart.x += Math.cos(kart.move) * kart.speed * dt;
   kart.z += Math.sin(kart.move) * kart.speed * dt;
-  let loc = locate(track, kart.x, kart.z, kart.seg);
+  let loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   if (!kart.airborne && loc.ground === null && Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる
     // （2026-10-14 の実機確認で、逆走して飛び越えてしまった）
@@ -246,7 +254,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = 0;
     if (kart.drift.active) endDrift(kart, params, false);
     kart.hop = 0;
-    loc = locate(track, kart.x, kart.z, kart.seg);
+    loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     // 止まっていても、逆向きに進もうとしていれば逆走の時間を数える（ずっと止まったままにならないように）
     if (Math.cos(wrapAngle(kart.heading - loc.heading)) < 0) kart.wrongTime += dt;
   }
@@ -296,7 +304,17 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.vy = 0;
     }
   } else {
+    // 地面に沿って走る（上下の速さも覚える）。坂の頂上で、地面が重力より速く下がっていく（速さ² × 地面の曲がり ＞ 重力）なら浮く（2026-10-16）
+    const vy = (loc.ground - kart.y) / dt;
     kart.y = loc.ground;
+    kart.vy = vy;
+    const c = track.samples[loc.i];
+    const a = track.samples[c.prev];
+    const b = track.samples[c.next];
+    if (a.y !== null && b.y !== null && !a.ramp && !b.ramp && !c.ramp) {
+      const bend = b.y - 2 * c.y + a.y; // 1m ごとの高さの曲がり（頂上でマイナス）
+      if (bend * kart.speed * kart.speed < -PHYS.GRAVITY) kart.airborne = true;
+    }
   }
 
   // 柵: 外に出ようとしたら押し戻す。地面ではコースの向きにそろえる

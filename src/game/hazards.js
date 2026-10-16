@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=a7bde86';
-import { span, locate } from './track.js?v=a7bde86';
+import { SPEED_SHOW } from '../hud.js?v=ffd7966';
+import { span, locate, ahead } from './track.js?v=ffd7966';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -76,7 +76,7 @@ export function cowContact(kart, track, time, phys) {
   }
   // 押し出したあと、柵の外に出ないように戻す
   if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     const excess = Math.abs(loc.lateral) - loc.wall;
     if (excess > 0) {
       const side = Math.sign(loc.lateral);
@@ -86,6 +86,132 @@ export function cowContact(kart, track, time, phys) {
   }
   kart.onCow = touching;
   return hit;
+}
+
+// イノシシ（Soki Forest。2026-10-16 のユーザー依頼「動物が横切る」）
+export const BOAR_RADIUS = 1.3; // イノシシの大きさ（半径 m）
+const BOAR_WARN = 0.8; // 飛び出す前の予告（しげみがゆれて「ブヒッ」。秒）
+const BOAR_RUN = 2.0; // 道を横切る時間（秒）
+// 時刻 time のイノシシ: 周期の終わりの BOAR_WARN 秒はしげみでゆれ、そのあと BOAR_RUN 秒で道の反対側へ走る（次は反対から）
+export function boarPose(track, boar, time) {
+  const p = track.samples[Math.round(boar.s) % track.length];
+  const cycle = Math.floor((time + boar.phase) / boar.period);
+  const tin = time + boar.phase - cycle * boar.period;
+  const from = (cycle % 2 === 0 ? boar.side : -boar.side) * (p.wall + 3);
+  const runStart = boar.period - BOAR_RUN;
+  let lateral = from;
+  let state = 'hide';
+  if (tin >= runStart) {
+    state = 'run';
+    lateral = from - 2 * from * ((tin - runStart) / BOAR_RUN);
+  } else if (tin >= runStart - BOAR_WARN) state = 'warn';
+  const dir = Math.sign(-from);
+  return { x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, lateral, heading: p.h + (dir * Math.PI) / 2, state };
+}
+
+// 車とイノシシの当たり（牛と同じ）。最初に当たったときだけ 'spin'（メーター150以上）か 'bounce' を返す。ドリフトは解除
+export function boarContact(kart, track, time, phys) {
+  let hit = null;
+  let touching = false;
+  for (const boar of track.boars ?? []) {
+    const c = boarPose(track, boar, time);
+    if (c.state === 'hide') continue;
+    const dx = kart.x - c.x;
+    const dz = kart.z - c.z;
+    const d = Math.hypot(dx, dz);
+    const min = BOAR_RADIUS + COW_PAD;
+    if (d >= min || d === 0 || kart.airborne || kart.tumble > 0) continue;
+    touching = true;
+    kart.x = c.x + (dx / d) * min;
+    kart.z = c.z + (dz / d) * min;
+    if (kart.onBoar) continue;
+    kart.boarHits = (kart.boarHits || 0) + 1;
+    cancelDrift(kart);
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      hit = 'spin';
+    } else {
+      kart.speed *= phys.WALL_KEEP;
+      hit = 'bounce';
+    }
+  }
+  if (touching) {
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+    const excess = Math.abs(loc.lateral) - loc.wall;
+    if (excess > 0) {
+      const side = Math.sign(loc.lateral);
+      kart.x -= -Math.sin(loc.heading) * side * excess;
+      kart.z -= Math.cos(loc.heading) * side * excess;
+    }
+  }
+  kart.onBoar = touching;
+  return hit;
+}
+
+// サルと木の実（Soki Forest。2026-10-16 のユーザー依頼「猿が木の実を投げてくる」）。内の道（近道）だけ
+export const NUT_FALL = 1.0; // 投げてから落ちるまで（秒。そのあいだ落ちる所に影が見える）
+export const NUT_RADIUS = 1.6; // 落ちた所からこの距離の車に当たる（m）
+export const MONKEY_RANGE = 40; // この距離より近い車をねらう（m）
+export const MONKEY_EVERY = 3; // 1匹が投げる間（秒）
+export const MONKEY_HEIGHT = 9; // 木の上の高さ（m）
+
+export function createNuts(track) {
+  return { list: [], next: (track.monkeys ?? []).map(() => 0) };
+}
+
+// サルが投げる。内の道にいて MONKEY_RANGE m 以内でいちばん近い車の、NUT_FALL 秒後の場所（道の上、点をたどって先）をねらう
+// 投げたサルの番号の配列を返す（音のため）
+export function stepNuts(nuts, track, karts, time) {
+  const thrown = [];
+  (track.monkeys ?? []).forEach((m, k) => {
+    if (time < nuts.next[k]) return;
+    let best = null;
+    for (const kart of karts) {
+      if (track.samples[kart.seg]?.path !== m.path) continue; // 橋の上（本線）の車はねらわない
+      const d = Math.hypot(kart.x - m.x, kart.z - m.z);
+      if (d < MONKEY_RANGE && (!best || d < best.d)) best = { kart, d };
+    }
+    if (!best) return;
+    const j = ahead(track, best.kart.seg, Math.max(0, Math.round(best.kart.speed * NUT_FALL)));
+    const target = track.samples[j];
+    nuts.list.push({ x: target.x, z: target.z, y: target.y ?? 0, from: { x: m.x, y: (m.y ?? 0) + MONKEY_HEIGHT, z: m.z }, t0: time, monkey: k });
+    nuts.next[k] = time + MONKEY_EVERY;
+    thrown.push(k);
+  });
+  return thrown;
+}
+
+// 落ちた木の実の当たり（速さに関係なくスピン。ドリフトは解除）。落ちた時刻をすぎた木の実は、当たっても外れても消す
+// keep: true のときは消さない（全部の車で見てから dropFallen で消す）
+export function nutContact(kart, nuts, time, phys, { keep = false } = {}) {
+  let hit = null;
+  for (const n of nuts.list) {
+    if (time - n.t0 < NUT_FALL) continue;
+    if (Math.hypot(kart.x - n.x, kart.z - n.z) < NUT_RADIUS && !kart.airborne && !(kart.spin > 0) && !(kart.tumble > 0)) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = kart.move ?? kart.heading;
+      kart.speed *= 0.5;
+      kart.nutHits = (kart.nutHits || 0) + 1;
+      cancelDrift(kart);
+      hit = 'spin';
+    }
+  }
+  if (!keep) dropFallen(nuts, time);
+  return hit;
+}
+
+export function dropFallen(nuts, time) {
+  nuts.list = nuts.list.filter((n) => time - n.t0 < NUT_FALL);
+}
+
+// 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）
+export function boarWarning(track, kart, time, range = 60) {
+  return (track.boars ?? []).some((boar) => {
+    const c = boarPose(track, boar, time);
+    return c.state === 'warn' && Math.hypot(c.x - kart.x, c.z - kart.z) < range;
+  });
 }
 
 // バンプの警告を出すか: バンプの手前のしま模様の上か、今の速さで BUMP_WARN_EARLY 秒以内にしまに入る（転がっている・飛んでいる・止まりかけは出さない）
@@ -109,7 +235,7 @@ export const BUS_NEAR = 20; // すれちがいの音を鳴らす近さ（m）
 // 時刻 time のバスの場所: s はコースの上の場所（逆に進む）、lateral は右へ
 export function busPose(track, bus, time) {
   const L = track.length;
-  const n = track.samples.length;
+  const n = track.length; // バスは本線だけを走る（分かれ道の点は本線の点のあとにある）
   const s = ((((bus.s0 - BUS_SPEED * time) % L) + L) % L);
   const i = Math.floor(s) % n;
   const p = track.samples[i];
@@ -156,7 +282,7 @@ export function busContact(kart, track, time, phys) {
     hit = 'spin';
   }
   if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg);
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     const excess = Math.abs(loc.lateral) - loc.wall;
     if (excess > 0) {
       const sd = Math.sign(loc.lateral);

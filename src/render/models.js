@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=a7bde86';
-import { PHYS } from '../game/kart.js?v=a7bde86';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=a7bde86';
+import * as THREE from '../../vendor/three.module.min.js?v=ffd7966';
+import { PHYS } from '../game/kart.js?v=ffd7966';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=ffd7966';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
 const TUMBLE_FLY = 0.55;
@@ -363,6 +363,84 @@ export function createCowModel(k = 0) {
     });
   };
   return g;
+}
+
+// イノシシ（Soki Forest。2026-10-16 のユーザー依頼）: こげ茶の体、短い足4本、白い牙、小さな耳。前は +x
+export function createBoarModel(k = 0) {
+  const g = new THREE.Group();
+  const coat = k % 2 ? 0x3d3430 : 0x4a3d36; // 黒っぽい灰色の茶（茶色い土の道で見えるように）
+  g.add(box(1.8, 0.9, 0.9, coat, 0, 0.85, 0)); // 体
+  g.add(box(1.0, 0.25, 0.7, 0x221c19, -0.1, 1.4, 0)); // 背中のたてがみ
+  const head = new THREE.Group();
+  head.add(box(0.7, 0.6, 0.7, coat, 0, 0, 0));
+  head.add(box(0.25, 0.3, 0.4, 0xc98f7a, 0.45, -0.1, 0)); // 鼻
+  for (const z of [-0.22, 0.22]) {
+    head.add(box(0.1, 0.25, 0.08, 0xf6f2e0, 0.4, -0.25, z)); // 白い牙
+    head.add(box(0.12, 0.2, 0.15, 0x3e2a1a, -0.15, 0.38, z)); // 小さな耳
+  }
+  head.position.set(1.1, 0.95, 0);
+  g.add(head);
+  const legs = [];
+  for (const [x, z] of [[0.6, 0.3], [0.6, -0.3], [-0.6, 0.3], [-0.6, -0.3]]) {
+    const leg = new THREE.Group();
+    leg.add(box(0.2, 0.5, 0.2, 0x3e2a1a, 0, -0.25, 0));
+    leg.position.set(x, 0.5, z);
+    g.add(leg);
+    legs.push(leg);
+  }
+  // 走るとき（run）は足を速く振り、予告（warn）は体をゆらす
+  g.userData.walk = (time, state) => {
+    const fast = state === 'run';
+    legs.forEach((leg, i) => {
+      leg.rotation.z = fast ? Math.sin(time * 18 + (i % 2) * Math.PI) * 0.6 : 0;
+    });
+    g.rotation.x = state === 'warn' ? Math.sin(time * 30) * 0.08 : 0;
+  };
+  g.scale.setScalar(1.4); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）
+  return g;
+}
+
+// サル（Soki Forest。2026-10-16 のユーザー依頼）: 茶色の体、うすだいだいの顔、長いしっぽ。木の枝の上にすわる。前は +x
+// throwAt(time): 投げてからしばらく、腕をふり上げる
+export function createMonkeyModel() {
+  const g = new THREE.Group();
+  const fur = 0x7a4e2a;
+  g.add(box(3.2, 0.35, 0.35, 0x6b4a2f, 0, -0.2, 0)); // すわっている枝
+  g.add(box(0.7, 0.8, 0.6, fur, 0, 0.4, 0)); // 体
+  const head = new THREE.Group();
+  head.add(box(0.6, 0.55, 0.55, fur, 0, 0, 0));
+  head.add(box(0.12, 0.4, 0.45, 0xf0c49a, 0.3, -0.03, 0)); // 顔
+  for (const z of [-0.33, 0.33]) head.add(box(0.12, 0.22, 0.12, 0xf0c49a, 0, 0.05, z)); // 耳
+  head.position.set(0.05, 1.05, 0);
+  g.add(head);
+  const arm = new THREE.Group();
+  arm.add(box(0.18, 0.6, 0.18, fur, 0, 0.3, 0));
+  arm.position.set(0.1, 0.65, 0.35);
+  g.add(arm);
+  g.add(box(0.18, 0.6, 0.18, fur, 0.1, 0.35, -0.35)); // もう片方の腕
+  const tail = box(0.12, 1.4, 0.12, fur, -0.4, -0.5, 0); // 長いしっぽ（下へたれる）
+  g.add(tail);
+  g.userData.throwAt = (time, since) => {
+    arm.rotation.z = since < 0.4 ? -2.2 * (1 - since / 0.4) : 0;
+    tail.rotation.x = Math.sin(time * 2) * 0.25;
+  };
+  g.scale.setScalar(1.5); // 木の上でも見えるように（2026-10-16 のブラウザ確認）
+  return g;
+}
+
+// 木の実（茶色の小さな丸）
+export function createNutModel() {
+  return ball(0.45, 0x8a5a2b, 0, 0, 0, 8);
+}
+
+// 木の実の影（黒い半透明の円の板）。落ちる所に、だんだん大きく濃く
+export function createNutShadow() {
+  const m = new THREE.Mesh(
+    new THREE.CircleGeometry(1.6, 16),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  return m;
 }
 
 // スクールバス（BAS SEKOLAH。写真のような、角の丸い黄色っぽいオレンジの小さなバス）。+x が前。2026-10-16 のユーザー依頼

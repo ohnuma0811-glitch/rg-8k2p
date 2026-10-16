@@ -1,10 +1,15 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=a7bde86';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=a7bde86';
-import { buildJungle } from './town/jungle.js?v=a7bde86';
-import { buildWater } from './town/water.js?v=a7bde86';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=a7bde86';
-import { cornerUW } from '../game/track.js?v=a7bde86';
+import * as THREE from '../../vendor/three.module.min.js?v=ffd7966';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=ffd7966';
+import { buildJungle } from './town/jungle.js?v=ffd7966';
+import { buildWater } from './town/water.js?v=ffd7966';
+import { buildBridge } from './forest/bridge.js?v=ffd7966';
+import * as forestKit from './forest/kit.js?v=ffd7966';
+import { createBuilder } from './town/builder.js?v=ffd7966';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=ffd7966';
+import { buildTerrain, terrainHeight } from './terrain.js?v=ffd7966';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=ffd7966';
+import { cornerUW, markS } from '../game/track.js?v=ffd7966';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -40,7 +45,7 @@ function ribbon(samples, offA, offB, yOf, ok, { color, colorOf, map, vScale } = 
   const n = samples.length;
   for (let i = 0; i < n; i++) {
     const p = samples[i];
-    const q = samples[(i + 1) % n];
+    const q = samples[p.next ?? (i + 1) % n]; // 分かれ道は、点のつながりの次の点と（番号の次ではなく）
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
@@ -70,7 +75,7 @@ function fence(samples, off, yBottom, yTop, ok, colorOf) {
   const c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     const p = samples[i];
-    const q = samples[(i + 1) % n];
+    const q = samples[p.next ?? (i + 1) % n];
     if (!ok(p) || !ok(q)) continue;
     const [rpx, rpz] = rightOf(p);
     const [rqx, rqz] = rightOf(q);
@@ -253,14 +258,17 @@ export function fenceSides(track, mouths = []) {
     const ok = {};
     for (const side of [-1, 1]) {
       ok[side] = false;
-      if (p.y !== 0 || p.ramp) continue;
+      if (p.y === null || p.ramp) continue;
       const x = p.x - Math.sin(p.h) * side * p.wall;
       const z = p.z + Math.cos(p.h) * side * p.wall;
       if (mouths.some((m) => inMouth(m, x, z))) continue;
       ok[side] = !near(x, z, roadHalf + 1, (j) => {
-        const gap = Math.min(Math.abs(i - j), n - Math.abs(i - j));
         const q = samples[j];
-        return gap >= 60 && q.y !== null && Math.hypot(q.x - x, q.z - z) <= roadHalf + 1;
+        // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
+        const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
+        // 橋の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
+        const overBridge = (p.bridge || q.bridge) && Math.abs(q.y - (p.y ?? 0)) >= 3;
+        return other && q.y !== null && !overBridge && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }
     return ok;
@@ -411,6 +419,8 @@ export function buildTrackMesh(track) {
   const { samples } = track;
   const dirt = track.def.dirt;
   const town = track.def.theme === 'town';
+  // 森（Soki Forest。2026-10-16）: 茶色い土の道（線なし）、縁石なし、道の外は草、柵は丸太の色の低い柵
+  const forest = track.def.theme === 'forest';
   const group = new THREE.Group();
   const hasGround = (p) => p.y !== null;
   const flat = (p) => p.y === 0 && !p.ramp;
@@ -420,7 +430,13 @@ export function buildTrackMesh(track) {
   const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
-  const asphalt = canvasTexture(64, 64, (g, w, h) => {
+  const asphalt = forest ? canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = '#8a6a45';
+    g.fillRect(0, 0, w, h);
+    // 土のでこぼこ（少し濃い点）
+    g.fillStyle = '#7a5c3a';
+    for (let k = 0; k < 40; k++) g.fillRect((k * 37) % w, (k * 23) % h, 3, 2);
+  }) : canvasTexture(64, 64, (g, w, h) => {
     g.fillStyle = '#55585e';
     g.fillRect(0, 0, w, h);
     g.fillStyle = '#e8e8e8';
@@ -437,7 +453,9 @@ export function buildTrackMesh(track) {
     g.fillStyle = '#e8e8e8';
     g.fillRect(w / 2 - 1, 0, 2, h / 2);
   });
-  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p), { color: 0xffffff, map: asphalt, vScale: 4 }));
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p) && !p.bridge, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  // 橋の上の道は石の色（Soki Forest。2026-10-16）
+  if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
   if (corners.length) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && inSquare(p), { color: 0xffffff, map: asphaltMid, vScale: 4 }));
   // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
   const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
@@ -445,7 +463,7 @@ export function buildTrackMesh(track) {
   if (corners.length) group.add(cornerWalls(corners, mouths));
   // 縁石（交差点の口の所と、直角の角の外側の四角の中はなし）
   const curbOk = (side) => (p) => {
-    if (!hasGround(p)) return false;
+    if (!hasGround(p) || forest) return false;
     const [rx, rz] = rightOf(p);
     const x = p.x + rx * side * (p.half + 0.5);
     const z = p.z + rz * side * (p.half + 0.5);
@@ -454,7 +472,10 @@ export function buildTrackMesh(track) {
   group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, curbOk(-1), { colorOf: curb }));
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
-  if (!town) {
+  if (forest) {
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
+    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
+  } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
   }
@@ -470,7 +491,8 @@ export function buildTrackMesh(track) {
       return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
     };
     const off = (p) => side * p.wall;
-    if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
+    if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
+    else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
     group.add(fence(samples, side * track.roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
@@ -547,6 +569,59 @@ export function buildTrackMesh(track) {
     group.add(buildJungle(track, avoid));
     // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）
     group.add(buildWater(track, avoid));
+  }
+
+  // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
+  if (forest) {
+    group.add(buildBridge(track));
+    group.add(buildTerrain(track));
+    group.add(buildRiver(track));
+    group.add(buildWaterfall(track));
+    // 景色（門・大きな木・きのこの広場・道ばた）と、外のジャングル・中のブロッコリーの木（2026-10-16 のユーザー依頼）
+    const groundY = (x, z) => terrainHeight(track, x, z);
+    const scenery = buildScenery(track, track.def.scenery ?? [], groundY);
+    group.add(scenery);
+    const avoid = scenery.userData.spots.map((sp) => ({ x: sp.x, z: sp.z, radius: Math.max(4, sp.radius ?? 1) + 6 }));
+    // 川と滝のまわりにも木を置かない
+    const river = (track.def.river ?? []).map(([x, z]) => track.toWorld(x, z));
+    for (let k = 0; k + 1 < river.length; k++) {
+      const a = river[k];
+      const b = river[k + 1];
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 8);
+      for (let u = 0; u <= n; u++) avoid.push({ x: a.x + ((b.x - a.x) * u) / n, z: a.z + ((b.z - a.z) * u) / n, radius: 16 });
+    }
+    const wf = track.def.waterfall;
+    if (wf) {
+      const p = track.samples[Math.round(markS(track, wf.at)) % track.length];
+      for (const d of [p.wall + 20, p.wall + 34]) avoid.push({ x: p.x - Math.sin(p.h) * wf.side * d, z: p.z + Math.cos(p.h) * wf.side * d, radius: 24 });
+    }
+    group.add(buildJungle(track, avoid, { groundY }));
+    group.add(buildJungle(track, avoid, { groundY, inside: true }));
+    // イノシシがかくれる、道の両側のしげみ（2026-10-16 のユーザー依頼）
+    const hide = createBuilder();
+    for (const boar of track.boars ?? []) {
+      const p = track.samples[Math.round(boar.s) % track.length];
+      for (const side of [-1, 1]) {
+        const d = p.wall + 3;
+        const x = p.x - Math.sin(p.h) * side * d;
+        const z = p.z + Math.cos(p.h) * side * d;
+        for (const [u, w, size] of [[0, 0, 1.6], [2, 1.2, 1.2], [-2, 0.8, 1.3]]) {
+          hide.push(x + Math.cos(p.h) * u - Math.sin(p.h) * side * w, groundY(x, z), z + Math.sin(p.h) * u + Math.cos(p.h) * side * w, 0);
+          hide.push(0, 0, 0, u);
+          forestKit.bush(hide, { size });
+          hide.pop();
+          hide.pop();
+        }
+      }
+    }
+    // サルのいる高い木（枝が道の方へのびる）
+    for (const m of track.monkeys ?? []) {
+      const q = track.samples[m.i];
+      hide.push(m.x, groundY(m.x, m.z), m.z, Math.atan2(-(q.z - m.z), q.x - m.x));
+      forestKit.monkeyTree(hide);
+      hide.pop();
+    }
+    group.add(hide.build());
   }
 
   // 観客席・土手・木と看板は、サーキットだけ

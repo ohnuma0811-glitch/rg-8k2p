@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span } from './track.js?v=a7bde86';
-import { cowPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js?v=a7bde86';
+import { locate, islandNear, span, ahead as aheadOf, branchesBeyond } from './track.js?v=ffd7966';
+import { cowPose, boarPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js?v=ffd7966';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -45,21 +45,38 @@ export function rubberFactor(cpuProgress, playerProgress, L) {
   return 1 + Math.max(-CPU.RUBBER_MAX, Math.min(CPU.RUBBER_MAX, diff * CPU.RUBBER));
 }
 
+// 分かれる所で、その周にどの道を進むか（2026-10-16 のユーザー依頼: 3本の道を同じ確率で）。
+// 分かれた先でさらに分かれる道があるときは、その数だけ分かれた道を選びやすくする:
+// F1 では、真ん中の道の先にもう1本（内の道）あるので、そのまま（外の道）1/3・真ん中 2/3。F2 では、そのまま 1/2・内 1/2。
+// 道の番号か null（そのまま）。レース・CPU・分かれる所・周で決まる（同じ周の中では変わらない）
+export function routeChoice(cpu, fork, paths, lap, track) {
+  let h = Math.imul((cpu.seed ?? 0) + 7, 2654435761) ^ Math.imul((cpu.id ?? 0) + 3, 73856093) ^ Math.imul(fork + 1, 19349663) ^ Math.imul(lap + 1, 83492791);
+  h = Math.imul(h ^ (h >>> 15), 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 3266489917);
+  h ^= h >>> 16;
+  const r = (h >>> 0) / 4294967296;
+  const ways = 1 + paths.reduce((n, path) => n + 1 + branchesBeyond(track, path), 0); // この先の道の数（そのままを含む）
+  return r < 1 / ways ? null : paths[0];
+}
+
 // その時の操作（{ steer, brake, drift }）。t はレースの時刻（線をゆらすため）
 export function cpuControl(cpu, kart, track, t) {
   const { samples } = track;
   const n = samples.length;
-  const loc = locate(track, kart.x, kart.z, kart.seg);
+  const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   const look = Math.round(CPU.LOOK + Math.max(0, kart.speed) * CPU.LOOK_PER_SPEED);
-  const p = samples[(loc.i + look) % n];
   // 周を数える（スタートの線を越えたら1つ増やす）
   if (cpu.lastS !== null && loc.s < cpu.lastS - track.length / 2) cpu.lap++;
   cpu.lastS = loc.s;
+  // 先の点（分かれる所では、その周に選んだ道を進む）
+  const choose = (i, paths) => routeChoice(cpu, i, paths, cpu.lap, track);
+  const at = (k) => samples[aheadOf(track, loc.i, k, choose)];
+  const p = at(look);
   let lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
   // ロータリー: 島のまわりは、近い側（曲がる向きの内側。まっすぐなら自分の走る線の側）を、島から離れて回る
   const isl = islandNear(track, p.s);
   if (isl) {
-    const turnTo = wrap(samples[(loc.i + 60) % n].h - loc.heading);
+    const turnTo = wrap(at(60).h - loc.heading);
     const side = turnTo > 0.3 ? 1 : turnTo < -0.3 ? -1 : Math.sign(cpu.lane) || 1;
     lane = side * (isl.r + 5 + Math.abs(Math.sin(t * cpu.sway + cpu.phase)) * 2);
   }
@@ -68,15 +85,20 @@ export function cpuControl(cpu, kart, track, t) {
   let cowBrake = false;
   let cowAhead = Infinity;
   let cowNear = null;
-  for (const cow of track.cows ?? []) {
-    const ahead = span(track, loc.s, cow.s);
-    if (ahead < 40 && ahead < cowAhead) {
+  // イノシシ（Soki Forest）も、牛と同じようによける。着くころに道の外にかくれているイノシシは数えない
+  const animals = [
+    ...(track.cows ?? []).map((cow) => ({ s: cow.s, pose: (time) => cowPose(track, cow, time) })),
+    ...(track.boars ?? []).map((boar) => ({ s: boar.s, pose: (time) => boarPose(track, boar, time) })),
+  ];
+  for (const a of animals) {
+    const ahead = span(track, loc.s, a.s);
+    if (ahead < 40 && ahead < cowAhead && a.pose(t + ahead / Math.max(5, kart.speed)).state !== 'hide') {
       cowAhead = ahead;
-      cowNear = cow;
+      cowNear = a;
     }
   }
   if (cowNear) {
-    const c = cowPose(track, cowNear, t + cowAhead / Math.max(5, kart.speed));
+    const c = cowNear.pose(t + cowAhead / Math.max(5, kart.speed));
     const edge = track.roadHalf - 2;
     if (Math.abs(lane - c.lateral) < 4.5) {
       const side = Math.sign(lane - c.lateral) || 1;
@@ -93,7 +115,7 @@ export function cpuControl(cpu, kart, track, t) {
   // 分離帯（芝生）の上は走らない: 走る線が分離帯にかかるときは、分離帯の外へ
   // 今いる所から、目指す点の少し先までに分離帯があれば、早めに分離帯の外の線へ寄る
   let median = 0;
-  for (let k = 0; k <= look + 25; k += 3) median = Math.max(median, samples[(loc.i + k) % n].median);
+  for (let k = 0; k <= look + 25; k += 3) median = Math.max(median, at(k).median);
   // 真ん中に近い線は、左右がゆれて分離帯をまたがないよう、その CPU のもとの側にする
   if (median > 0) {
     const side = Math.abs(lane) > median + 1 ? Math.sign(lane) : Math.sign(cpu.lane) || 1;
@@ -113,13 +135,24 @@ export function cpuControl(cpu, kart, track, t) {
     if (isl || islandNear(track, loc.s)) lane = -Math.abs(lane) - (isl ? 0 : 2);
     else if (median > 0 && lane > 0) lane = Math.max(lane, Math.min(edge, b.lateral + BUS_WIDTH / 2 + 4.5));
     else lane = Math.min(lane, b.lateral - BUS_WIDTH / 2 - 6.2);
-    if (ahead < 40 || ahead > track.length - 12) aim = samples[(loc.i + 8) % n];
+    if (ahead < 40 || ahead > track.length - 12) aim = at(8);
+  }
+  // 木の実の影（Soki Forest）: まだ落ちていない木の実の落ちる所が、自分の走る線の近く（3m）なら、その横へずれる
+  for (const nut of track.nuts?.list ?? []) {
+    if (Math.hypot(nut.x - kart.x, nut.z - kart.z) > 35) continue;
+    const q = locate(track, nut.x, nut.z, loc.i, 40, nut.y ?? null);
+    if (Math.abs(q.lateral - lane) >= 3) continue;
+    const edge = samples[loc.i].half - 2;
+    const side = Math.sign(lane - q.lateral) || 1;
+    let dodge = q.lateral + 4.5 * side;
+    if (Math.abs(dodge) > edge) dodge = q.lateral - 4.5 * side;
+    lane = Math.max(-edge, Math.min(edge, dodge));
   }
   const tx = aim.x - Math.sin(aim.h) * lane;
   const tz = aim.z + Math.cos(aim.h) * lane;
   const angle = wrap(Math.atan2(tz - kart.z, tx - kart.x) - kart.move);
   const steer = Math.max(-1, Math.min(1, angle * CPU.STEER_GAIN));
-  const bendTo = wrap(samples[(loc.i + CPU.BEND_AHEAD) % n].h - loc.heading);
+  const bendTo = wrap(at(CPU.BEND_AHEAD).h - loc.heading);
   const bend = Math.abs(bendTo);
   // バンプ: 手前で、メーター100より下まで落とす（ときどき間に合わず転がる: 2割くらい。周ごとに変わる）
   let bumpBrake = false;

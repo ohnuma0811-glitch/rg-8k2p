@@ -34,6 +34,47 @@ function smoothLoop(points) {
   return line;
 }
 
+// 開いたなめらかな線（分かれ道）。はしの外に、はしの向きのまま延ばした点を足して、はしまでなめらかに
+// （同じ点をくり返すと、なめらかにする計算が 0 で割ることになる）
+function smoothOpen(points) {
+  const n = points.length;
+  const at = (i) => {
+    if (i < 0) return [2 * points[0][0] - points[1][0], 2 * points[0][1] - points[1][1]];
+    if (i > n - 1) return [2 * points[n - 1][0] - points[n - 2][0], 2 * points[n - 1][1] - points[n - 2][1]];
+    return points[i];
+  };
+  const line = [];
+  for (let i = 0; i < n - 1; i++) line.push(...catmullRom(at(i - 1), at(i), at(i + 1), at(i + 2), 40));
+  line.push(points[n - 1]);
+  return line;
+}
+
+// 開いた折れ線の、はしからはしまでを、約 1m ごとに取り直す（はしの2点はのぞく）
+function resampleOpen(line) {
+  const seg = [];
+  let total = 0;
+  for (let i = 0; i < line.length - 1; i++) {
+    const d = Math.hypot(line[i + 1][0] - line[i][0], line[i + 1][1] - line[i][1]);
+    seg.push(d);
+    total += d;
+  }
+  const count = Math.max(1, Math.round(total / SAMPLE_STEP) - 1);
+  const step = total / (count + 1);
+  const out = [];
+  let j = 0;
+  let acc = 0;
+  for (let k = 1; k <= count; k++) {
+    const want = k * step;
+    while (j < seg.length - 1 && acc + seg[j] < want) {
+      acc += seg[j];
+      j++;
+    }
+    const t = seg[j] > 0 ? (want - acc) / seg[j] : 0;
+    out.push({ x: line[j][0] + (line[j + 1][0] - line[j][0]) * t, z: line[j][1] + (line[j + 1][1] - line[j][1]) * t });
+  }
+  return { points: out, step, total };
+}
+
 // 折れ線を、決めた長さ（m）にするための大きさの倍率 k と、真ん中 (cx, cz)
 function fitOf(line, length) {
   const seg = line.map((p, i) => Math.hypot(line[(i + 1) % line.length][0] - p[0], line[(i + 1) % line.length][1] - p[1]));
@@ -210,6 +251,11 @@ export function buildTrack(def) {
     const p = samples[i];
     const q = samples[(i + 1) % n];
     p.h = Math.atan2(q.z - p.z, q.x - p.x);
+    // 点のつながり（分かれ道があるコースでも、本線の点は 0〜n-1 の輪）
+    p.path = 0;
+    p.next = (i + 1) % n;
+    p.prev = (i - 1 + n) % n;
+    p.along = p.s;
   }
   // ジャンプがあるコースは、交わる所がちょうど1か所
   let cross = null;
@@ -298,6 +344,8 @@ export function buildTrack(def) {
   }
   t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
   // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
+  // イノシシ（Soki Forest。2026-10-16）: at の所。side はかくれている側、period は周期（秒）、phase はずらし（秒）
+  t.boars = (def.boars ?? []).map((b) => ({ s: markS(t, b.at), side: b.side, period: b.period, phase: b.phase }));
   t.cows = [];
   if (def.cows) {
     const from = markS(t, def.cows.from);
@@ -325,12 +373,206 @@ export function buildTrack(def) {
       }
     }
   }
+  applyHeights(t, def);
+  applyJumps(t, def);
+  addBranches(t, def, fit);
+  // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
+  t.monkeys = (def.monkeys ?? []).map((m) => {
+    const path = t.paths.find((q) => q.id === m.at[0]);
+    const i = path.start + Math.round(m.at[1] * (path.count - 1));
+    const p = t.samples[i];
+    const d = p.wall + 3;
+    return { i, path: p.path, side: m.side, x: p.x - Math.sin(p.h) * m.side * d, z: p.z + Math.cos(p.h) * m.side * d, y: p.y ?? 0 };
+  });
   return t;
+}
+
+// 場所の書き方（'S'、印の名前、[印, 印, 割合]）→ s
+function refS(t, ref) {
+  if (ref === 'S') return 0;
+  if (typeof ref === 'string') return t.marks[ref];
+  return markS(t, ref);
+}
+
+// キーの間を、なめらかに（1 - cos）つなぐ。keys = [[位置, 高さ], ...]（位置の順）。位置は 0〜len、loop なら輪
+function smoothKeys(keys, x, len, loop) {
+  if (!keys.length) return 0;
+  let a = keys[keys.length - 1];
+  let b = keys[0];
+  for (let k = 0; k < keys.length; k++) {
+    if (keys[k][0] > x) {
+      b = keys[k];
+      a = k > 0 ? keys[k - 1] : loop ? [keys[keys.length - 1][0] - len, keys[keys.length - 1][1]] : keys[0];
+      break;
+    }
+    if (k === keys.length - 1) {
+      a = keys[k];
+      b = loop ? [keys[0][0] + len, keys[0][1]] : keys[k];
+    }
+  }
+  if (b[0] === a[0]) return a[1];
+  const f = (x - a[0]) / (b[0] - a[0]);
+  return a[1] + (b[1] - a[1]) * (1 - Math.cos(Math.PI * f)) / 2;
+}
+
+// でこぼこ: amp × sin(2π × 長さ / wave)。はしの wave/2 で 0 から立ち上げる
+function bump(amp, wave, d, len) {
+  const edge = Math.min(1, Math.min(d, len - d) / (wave / 2));
+  return amp * Math.sin((2 * Math.PI * d) / wave) * Math.max(0, edge);
+}
+
+// ジャンプ（Soki Forest。2026-10-16 のユーザー依頼「川をジャンプで2回飛び越える」）: 印 at からの m で、加速板・ジャンプ台・地面のない所
+function applyJumps(t, def) {
+  for (const j of def.jumps ?? []) {
+    const at = refS(t, [j.at, j.at, 0]);
+    const inSpan = (s, [a, b]) => { const d = ((s - at + t.length * 1.5) % t.length) - t.length / 2; return d >= a && d < b; };
+    const rel = (s) => ((s - at + t.length * 1.5) % t.length) - t.length / 2;
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      if (inSpan(p.s, j.boost)) { p.boost = true; p.boostTime = 1.0; }
+      if (inSpan(p.s, j.ramp)) {
+        p.ramp = true;
+        p.y += (j.ramp[2] * (rel(p.s) - j.ramp[0])) / (j.ramp[1] - j.ramp[0]);
+        p.wall = def.roadHalf;
+      }
+      if (inSpan(p.s, j.gap)) { p.y = null; p.wall = def.roadHalf; }
+    }
+  }
+}
+
+// 本線の道の高さ（2026-10-16 のユーザー依頼「上下に波打つ」）と、でこぼこ
+function applyHeights(t, def) {
+  if (!def.heights && !def.bumpy) return;
+  const keys = (def.heights ?? []).map(([ref, y]) => [refS(t, ref) % t.length, y]).sort((a, b) => a[0] - b[0]);
+  const bumps = (def.bumpy ?? []).filter((b) => b.path === 'main').map((b) => ({ ...b, a: refS(t, b.from), b: refS(t, b.to) }));
+  for (let i = 0; i < t.length; i++) {
+    const p = t.samples[i];
+    if (p.y === null) continue;
+    p.y += smoothKeys(keys, p.s, t.length, true);
+    for (const b of bumps) {
+      if (!between(t, p.s, b.a, b.b)) continue;
+      p.y += bump(b.amp, b.wave, span(t, b.a, p.s), span(t, b.a, b.b));
+      p.bumpy = true;
+    }
+  }
+}
+
+// 分かれ道（2026-10-16 のユーザー依頼「複数の分岐」）: 点を samples の後ろに足し、分かれる所・合流する所とつなぐ。
+// 分かれ道の点の s は、本線でいうとどこにあたるか（分かれる所の s から合流する所の s まで、長さに比例して増える）
+function addBranches(t, def, fit) {
+  const { samples } = t;
+  t.paths = [{ id: 'main', start: 0, count: t.length, fork: null, join: null, len: t.length }];
+  t.forks = {};
+  t.joins = {};
+  t.toWorld = (x, z) => ({ x: (x - fit.cx) * fit.k, z: (z - fit.cz) * fit.k });
+  const half = def.branchHalf ?? def.roadHalf;
+  for (const b of def.branches ?? []) {
+    const [fromPath, fromAt] = b.from;
+    let fork;
+    if (fromPath === 'main') fork = Math.round(markS(t, [fromAt, fromAt, 0])) % t.length;
+    else {
+      const fp = t.paths.find((q) => q.id === fromPath);
+      fork = fp.start + Math.round(fromAt * (fp.count - 1));
+    }
+    const join = Math.round(markS(t, [b.to, b.to, 0])) % t.length;
+    const pf = samples[fork];
+    const pj = samples[join];
+    const pts = [[pf.x, pf.z], ...b.points.map(([x, z]) => { const w = t.toWorld(x, z); return [w.x, w.z]; }), [pj.x, pj.z]];
+    const { points, step, total } = resampleOpen(smoothOpen(pts));
+    const start = samples.length;
+    const pathIndex = t.paths.length;
+    const sFork = pf.s;
+    const sSpan = span(t, sFork, pj.s);
+    points.forEach((q, k) => {
+      samples.push({
+        x: q.x,
+        z: q.z,
+        s: (sFork + (sSpan * (k + 1)) / (points.length + 1)) % t.length,
+        path: pathIndex,
+        along: pf.along + step * (k + 1),
+        prev: k === 0 ? fork : start + k - 1,
+        next: k === points.length - 1 ? join : start + k + 1,
+        y: 0,
+        wall: half + def.dirt,
+        half,
+        ramp: false,
+        boost: false,
+        noWall: false,
+        median: 0,
+        boostTime: 0,
+      });
+    });
+    for (let i = start; i < samples.length; i++) {
+      const p = samples[i];
+      const q = samples[p.next];
+      p.h = Math.atan2(q.z - p.z, q.x - p.x);
+    }
+    // 高さ: はしは分かれる所・合流する所の高さ、あいだは b.heights（[割合, 高さ]）をなめらかに。でこぼこも
+    const count = points.length;
+    const hk = [[0, pf.y ?? 0], ...(b.heights ?? []).map(([f, y]) => [f * (count + 1), y]), [count + 1, pj.y ?? 0]];
+    const bm = (def.bumpy ?? []).find((q) => q.path === b.id);
+    for (let k = 0; k < count; k++) {
+      const p = samples[start + k];
+      p.y = smoothKeys(hk, k + 1, count + 1, false);
+      if (bm && k / count >= bm.from && k / count <= bm.to) {
+        const a = bm.from * count;
+        p.y += bump(bm.amp, bm.wave, (k - a) * step, (bm.to - bm.from) * count * step);
+        p.bumpy = true;
+      }
+    }
+    (t.forks[fork] ??= []).push(pathIndex);
+    (t.joins[join] ??= []).push(samples.length - 1);
+    t.paths.push({ id: b.id, start, count: points.length, fork, join, len: total });
+  }
+  markBridges(t);
+}
+
+// 橋（2026-10-16 のユーザー依頼）: 本線が、高さが 4m 以上ちがうほかの道の上を通る所の前後 BRIDGE_REACH m を、橋の点にする
+export const BRIDGE_REACH = 40;
+function markBridges(t) {
+  const { samples } = t;
+  t.bridges = [];
+  for (let i = t.length; i < samples.length; i++) {
+    const q = samples[i];
+    for (let j = 0; j < t.length; j++) {
+      const p = samples[j];
+      if (p.y === null || p.y - q.y < 4 || Math.hypot(p.x - q.x, p.z - q.z) > 1.5) continue;
+      if (!t.bridges.some((b) => Math.abs(b.s - p.s) < BRIDGE_REACH)) t.bridges.push({ s: p.s, i: j, under: i });
+    }
+  }
+  for (const p of samples.slice(0, t.length)) {
+    if (t.bridges.some((b) => Math.min(span(t, b.s, p.s), span(t, p.s, b.s)) < BRIDGE_REACH)) p.bridge = true;
+  }
+}
+
+// 点 i から k 個先の点の番号。分かれる所では choose(i, 分かれる道の番号の配列) が返す道へ（null なら本線のまま）
+export function ahead(track, i, k, choose = null) {
+  for (let c = 0; c < k; c++) {
+    const forks = track.forks?.[i];
+    const pick = forks && choose ? choose(i, forks) : null;
+    i = pick !== null && pick !== undefined ? track.paths[pick].start : track.samples[i].next;
+  }
+  return i;
+}
+
+// 道 path の上（分かれる所から合流する所まで）で、さらに分かれる道の数（3本を同じ確率で選ぶため）
+export function branchesBeyond(track, path) {
+  const p = track.paths[path];
+  let k = 0;
+  for (let i = p.start; i < p.start + p.count; i++) k += (track.forks[i] ?? []).length;
+  return k;
+}
+
+// 点 i から k 個前の点の番号（分かれ道の最初の点からは、分かれる所へもどる）
+export function behind(track, i, k) {
+  for (let c = 0; c < k; c++) i = track.samples[i].prev;
+  return i;
 }
 
 // 位置 (x, z) に一番近いコースの点を探す。hint（前の点の番号）があれば、その前後だけを探す
 // （交わる所で、もう一方の道の点を拾わないため）
-export function locate(track, x, z, hint = null, win = 40) {
+// y（車の高さ）があれば、高さのちがう道（橋の上と下）の点は拾いにくくする
+export function locate(track, x, z, hint = null, win = 40, y = null) {
   const { samples, length } = track;
   const n = samples.length;
   let best = 0;
@@ -339,7 +581,8 @@ export function locate(track, x, z, hint = null, win = 40) {
     const p = samples[i];
     const dx = x - p.x;
     const dz = z - p.z;
-    const d = dx * dx + dz * dz;
+    const dy = y !== null && p.y !== null ? 3 * (p.y - y) : 0;
+    const d = dx * dx + dz * dz + dy * dy;
     if (d < bestD) {
       bestD = d;
       best = i;
@@ -348,7 +591,26 @@ export function locate(track, x, z, hint = null, win = 40) {
   if (hint === null) {
     for (let i = 0; i < n; i++) scan(i);
   } else {
-    for (let k = -win; k <= win; k++) scan((((hint + k) % n) + n) % n);
+    // hint から、点のつながり（前・次、分かれる所・合流する所）をたどって win 個まで
+    const seen = new Set([hint]);
+    let front = [hint];
+    scan(hint);
+    for (let d = 0; d < win && front.length; d++) {
+      const nextFront = [];
+      for (const i of front) {
+        const p = samples[i];
+        const near = [p.next, p.prev];
+        if (track.forks?.[i]) for (const k of track.forks[i]) near.push(track.paths[k].start);
+        if (track.joins?.[i]) near.push(...track.joins[i]);
+        for (const j of near) {
+          if (j === undefined || seen.has(j)) continue;
+          seen.add(j);
+          scan(j);
+          nextFront.push(j);
+        }
+      }
+      front = nextFront;
+    }
   }
   const p = samples[best];
   const fx = Math.cos(p.h);
@@ -367,10 +629,11 @@ export function locate(track, x, z, hint = null, win = 40) {
   const surface = onRoad ? 'road' : a <= wall ? 'dirt' : 'out';
   return {
     i: best,
+    path: p.path,
     s,
     lateral,
     heading: p.h,
-    ground: p.y,
+    ground: groundAt(samples, p, dx * fx + dz * fz),
     wall,
     half: p.half,
     surface,
@@ -379,13 +642,24 @@ export function locate(track, x, z, hint = null, win = 40) {
   };
 }
 
+// 点 p から前へ d m の所の地面の高さ（となりの点との間をなめらかにつなぐ。坂で上下の速さがぎざぎざにならないように）
+function groundAt(samples, p, d) {
+  if (p.y === null) return null;
+  const q = samples[d >= 0 ? p.next : p.prev];
+  if (q === undefined || q.y === null) return p.y;
+  const len = Math.hypot(q.x - p.x, q.z - p.z) || 1;
+  const f = Math.min(1, Math.abs(d) / len);
+  return p.y + (q.y - p.y) * f;
+}
+
 // 落ちた所 i から戻って、平らな地面が10m続いた所を、戻る場所にする
 export function respawnIndex(track, i) {
   const { samples } = track;
   const n = samples.length;
   let run = 0;
+  let j = i;
   for (let k = 1; k < n; k++) {
-    const j = (((i - k) % n) + n) % n;
+    j = samples[j].prev;
     const p = samples[j];
     const flat = p.y === 0 && !p.ramp && !p.boost;
     run = flat ? run + 1 : 0;
