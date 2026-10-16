@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=06a912f';
-import { span, locate, ahead } from './track.js?v=06a912f';
+import { SPEED_SHOW } from '../hud.js?v=77f29ff';
+import { span, locate, ahead, behind } from './track.js?v=77f29ff';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -90,21 +90,22 @@ export function cowContact(kart, track, time, phys) {
 
 // イノシシ（Soki Forest。2026-10-16 のユーザー依頼「動物が横切る」）
 export const BOAR_RADIUS = 1.3; // イノシシの大きさ（半径 m）
-const BOAR_WARN = 0.8; // 飛び出す前の予告（しげみがゆれて「ブヒッ」。秒）
-const BOAR_RUN = 2.0; // 道を横切る時間（秒）
-// 時刻 time のイノシシ: 周期の終わりの BOAR_WARN 秒はしげみでゆれ、そのあと BOAR_RUN 秒で道の反対側へ走る（次は反対から）
+const BOAR_WARN = 0.35; // 道のはしで止まって向きを変える（「ブヒッ」。秒）
+const BOAR_RUN = 1.6; // 道を横切る時間（秒）
+// 時刻 time のイノシシ: いつも道を左右に突進して行ったり来たり（2026-10-16 のユーザー依頼「常に道を左右に突進」）。
+// はし（道のふちの少し外）で BOAR_WARN 秒止まり、BOAR_RUN 秒で反対のはしへ
 export function boarPose(track, boar, time) {
   const p = track.samples[Math.round(boar.s) % track.length];
-  const cycle = Math.floor((time + boar.phase) / boar.period);
-  const tin = time + boar.phase - cycle * boar.period;
-  const from = (cycle % 2 === 0 ? boar.side : -boar.side) * (p.wall + 3);
-  const runStart = boar.period - BOAR_RUN;
+  const half = BOAR_WARN + BOAR_RUN;
+  const cycle = Math.floor((time + boar.phase) / half);
+  const tin = time + boar.phase - cycle * half;
+  const from = (cycle % 2 === 0 ? boar.side : -boar.side) * (p.half + 1);
   let lateral = from;
-  let state = 'hide';
-  if (tin >= runStart) {
+  let state = 'warn';
+  if (tin >= BOAR_WARN) {
     state = 'run';
-    lateral = from - 2 * from * ((tin - runStart) / BOAR_RUN);
-  } else if (tin >= runStart - BOAR_WARN) state = 'warn';
+    lateral = from - 2 * from * ((tin - BOAR_WARN) / BOAR_RUN);
+  }
   const dir = Math.sign(-from);
   return { x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, lateral, heading: p.h + (dir * Math.PI) / 2, state };
 }
@@ -156,6 +157,7 @@ export const NUT_RADIUS = 1.6; // 落ちた所からこの距離の車に当た�
 export const MONKEY_RANGE = 40; // この距離より近い車をねらう（m）
 export const MONKEY_EVERY = 2.5; // 1匹が投げる間（秒。2026-10-16 に 3 から。近道をもう少し難しく）
 export const MONKEY_HEIGHT = 9; // 木の上の高さ（m）
+const NUT_SPREAD = 4.5; // 1回に投げる3つの木の実の間（道に沿って m）
 
 export function createNuts(track) {
   return { list: [], next: (track.monkeys ?? []).map(() => 0) };
@@ -174,9 +176,12 @@ export function stepNuts(nuts, track, karts, time) {
       if (d < MONKEY_RANGE && (!best || d < best.d)) best = { kart, d };
     }
     if (!best) return;
-    const j = ahead(track, best.kart.seg, Math.max(0, Math.round(best.kart.speed * NUT_FALL)));
-    const target = track.samples[j];
-    nuts.list.push({ x: target.x, z: target.z, y: target.y ?? 0, from: { x: m.x, y: (m.y ?? 0) + MONKEY_HEIGHT, z: m.z }, t0: time, monkey: k });
+    // 1回に3つ: ねらう所と、その手前・先（道に沿って NUT_SPREAD m ずつ。当たる所が3倍。2026-10-16 のユーザー依頼）
+    const d = Math.max(0, Math.round(best.kart.speed * NUT_FALL));
+    for (const off of [0, -NUT_SPREAD, NUT_SPREAD]) {
+      const target = track.samples[d + off >= 0 ? ahead(track, best.kart.seg, d + off) : behind(track, best.kart.seg, -(d + off))];
+      nuts.list.push({ x: target.x, z: target.z, y: target.y ?? 0, from: { x: m.x, y: (m.y ?? 0) + MONKEY_HEIGHT, z: m.z }, t0: time, monkey: k });
+    }
     nuts.next[k] = time + MONKEY_EVERY;
     thrown.push(k);
   });
@@ -210,9 +215,10 @@ export function dropFallen(nuts, time) {
 // そのとき飛んだ車は食べられて、DINO_BLACK 秒まっくら。そのあとジャンプ台の DINO_BACK m 手前から走り直し
 export const DINO_BLACK = 3; // 食べられて、まっくらの秒数
 export const DINO_BACK = 30; // 走り直す所（ジャンプ②の印の手前 m）
-const DINO_RISE = 1.2; // 川から上がってくる秒数（このあいだに気づける）
-const DINO_UP = 2.6; // 顔を出している秒数
-const DINO_SINK = 0.8; // もぐる秒数
+// 急に出て、ゆっくり川にかくれる（2026-10-16 のユーザー依頼）。ジャンプ②に来た車の 3割くらいが食べられる間
+const DINO_RISE = 0.25; // 川から飛び出す秒数
+const DINO_UP = 1.2; // 顔を出している秒数
+const DINO_SINK = 2.2; // ゆっくりもぐる秒数
 // 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
 export function dinoPose(track, time) {
   const d = track.dino;
@@ -257,7 +263,7 @@ export function mudContact(kart, track, dt) {
 }
 
 // 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）
-export function boarWarning(track, kart, time, range = 60) {
+export function boarWarning(track, kart, time, range = 35) {
   return (track.boars ?? []).some((boar) => {
     const c = boarPose(track, boar, time);
     return c.state === 'warn' && Math.hypot(c.x - kart.x, c.z - kart.z) < range;

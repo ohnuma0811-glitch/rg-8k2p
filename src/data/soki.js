@@ -11,8 +11,8 @@ const ROADSIDE = [
 export const SOKI_SCENERY = [
   // スタートの丸太の門（2026-10-16 のユーザー依頼「Soki Forest」のように小文字も。森の名前の看板は置かない）
   { part: 'logGate', at: ['S', 'S', 0], side: 1, back: 1, span: 32, text: 'Soki Forest', radius: 1 },
-  // 近道（内の道）の分かれる所の手前に、杭の案内板（2026-10-16 のユーザー依頼「本線↑と近道（危険）→」）
-  { part: 'forkSign', path: 'middle', at: 0.34, side: 1, back: 1, span: 28, main: '本線↑', short: '近道（危険）→', radius: 1 },
+  // 近道（内の道）の分かれる所の手前に、杭の案内板（2026-10-16 のユーザー依頼「本線↑と近道（危険）→」。文字は英語で）
+  { part: 'forkSign', path: 'middle', at: 0.34, side: 1, back: 1, span: 28, main: 'Main ↑', short: 'Shortcut (Danger) →', radius: 1 },
   // 大きな丘の頂上の大きな木と、見晴らしの柵
   { part: 'bigTree', at: ['HILL', 'HILL', 0], side: -1, back: 14, radius: 9 },
   { part: 'lookoutFence', at: ['HILL', 'HILL', 0], side: -1, back: 14, radius: 9 },

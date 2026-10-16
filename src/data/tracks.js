@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=06a912f';
-import { SOKI_SCENERY } from './soki.js?v=06a912f';
+import { KAMPAR_SCENERY } from './kampar.js?v=77f29ff';
+import { SOKI_SCENERY } from './soki.js?v=77f29ff';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -149,6 +149,11 @@ export const COURSE3 = {
     { path: 'middle', from: 0.04, to: 0.18, amp: 0.9, wave: 60 },
     { path: 'middle', from: 0.5, to: 0.94, amp: 0.9, wave: 60 },
   ],
+  // 加速板: いちばん遠い外の道に2つ（2026-10-16 のユーザー依頼）
+  pads: [
+    { at: ['F1', 'M1', 0.35], len: 6, time: 1.0 },
+    { at: ['F1', 'M1', 0.7], len: 6, time: 1.0 },
+  ],
   // ジャンプ（2026-10-16 のユーザー依頼: 川をジャンプで2回飛び越える）。at の印からの m。飛び出す速さはいつも同じ
   jumps: [
     { at: 'J1', boost: [-40, -34], ramp: [-30, -12, 3], gap: [-12, 16] },
@@ -176,7 +181,7 @@ export const COURSE3 = {
     { at: ['inner', 0.74], lateral: -1, r: 6.5 },
   ],
   // 恐竜（2026-10-16 のユーザー依頼）: ジャンプ②の川から、ときどき大きな顔が口を開けて出てくる。period 秒ごと、phase でずらす
-  dino: { at: 'J2', period: 13, phase: 6 },
+  dino: { at: 'J2', period: 11, phase: 6 }, // 2026-10-16 に 13秒から（出るのを多く）
   // 近道が有利すぎたので5匹に（2026-10-16 のユーザー依頼「近道をもう少し難しく」）
   monkeys: [
     { at: ['inner', 0.15], side: 1 },

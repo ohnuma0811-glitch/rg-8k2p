@@ -1,6 +1,6 @@
 // コースの外側の、何もない所をジャングルにする（2026-10-15 のユーザー依頼。コースの内側は今のまま）
-import { createBuilder } from './builder.js?v=06a912f';
-import { broccoliTree } from '../forest/kit.js?v=06a912f';
+import { createBuilder } from './builder.js?v=77f29ff';
+import { broccoliTree } from '../forest/kit.js?v=77f29ff';
 
 const GRID = 20; // 木のかたまりを置く間（m）
 const NEAR = 8; // 道のふち（柵）からこれだけ離す
