@@ -102,3 +102,58 @@ test('ミニマップは3本の道をどれも描く', async () => {
   assert.equal(paths.length, 3);
   assert.ok(paths.every((ps) => ps.length > 50));
 });
+
+test('コース3: 分かれ道を走る車も、右上の地図に描いた道の上に点が出る（2026-10-16 のユーザー依頼）', async () => {
+  const { COURSE3 } = await import('../src/data/tracks.js');
+  const { minimapPaths, mapFit } = await import('../src/render/minimap.js');
+  const { createKart, stepKart } = await import('../src/game/kart.js');
+  const { createCpu, cpuControl, cpuParams } = await import('../src/game/cpu.js');
+  const { kartParams } = await import('../src/game/stats.js');
+  const s3 = buildTrack(COURSE3);
+  const fit = mapFit(s3.samples, 160, 160, 8); // 地図の大きさ（画面の点）
+  const lines = minimapPaths(s3);
+  // 地図の点 q から、描いた道（折れ線）までの近さ（画面の点）
+  const near = (q) => {
+    let best = Infinity;
+    for (const ps of lines) {
+      for (let i = 0; i + 1 < ps.length; i++) {
+        const a = fit(ps[i].x, ps[i].z);
+        const b = fit(ps[i + 1].x, ps[i + 1].z);
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const u = Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+        best = Math.min(best, Math.hypot(a.x + dx * u - q.x, a.y + dy * u - q.y));
+      }
+    }
+    return best;
+  };
+  const params = kartParams({ accel: 3, top: 3, handling: 3 });
+  const used = new Set();
+  for (let seed = 0; seed < 3; seed++) {
+    const kart = createKart(s3, s3.startIndex, 0);
+    const cpu = createCpu(seed, seed);
+    for (let f = 0; f < 60 * 75; f++) {
+      stepKart(kart, cpuControl(cpu, kart, s3, f / 60), s3, cpuParams(params, 1), 1 / 60);
+      if (f % 20) continue;
+      used.add(s3.samples[kart.seg].path);
+      // 道のはば（柵まで 15m）くらいは、線からはなれてもよい
+      const d = near(fit(kart.x, kart.z));
+      assert.ok(d < 3, `点 ${kart.seg}（道 ${s3.samples[kart.seg].path}）の車が、地図の道から ${d.toFixed(1)} 画面の点はなれている`);
+    }
+  }
+  assert.deepEqual([...used].sort(), [0, 1, 2], '3本の道を通った');
+});
+
+test('合流の手前に、進む向きの白い矢印（合流に入ってくる道の両方に 3つずつ。2026-10-16 のユーザー依頼）', async () => {
+  const { COURSE3 } = await import('../src/data/tracks.js');
+  const { mergeArrowSpots, MERGE_ARROWS } = await import('../src/render/trackMesh.js');
+  const s3 = buildTrack(COURSE3);
+  const spots = mergeArrowSpots(s3);
+  assert.equal(spots.length, (s3.paths.length - 1) * 2 * MERGE_ARROWS.length);
+  for (const path of s3.paths.slice(1)) {
+    const j = s3.samples[path.join];
+    const mine = spots.filter((p) => p.path === path.start || p.path === s3.samples[path.start].path);
+    assert.ok(mine.length >= MERGE_ARROWS.length, path.id);
+    for (const p of mine) assert.ok(Math.hypot(p.x - j.x, p.z - j.z) < 160, `${path.id} の矢印が合流から遠い`);
+  }
+});
