@@ -37,3 +37,11 @@ test('音が使えない・まだ読みこめていない・読みこみに失�
   v.play('male');
   assert.deepEqual(log, []);
 });
+
+test('大きさの倍率をつけて鳴らせる（遠くの恐竜の声を小さく。2026-10-16）', async () => {
+  const { log, audio } = fakeAudio();
+  const v = createVoices(audio, { fetch: fakeFetch });
+  await v.load();
+  v.play('roar', 0.5);
+  assert.deepEqual(log, [['gain', VOICE_GAIN.roar * 0.5, 'sfxOut'], ['start', 'sounds/dino-roar.mp3']]);
+});

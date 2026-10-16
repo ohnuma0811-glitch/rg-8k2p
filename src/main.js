@@ -343,6 +343,13 @@ function nearDino(kart) {
   if (!p || p.path !== 0) return false;
   return span(track, p.s, track.dino.s) < DINO_HEAR || span(track, track.dino.s, p.s) < 30;
 }
+// 恐竜の声の大きさ: 近いほど大きく、DINO_HEAR m 手前で 0.3（2026-10-16 のユーザー依頼「遠くにいるときは少し小さく」）
+function dinoVolume(kart) {
+  const p = track.samples[kart.seg];
+  if (!track.dino || !p) return 1;
+  const d = Math.min(span(track, p.s, track.dino.s), span(track, track.dino.s, p.s));
+  return Math.max(0.3, Math.min(1, 1 - (0.7 * (d - 20)) / (DINO_HEAR - 20)));
+}
 // 恐竜が川から上がってきていて、自分の車が恐竜のまわりにいる（咆哮を鳴らす）
 function dinoNear(kart, time) {
   return !!track.dino && dinoPose(track, time).state === 'rise' && nearDino(kart);
@@ -769,7 +776,7 @@ function renderGame(alpha, dt) {
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
     else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
-    else if (name === 'dinoRoar') voices.play('roar'); // 恐竜の咆哮
+    else if (name === 'dinoRoar') voices.play('roar', dinoVolume(kart)); // 恐竜の咆哮（遠いほど小さく）
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
     if (name === 'go') music.play(course.music);
