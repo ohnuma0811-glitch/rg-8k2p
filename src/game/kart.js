@@ -64,6 +64,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.speed = 0;
   kart.seg = i;
   kart.airborne = false;
+  kart.launched = false; // ジャンプ台から飛んだしるしも消す（コースに戻したとき着地の音が鳴らないように）
   kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
   kart.hop = 0;
   kart.prevDrift = false;

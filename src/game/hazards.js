@@ -269,6 +269,10 @@ export function dinoContact(kart, track, time) {
   if (!insideDino(-a, w, (kart.y ?? 0) + 0.8 - c.y)) return null;
   kart.eaten = (kart.eaten || 0) + 1;
   kart.swallowed = true; // 見えなくする（自分の車なら画面をまっくらに）
+  // 空中のしるしを消す（走り直すときに着地の音が鳴らないように。2026-10-17 のユーザー依頼）
+  kart.airborne = false;
+  kart.launched = false;
+  kart.vy = 0;
   kart.respawn = DINO_BLACK;
   kart.respawnAt = Math.round(d.s - DINO_BACK + track.length) % track.length;
   kart.speed = 0;

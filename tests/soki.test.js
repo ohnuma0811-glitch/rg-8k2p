@@ -601,3 +601,27 @@ test('恐竜の顔は道はばいっぱい。道の端を飛んでも、まん�
     assert.equal(got, 'eaten', `lane ${lane}`);
   }
 });
+
+test('恐竜に食べられて走り直すとき、着地の音は鳴らさない（2026-10-17 のユーザー依頼）', async () => {
+  const { soundState, soundEvents } = await import('../src/audio/events.js');
+  let up = 0;
+  while (dinoPose(t, up).state !== 'up') up += 0.05;
+  const j = Math.round(markS(t, ['J2', 'J2', 0]));
+  const kart = createKart(t, j - 40, 0);
+  kart.speed = 30;
+  let time = up - 1.2;
+  const sound = () => soundState({ count: '', lap: 0, finished: false, kart, bumps: 0 });
+  let prev = sound();
+  const events = [];
+  let eaten = false;
+  for (let k = 0; k < 60 * 6; k++) {
+    stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+    time += 1 / 60;
+    if (dinoContact(kart, t, time)) eaten = true;
+    const cur = sound();
+    if (eaten) events.push(...soundEvents(prev, cur, 3));
+    prev = cur;
+  }
+  assert.ok(eaten);
+  assert.ok(!events.includes('land'), events.join(','));
+});
