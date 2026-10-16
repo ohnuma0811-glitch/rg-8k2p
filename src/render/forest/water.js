@@ -1,8 +1,8 @@
 // 川と滝（Soki Forest。2026-10-16 のユーザー依頼「川をジャンプで2回飛び越える」「ジャンプ②の手前に滝、川に合流」）
-import * as THREE from '../../../vendor/three.module.min.js?v=79b6a69';
-import { createBuilder } from '../town/builder.js?v=79b6a69';
-import { markS } from '../../game/track.js?v=79b6a69';
-import { terrainHeight } from '../terrain.js?v=79b6a69';
+import * as THREE from '../../../vendor/three.module.min.js?v=36dde81';
+import { createBuilder } from '../town/builder.js?v=36dde81';
+import { markS } from '../../game/track.js?v=36dde81';
+import { terrainHeight } from '../terrain.js?v=36dde81';
 
 const WATER = 0x4f9fd6;
 const FALLS = 0xbfe6ff; // 滝の水（白っぽい水色）
@@ -90,19 +90,22 @@ export function buildWaterfall(track) {
   // がけ: 茶色と灰色の箱を重ねる
   const b = createBuilder();
   b.push(cx, base - 0.5, cz, ry);
-  b.box(14, wf.height + 0.5, 34, CLIFF[0], 0, 0, 0);
-  b.box(12, wf.height + 2.5, 12, CLIFF[1], 1, 0, -14);
-  b.box(12, wf.height + 1.5, 12, CLIFF[2], 1, 0, 14);
-  b.box(10, 3, 30, CLIFF[1], 2, wf.height + 0.5, 0);
+  // 滝のはば W（2026-10-16 のユーザー依頼「滝を大きく」）。がけは、そのまわりに
+  const W = wf.width ?? 8;
+  const L = W + 26; // がけの長さ（道ぞい）
+  b.box(14, wf.height + 0.5, L, CLIFF[0], 0, 0, 0);
+  b.box(12, wf.height + 2.5, 12, CLIFF[1], 1, 0, -(W / 2 + 7));
+  b.box(12, wf.height + 1.5, 12, CLIFF[2], 1, 0, W / 2 + 7);
+  b.box(10, 3, L - 4, CLIFF[1], 2, wf.height + 0.5, 0);
   b.pop();
   group.add(b.build());
   // 落ちる水（がけの面に沿った縦の板）
-  const fall = new THREE.Mesh(new THREE.PlaneGeometry(8, wf.height + 0.6), new THREE.MeshBasicMaterial({ color: FALLS, side: THREE.DoubleSide }));
+  const fall = new THREE.Mesh(new THREE.PlaneGeometry(W, wf.height + 0.6), new THREE.MeshBasicMaterial({ color: FALLS, side: THREE.DoubleSide }));
   fall.position.set(p.x + rx * (face - 0.2), (base + top) / 2, p.z + rz * (face - 0.2));
   fall.rotation.y = -p.h; // 板の面を道と平行に（道から見える）
   group.add(fall);
   // しぶき: 白い半透明の板を、ゆっくり上下させる
-  const mist = new THREE.Mesh(new THREE.BoxGeometry(12, 3, 7), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }));
+  const mist = new THREE.Mesh(new THREE.BoxGeometry(W + 6, 4, 9), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }));
   const mx = p.x + rx * (face - 2);
   const mz = p.z + rz * (face - 2);
   mist.position.set(mx, base + 1.2, mz);
@@ -129,6 +132,6 @@ export function buildWaterfall(track) {
     const near = river.reduce((m, r) => (Math.hypot(r.x - last.x, r.z - last.z) < Math.hypot(m.x - last.x, m.z - last.z) ? r : m));
     pts.push(near);
   }
-  group.add(strip(pts, 2, (x, z) => terrainHeight(track, x, z) + 0.05, WATER));
+  group.add(strip(pts, 3.5, (x, z) => terrainHeight(track, x, z) + 0.05, WATER)); // 大きな滝なので、流れも少し太く
   return group;
 }

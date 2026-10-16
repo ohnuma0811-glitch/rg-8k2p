@@ -1,6 +1,6 @@
 // 道の高さに合わせた地面（Soki Forest。2026-10-16 のユーザー依頼「道が上下に波打つ」）。
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
-import * as THREE from '../../vendor/three.module.min.js?v=79b6a69';
+import * as THREE from '../../vendor/three.module.min.js?v=36dde81';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）
@@ -78,8 +78,8 @@ export function terrainHeight(track, x, z) {
       }
     }
   }
-  // いちばん近い点とほぼ同じ近さ（0.5m 以内）の点だけで、高さの上限を決める
-  for (const [e, y] of close) if (e <= bestE + 0.5) cap = Math.min(cap, y);
+  // いちばん近い点とほぼ同じ近さ（0.15m 以内）の点だけで、高さの上限を決める
+  for (const [e, y] of close) if (e <= bestE + 0.15) cap = Math.min(cap, y);
   let y = weight ? Math.min(sum / weight, cap) : 0;
   if (!onRoad && river.length > 1) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));

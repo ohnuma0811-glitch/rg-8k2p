@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=79b6a69';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH } from './hazards.js?v=79b6a69';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=36dde81';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH } from './hazards.js?v=36dde81';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -183,12 +183,23 @@ export function cpuControl(cpu, kart, track, t) {
   let dinoBrake = false;
   if (track.dino && samples[loc.i].path === 0) {
     const ahead = span(track, loc.s, track.dino.s);
-    if (ahead < 110 && ahead > 20) {
+    if (kart.eaten > 0 && ahead < 140 && ahead > 12) {
+      // 一度食べられた CPU（2026-10-16 のユーザー依頼「二回続けて食べられないように」）: 今から、着いて飛び終わるまで
+      // ずっと恐竜が低い（顔が通り道にない）と分かるまで、ジャンプ台の手前 DINO_HOLD m で止まって待つ
+      // （着く時刻は速めに見る: 手前の加速板で速くなるので）
+      const arrive = ahead / Math.max(20, kart.speed);
+      let safe = true;
+      for (let d = 0; d <= arrive + 1.5 && safe; d += 0.1) safe = dinoPose(track, t + d).rise < 0.5;
+      if (!safe) {
+        const target = Math.max(0, ahead - DINO_HOLD) * 0.8; // 止まる所までに、だんだん遅く
+        dinoBrake = kart.speed > target + 1;
+      }
+    } else if (ahead < 110 && ahead > 20) {
       const arrive = t + ahead / Math.max(8, kart.speed);
-      dinoBrake = dinoPose(track, arrive).rise > 0.3 || dinoPose(track, arrive + 0.8).rise > 0.3;
+      dinoBrake = (dinoPose(track, arrive).rise > 0.3 || dinoPose(track, arrive + 0.8).rise > 0.3) && kart.speed > 10;
     }
   }
-  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || (dinoBrake && kart.speed > 10) ||
+  const brake = (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
@@ -200,6 +211,8 @@ export function cpuControl(cpu, kart, track, t) {
   const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
   return { steer: kart.muddy > 0 ? -out : out, brake, drift: cpu.drifting };
 }
+
+const DINO_HOLD = 45; // 一度食べられた CPU が、恐竜を待つ所（ジャンプ②の手前 m）
 
 // CPU が、この周（lap）に近道を通るとき、うっかりわなにかかるか（3割くらい。レース・CPU・周で決まる）
 export const TRAP_RATE = 0.3;

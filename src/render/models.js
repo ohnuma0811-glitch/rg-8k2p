@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=79b6a69';
-import { PHYS } from '../game/kart.js?v=79b6a69';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=79b6a69';
+import * as THREE from '../../vendor/three.module.min.js?v=36dde81';
+import { PHYS } from '../game/kart.js?v=36dde81';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=36dde81';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
 const TUMBLE_FLY = 0.55;
@@ -52,6 +52,44 @@ const mats = new Map();
 function mat(color) {
   if (!mats.has(color)) mats.set(color, new THREE.MeshLambertMaterial({ color }));
   return mats.get(color);
+}
+
+// 形の中の、動かない部品（色だけの箱や玉）を、グループごとに1つの形にまとめる（描く回数を減らす。2026-10-16 のユーザー依頼「タブレットでカクつく」）
+// 動く部品（userData に入れたもの: タイヤなど）と、子のグループ（頭・足・あごなど）はそのまま。子のグループの中も、同じようにまとめる
+const VERTEX_MAT = new THREE.MeshLambertMaterial({ vertexColors: true });
+export function mergeStatic(root) {
+  const keep = new Set();
+  for (const v of Object.values(root.userData)) {
+    for (const o of Array.isArray(v) ? v : [v]) if (o && o.isObject3D) keep.add(o);
+  }
+  const visit = (g) => {
+    for (const c of g.children) if (!c.isMesh && c.children.length) visit(c);
+    const parts = g.children.filter((c) => c.isMesh && !keep.has(c) && !c.children.length && c.material?.isMeshLambertMaterial && !c.material.map && !c.material.transparent && !c.material.vertexColors);
+    if (parts.length < 2) return;
+    const pos = [];
+    const nor = [];
+    const col = [];
+    for (const p of parts) {
+      p.updateMatrix();
+      const geo = (p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()).applyMatrix4(p.matrix);
+      const a = geo.attributes.position.array;
+      const n = geo.attributes.normal.array;
+      const { r, g: gg, b } = p.material.color;
+      for (let i = 0; i < a.length; i += 3) {
+        pos.push(a[i], a[i + 1], a[i + 2]);
+        nor.push(n[i], n[i + 1], n[i + 2]);
+        col.push(r, gg, b);
+      }
+      g.remove(p);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.add(new THREE.Mesh(geo, VERTEX_MAT));
+  };
+  visit(root);
+  return root;
 }
 
 function mesh(geo, color, x, y, z) {
@@ -459,6 +497,7 @@ export function createMonkeyModel() {
   g.add(box(0.18, 0.6, 0.18, fur, 0.1, 0.35, -0.35)); // もう片方の腕
   const tail = box(0.12, 1.4, 0.12, fur, -0.4, -0.5, 0); // 長いしっぽ（下へたれる）
   g.add(tail);
+  g.userData.tail = tail; // 動かすので、まとめない
   g.userData.throwAt = (time, since) => {
     arm.rotation.z = since < 0.4 ? -2.2 * (1 - since / 0.4) : 0;
     tail.rotation.x = Math.sin(time * 2) * 0.25;

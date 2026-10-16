@@ -1,8 +1,12 @@
 // 観客の歓声: 雑音を何層も重ねた「ワーッ」をループで流し、ときどき「ウォー！」と大きくなる
 // 大きさと左右は update で毎フレーム近づける（物は作らない）
-export function createCrowd(audio) {
+// 歓声の音のファイル（2026-10-16 にユーザーが用意。読みこめないときは、作った雑音の歓声）
+export const CROWD_FILE = 'sounds/studiam.mp3';
+
+export function createCrowd(audio, { fetch: get = (u) => fetch(u) } = {}) {
   let node = null; // { src, pan, gain, swell }
   let buffer = null;
+  let fileBuffer = null;
   let boostUntil = 0;
 
   // 4秒の歓声（ループ）: 帯域を変えた雑音を3つ重ね、ゆっくり大きさをゆらす
@@ -28,12 +32,25 @@ export function createCrowd(audio) {
   }
 
   return {
+    // 音が使えるようになったあとで1回呼ぶ
+    load() {
+      const ctx = audio.ctx;
+      if (!ctx) return Promise.resolve();
+      return get(CROWD_FILE)
+        .then((r) => {
+          if (!r.ok) throw new Error(CROWD_FILE);
+          return r.arrayBuffer();
+        })
+        .then((bytes) => ctx.decodeAudioData(bytes))
+        .then((b) => (fileBuffer = b))
+        .catch(() => {});
+    },
     start() {
       const ctx = audio.ctx;
       if (!ctx || node) return;
-      buffer = buffer || makeBuffer(ctx);
+      buffer = fileBuffer || buffer || makeBuffer(ctx);
       const src = ctx.createBufferSource();
-      src.buffer = buffer;
+      src.buffer = fileBuffer || buffer;
       src.loop = true;
       const pan = ctx.createStereoPanner();
       const gain = ctx.createGain();

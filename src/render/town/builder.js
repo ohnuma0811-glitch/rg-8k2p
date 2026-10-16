@@ -1,6 +1,6 @@
 // 箱と円柱と文字の板を集めて、まとめて描ける形にする
 // 街の景色は形がとても多いので、色ごとに分けず、頂点の色にして1つの形にまとめる（描く回数を減らす）
-import * as THREE from '../../../vendor/three.module.min.js?v=79b6a69';
+import * as THREE from '../../../vendor/three.module.min.js?v=36dde81';
 
 const MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true });
 
@@ -33,8 +33,9 @@ export function createBuilder() {
       add(new THREE.BoxGeometry(w, h, d), color, x, y + h / 2, z, ry);
     },
     // 立てた円柱（上の半径 rTop、下の半径 rBottom、高さ h）。(x, y, z) は底の真ん中
-    cyl(rTop, rBottom, h, segments, color, x, y, z) {
-      add(new THREE.CylinderGeometry(rTop, rBottom, h, segments), color, x, y + h / 2, z, 0);
+    // open: 上下のふたなし（木の幹や円すいの葉など、ふたが見えない所。三角が半分になる）
+    cyl(rTop, rBottom, h, segments, color, x, y, z, open = false) {
+      add(new THREE.CylinderGeometry(rTop, rBottom, h, segments, 1, open), color, x, y + h / 2, z, 0);
     },
     // x の向きに寝かせた円柱（半径 r、長さ len）。(x, y, z) は真ん中
     cylX(r, len, segments, color, x, y, z) {

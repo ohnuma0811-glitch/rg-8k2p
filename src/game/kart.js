@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=79b6a69';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=79b6a69';
+import { locate, respawnIndex } from './track.js?v=36dde81';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=36dde81';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -101,6 +101,7 @@ export const DASH_BASE = 0.5;
 export const DASH_PER_ACCEL = 0.15;
 export function startDash(kart, params, accelLevel) {
   startBoost(kart, params, DASH_BASE + DASH_PER_ACCEL * accelLevel);
+  kart.dashes = (kart.dashes || 0) + 1; // スタートダッシュの音のため
 }
 
 // factor: 加速中の最高速の倍率（加速板・スタートダッシュは BOOST_FACTOR、ミニターボは MT_FACTOR）。

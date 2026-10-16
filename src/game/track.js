@@ -345,9 +345,9 @@ export function buildTrack(def) {
   t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
   // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
   // イノシシ（Soki Forest。2026-10-16）: at の所。side はかくれている側、period は周期（秒）、phase はずらし（秒）
-  // 3頭の親子（真ん中が親、前後が子。道に沿って BOAR_GAP m ずつ）が、同時に渡る
+  // 3頭の親子（真ん中が親、両わきが子。走ってくる車から見て横に BOAR_GAP m ずつ。2026-10-16 のユーザー依頼「縦ではなく横に」）が、同時に渡る
   t.boars = (def.boars ?? []).flatMap((b, f) => [-1, 0, 1].map((k) => ({
-    s: (markS(t, b.at) + k * BOAR_GAP + t.length) % t.length, side: b.side, period: b.period, phase: b.phase, family: f, size: k === 0 ? 1 : 0.7,
+    s: markS(t, b.at) % t.length, offset: k * BOAR_GAP, side: b.side, period: b.period, phase: b.phase, family: f, size: k === 0 ? 1 : 0.7,
   })));
   t.cows = [];
   if (def.cows) {
