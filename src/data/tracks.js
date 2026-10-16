@@ -142,6 +142,11 @@ export const COURSE3 = {
     { path: 'main', from: ['F1', 'M1', 0.1], to: ['F1', 'M1', 0.9], amp: 0.8, wave: 25 },
     { path: 'middle', from: 0.08, to: 0.92, amp: 0.8, wave: 25 },
   ],
+  // ジャンプ（2026-10-16 のユーザー依頼: 川をジャンプで2回飛び越える）。at の印からの m。飛び出す速さはいつも同じ
+  jumps: [
+    { at: 'J1', boost: [-40, -34], ramp: [-30, -12, 3], gap: [-12, 16] },
+    { at: 'J2', boost: [-40, -34], ramp: [-30, -12, 3], gap: [-12, 16] },
+  ],
   length: 2500,
   roadHalf: 12,
   dirt: 3,

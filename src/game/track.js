@@ -372,6 +372,7 @@ export function buildTrack(def) {
     }
   }
   applyHeights(t, def);
+  applyJumps(t, def);
   addBranches(t, def, fit);
   return t;
 }
@@ -408,6 +409,25 @@ function smoothKeys(keys, x, len, loop) {
 function bump(amp, wave, d, len) {
   const edge = Math.min(1, Math.min(d, len - d) / (wave / 2));
   return amp * Math.sin((2 * Math.PI * d) / wave) * Math.max(0, edge);
+}
+
+// ジャンプ（Soki Forest。2026-10-16 のユーザー依頼「川をジャンプで2回飛び越える」）: 印 at からの m で、加速板・ジャンプ台・地面のない所
+function applyJumps(t, def) {
+  for (const j of def.jumps ?? []) {
+    const at = refS(t, [j.at, j.at, 0]);
+    const inSpan = (s, [a, b]) => { const d = ((s - at + t.length * 1.5) % t.length) - t.length / 2; return d >= a && d < b; };
+    const rel = (s) => ((s - at + t.length * 1.5) % t.length) - t.length / 2;
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      if (inSpan(p.s, j.boost)) { p.boost = true; p.boostTime = 1.0; }
+      if (inSpan(p.s, j.ramp)) {
+        p.ramp = true;
+        p.y += (j.ramp[2] * (rel(p.s) - j.ramp[0])) / (j.ramp[1] - j.ramp[0]);
+        p.wall = def.roadHalf;
+      }
+      if (inSpan(p.s, j.gap)) { p.y = null; p.wall = def.roadHalf; }
+    }
+  }
 }
 
 // 本線の道の高さ（2026-10-16 のユーザー依頼「上下に波打つ」）と、でこぼこ

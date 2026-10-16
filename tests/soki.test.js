@@ -106,3 +106,29 @@ test('どの道を通っても、本線の上の同じ場所として順位を�
   assert.ok(progress(race, 1, t) > progress(race, 0, t));
   assert.deepEqual(ranking(race, t), [1, 0]);
 });
+
+test('ジャンプ①②: どの速さで飛び出しても、川の向こう岸に着く', () => {
+  for (const m of ['J1', 'J2']) {
+    const j = Math.round(markS(t, [m, m, 0]));
+    for (const speed of [6, 20, 40]) {
+      const kart = createKart(t, (j - 30 + t.length) % t.length, 0);
+      kart.speed = speed;
+      let flew = false;
+      let landed = false; // 飛んだあと着地した（その先のでこぼこで速く走って浮くのは、ジャンプとは別）
+      for (let k = 0; k < 60 * 6 && !landed; k++) {
+        stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+        if (kart.airborne) flew = true;
+        else if (flew) landed = true;
+        assert.equal(kart.respawn, 0, `${m} ${speed}: 川に落ちた`);
+      }
+      assert.ok(flew, `${m} ${speed}: 飛ばない`);
+      assert.ok(landed, `${m} ${speed}: 着地しない`);
+    }
+  }
+});
+
+test('川の上（地面のない所）は、ジャンプ①②の2か所だけ', () => {
+  const gaps = [];
+  for (let i = 0; i < t.length; i++) if (t.samples[i].y === null && t.samples[t.samples[i].prev].y !== null) gaps.push(t.samples[i].s);
+  assert.equal(gaps.length, 2);
+});
