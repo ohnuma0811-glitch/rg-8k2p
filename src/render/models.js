@@ -422,6 +422,7 @@ export function createDinoModel() {
   for (let x = 1; x <= 8; x += 3.5) upper.add(box(1.6, 1.2, W * 0.5, dark, x, 3.2, 0)); // 背中のでこぼこ
   upper.position.set(-3.5, 2.6, 0);
   upper.rotation.z = 0.8; // 口を大きく開ける
+  g.userData.upper = upper; // 食べたときに口を閉じる（src/main.js）
   g.add(upper);
   // 頭の後ろ（首）と、頭のてっぺん
   g.add(box(6, 9, W - 2, dark, -5.5, 4.5, 0));

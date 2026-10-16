@@ -366,8 +366,19 @@ export function buildTrack(def) {
     const to = t.length - BUS_HIDE_BACK - BUS_HIDE_MOVE;
     for (let k = 0; k < def.buses; k++) t.buses.push({ s0: from + ((to - from) * k) / Math.max(1, def.buses - 1) });
   }
+  applyHeights(t, def);
+  applyJumps(t, def);
   for (const pad of def.pads ?? []) {
-    const at = markS(t, pad.at);
+    let at = markS(t, pad.at);
+    // crest: でこぼこの頂上（近くでいちばん高い所）に置く（2026-10-16 のユーザー依頼「底にあると踏めないことがある」）
+    if (pad.crest) {
+      let best = at;
+      for (let d = -pad.crest; d <= pad.crest; d++) {
+        const q = samples[Math.round(at + d + t.length) % t.length];
+        if (q.y !== null && q.y > samples[Math.round(best + t.length) % t.length].y) best = at + d;
+      }
+      at = best - pad.len / 2;
+    }
     for (const p of samples) {
       if (between(t, p.s, at, at + pad.len)) {
         p.boost = true;
@@ -376,8 +387,6 @@ export function buildTrack(def) {
       }
     }
   }
-  applyHeights(t, def);
-  applyJumps(t, def);
   addBranches(t, def, fit);
   // 恐竜（Soki Forest。2026-10-16）: ジャンプ at の川。from〜to は、食べられる所（at からの m。川の上）
   if (def.dino) {

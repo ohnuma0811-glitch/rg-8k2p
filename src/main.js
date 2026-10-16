@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack, span } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoContact, mudContact } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -266,7 +266,6 @@ function createGame(name, charId) {
     bumps: 0, // 自分がぶつかった回数（効果音用）
     nuts: createNuts(track), // サルが投げた木の実（Soki Forest）
     monkeyThrows: 0, // 自分の車の近くのサルが投げた数（効果音用）
-    eatenHeard: 0, // 聞こえた「食べられた」の数（自分か、恐竜のまわりにいて誰かが。効果音用）
     wallQuiet: Infinity, // 壁から離れている秒数（壁の音を最初だけ鳴らす）
     sound: null, // 前のフレームの音の様子
     me: PLAYER_SLOT,
@@ -323,13 +322,16 @@ function placeDino(time) {
     track.dinoModel = createDinoModel();
     track.mesh.add(track.dinoModel);
   }
-  const d = track.dino;
-  const p = track.samples[Math.round(d.s + 2) % track.length]; // 川の真ん中（ジャンプ②の地面のない所）
   const pose = dinoPose(track, time);
+  const c = dinoPlace(track, time); // 川の真ん中（ジャンプ②の地面のない所。食べられる判定と同じ場所）
   const m = track.dinoModel;
   m.visible = pose.rise > 0;
-  m.position.set(p.x, -17 + 16 * pose.rise, p.z); // いちばん上で、上あごがジャンプの通り道（高さ 5〜10m）にかかる
-  m.rotation.y = -(p.h + Math.PI); // 前（+x）を、走ってくる車の方へ
+  m.position.set(c.x, c.y, c.z); // いちばん上で、上あごがジャンプの通り道（高さ 5〜10m）にかかる
+  m.rotation.y = -(c.h + Math.PI); // 前（+x）を、走ってくる車の方へ
+  // 誰かを食べたら、口を「パクッ」と閉じて、もぐるまで閉じたまま
+  const since = time - (track.dinoChomp ?? -Infinity);
+  const shut = since >= 0 && since < 4 ? Math.min(1, since / 0.15) : 0;
+  m.userData.upper.rotation.z = 0.8 * (1 - shut) + 0.05 * shut;
 }
 
 // 自分の車が恐竜のまわり（ジャンプ②の DINO_HEAR m 手前から、少し先まで。本線の上）にいるか
@@ -347,54 +349,47 @@ function dinoNear(kart, time) {
 }
 
 // 恐竜に食べられている間、画面をまっくらに（自分の車だけ）
+// 食べられたとき: いきなりまっくらにせず、画面の上と下から恐竜のあご（緑に白い歯）が「ガブッ」と閉じて、
+// 「GULP!」の文字が出てから暗くなる（2026-10-16 のユーザー依頼「食べられたことがわかるエフェクト」。血のりはやめた）
 const dinoBlack = document.createElement('div');
-dinoBlack.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:50';
+dinoBlack.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden;display:none';
+const dinoDark = document.createElement('div');
+dinoDark.style.cssText = 'position:absolute;inset:0;background:#000;opacity:0';
+const jawDiv = (top) => {
+  const el = document.createElement('div');
+  // ぎざぎざの歯（白）と、あご（緑）。上あごは下のふちに、下あごは上のふちに歯
+  const teeth = [];
+  for (let k = 0; k <= 12; k++) teeth.push(`${(k / 12) * 100}% ${top ? (k % 2 ? 100 : 82) : k % 2 ? 0 : 18}%`);
+  el.style.cssText = `position:absolute;left:0;right:0;height:56%;${top ? 'top:0' : 'bottom:0'};background:#fff;clip-path:polygon(${top ? `0 0,100% 0,${teeth.reverse().join(',')}` : `${teeth.join(',')},100% 100%,0 100%`})`;
+  const skin = document.createElement('div');
+  skin.style.cssText = `position:absolute;left:0;right:0;${top ? 'top:0' : 'bottom:0'};height:80%;background:#4e9a3a;border-${top ? 'bottom' : 'top'}:6px solid #3b7a2c`;
+  el.appendChild(skin);
+  return el;
+};
+const jawTop = jawDiv(true);
+const jawBottom = jawDiv(false);
+const gulp = document.createElement('div');
+gulp.textContent = 'GULP!';
+gulp.style.cssText = 'position:absolute;left:0;right:0;top:50%;text-align:center;font:900 min(18vw,140px)/1 sans-serif;color:#ffd84a;-webkit-text-stroke:4px #6b2a00;transform:translateY(-50%)';
+dinoBlack.append(dinoDark, jawTop, jawBottom, gulp);
 document.body.appendChild(dinoBlack);
-// まっくらの上の血のり（2026-10-16 のユーザー依頼）。食べられるたびに、ちがう形で描く
-const blood = document.createElement('canvas');
-blood.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
-dinoBlack.appendChild(blood);
-let bloodShown = false;
-function drawBlood() {
-  const w = (blood.width = Math.max(320, Math.round(innerWidth / 2)));
-  const h = (blood.height = Math.max(200, Math.round(innerHeight / 2)));
-  const g = blood.getContext('2d');
-  g.clearRect(0, 0, w, h);
-  const red = () => `rgba(${150 + Math.random() * 60 | 0},0,${Math.random() * 20 | 0},${0.75 + Math.random() * 0.25})`;
-  // 大きなしぶき（まわりに小さな点）
-  for (let k = 0; k < 7; k++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h * 0.8;
-    const r = (0.06 + Math.random() * 0.12) * Math.min(w, h);
-    g.fillStyle = red();
-    g.beginPath();
-    for (let a = 0; a <= 24; a++) {
-      const t = (a / 24) * Math.PI * 2;
-      const rr = r * (0.7 + Math.random() * 0.5);
-      g.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr);
-    }
-    g.fill();
-    for (let d = 0; d < 14; d++) {
-      const t = Math.random() * Math.PI * 2;
-      const dist = r * (1.1 + Math.random() * 1.2);
-      g.beginPath();
-      g.arc(x + Math.cos(t) * dist, y + Math.sin(t) * dist, r * (0.04 + Math.random() * 0.1), 0, Math.PI * 2);
-      g.fill();
-    }
-  }
-  // 上からたれる血
-  for (let k = 0; k < 18; k++) {
-    const x = Math.random() * w;
-    const len = (0.15 + Math.random() * 0.5) * h;
-    const bw = 3 + Math.random() * 10;
-    g.fillStyle = red();
-    g.fillRect(x - bw / 2, 0, bw, len);
-    g.beginPath();
-    g.arc(x, len, bw * 0.9, 0, Math.PI * 2);
-    g.fill();
-  }
+const DINO_CHOMP = 0.45; // あごが閉じるまで（秒）
+// 食べられてからの秒数 e（まだなら null）で、あご・文字・暗さを決める
+function showChomp(e) {
+  dinoBlack.style.display = e === null ? 'none' : 'block';
+  if (e === null) return;
+  const close = Math.min(1, e / DINO_CHOMP);
+  const ease = 1 - (1 - close) ** 3;
+  jawTop.style.transform = `translateY(${(-100 * (1 - ease)).toFixed(1)}%)`;
+  jawBottom.style.transform = `translateY(${(100 * (1 - ease)).toFixed(1)}%)`;
+  const left = DINO_BLACK - e; // 走り直すまでの秒数
+  // 閉じたあと、だんだん暗く。走り直す前に、だんだん明るく
+  dinoDark.style.opacity = String(Math.max(0, Math.min(1, (e - DINO_CHOMP - 0.4) / 0.5, left / 0.3)));
+  jawTop.style.opacity = jawBottom.style.opacity = String(Math.max(0, Math.min(1, 1 - (e - DINO_CHOMP - 0.6) / 0.4)));
+  const pop = e < DINO_CHOMP ? 0 : Math.min(1, (e - DINO_CHOMP) / 0.15);
+  gulp.style.opacity = String(Math.max(0, Math.min(pop, 1 - (e - 1.6) / 0.4)));
+  gulp.style.transform = `translateY(-50%) scale(${(0.4 + 0.8 * pop).toFixed(2)})`;
 }
-
 // サルと木の実と影（Soki Forest）。サルは木の上に置いたまま、木の実は投げた所から落ちる所へ放物線で
 function placeMonkeys(time, nuts) {
   if (!track.monkeys.length) return;
@@ -508,12 +503,10 @@ function stepGame(dt) {
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆
   if (track.muds.length) karts.forEach((kart) => mudContact(kart, track, dt));
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
-  // 自分が食べられたとき、または恐竜のまわりにいて誰かが食べられたとき、悲鳴が聞こえる
-  if (track.dino) {
-    karts.forEach((kart, k) => {
-      if (dinoContact(kart, track, race.t) && (k === g.me || nearDino(karts[g.me]))) g.eatenHeard++;
-    });
-  }
+  // 悲鳴は自分が食べられたときだけ（2026-10-16 のユーザー依頼）
+  if (track.dino) karts.forEach((kart) => {
+    if (dinoContact(kart, track, race.t)) track.dinoChomp = race.t; // 3D の恐竜の口を閉じる
+  });
   // サル（Soki Forest）: 投げて、落ちた木の実の当たりを全部の車で見てから消す
   if (track.monkeys.length) {
     track.nuts = g.nuts; // CPU が影をよけるため
@@ -578,6 +571,7 @@ async function runRace(name, charId, cup) {
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, course.name, label, COURSE_INTRO);
   game = createGame(name, charId);
+  track.dinoChomp = null; // 恐竜の口を閉じた時刻は、レースごとに消す
   buildTop3(game);
   sfx.engine.start();
   if (standSpot) crowd.start(); // 歓声は観客席のあるコースだけ
@@ -590,7 +584,7 @@ async function runRace(name, charId, cup) {
     game.onEnd = resolve;
   });
   commitPlay();
-  dinoBlack.style.opacity = '0'; // 恐竜でまっくらのまま、レースをやめたとき
+  showChomp(null); // 恐竜でまっくらのまま、レースをやめたとき
   if (why === 'title') {
     raceHud.classList.remove('show');
     removeGame();
@@ -736,10 +730,9 @@ function renderGame(alpha, dt) {
   placeBoars(g.race.t);
   placeMonkeys(g.race.t, g.nuts);
   placeDino(g.race.t);
-  const swallowed = !!g.karts[g.me].swallowed;
-  if (swallowed && !bloodShown) drawBlood();
-  bloodShown = swallowed;
-  dinoBlack.style.opacity = swallowed ? '1' : '0';
+  // 食べられた演出（血のりは出さない。2026-10-16 のユーザーの判断「子供向けには刺激が強い」）
+  const meK = g.karts[g.me];
+  showChomp(meK.swallowed ? DINO_BLACK - meK.respawn : null);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -769,7 +762,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), eatenHeard: g.eatenHeard });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t) });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);

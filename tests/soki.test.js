@@ -325,7 +325,13 @@ test('恐竜が顔を出しているときにジャンプ②を飛ぶと食べ�
   let up = 0;
   while (dinoPose(t, up).state !== 'up') up += 0.05;
   const kart = flyingAtJ2(up);
-  assert.equal(dinoContact(kart, t, up + 0.2), 'eaten');
+  // 飛んでいくあいだ、毎フレーム見る（顔の形か口の中に入ったときに食べられる）
+  let got = null;
+  for (let k = 0; k < 60 && !got; k++) {
+    got = dinoContact(kart, t, up + 0.2 + k / 60);
+    if (!got) stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+  }
+  assert.equal(got, 'eaten');
   assert.equal(kart.eaten, 1);
   assert.ok(kart.swallowed);
   assert.ok(Math.abs(kart.respawn - DINO_BLACK) < 0.01 && DINO_BLACK >= 2.5 && DINO_BLACK <= 3.5);
@@ -359,7 +365,13 @@ test('いちばん遠い外の道に、加速板が2つ（2026-10-16 のユー�
   const a = markS(t, ['F1', 'F1', 0]);
   const b = markS(t, ['M1', 'M1', 0]);
   let pads = 0;
-  for (let i = Math.round(a); i < Math.round(b); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) pads++;
+  for (let i = Math.round(a); i < Math.round(b); i++) {
+    if (!t.samples[i].boost || t.samples[i - 1].boost) continue;
+    pads++;
+    // でこぼこの頂上（前後 15m より高い所）にある（2026-10-16 のユーザー依頼）
+    const mid = t.samples[i + 3];
+    for (const d of [-15, 15]) assert.ok(mid.y >= t.samples[i + 3 + d].y, `加速板 ${i} は頂上ではない`);
+  }
   assert.equal(pads, 2);
 });
 
@@ -383,12 +395,26 @@ test('川に落ちたら（川の上で止まって落ちる）、ジャンプ�
   }
 });
 
+test('恐竜の顔より高く飛んでいる車は食べられない（画面で、ぶつかって見えるときだけ）', () => {
+  let up = 0;
+  while (dinoPose(t, up).state !== 'up') up += 0.05;
+  const kart = flyingAtJ2(up);
+  for (let k = 0; k < 60; k++) {
+    const high = { ...kart, y: kart.y + 15 };
+    assert.equal(dinoContact(high, t, up + k / 60), null);
+    stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+  }
+});
+
 test('恐竜がかくれているときは、ジャンプ②を飛んでも食べられない。道を走っているだけでも食べられない', () => {
   let hide = 0;
   while (dinoPose(t, hide).state !== 'hide') hide += 0.05;
   hide += 0.1;
   const kart = flyingAtJ2(hide);
-  assert.equal(dinoContact(kart, t, hide), null);
+  for (let k = 0; k < 60; k++) {
+    assert.equal(dinoContact(kart, t, hide + k / 60), null);
+    stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+  }
   let up = 0;
   while (dinoPose(t, up).state !== 'up') up += 0.05;
   const ground = createKart(t, Math.round(markS(t, ['J2', 'J2', 0])) + 40, 0);
