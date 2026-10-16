@@ -411,6 +411,8 @@ export function buildTrackMesh(track) {
   const { samples } = track;
   const dirt = track.def.dirt;
   const town = track.def.theme === 'town';
+  // 森（Soki Forest。2026-10-16）: 茶色い土の道（線なし）、縁石なし、道の外は草、柵は丸太の色の低い柵
+  const forest = track.def.theme === 'forest';
   const group = new THREE.Group();
   const hasGround = (p) => p.y !== null;
   const flat = (p) => p.y === 0 && !p.ramp;
@@ -420,7 +422,13 @@ export function buildTrackMesh(track) {
   const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
-  const asphalt = canvasTexture(64, 64, (g, w, h) => {
+  const asphalt = forest ? canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = '#8a6a45';
+    g.fillRect(0, 0, w, h);
+    // 土のでこぼこ（少し濃い点）
+    g.fillStyle = '#7a5c3a';
+    for (let k = 0; k < 40; k++) g.fillRect((k * 37) % w, (k * 23) % h, 3, 2);
+  }) : canvasTexture(64, 64, (g, w, h) => {
     g.fillStyle = '#55585e';
     g.fillRect(0, 0, w, h);
     g.fillStyle = '#e8e8e8';
@@ -445,7 +453,7 @@ export function buildTrackMesh(track) {
   if (corners.length) group.add(cornerWalls(corners, mouths));
   // 縁石（交差点の口の所と、直角の角の外側の四角の中はなし）
   const curbOk = (side) => (p) => {
-    if (!hasGround(p)) return false;
+    if (!hasGround(p) || forest) return false;
     const [rx, rz] = rightOf(p);
     const x = p.x + rx * side * (p.half + 0.5);
     const z = p.z + rz * side * (p.half + 0.5);
@@ -454,7 +462,10 @@ export function buildTrackMesh(track) {
   group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, curbOk(-1), { colorOf: curb }));
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
-  if (!town) {
+  if (forest) {
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
+    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
+  } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
   }
@@ -470,7 +481,8 @@ export function buildTrackMesh(track) {
       return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
     };
     const off = (p) => side * p.wall;
-    if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
+    if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, fenceOk, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m）
+    else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
     group.add(fence(samples, side * track.roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));

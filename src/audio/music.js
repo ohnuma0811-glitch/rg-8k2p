@@ -104,6 +104,17 @@ export const LEAD_VOICES = {
     sustain: 0.8,
     release: 0.1,
   },
+  // 木の楽器ふう（マリンバ。Soki Forest。2026-10-16）: やわらかい三角の波に、すぐ消える高い音を重ね、短く減衰
+  marimba: {
+    layers: [{ type: 'triangle', detune: 0, gain: 1 }, { type: 'sine', detune: 2400, gain: 0.25 }, { type: 'sine', detune: 3986, gain: 0.08 }],
+    gain: 0.16,
+    cutoff: null,
+    vibrato: 0,
+    attack: 0.002,
+    sustain: 0.1,
+    release: 0.18,
+    decay: 0.07,
+  },
   // 鉄琴ふう（ポーンと鳴って、すぐ小さくなる。はじめの結果の曲で使っていた）
   bell: {
     layers: [{ type: 'sine', detune: 0, gain: 1 }, { type: 'triangle', detune: 1200, gain: 0.4 }, { type: 'sine', detune: 1902, gain: 0.15 }],

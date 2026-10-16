@@ -415,8 +415,8 @@ function resultRows(g) {
 
 // 大会の1レース。'next'（次のレースへ）か 'title'（タイトルへ。最後のレースのあとも）を返す
 async function runRace(name, charId, cup) {
-  // 確かめ用: URL の後ろに #course2 を付けると、1レース目から Kampar Town
-  useCourse(dev.has('course2') ? COURSES[1] : courseOf(COURSES, cup));
+  // 確かめ用: URL の後ろに #course2 / #course3 を付けると、1レース目からそのコース
+  useCourse(dev.has('course3') ? COURSES[2] : dev.has('course2') ? COURSES[1] : courseOf(COURSES, cup));
   const label = `RACE ${cup.done + 1}/${cup.races}`;
   // レースの画面に移ったら、曲（タイトル・結果）をだんだん小さくして止める。GO! でコースの曲が始まる
   music.stop(1.5);

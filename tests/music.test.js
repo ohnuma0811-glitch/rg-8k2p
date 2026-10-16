@@ -163,3 +163,12 @@ test('Kampar Town の曲: 鉄琴ふうの丸い音、156 BPM・16小節、G メ�
   assert.equal(song.bars, 16);
   for (const n of parseTrack(song.lead).notes) assert.ok([7, 9, 11, 2, 4].includes(n.midi % 12), `${n.midi}`);
 });
+
+test('Soki Forest の曲: 140 BPM・16小節、木の楽器ふう（marimba）。どのコースも曲がある（2026-10-16）', async () => {
+  const { COURSES } = await import('../src/data/tracks.js');
+  const s = SONGS.forest;
+  assert.equal(s.bpm, 140);
+  assert.equal(s.bars, 16);
+  assert.equal(s.voice, 'marimba');
+  for (const c of COURSES) assert.ok(SONGS[c.music], c.name);
+});

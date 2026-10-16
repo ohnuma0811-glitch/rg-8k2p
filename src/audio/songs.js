@@ -81,4 +81,16 @@ export const SONGS = {
            G6:3 F#6:1 E6:2 B5:2 E6:2 G6:2 B6:4  A6:2 F#6:2 D#6:2 B5:2 F#6:2 D#6:2 B5:4`,
     drums: { kick: 'x..x..x.x..x..x.', snare: '....x.......x...', hat: 'x.xxx.xxx.xxx.xx' },
   },
+  // Soki Forest（2026-10-16）: 明るい森の、木の楽器ふう（マリンバ）の、はずむ曲（F メジャー）
+  forest: {
+    voice: 'marimba',
+    bpm: 140,
+    bars: 16,
+    chords: ['F', 'C', 'Dm', 'Bb', 'F', 'C', 'Bb', 'C', 'Dm', 'Bb', 'F', 'C', 'Bb', 'C', 'F', 'F'],
+    lead: `F5:2 A5:2 C6:2 A5:2 D6:4 C6:4  A5:2 G5:2 A5:2 C6:2 G5:8  F5:2 A5:2 C6:2 D6:2 F6:4 D6:4  C6:2 A5:2 G5:2 A5:2 F5:8
+           A5:1 C6:1 D6:2 C6:2 A5:2 C6:2 D6:2 F6:4  G6:2 F6:2 D6:2 C6:2 D6:8  C6:2 D6:2 F6:2 G6:2 A6:4 G6:2 F6:2  D6:4 C6:4 A5:8
+           F6:3 D6:1 C6:2 A5:2 C6:2 D6:2 F6:4  G6:3 F6:1 D6:2 C6:2 D6:8  A6:2 G6:2 F6:2 D6:2 C6:4 D6:4  F6:2 D6:2 C6:2 A5:2 G5:8
+           F5:2 G5:2 A5:2 C6:2 D6:2 C6:2 A5:2 C6:2  D6:2 F6:2 G6:2 A6:2 G6:4 F6:4  D6:2 C6:2 A5:2 G5:2 A5:4 C6:4  F6:4 C6:4 F5:4 R:4`,
+    drums: { kick: 'x.....x...x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xx' },
+  },
 };
