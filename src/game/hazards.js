@@ -109,7 +109,7 @@ export const BUS_NEAR = 20; // すれちがいの音を鳴らす近さ（m）
 // 時刻 time のバスの場所: s はコースの上の場所（逆に進む）、lateral は右へ
 export function busPose(track, bus, time) {
   const L = track.length;
-  const n = track.samples.length;
+  const n = track.length; // バスは本線だけを走る（分かれ道の点は本線の点のあとにある）
   const s = ((((bus.s0 - BUS_SPEED * time) % L) + L) % L);
   const i = Math.floor(s) % n;
   const p = track.samples[i];

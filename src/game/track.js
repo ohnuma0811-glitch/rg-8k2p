@@ -441,6 +441,14 @@ export function ahead(track, i, k, choose = null) {
   return i;
 }
 
+// 道 path の上（分かれる所から合流する所まで）で、さらに分かれる道の数（3本を同じ確率で選ぶため）
+export function branchesBeyond(track, path) {
+  const p = track.paths[path];
+  let k = 0;
+  for (let i = p.start; i < p.start + p.count; i++) k += (track.forks[i] ?? []).length;
+  return k;
+}
+
 // 点 i から k 個前の点の番号（分かれ道の最初の点からは、分かれる所へもどる）
 export function behind(track, i, k) {
   for (let c = 0; c < k; c++) i = track.samples[i].prev;
