@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=ca732e7';
-import { span, locate, ahead, behind } from './track.js?v=ca732e7';
+import { SPEED_SHOW } from '../hud.js?v=6009f37';
+import { span, locate, ahead, behind } from './track.js?v=6009f37';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -232,15 +232,34 @@ export function dinoPose(track, time) {
 }
 
 // 車が恐竜に食べられるか。ジャンプ②から飛び出して川の上にいて、恐竜が口を開けて出ているとき 'eaten'
+// 恐竜の顔の置き場所（川の真ん中。src/main.js の形もここに置く）。y は顔の下（下あごの下）の高さ
+export function dinoPlace(track, time) {
+  const d = track.dino;
+  const p = track.samples[Math.round(d.s + 2) % track.length];
+  return { x: p.x, z: p.z, h: p.h, y: -17 + 16 * dinoPose(track, time).rise };
+}
+// 顔の中（形の中か、開いた口の中）か。u は顔の前（走ってくる車の方）へ、w は横、v は顔の下からの高さ（m。src/render/models.js の createDinoModel の形）
+const DINO_W = 19 / 2 + 1; // 顔の半分のはば（車の大きさの分を足す）
+function insideDino(u, w, v) {
+  if (Math.abs(w) > DINO_W || v < -1) return false;
+  if (u < -8.5 || u > 7.5) return false;
+  if (u < -2) return v < 18; // 首と頭のてっぺん（大きな目まで）
+  // 開いた上あご（つけ根 u=-3.5, v=2.6 から、0.8 ラジアン上へ）の上までと、その先の口の入口
+  const jaw = 2.6 + (Math.min(u, 3.5) + 3.5) * Math.tan(0.8) + 1.5;
+  return v < Math.min(jaw, 11);
+}
+// 車が恐竜に食べられるか: 恐竜の顔（形か、開いた口の中）に、車が本当にぶつかったときだけ 'eaten'
+// （2026-10-16 のユーザー依頼「画面上で明らかに衝突したとわかる時のみ」。前は、恐竜が出ていて川の上を飛んでいれば食べていた）
 export function dinoContact(kart, track, time) {
   const d = track.dino;
-  if (!d || kart.respawn > 0 || !kart.airborne || !kart.launched) return null;
-  const pose = dinoPose(track, time);
-  if (pose.rise < 0.6) return null;
-  const p = track.samples[kart.seg];
-  if (!p || p.path !== 0) return null;
-  const along = ((p.s - d.s + track.length * 1.5) % track.length) - track.length / 2;
-  if (along < d.from || along > d.to) return null;
+  if (!d || kart.respawn > 0) return null;
+  if (dinoPose(track, time).rise <= 0) return null;
+  const c = dinoPlace(track, time);
+  const dx = kart.x - c.x;
+  const dz = kart.z - c.z;
+  const a = dx * Math.cos(c.h) + dz * Math.sin(c.h); // 走る向きに
+  const w = -dx * Math.sin(c.h) + dz * Math.cos(c.h); // 横に
+  if (!insideDino(-a, w, (kart.y ?? 0) + 0.8 - c.y)) return null;
   kart.eaten = (kart.eaten || 0) + 1;
   kart.swallowed = true; // 見えなくする（自分の車なら画面をまっくらに）
   kart.respawn = DINO_BLACK;

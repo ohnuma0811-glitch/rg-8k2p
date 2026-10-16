@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=ca732e7';
-import { SOKI_SCENERY } from './soki.js?v=ca732e7';
+import { KAMPAR_SCENERY } from './kampar.js?v=6009f37';
+import { SOKI_SCENERY } from './soki.js?v=6009f37';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -151,8 +151,9 @@ export const COURSE3 = {
   ],
   // 加速板: いちばん遠い外の道に2つ（2026-10-16 のユーザー依頼）
   pads: [
-    { at: ['F1', 'M1', 0.35], len: 6, time: 1.0 },
-    { at: ['F1', 'M1', 0.7], len: 6, time: 1.0 },
+    // crest: その近く（m）のでこぼこの頂上に置く
+    { at: ['F1', 'M1', 0.35], len: 6, time: 1.0, crest: 30 },
+    { at: ['F1', 'M1', 0.7], len: 6, time: 1.0, crest: 30 },
   ],
   // ジャンプ（2026-10-16 のユーザー依頼: 川をジャンプで2回飛び越える）。at の印からの m。飛び出す速さはいつも同じ
   jumps: [

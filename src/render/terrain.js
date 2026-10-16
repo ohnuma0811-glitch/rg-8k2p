@@ -1,6 +1,6 @@
 // 道の高さに合わせた地面（Soki Forest。2026-10-16 のユーザー依頼「道が上下に波打つ」）。
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
-import * as THREE from '../../vendor/three.module.min.js?v=ca732e7';
+import * as THREE from '../../vendor/three.module.min.js?v=6009f37';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）

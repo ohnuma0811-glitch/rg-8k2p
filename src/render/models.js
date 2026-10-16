@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=ca732e7';
-import { PHYS } from '../game/kart.js?v=ca732e7';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=ca732e7';
+import * as THREE from '../../vendor/three.module.min.js?v=6009f37';
+import { PHYS } from '../game/kart.js?v=6009f37';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=6009f37';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
 const TUMBLE_FLY = 0.55;
@@ -422,6 +422,7 @@ export function createDinoModel() {
   for (let x = 1; x <= 8; x += 3.5) upper.add(box(1.6, 1.2, W * 0.5, dark, x, 3.2, 0)); // 背中のでこぼこ
   upper.position.set(-3.5, 2.6, 0);
   upper.rotation.z = 0.8; // 口を大きく開ける
+  g.userData.upper = upper; // 食べたときに口を閉じる（src/main.js）
   g.add(upper);
   // 頭の後ろ（首）と、頭のてっぺん
   g.add(box(6, 9, W - 2, dark, -5.5, 4.5, 0));
