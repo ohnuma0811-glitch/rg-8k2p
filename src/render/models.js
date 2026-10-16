@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=ffd7966';
-import { PHYS } from '../game/kart.js?v=ffd7966';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=ffd7966';
+import * as THREE from '../../vendor/three.module.min.js?v=06a912f';
+import { PHYS } from '../game/kart.js?v=06a912f';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=06a912f';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
 const TUMBLE_FLY = 0.55;
@@ -294,7 +294,7 @@ export function syncKartModel(model, kart) {
     if (stars.visible) stars.rotation.y = since * 5;
   }
   // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
-  model.visible = kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0;
+  model.visible = !kart.swallowed && (kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0); // 恐竜に食べられている間は見えない
   for (const w of model.userData.wheels) w.rotation.z -= kart.speed * 0.05;
   // ハンドルを切る向きに、頭を少しかたむける
   model.userData.head.rotation.x = kart.drift.active ? kart.drift.dir * 0.25 : 0;
@@ -366,7 +366,7 @@ export function createCowModel(k = 0) {
 }
 
 // イノシシ（Soki Forest。2026-10-16 のユーザー依頼）: こげ茶の体、短い足4本、白い牙、小さな耳。前は +x
-export function createBoarModel(k = 0) {
+export function createBoarModel(k = 0, size = 1) {
   const g = new THREE.Group();
   const coat = k % 2 ? 0x3d3430 : 0x4a3d36; // 黒っぽい灰色の茶（茶色い土の道で見えるように）
   g.add(box(1.8, 0.9, 0.9, coat, 0, 0.85, 0)); // 体
@@ -396,7 +396,40 @@ export function createBoarModel(k = 0) {
     });
     g.rotation.x = state === 'warn' ? Math.sin(time * 30) * 0.08 : 0;
   };
-  g.scale.setScalar(1.4); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）
+  g.scale.setScalar(1.4 * size); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）。子どもは size 0.7
+  return g;
+}
+
+// 恐竜の顔（Soki Forest。2026-10-16 のユーザー依頼「コースの横幅の 80% くらいの顔が、口を開けて下から」）
+// 幅 19m。前（+x）が、走ってくる車の方。口を大きく上に開ける。y = 0 が下あごの下
+export function createDinoModel() {
+  const g = new THREE.Group();
+  const skin = 0x4e9a3a;
+  const dark = 0x3b7a2c;
+  const W = 19;
+  const lower = new THREE.Group(); // 下あご（前へのびる）
+  lower.add(box(10, 2.2, W, skin, 1.5, 1.1, 0));
+  lower.add(box(9, 0.3, W - 3, 0xc94a4a, 1.5, 2.25, 0)); // 口の中
+  lower.add(box(4, 0.4, W - 6, 0xe06a7a, 2.5, 2.45, 0)); // 舌
+  for (let z = -W / 2 + 1.2; z <= W / 2 - 1.2; z += 2.2) lower.add(box(0.6, 1.2, 0.6, 0xffffff, 6.2, 2.8, z)); // 下の歯（前）
+  for (let x = -2; x <= 5; x += 2.2) for (const z of [-W / 2 + 0.8, W / 2 - 0.8]) lower.add(box(0.6, 1.1, 0.6, 0xffffff, x, 2.8, z));
+  g.add(lower);
+  const upper = new THREE.Group(); // 上あご（後ろのつけ根で、上に大きく開く）
+  upper.add(box(10, 3, W, skin, 5, 1.5, 0));
+  upper.add(box(9, 0.3, W - 3, 0xc94a4a, 5, -0.05, 0));
+  for (let z = -W / 2 + 1.2; z <= W / 2 - 1.2; z += 2.2) upper.add(box(0.6, 1.3, 0.6, 0xffffff, 9.6, -0.6, z)); // 上の歯
+  for (const z of [-3, 3]) upper.add(box(0.8, 0.8, 1.2, 0x2a4a20, 9.8, 2.2, z)); // 鼻の穴
+  for (let x = 1; x <= 8; x += 3.5) upper.add(box(1.6, 1.2, W * 0.5, dark, x, 3.2, 0)); // 背中のでこぼこ
+  // 目（上あごの上。走ってくる車から見える）
+  for (const z of [-W / 2 + 2.5, W / 2 - 2.5]) {
+    upper.add(box(3, 3, 3, 0xffffff, 2, 4, z));
+    upper.add(box(1.4, 1.6, 1.6, 0x111111, 3.2, 4.4, z));
+  }
+  upper.position.set(-3.5, 2.6, 0);
+  upper.rotation.z = 0.8; // 口を大きく開ける
+  g.add(upper);
+  // 頭の後ろ（首）
+  g.add(box(6, 9, W - 2, dark, -5.5, 4.5, 0));
   return g;
 }
 

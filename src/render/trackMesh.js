@@ -1,15 +1,15 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=ffd7966';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=ffd7966';
-import { buildJungle } from './town/jungle.js?v=ffd7966';
-import { buildWater } from './town/water.js?v=ffd7966';
-import { buildBridge } from './forest/bridge.js?v=ffd7966';
-import * as forestKit from './forest/kit.js?v=ffd7966';
-import { createBuilder } from './town/builder.js?v=ffd7966';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=ffd7966';
-import { buildTerrain, terrainHeight } from './terrain.js?v=ffd7966';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=ffd7966';
-import { cornerUW, markS } from '../game/track.js?v=ffd7966';
+import * as THREE from '../../vendor/three.module.min.js?v=06a912f';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=06a912f';
+import { buildJungle } from './town/jungle.js?v=06a912f';
+import { buildWater } from './town/water.js?v=06a912f';
+import { buildBridge } from './forest/bridge.js?v=06a912f';
+import * as forestKit from './forest/kit.js?v=06a912f';
+import { createBuilder } from './town/builder.js?v=06a912f';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=06a912f';
+import { buildTerrain, terrainHeight } from './terrain.js?v=06a912f';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=06a912f';
+import { cornerUW, markS } from '../game/track.js?v=06a912f';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -249,6 +249,21 @@ function nearIndex(samples) {
 
 // 柵を立てられるか（点 i の左右 -1 / 1）。地面がある平らな所で、柵の位置がほかの道の舗装（＋1m）の上でなければ立てる
 // （交わる所の近くでも、下を通る道をふさがない所には柵を描く。ジャンプの着地の所も囲む）
+// 点 p から横に lat m の所が、ほかの道（ほかの path、または同じ道の遠い所）の道の面の上か。高さが 3m 以上ちがう道（橋の上と下）は数えない
+const otherRoadCache = new WeakMap();
+export function onOtherRoad(track, p, lat) {
+  if (!otherRoadCache.has(track)) otherRoadCache.set(track, nearIndex(track.samples));
+  const near = otherRoadCache.get(track);
+  const x = p.x - Math.sin(p.h) * lat;
+  const z = p.z + Math.cos(p.h) * lat;
+  return near(x, z, track.roadHalf + 2, (j) => {
+    const q = track.samples[j];
+    if (q.y === null || Math.abs(q.y - (p.y ?? 0)) >= 3) return false;
+    const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
+    return other && Math.hypot(q.x - x, q.z - z) < q.half;
+  });
+}
+
 // mouths: 通行止めの道の口（src/render/town/scenery.js の stubMouths）。口の前の壁はあける
 export function fenceSides(track, mouths = []) {
   const { samples, roadHalf } = track;
@@ -473,8 +488,10 @@ export function buildTrackMesh(track) {
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
   if (forest) {
-    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
-    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
+    // 道のふちの草は、分かれる所・合流する所で、ほかの道の上にはみ出さない（2026-10-16 のユーザー依頼「つなぎ目の草と土がおかしい」）
+    const grassOk = (side) => (p) => hasGround(p) && !onOtherRoad(track, p, side * (p.half + dirt / 2)) && !onOtherRoad(track, p, side * (p.half + 0.5));
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { color: 0x6aa84f }));
+    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { color: 0x6aa84f }));
   } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
@@ -613,6 +630,15 @@ export function buildTrackMesh(track) {
           hide.pop();
         }
       }
+    }
+    // ぬかるみ（近道に3つ）: こげ茶の泥を、少しずつずらした丸を重ねて
+    for (const m of track.muds ?? []) {
+      [[0, 0, 1, 0x5a3d22], [m.r * 0.3, -m.r * 0.2, 0.7, 0x4a3018], [-m.r * 0.35, m.r * 0.25, 0.55, 0x6b4a2c], [m.r * 0.1, m.r * 0.15, 0.35, 0x3a2512]].forEach(([dx, dz, f, c], k) => {
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(m.r * f, 18), new THREE.MeshLambertMaterial({ color: c }));
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.set(m.x + dx, m.y + 0.07 + k * 0.03, m.z + dz); // 重ねる丸は少しずつ高く（ちらつかないように）
+        group.add(disc);
+      });
     }
     // サルのいる高い木（枝が道の方へのびる）
     for (const m of track.monkeys ?? []) {

@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=ffd7966';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=ffd7966';
+import { locate, respawnIndex } from './track.js?v=06a912f';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=06a912f';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -72,6 +72,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.surface = 'road';
   kart.respawn = 0;
   kart.respawnAt = i;
+  kart.swallowed = false; // 恐竜に食べられて見えない（Soki Forest）
   kart.onWall = false;
   kart.onIsland = false;
   kart.tumble = 0; // バンプで転がっている残りの秒数
@@ -166,7 +167,8 @@ export function stepKart(kart, ctl, track, params, dt) {
     return;
   }
   const here = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-  const steer = Math.max(-1, Math.min(1, ctl.steer));
+  // ぬかるみ（Soki Forest）: ハンドルが左右逆になる
+  const steer = Math.max(-1, Math.min(1, ctl.steer)) * (kart.muddy > 0 ? -1 : 1);
 
   if (!kart.airborne) {
     if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
@@ -282,6 +284,7 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.y = loc.ground;
       kart.vy = 0;
       kart.airborne = false;
+      kart.launched = false;
       // 空中でドリフトボタンを押してハンドルを切っていれば、着地してすぐドリフト（マリオカート64 のように）
       if (ctl.drift && Math.abs(steer) > PHYS.COUNTER && kart.speed >= PHYS.DRIFT_MIN_SPEED) {
         kart.drift = { active: true, dir: Math.sign(steer), stage: 0, counter: false, flicks: 0, time: 0 };
@@ -295,6 +298,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   } else if (loc.ground === null) {
     // 地面がなくなった。前に走っていればジャンプ台から飛び出す（いつも同じ速さで、必ず向こう側に届く）
     kart.airborne = true;
+    kart.launched = true; // ジャンプ台から飛び出した（「イヤッホー！」の声。坂の頂上で浮いたときは false）
     kart.hop = 0; // 跳ねている途中でも、飛び出したら跳ねは終わり
     if (kart.drift.active) endDrift(kart, params, false);
     if (kart.speed > 0) {
@@ -313,7 +317,10 @@ export function stepKart(kart, ctl, track, params, dt) {
     const b = track.samples[c.next];
     if (a.y !== null && b.y !== null && !a.ramp && !b.ramp && !c.ramp) {
       const bend = b.y - 2 * c.y + a.y; // 1m ごとの高さの曲がり（頂上でマイナス）
-      if (bend * kart.speed * kart.speed < -PHYS.GRAVITY) kart.airborne = true;
+      if (bend * kart.speed * kart.speed < -PHYS.GRAVITY) {
+        kart.airborne = true;
+        kart.launched = false;
+      }
     }
   }
 

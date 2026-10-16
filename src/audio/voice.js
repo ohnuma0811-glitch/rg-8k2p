@@ -1,8 +1,9 @@
 // キャラの声（ジャンプ台から飛び出したときの「イヤッホー！」など）。音のファイルを読みこんで鳴らす
 // 男の子のキャラは男衆「イヤッホー！」、女の子のキャラは女衆「おう！」（どちらもフリー素材。2026-10-15 のユーザー依頼）
-export const VOICE_FILES = { male: 'sounds/yahoo-male.mp3', female: 'sounds/yahoo-female.mp3' };
+// scream: 恐竜に食べられたときの悲鳴、roar: 恐竜が出てくるときの咆哮（どちらも ElevenLabs で作った音。2026-10-16 にユーザーが用意）
+export const VOICE_FILES = { male: 'sounds/yahoo-male.mp3', female: 'sounds/yahoo-female.mp3', scream: 'sounds/dino-scream.mp3', roar: 'sounds/dino-roar.mp3' };
 // 声の大きさ（女衆のファイルは男衆より 5dB ほど小さいので、大きめに鳴らす）
-export const VOICE_GAIN = { male: 1, female: 1.4 };
+export const VOICE_GAIN = { male: 1, female: 1.4, scream: 1, roar: 1.2 };
 
 export function createVoices(audio, { fetch: get = (u) => fetch(u) } = {}) {
   const bufs = {};
@@ -23,6 +24,10 @@ export function createVoices(audio, { fetch: get = (u) => fetch(u) } = {}) {
             .catch(() => {}),
         ),
       );
+    },
+    // その声のファイルを読みこめたか
+    has(kind) {
+      return !!bufs[kind];
     },
     play(kind) {
       const ctx = audio.ctx;

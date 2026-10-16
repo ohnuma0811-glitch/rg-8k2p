@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=ffd7966';
+import { locate } from '../game/track.js?v=06a912f';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -23,7 +23,7 @@ export function jumpAhead(track, kart, lead = JUMP_LEAD) {
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
 // jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0 }) {
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false }) {
   return {
     count,
     lap,
@@ -32,6 +32,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     stage: kart.drift.active ? kart.drift.stage : 0,
     boost: kart.boost > 0,
     airborne: kart.airborne,
+    rampJump: !!kart.airborne && !!kart.launched, // ジャンプ台から飛び出して空中にいる（坂の頂上で浮いたときは false）
     // もうすぐ着地する（落ちている途中で、いまの速さのままなら LAND_LEAD 秒以内に高さ 0 に着く）
     landingSoon: !!kart.airborne && (kart.vy || 0) < 0 && (kart.y || 0) / -kart.vy <= LAND_LEAD,
     hop: (kart.hop || 0) > 0, // ドリフトのボタンで跳ねている
@@ -49,6 +50,9 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
     monkeyThrows, // 近くのサルが投げた数の合計
     nutHits: kart.nutHits || 0, // 木の実が当たった回数
+    eaten: kart.eaten || 0, // 恐竜に食べられた回数
+    mudHits: kart.mudHits || 0, // ぬかるみに入った回数
+    dinoRoar, // 近くの恐竜が、川から上がってきている
   };
 }
 
@@ -83,10 +87,13 @@ export function soundEvents(prev, cur, laps) {
   if (cur.boarHits > prev.boarHits) ev.push('bump');
   if (cur.monkeyThrows > prev.monkeyThrows) ev.push('monkey');
   if (cur.nutHits > prev.nutHits) ev.push('nutHit');
+  if (cur.eaten > prev.eaten) ev.push('eaten');
+  if (cur.mudHits > prev.mudHits) ev.push('mudSlip');
+  if (cur.dinoRoar && !prev.dinoRoar) ev.push('dinoRoar');
   // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
   // （ドリフトの跳ねは airborne にならない）
   if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');
-  else if (cur.airborne && !prev.airborne && !prev.jumpSoon) ev.push('jump');
+  else if (cur.rampJump && !prev.rampJump && !prev.jumpSoon) ev.push('jump'); // ジャンプ台の時だけ（2026-10-16 のユーザー依頼）
   if (cur.drift && !prev.drift) ev.push('driftStart');
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');

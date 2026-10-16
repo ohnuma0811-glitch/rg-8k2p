@@ -1,6 +1,6 @@
 // 道の高さに合わせた地面（Soki Forest。2026-10-16 のユーザー依頼「道が上下に波打つ」）。
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
-import * as THREE from '../../vendor/three.module.min.js?v=ffd7966';
+import * as THREE from '../../vendor/three.module.min.js?v=06a912f';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）
@@ -59,12 +59,17 @@ export function terrainHeight(track, x, z) {
   let weight = 0;
   let cap = Infinity; // すぐ近くの道より高くしない
   let onRoad = false;
+  // 道のふちから NEAR m までは、いちばん近い道の点より高くしない（坂で、少し後ろの低い点に引っぱられないように）
+  let bestE = Infinity;
+  const close = [];
   for (let gx = cx - span; gx <= cx + span; gx++) {
     for (let gz = cz - span; gz <= cz + span; gz++) {
       for (const p of grid.get(`${gx},${gz}`) ?? []) {
         const e = Math.hypot(p.x - x, p.z - z) - p.wall; // 道のふちからの距離（道の上はマイナス）
         if (e > FALL) continue;
-        if (e <= NEAR) cap = Math.min(cap, p.y);
+        if (e <= 0) cap = Math.min(cap, p.y); // その場所を通る道より高くしない
+        if (e <= NEAR) close.push([e, p.y]);
+        bestE = Math.min(bestE, e);
         if (e <= 0) onRoad = true;
         // 近い道ほど強く効く（遠い道に引っぱられないように）
         const w = 1 / Math.max(e, 0.5) ** 4;
@@ -73,6 +78,8 @@ export function terrainHeight(track, x, z) {
       }
     }
   }
+  // いちばん近い点とほぼ同じ近さ（0.5m 以内）の点だけで、高さの上限を決める
+  for (const [e, y] of close) if (e <= bestE + 0.5) cap = Math.min(cap, y);
   let y = weight ? Math.min(sum / weight, cap) : 0;
   if (!onRoad && river.length > 1) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));
@@ -134,12 +141,16 @@ export function buildTerrain(track) {
 function buildShoulders(track) {
   const { samples } = track;
   const { grid } = prep(track);
-  const onOther = (x, z) => {
+  // (x, z) が、ほかの道（self の道の近くはのぞく）の柵の内側か
+  const onOther = (x, z, self) => {
     const cx = Math.floor(x / CELL);
     const cz = Math.floor(z / CELL);
     for (let gx = cx - 2; gx <= cx + 2; gx++) {
       for (let gz = cz - 2; gz <= cz + 2; gz++) {
-        for (const p of grid.get(`${gx},${gz}`) ?? []) if (Math.hypot(p.x - x, p.z - z) < p.wall + 1) return true;
+        for (const p of grid.get(`${gx},${gz}`) ?? []) {
+          if (p.path === self.path && Math.min(Math.abs(p.s - self.s), track.length - Math.abs(p.s - self.s)) < 40) continue;
+          if (Math.hypot(p.x - x, p.z - z) < p.wall + 1) return true;
+        }
       }
     }
     return false;
@@ -153,7 +164,11 @@ function buildShoulders(track) {
       const rz = Math.cos(p.h) * side;
       const ox = p.x + rx * (p.wall + SHOULDER);
       const oz = p.z + rz * (p.wall + SHOULDER);
-      if (onOther(ox, oz)) return null;
+      // 草の坂の、まん中や道のそばも、ほかの道にかからないか（分かれる所・合流する所）
+      for (const f of [0.15, 0.5, 1]) {
+        const d = p.wall + SHOULDER * f;
+        if (onOther(p.x + rx * d, p.z + rz * d, p)) return null;
+      }
       return {
         a: [p.x + rx * p.wall, p.y + 0.02, p.z + rz * p.wall],
         b: [ox, terrainHeight(track, ox, oz) - 0.15, oz],

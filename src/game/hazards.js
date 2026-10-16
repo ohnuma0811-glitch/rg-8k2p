@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=ffd7966';
-import { span, locate, ahead } from './track.js?v=ffd7966';
+import { SPEED_SHOW } from '../hud.js?v=06a912f';
+import { span, locate, ahead } from './track.js?v=06a912f';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -154,7 +154,7 @@ export function boarContact(kart, track, time, phys) {
 export const NUT_FALL = 1.0; // 投げてから落ちるまで（秒。そのあいだ落ちる所に影が見える）
 export const NUT_RADIUS = 1.6; // 落ちた所からこの距離の車に当たる（m）
 export const MONKEY_RANGE = 40; // この距離より近い車をねらう（m）
-export const MONKEY_EVERY = 3; // 1匹が投げる間（秒）
+export const MONKEY_EVERY = 2.5; // 1匹が投げる間（秒。2026-10-16 に 3 から。近道をもう少し難しく）
 export const MONKEY_HEIGHT = 9; // 木の上の高さ（m）
 
 export function createNuts(track) {
@@ -204,6 +204,56 @@ export function nutContact(kart, nuts, time, phys, { keep = false } = {}) {
 
 export function dropFallen(nuts, time) {
   nuts.list = nuts.list.filter((n) => time - n.t0 < NUT_FALL);
+}
+
+// 恐竜（Soki Forest。2026-10-16 のユーザー依頼）: ジャンプ②の下の川から、大きな顔が口を開けて、ジャンプの通り道に出てくる
+// そのとき飛んだ車は食べられて、DINO_BLACK 秒まっくら。そのあとジャンプ台の DINO_BACK m 手前から走り直し
+export const DINO_BLACK = 3; // 食べられて、まっくらの秒数
+export const DINO_BACK = 30; // 走り直す所（ジャンプ②の印の手前 m）
+const DINO_RISE = 1.2; // 川から上がってくる秒数（このあいだに気づける）
+const DINO_UP = 2.6; // 顔を出している秒数
+const DINO_SINK = 0.8; // もぐる秒数
+// 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
+export function dinoPose(track, time) {
+  const d = track.dino;
+  if (!d) return { state: 'hide', rise: 0 };
+  const tin = (((time + d.phase) % d.period) + d.period) % d.period;
+  const a = d.period - DINO_RISE - DINO_UP - DINO_SINK;
+  if (tin < a) return { state: 'hide', rise: 0 };
+  if (tin < a + DINO_RISE) return { state: 'rise', rise: (tin - a) / DINO_RISE };
+  if (tin < a + DINO_RISE + DINO_UP) return { state: 'up', rise: 1 };
+  return { state: 'sink', rise: 1 - (tin - a - DINO_RISE - DINO_UP) / DINO_SINK };
+}
+
+// 車が恐竜に食べられるか。ジャンプ②から飛び出して川の上にいて、恐竜が口を開けて出ているとき 'eaten'
+export function dinoContact(kart, track, time) {
+  const d = track.dino;
+  if (!d || kart.respawn > 0 || !kart.airborne || !kart.launched) return null;
+  const pose = dinoPose(track, time);
+  if (pose.rise < 0.6) return null;
+  const p = track.samples[kart.seg];
+  if (!p || p.path !== 0) return null;
+  const along = ((p.s - d.s + track.length * 1.5) % track.length) - track.length / 2;
+  if (along < d.from || along > d.to) return null;
+  kart.eaten = (kart.eaten || 0) + 1;
+  kart.swallowed = true; // 見えなくする（自分の車なら画面をまっくらに）
+  kart.respawn = DINO_BLACK;
+  kart.respawnAt = Math.round(d.s - DINO_BACK + track.length) % track.length;
+  kart.speed = 0;
+  cancelDrift(kart);
+  return 'eaten';
+}
+
+// ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）
+export const MUD_TIME = 4;
+export function mudContact(kart, track, dt) {
+  if (kart.muddy > 0) kart.muddy = Math.max(0, kart.muddy - dt);
+  const inside = !kart.airborne && !(kart.respawn > 0) && (track.muds ?? []).some((m) => Math.hypot(kart.x - m.x, kart.z - m.z) < m.r);
+  if (inside && !kart.onMud) {
+    kart.muddy = MUD_TIME;
+    kart.mudHits = (kart.mudHits || 0) + 1;
+  }
+  kart.onMud = inside;
 }
 
 // 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）

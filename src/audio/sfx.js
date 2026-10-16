@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=ffd7966';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=ffd7966';
+import { midiToHz } from './notes.js?v=06a912f';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=06a912f';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -253,6 +253,78 @@ export function createSfx(audio) {
         o.connect(g);
         o.start(t);
         o.stop(t + 0.11);
+      }
+    },
+    // 恐竜に食べられた「ぎゃーーー」（ファイルがないときの代わり）: 高い声のような音を、ふるわせながら下げる
+    eaten: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 1400;
+      band.Q.value = 1.2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.45, t + 0.05);
+      g.gain.setValueAtTime(0.45, t + 1.0);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+      band.connect(g).connect(audio.sfxOut);
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(700, t);
+      o.frequency.linearRampToValueAtTime(900, t + 0.15);
+      o.frequency.exponentialRampToValueAtTime(380, t + 1.6);
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 9;
+      const depth = ctx.createGain();
+      depth.gain.value = 40;
+      lfo.connect(depth).connect(o.frequency);
+      o.connect(band);
+      o.start(t);
+      lfo.start(t);
+      o.stop(t + 1.65);
+      lfo.stop(t + 1.65);
+    },
+    // ぬかるみのスリップの音（4秒）: タイヤが空回りするような「キュルキュル」と、泥の「ビチャビチャ」をゆらしながら
+    mudSlip: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const dur = 4;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.32, t + 0.1);
+      g.gain.setValueAtTime(0.32, t + dur - 0.6);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      g.connect(audio.sfxOut);
+      // キュルキュル: 高めの三角の波を、速くゆらす
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = 1150;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 7;
+      const depth = ctx.createGain();
+      depth.gain.value = 260;
+      lfo.connect(depth).connect(o.frequency);
+      const og = ctx.createGain();
+      og.gain.value = 0.35;
+      o.connect(og).connect(g);
+      // ビチャビチャ: 雑音を低めのフィルターに通し、フィルターをゆらす
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(ctx);
+      src.loop = true;
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 500;
+      f.Q.value = 2;
+      const lfo2 = ctx.createOscillator();
+      lfo2.frequency.value = 4;
+      const d2 = ctx.createGain();
+      d2.gain.value = 250;
+      lfo2.connect(d2).connect(f.frequency);
+      src.connect(f).connect(g);
+      for (const n of [o, lfo, lfo2, src]) {
+        n.start(t);
+        n.stop(t + dur);
       }
     },
     // 木の実が当たった「コツン」: 短い木の音（高めの三角の波、0.06秒）
