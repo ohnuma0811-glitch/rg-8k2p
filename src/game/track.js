@@ -371,8 +371,60 @@ export function buildTrack(def) {
       }
     }
   }
+  applyHeights(t, def);
   addBranches(t, def, fit);
   return t;
+}
+
+// 場所の書き方（'S'、印の名前、[印, 印, 割合]）→ s
+function refS(t, ref) {
+  if (ref === 'S') return 0;
+  if (typeof ref === 'string') return t.marks[ref];
+  return markS(t, ref);
+}
+
+// キーの間を、なめらかに（1 - cos）つなぐ。keys = [[位置, 高さ], ...]（位置の順）。位置は 0〜len、loop なら輪
+function smoothKeys(keys, x, len, loop) {
+  if (!keys.length) return 0;
+  let a = keys[keys.length - 1];
+  let b = keys[0];
+  for (let k = 0; k < keys.length; k++) {
+    if (keys[k][0] > x) {
+      b = keys[k];
+      a = k > 0 ? keys[k - 1] : loop ? [keys[keys.length - 1][0] - len, keys[keys.length - 1][1]] : keys[0];
+      break;
+    }
+    if (k === keys.length - 1) {
+      a = keys[k];
+      b = loop ? [keys[0][0] + len, keys[0][1]] : keys[k];
+    }
+  }
+  if (b[0] === a[0]) return a[1];
+  const f = (x - a[0]) / (b[0] - a[0]);
+  return a[1] + (b[1] - a[1]) * (1 - Math.cos(Math.PI * f)) / 2;
+}
+
+// でこぼこ: amp × sin(2π × 長さ / wave)。はしの wave/2 で 0 から立ち上げる
+function bump(amp, wave, d, len) {
+  const edge = Math.min(1, Math.min(d, len - d) / (wave / 2));
+  return amp * Math.sin((2 * Math.PI * d) / wave) * Math.max(0, edge);
+}
+
+// 本線の道の高さ（2026-10-16 のユーザー依頼「上下に波打つ」）と、でこぼこ
+function applyHeights(t, def) {
+  if (!def.heights && !def.bumpy) return;
+  const keys = (def.heights ?? []).map(([ref, y]) => [refS(t, ref) % t.length, y]).sort((a, b) => a[0] - b[0]);
+  const bumps = (def.bumpy ?? []).filter((b) => b.path === 'main').map((b) => ({ ...b, a: refS(t, b.from), b: refS(t, b.to) }));
+  for (let i = 0; i < t.length; i++) {
+    const p = t.samples[i];
+    if (p.y === null) continue;
+    p.y += smoothKeys(keys, p.s, t.length, true);
+    for (const b of bumps) {
+      if (!between(t, p.s, b.a, b.b)) continue;
+      p.y += bump(b.amp, b.wave, span(t, b.a, p.s), span(t, b.a, b.b));
+      p.bumpy = true;
+    }
+  }
 }
 
 // 分かれ道（2026-10-16 のユーザー依頼「複数の分岐」）: 点を samples の後ろに足し、分かれる所・合流する所とつなぐ。
@@ -424,6 +476,19 @@ function addBranches(t, def, fit) {
       const p = samples[i];
       const q = samples[p.next];
       p.h = Math.atan2(q.z - p.z, q.x - p.x);
+    }
+    // 高さ: はしは分かれる所・合流する所の高さ、あいだは b.heights（[割合, 高さ]）をなめらかに。でこぼこも
+    const count = points.length;
+    const hk = [[0, pf.y ?? 0], ...(b.heights ?? []).map(([f, y]) => [f * (count + 1), y]), [count + 1, pj.y ?? 0]];
+    const bm = (def.bumpy ?? []).find((q) => q.path === b.id);
+    for (let k = 0; k < count; k++) {
+      const p = samples[start + k];
+      p.y = smoothKeys(hk, k + 1, count + 1, false);
+      if (bm && k / count >= bm.from && k / count <= bm.to) {
+        const a = bm.from * count;
+        p.y += bump(bm.amp, bm.wave, (k - a) * step, (bm.to - bm.from) * count * step);
+        p.bumpy = true;
+      }
     }
     (t.forks[fork] ??= []).push(pathIndex);
     (t.joins[join] ??= []).push(samples.length - 1);
@@ -519,13 +584,23 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
     s,
     lateral,
     heading: p.h,
-    ground: p.y,
+    ground: groundAt(samples, p, dx * fx + dz * fz),
     wall,
     half: p.half,
     surface,
     boost: p.boost && onRoad && (!p.boostSide || Math.sign(lateral) === p.boostSide),
     boostTime: p.boostTime,
   };
+}
+
+// 点 p から前へ d m の所の地面の高さ（となりの点との間をなめらかにつなぐ。坂で上下の速さがぎざぎざにならないように）
+function groundAt(samples, p, d) {
+  if (p.y === null) return null;
+  const q = samples[d >= 0 ? p.next : p.prev];
+  if (q === undefined || q.y === null) return p.y;
+  const len = Math.hypot(q.x - p.x, q.z - p.z) || 1;
+  const f = Math.min(1, Math.abs(d) / len);
+  return p.y + (q.y - p.y) * f;
 }
 
 // 落ちた所 i から戻って、平らな地面が10m続いた所を、戻る場所にする

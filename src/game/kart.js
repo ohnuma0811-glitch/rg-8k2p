@@ -31,6 +31,7 @@ export const PHYS = {
   PAD_BOOST: 1.0, // 加速板の加速の時間（秒）
   BOOST_FACTOR: 1.3, // 加速中の最高速の倍率
   GRAVITY: 15, // m/s²
+  SLOPE: 0.6, // 坂で速さが変わる強さ（上りは遅く、下りは速く。2026-10-16）
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
@@ -186,6 +187,13 @@ export function stepKart(kart, ctl, track, params, dt) {
     } else {
       kart.speed = Math.max(maxV, kart.speed - PHYS.DRAG * dt);
     }
+    // 坂: 上りは少し遅く、下りは少し速く（2026-10-16 のユーザー依頼「オフロード」）。ジャンプ台の坂はのぞく（いつも同じ速さで飛ぶ）
+    const p0 = track.samples[here.i];
+    const p1 = track.samples[p0.next];
+    if (here.ground !== null && p1.y !== null && !p0.ramp && !p1.ramp) {
+      const fwd = Math.cos(wrapAngle(kart.move - here.heading)) >= 0 ? 1 : -1;
+      kart.speed -= PHYS.GRAVITY * (p1.y - p0.y) * fwd * PHYS.SLOPE * dt;
+    }
 
     // ドリフト: ボタンを押した瞬間に小さく跳ね、着地のときハンドルを切っていれば、その向きに滑り出す
     if (ctl.drift && !kart.prevDrift && !kart.drift.active && kart.hop <= 0 && kart.speed >= PHYS.DRIFT_MIN_SPEED) {
@@ -296,7 +304,17 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.vy = 0;
     }
   } else {
+    // 地面に沿って走る（上下の速さも覚える）。坂の頂上で、地面が重力より速く下がっていく（速さ² × 地面の曲がり ＞ 重力）なら浮く（2026-10-16）
+    const vy = (loc.ground - kart.y) / dt;
     kart.y = loc.ground;
+    kart.vy = vy;
+    const c = track.samples[loc.i];
+    const a = track.samples[c.prev];
+    const b = track.samples[c.next];
+    if (a.y !== null && b.y !== null && !a.ramp && !b.ramp && !c.ramp) {
+      const bend = b.y - 2 * c.y + a.y; // 1m ごとの高さの曲がり（頂上でマイナス）
+      if (bend * kart.speed * kart.speed < -PHYS.GRAVITY) kart.airborne = true;
+    }
   }
 
   // 柵: 外に出ようとしたら押し戻す。地面ではコースの向きにそろえる
