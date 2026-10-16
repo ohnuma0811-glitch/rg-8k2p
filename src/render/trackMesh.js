@@ -4,6 +4,8 @@ import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
 import { buildJungle } from './town/jungle.js';
 import { buildWater } from './town/water.js';
 import { buildBridge } from './forest/bridge.js';
+import { buildRiver, buildWaterfall } from './forest/water.js';
+import { buildTerrain } from './terrain.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
 import { cornerUW } from '../game/track.js';
 
@@ -567,8 +569,13 @@ export function buildTrackMesh(track) {
     group.add(buildWater(track, avoid));
   }
 
-  // 森（Soki Forest）: 石のアーチ橋
-  if (forest) group.add(buildBridge(track));
+  // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
+  if (forest) {
+    group.add(buildBridge(track));
+    group.add(buildTerrain(track));
+    group.add(buildRiver(track));
+    group.add(buildWaterfall(track));
+  }
 
   // 観客席・土手・木と看板は、サーキットだけ
   if (track.def.theme === 'circuit') {

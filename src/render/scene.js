@@ -22,6 +22,7 @@ export function createWorld() {
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshLambertMaterial({ color: 0x5fae4b }));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
+  scene.userData.ground = ground;
 
   // 遠くの山はコースごとにちがうので、コースの形と一緒に作る（src/render/trackMesh.js の mountains）
   const camera = new THREE.PerspectiveCamera(70, 1, 0.5, 2000);
@@ -35,6 +36,8 @@ export function setCourse(scene, track) {
   if (!track.mesh) track.mesh = buildTrackMesh(track);
   scene.add(track.mesh);
   scene.userData.course = track;
+  // 森は地面の形を作るので、平らな地面は川の底より下へ（2026-10-16）
+  if (scene.userData.ground) scene.userData.ground.position.y = track.def.theme === 'forest' ? -2.5 : 0;
 }
 
 export function resizeRenderer(renderer, camera, w, h, ratio) {
