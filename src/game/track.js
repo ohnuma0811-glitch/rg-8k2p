@@ -537,6 +537,17 @@ function addBranches(t, def, fit) {
         p.bumpy = true;
       }
     }
+    // 合流で本線の横に並ぶ所は、本線と同じ高さ（段差なし）。その手前 40m でなめらかに近づける
+    if (b.merge) {
+      for (let k = 0; k < count; k++) {
+        const d = (count - k) * step; // 合流する所までの長さ
+        if (d > b.merge + 40) continue;
+        const m = samples[(join - Math.round(d) + t.length) % t.length];
+        const w = d <= b.merge ? 1 : (1 - Math.cos((Math.PI * (b.merge + 40 - d)) / 40)) / 2;
+        const p = samples[start + k];
+        p.y = p.y * (1 - w) + (m.y ?? 0) * w;
+      }
+    }
     (t.forks[fork] ??= []).push(pathIndex);
     (t.joins[join] ??= []).push(samples.length - 1);
     t.paths.push({ id: b.id, start, count: points.length, fork, join, len: total });

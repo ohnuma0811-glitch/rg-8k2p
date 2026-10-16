@@ -16,6 +16,11 @@ test('道のすぐ外の地面は、道とほぼ同じ高さ（道が浮いた�
     if (p.y === null || p.bridge || p.ramp) continue;
     for (const side of [-1, 1]) {
       const d = p.wall + 1;
+      // 分かれる所・合流する所で、すぐ外がほかの道（柵の内側）の上なら、その道の高さなので見ない
+      const ox = p.x - Math.sin(p.h) * side * d;
+      const oz = p.z + Math.cos(p.h) * side * d;
+      const other = t.samples.some((q) => q.y !== null && (q.path !== p.path || Math.min(Math.abs(q.s - p.s), t.length - Math.abs(q.s - p.s)) >= 60) && Math.hypot(q.x - ox, q.z - oz) < q.wall + 2);
+      if (other) continue;
       const y = terrainHeight(t, p.x - Math.sin(p.h) * side * d, p.z + Math.cos(p.h) * side * d);
       assert.ok(y <= p.y + 0.05 && y > p.y - 1.5, `点 ${i}: 地面 ${y.toFixed(2)} 道 ${p.y.toFixed(2)}`);
     }

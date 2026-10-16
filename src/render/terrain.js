@@ -59,12 +59,17 @@ export function terrainHeight(track, x, z) {
   let weight = 0;
   let cap = Infinity; // すぐ近くの道より高くしない
   let onRoad = false;
+  // 道のふちから NEAR m までは、いちばん近い道の点より高くしない（坂で、少し後ろの低い点に引っぱられないように）
+  let bestE = Infinity;
+  const close = [];
   for (let gx = cx - span; gx <= cx + span; gx++) {
     for (let gz = cz - span; gz <= cz + span; gz++) {
       for (const p of grid.get(`${gx},${gz}`) ?? []) {
         const e = Math.hypot(p.x - x, p.z - z) - p.wall; // 道のふちからの距離（道の上はマイナス）
         if (e > FALL) continue;
-        if (e <= NEAR) cap = Math.min(cap, p.y);
+        if (e <= 0) cap = Math.min(cap, p.y); // その場所を通る道より高くしない
+        if (e <= NEAR) close.push([e, p.y]);
+        bestE = Math.min(bestE, e);
         if (e <= 0) onRoad = true;
         // 近い道ほど強く効く（遠い道に引っぱられないように）
         const w = 1 / Math.max(e, 0.5) ** 4;
@@ -73,6 +78,8 @@ export function terrainHeight(track, x, z) {
       }
     }
   }
+  // いちばん近い点とほぼ同じ近さ（0.5m 以内）の点だけで、高さの上限を決める
+  for (const [e, y] of close) if (e <= bestE + 0.5) cap = Math.min(cap, y);
   let y = weight ? Math.min(sum / weight, cap) : 0;
   if (!onRoad && river.length > 1) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));

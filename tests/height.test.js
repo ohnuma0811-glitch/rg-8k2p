@@ -9,20 +9,23 @@ const t = buildTrack(COURSE3);
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
 const STRAIGHT = { steer: 0, drift: false };
 
-test('スタートの前後 100m は平ら。大きな丘は約8m', () => {
+test('スタートの前後 100m は平ら。大きな丘は約24m（2026-10-16 のユーザー依頼「今の3倍くらい」）', () => {
   for (let d = -100; d <= 100; d++) {
     const p = t.samples[((t.startIndex + d) % t.length + t.length) % t.length];
     assert.equal(p.y, 0, `${d}`);
   }
   const hill = t.samples[Math.round(markS(t, ['HILL', 'HILL', 0]))];
-  assert.ok(hill.y > 7 && hill.y < 9, `${hill.y}`);
+  assert.ok(hill.y > 22 && hill.y < 26, `${hill.y}`);
 });
 
-test('道の高さはなめらか（1m で 0.25m より急に変わらない。地面のない所の前後はのぞく）', () => {
+test('道の高さはなめらか（1m で 0.25m より急に変わらない。大きな丘の急な下り坂は 0.4m まで。地面のない所の前後はのぞく）', () => {
+  const hill = markS(t, ['HILL', 'HILL', 0]);
+  const steep = markS(t, ['HILL', 'J2', 0.3]);
   for (const p of t.samples) {
     const q = t.samples[p.next];
     if (p.y === null || q.y === null || p.ramp || q.ramp) continue;
-    assert.ok(Math.abs(q.y - p.y) < 0.25, `点 ${p.s.toFixed(0)}（道 ${p.path}）: ${p.y.toFixed(2)} → ${q.y.toFixed(2)}`);
+    const limit = p.path === 0 && p.s >= hill && p.s <= steep ? 0.4 : 0.25;
+    assert.ok(Math.abs(q.y - p.y) < limit, `点 ${p.s.toFixed(0)}（道 ${p.path}）: ${p.y.toFixed(2)} → ${q.y.toFixed(2)}`);
   }
 });
 
@@ -45,13 +48,14 @@ test('外の道と真ん中の道はでこぼこ（1〜2m の上り下りが続�
 
 test('坂の頂上を速く越えると少し浮いて、着地して走り続ける。ゆっくりなら浮かない', () => {
   const hill = Math.round(markS(t, ['HILL', 'HILL', 0]));
-  for (const [speed, flies] of [[40, true], [8, false]]) {
+  // 最高速くらいだと頂上から飛び、ふつうの速さ（25）なら地面に沿って下りる（2026-10-16 のユーザー依頼）
+  for (const [speed, flies, cap] of [[40, true, Infinity], [25, false, 25], [8, false, 10]]) {
     const kart = createKart(t, hill - 60, 0);
     kart.speed = speed;
     let flew = false;
     for (let k = 0; k < 60 * 4; k++) {
       // ゆっくりのほうは、速さ 10 を超えたらブレーキ（自動のアクセルで速くなるので）
-      stepKart(kart, speed < 20 && kart.speed > 10 ? { ...STRAIGHT, brake: true } : STRAIGHT, t, params, 1 / 60);
+      stepKart(kart, kart.speed > cap ? { ...STRAIGHT, brake: true } : STRAIGHT, t, params, 1 / 60);
       if (kart.airborne) flew = true;
       if (!kart.airborne) {
         const loc = locate(t, kart.x, kart.z, kart.seg);
