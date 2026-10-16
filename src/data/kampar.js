@@ -26,7 +26,7 @@ export const KAMPAR_SCENERY = [
 
   // 道の上の大きな横断幕（場所が分かるように。2026-10-15 のユーザー依頼）
   { part: 'banner', at: ['E', 'F', 0.6], side: 1, back: 0, radius: 2, text: '← WestLake Villas', color: '#2a62b8' },
-  { part: 'banner', at: ['F', 'G', 0.74], side: 1, back: 0, radius: 2, text: '← Westlake International School / OPEN DAY HERE', color: '#3b2a6b' }, // 校舎の真ん前（校舎は学校の場所から 25m 先。2026-10-16 のユーザー依頼）
+  { part: 'banner', at: ['F', 'G', 0.74], side: 1, back: 0, radius: 2, text: '← WIS Open Day Here', color: '#3b2a6b' }, // 校舎の真ん前（校舎は学校の場所から 25m 先）。文字数を減らして「WIS」（2026-10-16 のユーザー依頼）
   { part: 'banner', at: ['G', 'H', 0.58], side: 1, back: 0, radius: 2, text: '← HOSPITAL UTAR', color: '#1f9a96' },
 
   // そのほかの目印（設計書 4 の表）

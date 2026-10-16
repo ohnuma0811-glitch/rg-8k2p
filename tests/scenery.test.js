@@ -91,7 +91,7 @@ test('そのほかの目印（設計書 4 の表）も置かれている', () =>
 
 test('道の上の横断幕で場所が分かる: WestLake Villas、学校、病院、UTAR（2026-10-15 のユーザー依頼）', () => {
   const texts = KAMPAR_SCENERY.filter((i) => i.part === 'banner').map((i) => i.text).join(' | ');
-  for (const w of ['WestLake Villas', 'Westlake International School', 'OPEN DAY', 'HOSPITAL UTAR', 'UTAR']) assert.ok(texts.includes(w), w);
+  for (const w of ['WestLake Villas', '← WIS Open Day Here', 'HOSPITAL UTAR', 'UTAR']) assert.ok(texts.includes(w), w); // 学校は短く「WIS」（2026-10-16 のユーザー依頼）
 });
 
 test('直角の角の正面には通行止めの道が続く。町の横道の所には建物を置かない', async () => {
@@ -113,7 +113,7 @@ test('直角の角の正面には通行止めの道が続く。町の横道の�
 
 test('看板は場所ごとに1つ（重複をなくす）: 道の上の横断幕・道ばたの看板で、同じ名前を2回出さない（2026-10-15 のユーザー依頼）', () => {
   const signs = KAMPAR_SCENERY.filter((i) => i.part === 'driverBoard' || i.part === 'banner').map((i) => i.text);
-  for (const w of ['WestLake Villas', 'Westlake International School', 'HOSPITAL UTAR', "Lotus's", 'UTAR', 'Grand Kampar Hotel']) {
+  for (const w of ['WestLake Villas', 'WIS Open Day', 'HOSPITAL UTAR', "Lotus's", 'UTAR', 'Grand Kampar Hotel']) {
     assert.ok(signs.filter((t) => t.includes(w)).length <= 1, w);
   }
   assert.ok(signs.some((t) => t.includes("Lotus's")), "Lotus's");
@@ -210,7 +210,7 @@ test('Grand Kampar Hotel の看板は、C へ向かう車の正面（C の壁の
 });
 
 test('学校の横断幕は校舎の真ん前（校舎は学校の場所から 25m 先）', () => {
-  const banner = KAMPAR_SCENERY.find((i) => i.part === 'banner' && i.text.includes('OPEN DAY'));
+  const banner = KAMPAR_SCENERY.find((i) => i.part === 'banner' && i.text.includes('Open Day'));
   const school = KAMPAR_SCENERY.find((i) => i.part === 'westlakeSchool');
   const d = markS(t, banner.at) - (markS(t, school.at) + 25);
   assert.ok(Math.abs(d) < 8, `${d.toFixed(1)}m ずれている`);
