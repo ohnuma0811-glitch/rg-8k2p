@@ -88,6 +88,76 @@ export function cowContact(kart, track, time, phys) {
   return hit;
 }
 
+// イノシシ（Soki Forest。2026-10-16 のユーザー依頼「動物が横切る」）
+export const BOAR_RADIUS = 1.3; // イノシシの大きさ（半径 m）
+const BOAR_WARN = 0.8; // 飛び出す前の予告（しげみがゆれて「ブヒッ」。秒）
+const BOAR_RUN = 2.0; // 道を横切る時間（秒）
+// 時刻 time のイノシシ: 周期の終わりの BOAR_WARN 秒はしげみでゆれ、そのあと BOAR_RUN 秒で道の反対側へ走る（次は反対から）
+export function boarPose(track, boar, time) {
+  const p = track.samples[Math.round(boar.s) % track.length];
+  const cycle = Math.floor((time + boar.phase) / boar.period);
+  const tin = time + boar.phase - cycle * boar.period;
+  const from = (cycle % 2 === 0 ? boar.side : -boar.side) * (p.wall + 3);
+  const runStart = boar.period - BOAR_RUN;
+  let lateral = from;
+  let state = 'hide';
+  if (tin >= runStart) {
+    state = 'run';
+    lateral = from - 2 * from * ((tin - runStart) / BOAR_RUN);
+  } else if (tin >= runStart - BOAR_WARN) state = 'warn';
+  const dir = Math.sign(-from);
+  return { x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, lateral, heading: p.h + (dir * Math.PI) / 2, state };
+}
+
+// 車とイノシシの当たり（牛と同じ）。最初に当たったときだけ 'spin'（メーター150以上）か 'bounce' を返す。ドリフトは解除
+export function boarContact(kart, track, time, phys) {
+  let hit = null;
+  let touching = false;
+  for (const boar of track.boars ?? []) {
+    const c = boarPose(track, boar, time);
+    if (c.state === 'hide') continue;
+    const dx = kart.x - c.x;
+    const dz = kart.z - c.z;
+    const d = Math.hypot(dx, dz);
+    const min = BOAR_RADIUS + COW_PAD;
+    if (d >= min || d === 0 || kart.airborne || kart.tumble > 0) continue;
+    touching = true;
+    kart.x = c.x + (dx / d) * min;
+    kart.z = c.z + (dz / d) * min;
+    if (kart.onBoar) continue;
+    kart.boarHits = (kart.boarHits || 0) + 1;
+    cancelDrift(kart);
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      hit = 'spin';
+    } else {
+      kart.speed *= phys.WALL_KEEP;
+      hit = 'bounce';
+    }
+  }
+  if (touching) {
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+    const excess = Math.abs(loc.lateral) - loc.wall;
+    if (excess > 0) {
+      const side = Math.sign(loc.lateral);
+      kart.x -= -Math.sin(loc.heading) * side * excess;
+      kart.z -= Math.cos(loc.heading) * side * excess;
+    }
+  }
+  kart.onBoar = touching;
+  return hit;
+}
+
+// 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）
+export function boarWarning(track, kart, time, range = 60) {
+  return (track.boars ?? []).some((boar) => {
+    const c = boarPose(track, boar, time);
+    return c.state === 'warn' && Math.hypot(c.x - kart.x, c.z - kart.z) < range;
+  });
+}
+
 // バンプの警告を出すか: バンプの手前のしま模様の上か、今の速さで BUMP_WARN_EARLY 秒以内にしまに入る（転がっている・飛んでいる・止まりかけは出さない）
 export function bumpWarning(track, kart) {
   if (kart.tumble > 0 || kart.airborne || !(kart.speed > 2)) return false;

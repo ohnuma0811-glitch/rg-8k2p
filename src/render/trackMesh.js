@@ -4,6 +4,8 @@ import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
 import { buildJungle } from './town/jungle.js';
 import { buildWater } from './town/water.js';
 import { buildBridge } from './forest/bridge.js';
+import * as forestKit from './forest/kit.js';
+import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
 import { buildTerrain, terrainHeight } from './terrain.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
@@ -595,6 +597,24 @@ export function buildTrackMesh(track) {
     }
     group.add(buildJungle(track, avoid, { groundY }));
     group.add(buildJungle(track, avoid, { groundY, inside: true }));
+    // イノシシがかくれる、道の両側のしげみ（2026-10-16 のユーザー依頼）
+    const hide = createBuilder();
+    for (const boar of track.boars ?? []) {
+      const p = track.samples[Math.round(boar.s) % track.length];
+      for (const side of [-1, 1]) {
+        const d = p.wall + 3;
+        const x = p.x - Math.sin(p.h) * side * d;
+        const z = p.z + Math.cos(p.h) * side * d;
+        for (const [u, w, size] of [[0, 0, 1.6], [2, 1.2, 1.2], [-2, 0.8, 1.3]]) {
+          hide.push(x + Math.cos(p.h) * u - Math.sin(p.h) * side * w, groundY(x, z), z + Math.sin(p.h) * u + Math.cos(p.h) * side * w, 0);
+          hide.push(0, 0, 0, u);
+          forestKit.bush(hide, { size });
+          hide.pop();
+          hide.pop();
+        }
+      }
+    }
+    group.add(hide.build());
   }
 
   // 観客席・土手・木と看板は、サーキットだけ

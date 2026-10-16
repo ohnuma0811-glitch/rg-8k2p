@@ -365,6 +365,41 @@ export function createCowModel(k = 0) {
   return g;
 }
 
+// イノシシ（Soki Forest。2026-10-16 のユーザー依頼）: こげ茶の体、短い足4本、白い牙、小さな耳。前は +x
+export function createBoarModel(k = 0) {
+  const g = new THREE.Group();
+  const coat = k % 2 ? 0x3d3430 : 0x4a3d36; // 黒っぽい灰色の茶（茶色い土の道で見えるように）
+  g.add(box(1.8, 0.9, 0.9, coat, 0, 0.85, 0)); // 体
+  g.add(box(1.0, 0.25, 0.7, 0x221c19, -0.1, 1.4, 0)); // 背中のたてがみ
+  const head = new THREE.Group();
+  head.add(box(0.7, 0.6, 0.7, coat, 0, 0, 0));
+  head.add(box(0.25, 0.3, 0.4, 0xc98f7a, 0.45, -0.1, 0)); // 鼻
+  for (const z of [-0.22, 0.22]) {
+    head.add(box(0.1, 0.25, 0.08, 0xf6f2e0, 0.4, -0.25, z)); // 白い牙
+    head.add(box(0.12, 0.2, 0.15, 0x3e2a1a, -0.15, 0.38, z)); // 小さな耳
+  }
+  head.position.set(1.1, 0.95, 0);
+  g.add(head);
+  const legs = [];
+  for (const [x, z] of [[0.6, 0.3], [0.6, -0.3], [-0.6, 0.3], [-0.6, -0.3]]) {
+    const leg = new THREE.Group();
+    leg.add(box(0.2, 0.5, 0.2, 0x3e2a1a, 0, -0.25, 0));
+    leg.position.set(x, 0.5, z);
+    g.add(leg);
+    legs.push(leg);
+  }
+  // 走るとき（run）は足を速く振り、予告（warn）は体をゆらす
+  g.userData.walk = (time, state) => {
+    const fast = state === 'run';
+    legs.forEach((leg, i) => {
+      leg.rotation.z = fast ? Math.sin(time * 18 + (i % 2) * Math.PI) * 0.6 : 0;
+    });
+    g.rotation.x = state === 'warn' ? Math.sin(time * 30) * 0.08 : 0;
+  };
+  g.scale.setScalar(1.4); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）
+  return g;
+}
+
 // スクールバス（BAS SEKOLAH。写真のような、角の丸い黄色っぽいオレンジの小さなバス）。+x が前。2026-10-16 のユーザー依頼
 let busText = null;
 export function createBusModel() {

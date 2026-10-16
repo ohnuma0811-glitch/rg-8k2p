@@ -154,6 +154,12 @@ export const COURSE3 = {
   // 滝（2026-10-16 のユーザー依頼「ジャンプ②の手前に滝、川に合流」）。右がわの道の、コースの外（東。走りながら左手）
   waterfall: { at: ['HILL', 'J2', 0.55], side: -1, height: 9 },
   scenery: SOKI_SCENERY, // 景色の置き場所（src/data/soki.js）
+  // イノシシ（2026-10-16 のユーザー依頼）: 全員が通る道に。side は、かくれている側（1 右、-1 左）。周期と、ずらし（秒）
+  boars: [
+    { at: ['S', 'J1', 0.35], side: 1, period: 9, phase: 0 },
+    { at: ['S', 'J1', 0.7], side: -1, period: 11, phase: 4 },
+    { at: ['M2', 'HILL', 0.4], side: 1, period: 10, phase: 2 },
+  ],
   length: 2500,
   roadHalf: 12,
   dirt: 3,

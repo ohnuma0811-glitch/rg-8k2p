@@ -344,6 +344,8 @@ export function buildTrack(def) {
   }
   t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
   // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
+  // イノシシ（Soki Forest。2026-10-16）: at の所。side はかくれている側、period は周期（秒）、phase はずらし（秒）
+  t.boars = (def.boars ?? []).map((b) => ({ s: markS(t, b.at), side: b.side, period: b.period, phase: b.phase }));
   t.cows = [];
   if (def.cows) {
     const from = markS(t, def.cows.from);

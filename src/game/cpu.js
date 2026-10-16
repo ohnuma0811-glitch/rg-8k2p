@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
 import { locate, islandNear, span, ahead as aheadOf, branchesBeyond } from './track.js';
-import { cowPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
+import { cowPose, boarPose, busPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -85,15 +85,20 @@ export function cpuControl(cpu, kart, track, t) {
   let cowBrake = false;
   let cowAhead = Infinity;
   let cowNear = null;
-  for (const cow of track.cows ?? []) {
-    const ahead = span(track, loc.s, cow.s);
-    if (ahead < 40 && ahead < cowAhead) {
+  // イノシシ（Soki Forest）も、牛と同じようによける。着くころに道の外にかくれているイノシシは数えない
+  const animals = [
+    ...(track.cows ?? []).map((cow) => ({ s: cow.s, pose: (time) => cowPose(track, cow, time) })),
+    ...(track.boars ?? []).map((boar) => ({ s: boar.s, pose: (time) => boarPose(track, boar, time) })),
+  ];
+  for (const a of animals) {
+    const ahead = span(track, loc.s, a.s);
+    if (ahead < 40 && ahead < cowAhead && a.pose(t + ahead / Math.max(5, kart.speed)).state !== 'hide') {
       cowAhead = ahead;
-      cowNear = cow;
+      cowNear = a;
     }
   }
   if (cowNear) {
-    const c = cowPose(track, cowNear, t + cowAhead / Math.max(5, kart.speed));
+    const c = cowNear.pose(t + cowAhead / Math.max(5, kart.speed));
     const edge = track.roadHalf - 2;
     if (Math.abs(lane - c.lateral) < 4.5) {
       const side = Math.sign(lane - c.lateral) || 1;

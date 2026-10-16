@@ -212,6 +212,28 @@ export function createSfx(audio) {
         o.stop(t + 1.7);
       }
     },
+    // イノシシが飛び出す前の「ブヒッ」: のこぎりの波を、低い所から上げて下げる（0.25秒。2026-10-16）
+    boarWarn: () => {
+      const ctx = audio.ctx;
+      const t = ctx.currentTime;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 900;
+      band.Q.value = 1.5;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.4, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      band.connect(g).connect(audio.sfxOut);
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(180, t);
+      o.frequency.linearRampToValueAtTime(340, t + 0.08);
+      o.frequency.exponentialRampToValueAtTime(150, t + 0.25);
+      o.connect(band);
+      o.start(t);
+      o.stop(t + 0.26);
+    },
     // スクールバスにぶつかった音（車どうしの「バン」と同じ）
     busHit: () => SOUNDS.bump(),
     // 牛にぶつかった「モー」: のこぎりの波2つを、口の形のようなバンドパスに通し、ゆっくり下げる

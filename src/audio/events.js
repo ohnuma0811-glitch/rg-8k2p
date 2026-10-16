@@ -23,7 +23,7 @@ export function jumpAhead(track, kart, lead = JUMP_LEAD) {
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
 // jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false }) {
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false }) {
   return {
     count,
     lap,
@@ -45,6 +45,8 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     bumpWarn, // バンプの警告を出している
     busNear, // スクールバスが近い（すれちがう）
     busHits: kart.busHits || 0, // スクールバスにぶつかった回数
+    boarWarn, // 近くのイノシシが、飛び出す前（しげみがゆれている）
+    boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
   };
 }
 
@@ -75,6 +77,8 @@ export function soundEvents(prev, cur, laps) {
   if (cur.bumpWarn && !prev.bumpWarn) ev.push('bumpWarn');
   if (cur.busNear && !prev.busNear) ev.push('busPass');
   if (cur.busHits > prev.busHits) ev.push('busHit');
+  if (cur.boarWarn && !prev.boarWarn) ev.push('boarWarn');
+  if (cur.boarHits > prev.boarHits) ev.push('bump');
   // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
   // （ドリフトの跳ねは airborne にならない）
   if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');

@@ -108,7 +108,8 @@ export function flowers(b) {
 }
 
 // 草のしげみ
-export function bush(b) {
-  b.cyl(1.0, 1.4, 1.0, 7, 0x3f8f30, 0, 0, 0);
-  b.cyl(0.5, 1.0, 0.7, 7, 0x4caa36, 0.4, 0.9, -0.2);
+export function bush(b, { size = 1 } = {}) {
+  const s = size;
+  b.cyl(1.0 * s, 1.4 * s, 1.0 * s, 7, 0x3f8f30, 0, 0, 0);
+  b.cyl(0.5 * s, 1.0 * s, 0.7 * s, 7, 0x4caa36, 0.4 * s, 0.9 * s, -0.2 * s);
 }

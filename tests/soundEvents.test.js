@@ -162,3 +162,8 @@ test('スクールバスとすれちがうとき（近づいたとき）に busP
   assert.deepEqual(soundEvents(st({ busNear: true }), st({ busNear: true }), 3), [], '近くにいる間は1回だけ');
   assert.deepEqual(soundEvents(st({}, { busHits: 0 }), st({}, { busHits: 1 }), 3), ['busHit']);
 });
+
+test('イノシシが飛び出す前（予告）に boarWarn（ブヒッ）。ぶつかったら bump', () => {
+  assert.deepEqual(soundEvents(st({ boarWarn: false }), st({ boarWarn: true }), 3), ['boarWarn']);
+  assert.deepEqual(soundEvents(st({}, { boarHits: 0 }), st({}, { boarHits: 1 }), 3), ['bump']);
+});

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, markS } from '../src/game/track.js';
+import { buildTrack, markS, locate } from '../src/game/track.js';
+import { boarPose, boarContact, BOAR_RADIUS } from '../src/game/hazards.js';
 import { COURSE3, COURSES } from '../src/data/tracks.js';
 
 const t = buildTrack(COURSE3);
@@ -131,4 +132,39 @@ test('川の上（地面のない所）は、ジャンプ①②の2か所だけ'
   const gaps = [];
   for (let i = 0; i < t.length; i++) if (t.samples[i].y === null && t.samples[t.samples[i].prev].y !== null) gaps.push(t.samples[i].s);
   assert.equal(gaps.length, 2);
+});
+
+test('イノシシは3頭。ふだんは道の外のしげみにかくれ、ときどき約2秒で道を横切る。飛び出す前に予告がある', () => {
+  assert.equal(t.boars.length, 3);
+  for (const boar of t.boars) {
+    const states = new Set();
+    let crossings = 0;
+    let prev = null;
+    for (let time = 0; time < 60; time += 0.05) {
+      const p = boarPose(t, boar, time);
+      states.add(p.state);
+      if (p.state === 'hide') assert.ok(Math.abs(p.lateral) > t.roadHalf + 1, 'かくれているのに道の上');
+      if (prev === 'warn' && p.state === 'run') crossings++;
+      if (p.state === 'run' && prev === 'hide') assert.fail('予告なしに飛び出した');
+      prev = p.state;
+    }
+    assert.ok(crossings >= 4 && crossings <= 8, `60秒で ${crossings} 回`);
+    assert.deepEqual([...states].sort(), ['hide', 'run', 'warn']);
+  }
+});
+
+test('イノシシに、メーター150以上でぶつかるとスピン、遅いと跳ね返る。ドリフトは解除', () => {
+  const boar = t.boars[0];
+  let time = 0;
+  while (boarPose(t, boar, time).state !== 'run' || Math.abs(boarPose(t, boar, time).lateral) > 2) time += 0.02;
+  const p = boarPose(t, boar, time);
+  for (const [speed, want] of [[30, 'spin'], [15, 'bounce']]) {
+    const kart = createKart(t, 0, 0);
+    kart.x = p.x - Math.cos(t.samples[locate(t, p.x, p.z).i].h) * (BOAR_RADIUS + 0.5);
+    kart.z = p.z - Math.sin(t.samples[locate(t, p.x, p.z).i].h) * (BOAR_RADIUS + 0.5);
+    kart.speed = speed;
+    kart.drift = { active: true, dir: 1, stage: 2, counter: false, flicks: 0, time: 2 };
+    assert.equal(boarContact(kart, t, time, PHYS), want);
+    assert.equal(kart.drift.active, false);
+  }
 });
