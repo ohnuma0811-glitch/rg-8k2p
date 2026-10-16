@@ -34,7 +34,12 @@ test('ドリフト: 始まり・火花の色が変わる・終わり。ミニタ
 test('空中ではドリフトの音を鳴らさない。着地で音', () => {
   const air = st({}, { drift: { active: true, stage: 0 }, airborne: true });
   assert.equal(air.drift, false);
-  assert.deepEqual(soundEvents(st({}, { airborne: true }), st(), 3), ['land']);
+  assert.deepEqual(soundEvents(st({}, { airborne: true, launched: true }), st(), 3), ['land']);
+});
+
+test('着地の音は、ジャンプ台から飛んだときだけ。坂やでこぼこで浮いて着いたときは鳴らさない（2026-10-17 のユーザー依頼）', () => {
+  assert.deepEqual(soundEvents(st({}, { airborne: true, launched: false }), st(), 3), []);
+  assert.deepEqual(soundEvents(st({}, { airborne: true, launched: false, y: 3, vy: -9 }), st({}, { airborne: true, launched: false, y: 0.6, vy: -10 }), 3), []);
 });
 
 test('壁にぶつかった最初の1回と、車どうしで新しくぶつかったとき', () => {
@@ -74,17 +79,17 @@ test('ジャンプの着地の音は、地面に着く少し前（0.08秒前）�
   const { LAND_LEAD } = await import('../src/audio/events.js');
   assert.equal(LAND_LEAD, 0.08);
   // 高さ 2m、下へ 10m/s → 着くまで 0.2秒: まだ鳴らさない
-  const high = st({}, { airborne: true, y: 2, vy: -10 });
-  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 3, vy: -9 }), high, 3), []);
+  const high = st({}, { airborne: true, launched: true, y: 2, vy: -10 });
+  assert.deepEqual(soundEvents(st({}, { airborne: true, launched: true, y: 3, vy: -9 }), high, 3), []);
   // 高さ 0.6m、下へ 10m/s → 着くまで 0.06秒: 鳴らす
-  const soon = st({}, { airborne: true, y: 0.6, vy: -10 });
+  const soon = st({}, { airborne: true, launched: true, y: 0.6, vy: -10 });
   assert.deepEqual(soundEvents(high, soon, 3), ['land']);
   // 実際に着いたときは、もう一度は鳴らさない
   assert.deepEqual(soundEvents(soon, st({}, { airborne: false, y: 0, vy: 0 }), 3), []);
   // 上へ飛んでいる間は鳴らさない
-  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 0.2, vy: 5 }), st({}, { airborne: true, y: 0.3, vy: 4 }), 3), []);
+  assert.deepEqual(soundEvents(st({}, { airborne: true, launched: true, y: 0.2, vy: 5 }), st({}, { airborne: true, launched: true, y: 0.3, vy: 4 }), 3), []);
   // 「もうすぐ」が分からないまま着いたときは、着いたときに鳴らす
-  assert.deepEqual(soundEvents(st({}, { airborne: true, y: 0.5, vy: 0 }), st({}, { airborne: false, y: 0, vy: 0 }), 3), ['land']);
+  assert.deepEqual(soundEvents(st({}, { airborne: true, launched: true, y: 0.5, vy: 0 }), st({}, { airborne: false, y: 0, vy: 0 }), 3), ['land']);
 });
 
 test('壁の音は、ぶつかった最初だけ。壁にこすりながら走って、ついたり離れたりしても鳴らし続けない（2026-10-15 の実機確認）', async () => {

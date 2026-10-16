@@ -578,6 +578,8 @@ function addBranches(t, def, fit) {
 
 // 橋（2026-10-16 のユーザー依頼）: 本線が、高さが 4m 以上ちがうほかの道の上を通る所の前後 BRIDGE_REACH m を、橋の点にする
 export const BRIDGE_REACH = 40;
+export const PIER_HALF_THICK = 1.0; // 橋脚の厚さの半分（本線の向き。m）
+const PIER_OFFSETS = [-10.5, -3.5, 3.5, 10.5]; // 交わる所からの橋脚の場所（本線の向き。m）。すき間は 5m
 const BOAR_GAP = 3.5; // イノシシの親子の間（m）
 function markBridges(t) {
   const { samples } = t;
@@ -592,6 +594,16 @@ function markBridges(t) {
   }
   for (const p of samples.slice(0, t.length)) {
     if (t.bridges.some((b) => Math.min(span(t, b.s, p.s), span(t, p.s, b.s)) < BRIDGE_REACH)) p.bridge = true;
+  }
+  // 下の道の上の橋脚（2026-10-17 のユーザー依頼「写真のように橋の足を増やして、下を通りにくく」）。
+  // 橋のはばいっぱいの石の壁を、本線にそって PIER_GAP m おきに。下の道は、壁と壁のすき間を通る
+  t.bridgePiers = [];
+  for (const b of t.bridges) {
+    for (const off of PIER_OFFSETS) {
+      const i = Math.round(b.s + off + t.length) % t.length;
+      const p = samples[i];
+      t.bridgePiers.push({ i, s: b.s + off, x: p.x, z: p.z, h: p.h, halfThick: PIER_HALF_THICK, halfLen: p.wall + 0.6, top: (p.y ?? 0) - 1.4 });
+    }
   }
 }
 

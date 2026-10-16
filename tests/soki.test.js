@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, ahead, behind, span } from '../src/game/track.js';
-import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK, mudContact, MUD_TIME } from '../src/game/hazards.js';
+import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK, mudContact, MUD_TIME, DINO_FREE_LANE as FREE_LANE } from '../src/game/hazards.js';
 import { boarPose, boarContact, BOAR_RADIUS } from '../src/game/hazards.js';
 import { COURSE3, COURSES } from '../src/data/tracks.js';
 
@@ -360,7 +360,8 @@ test('恐竜: ジャンプ②に来る時刻をずらすと、6割くらいが�
     n++;
     if (got) eaten++;
   }
-  assert.ok(eaten / n > 0.52 && eaten / n < 0.68, `${(eaten / n).toFixed(2)}`);
+  // まん中を真っすぐ飛ぶと 4〜7割（2026-10-17 から、恐竜は左右にずれて出て、反対側は通りぬけられる）
+  assert.ok(eaten / n > 0.4 && eaten / n < 0.68, `${(eaten / n).toFixed(2)}`);
 });
 
 test('いちばん遠い外の道に、加速板が2つ（2026-10-16 のユーザー依頼）', () => {
@@ -530,4 +531,82 @@ test('イノシシにぶつかったあと少しのあいだは、イノシシ�
   const z = kart.z;
   assert.equal(boarContact(kart, t, time + 0.5, PHYS), null);
   assert.ok(kart.x === x && kart.z === z, '押された');
+});
+
+test('橋の下（内の道の上）にも橋脚が並ぶ。すき間は車が通れるはば（2026-10-17 のユーザー依頼「下を通りにくく」）', () => {
+  assert.ok(t.bridgePiers.length >= 3);
+  const ss = t.bridgePiers.map((p) => p.s).sort((a, b) => a - b);
+  for (let k = 1; k < ss.length; k++) {
+    const gap = ss[k] - ss[k - 1] - 2 * t.bridgePiers[0].halfThick;
+    assert.ok(gap >= 4 && gap <= 7, `すき間 ${gap}`);
+  }
+});
+
+test('橋の下で橋脚にぶつかるとスピン。すぐあとは続けてスピンしないが、橋脚は通りぬけられない', async () => {
+  const { pierContact } = await import('../src/game/hazards.js');
+  const pier = t.bridgePiers[1];
+  const kart = createKart(t, t.bridges[0].under, 0);
+  kart.x = pier.x + Math.cos(pier.h) * 0.5;
+  kart.z = pier.z + Math.sin(pier.h) * 0.5;
+  kart.y = 0;
+  kart.speed = 15;
+  assert.equal(pierContact(kart, t, 1, PHYS), 'spin');
+  assert.ok(kart.spin > 0);
+  const a = (kart.x - pier.x) * Math.cos(pier.h) + (kart.z - pier.z) * Math.sin(pier.h);
+  assert.ok(Math.abs(a) >= pier.halfThick, '橋脚の中にいる');
+  kart.spin = 0;
+  kart.x = pier.x;
+  kart.z = pier.z;
+  assert.equal(pierContact(kart, t, 1.5, PHYS), null, '続けてスピン');
+  const a2 = (kart.x - pier.x) * Math.cos(pier.h) + (kart.z - pier.z) * Math.sin(pier.h);
+  assert.ok(Math.abs(a2) >= pier.halfThick, '押し出されない');
+  // 橋の上を走る車は、橋脚にぶつからない
+  const top = createKart(t, pier.i, 0);
+  top.y = t.samples[pier.i].y;
+  assert.equal(pierContact(top, t, 5, PHYS), null);
+});
+
+test('近道を走る CPU は、橋脚のすき間を通りぬける（ほとんどぶつからない）', async () => {
+  const { pierContact } = await import('../src/game/hazards.js');
+  let hits = 0;
+  let runs = 0;
+  for (let seed = 0; seed < 8; seed++) {
+    const cpu = createCpu(seed % 4, seed);
+    const kart = createKart(t, t.bridges[0].under - 120, (seed % 3) * 4 - 4);
+    kart.speed = 25;
+    cpu.lap = 0;
+    cpu.lastS = t.samples[kart.seg].s;
+    for (let k = 0; k < 60 * 8; k++) {
+      stepKart(kart, cpuControl(cpu, kart, t, k / 60), t, cpuParams(params, 1), 1 / 60);
+      if (pierContact(kart, t, k / 60, PHYS)) hits++;
+    }
+    runs++;
+  }
+  assert.ok(hits <= 1, `${hits} / ${runs} 回ぶつかった`);
+});
+
+test('恐竜は、出るたびに左か右にずれて出る。反対側は、食べられずに通りぬけられる（2026-10-17 のユーザー依頼）', () => {
+  const sides = new Set();
+  for (let time = 0; time < 200; time += 1) {
+    const d = dinoPose(t, time);
+    if (d.rise > 0) sides.add(d.side);
+  }
+  assert.deepEqual([...sides].sort(), [-1, 1], '左と右の両方に出る');
+  // 顔を出しているとき、反対側（すき間）を飛ぶ車は食べられない。顔のある側は食べられる
+  let up = 0;
+  while (dinoPose(t, up).state !== 'up') up += 0.05;
+  const side = dinoPose(t, up).side;
+  for (const [lane, want] of [[-side * FREE_LANE, null], [side * 4, 'eaten']]) {
+    const j = Math.round(markS(t, ['J2', 'J2', 0]));
+    const kart = createKart(t, j - 40, lane);
+    kart.speed = 30;
+    let time = up - 1.2;
+    let got = null;
+    for (let k = 0; k < 60 * 3 && !got; k++) {
+      stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
+      time += 1 / 60;
+      got = dinoContact(kart, t, time);
+    }
+    assert.equal(got, want, `lane ${lane}`);
+  }
 });

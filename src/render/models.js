@@ -4,7 +4,7 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { PHYS } from '../game/kart.js';
 import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js';
 
-// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
+// バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
 const TUMBLE_HEIGHT = 2; // 跳ねる高さ（m）
 

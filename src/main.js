@@ -2,9 +2,9 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
-import { buildTrack, span } from './game/track.js';
+import { buildTrack, span, locate } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, DINO_BLACK } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -238,6 +238,14 @@ function createGame(name, charId) {
     if (!isMe) cpuNo++;
   }
   models.forEach((m) => scene.add(m));
+  // 浮いているときの、車の下の地面の影（2026-10-17 のユーザー依頼「丘からジャンプしているとき」）
+  const shadows = models.map(() => {
+    const sh = createNutShadow();
+    sh.scale.setScalar(1.3);
+    sh.visible = false;
+    scene.add(sh);
+    return sh;
+  });
   const names = karts.map((_, k) => (k === PLAYER_SLOT ? name : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1].name));
   // 頭の上の名前の札（自分の車には付けない。画面の真ん中をふさがないように）
   const tags = models.map((m, k) => {
@@ -254,6 +262,7 @@ function createGame(name, charId) {
     base,
     karts,
     models,
+    shadows,
     cpus,
     names,
     tags,
@@ -456,6 +465,7 @@ function removeGame() {
   if (!game) return;
   sfx.stopAll();
   crowd.stop();
+  game.shadows.forEach((sh) => scene.remove(sh));
   game.models.forEach((m) => {
     scene.remove(m);
     // 形（geometry）は車ごとに作っているので消す。材質（material）は使い回しているので消さない
@@ -510,6 +520,8 @@ function stepGame(dt) {
   if (track.buses.length) karts.forEach((kart) => busContact(kart, track, race.t, PHYS));
   // イノシシ（Soki Forest）: 牛と同じ
   if (track.boars.length) karts.forEach((kart) => boarContact(kart, track, race.t, PHYS));
+  // 橋の下の橋脚（Soki Forest）: ぶつかるとスピン
+  if (track.bridgePiers?.length) karts.forEach((kart) => pierContact(kart, track, race.t, PHYS));
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆
   if (track.muds.length) karts.forEach((kart) => mudContact(kart, track, dt));
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
@@ -735,6 +747,18 @@ function renderGame(alpha, dt) {
     return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
+  // 浮いている車の下の影: 地面（川の上は水面）に。高いほど小さく、うすく
+  views.forEach((v, k) => {
+    const sh = g.shadows[k];
+    sh.visible = !!v.airborne && !v.swallowed && !(v.respawn > 0);
+    if (!sh.visible) return;
+    const loc = locate(track, v.x, v.z, v.seg, 40, v.y);
+    const ground = loc.ground ?? -1.15;
+    const h = Math.max(0, v.y - ground);
+    sh.position.set(v.x, ground + 0.12, v.z);
+    sh.scale.setScalar(Math.max(0.6, 1.4 - h * 0.06));
+    sh.material.opacity = Math.max(0.12, 0.45 - h * 0.025);
+  });
   placeCows(g.race.t);
   placeBuses(g.race.t);
   placeBoars(g.race.t);
