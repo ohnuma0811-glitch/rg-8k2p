@@ -772,7 +772,7 @@ function renderGame(alpha, dt) {
     const ground = loc.ground ?? (track.def.theme === 'forest' ? -1.15 : 0);
     const h = Math.max(0, v.y - ground);
     sh.position.set(v.x, ground + 0.12, v.z);
-    sh.scale.setScalar(Math.max(0.6, 1.4 - h * 0.06));
+    sh.scale.setScalar(0.7 * Math.max(0.6, 1.4 - h * 0.06)); // 2026-10-17 のユーザー依頼で 7割の大きさに
     sh.material.opacity = Math.max(0.12, 0.45 - h * 0.025);
   });
   placeCows(g.race.t);

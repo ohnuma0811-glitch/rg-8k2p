@@ -444,7 +444,7 @@ export function createDinoModel() {
   const g = new THREE.Group();
   const skin = 0xf08a24; // オレンジ（2026-10-16 のユーザー依頼「ワニに見えるのでオレンジに」）
   const dark = 0xc4601a;
-  const W = 19;
+  const W = 26; // 道はば（24m）いっぱい（2026-10-17 のユーザー依頼「横をすり抜けられないように」）
   const lower = new THREE.Group(); // 下あご（前へのびる）
   lower.add(box(10, 2.2, W, skin, 1.5, 1.1, 0));
   lower.add(box(9, 0.3, W - 3, 0xc94a4a, 1.5, 2.25, 0)); // 口の中

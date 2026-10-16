@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, ahead, behind, span } from '../src/game/track.js';
-import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK, mudContact, MUD_TIME, DINO_FREE_LANE as FREE_LANE } from '../src/game/hazards.js';
+import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK, mudContact, MUD_TIME } from '../src/game/hazards.js';
 import { boarPose, boarContact, BOAR_RADIUS } from '../src/game/hazards.js';
 import { COURSE3, COURSES } from '../src/data/tracks.js';
 
@@ -360,7 +360,6 @@ test('恐竜: ジャンプ②に来る時刻をずらすと、6割くらいが�
     n++;
     if (got) eaten++;
   }
-  // まん中を真っすぐ飛ぶと 4〜7割（2026-10-17 から、恐竜は左右にずれて出て、反対側は通りぬけられる）
   assert.ok(eaten / n > 0.4 && eaten / n < 0.68, `${(eaten / n).toFixed(2)}`);
 });
 
@@ -585,18 +584,10 @@ test('近道を走る CPU は、橋脚のすき間を通りぬける（ほとん
   assert.ok(hits <= 1, `${hits} / ${runs} 回ぶつかった`);
 });
 
-test('恐竜は、出るたびに左か右にずれて出る。反対側は、食べられずに通りぬけられる（2026-10-17 のユーザー依頼）', () => {
-  const sides = new Set();
-  for (let time = 0; time < 200; time += 1) {
-    const d = dinoPose(t, time);
-    if (d.rise > 0) sides.add(d.side);
-  }
-  assert.deepEqual([...sides].sort(), [-1, 1], '左と右の両方に出る');
-  // 顔を出しているとき、反対側（すき間）を飛ぶ車は食べられない。顔のある側は食べられる
+test('恐竜の顔は道はばいっぱい。道の端を飛んでも、まん中と同じように食べられる（2026-10-17 のユーザー依頼）', () => {
   let up = 0;
   while (dinoPose(t, up).state !== 'up') up += 0.05;
-  const side = dinoPose(t, up).side;
-  for (const [lane, want] of [[-side * FREE_LANE, null], [side * 4, 'eaten']]) {
+  for (const lane of [-10, 0, 10]) {
     const j = Math.round(markS(t, ['J2', 'J2', 0]));
     const kart = createKart(t, j - 40, lane);
     kart.speed = 30;
@@ -607,6 +598,6 @@ test('恐竜は、出るたびに左か右にずれて出る。反対側は、�
       time += 1 / 60;
       got = dinoContact(kart, t, time);
     }
-    assert.equal(got, want, `lane ${lane}`);
+    assert.equal(got, 'eaten', `lane ${lane}`);
   }
 });

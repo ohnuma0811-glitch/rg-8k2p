@@ -225,26 +225,16 @@ const DINO_RISE = 0.25; // 川から飛び出す秒数
 const DINO_UP = 3.0; // 顔を出している秒数
 const DINO_SINK = 2.2; // ゆっくりもぐる秒数
 // 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
-// side: 恐竜が出る側（1 か -1。道のまん中から DINO_SHIFT m ずらす。反対側は通りぬけられる。2026-10-17 のユーザー依頼）。出るたびに決まる
-export const DINO_SHIFT = 5.5;
-export const DINO_FREE_LANE = 8.5; // 通りぬけられる側の、すき間のまん中（道のまん中から m）
-function dinoSide(cycle) {
-  let h = Math.imul(cycle + 17, 2654435761);
-  h = Math.imul(h ^ (h >>> 15), 2246822519);
-  h ^= h >>> 13;
-  return (h >>> 0) % 2 ? 1 : -1;
-}
 export function dinoPose(track, time) {
   const d = track.dino;
-  if (!d) return { state: 'hide', rise: 0, side: 1 };
+  if (!d) return { state: 'hide', rise: 0 };
   const cycle = Math.floor((time + d.phase) / d.period);
-  const side = dinoSide(cycle);
   const tin = time + d.phase - cycle * d.period;
   const a = d.period - DINO_RISE - DINO_UP - DINO_SINK;
-  if (tin < a) return { state: 'hide', rise: 0, side };
-  if (tin < a + DINO_RISE) return { state: 'rise', rise: (tin - a) / DINO_RISE, side };
-  if (tin < a + DINO_RISE + DINO_UP) return { state: 'up', rise: 1, side };
-  return { state: 'sink', rise: 1 - (tin - a - DINO_RISE - DINO_UP) / DINO_SINK, side };
+  if (tin < a) return { state: 'hide', rise: 0 };
+  if (tin < a + DINO_RISE) return { state: 'rise', rise: (tin - a) / DINO_RISE };
+  if (tin < a + DINO_RISE + DINO_UP) return { state: 'up', rise: 1 };
+  return { state: 'sink', rise: 1 - (tin - a - DINO_RISE - DINO_UP) / DINO_SINK };
 }
 
 // 車が恐竜に食べられるか。ジャンプ②から飛び出して川の上にいて、恐竜が口を開けて出ているとき 'eaten'
@@ -252,12 +242,11 @@ export function dinoPose(track, time) {
 export function dinoPlace(track, time) {
   const d = track.dino;
   const p = track.samples[Math.round(d.s + 2) % track.length];
-  const pose = dinoPose(track, time);
-  const lat = pose.side * DINO_SHIFT; // 左か右にずらす（横の向きは、CPU の走る線と同じ）
-  return { x: p.x - Math.sin(p.h) * lat, z: p.z + Math.cos(p.h) * lat, h: p.h, y: -17 + 16 * pose.rise };
+  // 道のまん中に出る（2026-10-17 のユーザー依頼で、左右にずらすのをやめた）
+  return { x: p.x, z: p.z, h: p.h, y: -17 + 16 * dinoPose(track, time).rise };
 }
 // 顔の中（形の中か、開いた口の中）か。u は顔の前（走ってくる車の方）へ、w は横、v は顔の下からの高さ（m。src/render/models.js の createDinoModel の形）
-const DINO_W = 19 / 2 + 1; // 顔の半分のはば（車の大きさの分を足す）
+const DINO_W = 26 / 2 + 1; // 顔の半分のはば（車の大きさの分を足す）。道はばいっぱいなので、道の端を飛んでも食べられる
 function insideDino(u, w, v) {
   if (Math.abs(w) > DINO_W || v < -1) return false;
   if (u < -8.5 || u > 7.5) return false;
