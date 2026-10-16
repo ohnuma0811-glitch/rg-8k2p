@@ -137,6 +137,18 @@ export function cpuControl(cpu, kart, track, t) {
     else lane = Math.min(lane, b.lateral - BUS_WIDTH / 2 - 6.2);
     if (ahead < 40 || ahead > track.length - 12) aim = at(8);
   }
+  // ぬかるみ（Soki Forest）: 先のぬかるみが自分の走る線にかかっていたら、横へよける。入ってしまったら、ハンドルを逆に切る（kart.js で逆になるので）
+  for (const m of track.muds ?? []) {
+    const d = Math.hypot(m.x - kart.x, m.z - kart.z);
+    if (d > 45) continue;
+    const q = locate(track, m.x, m.z, loc.i, 40, m.y);
+    if (Math.abs(q.lateral - lane) >= m.r + 2) continue;
+    const edge = samples[loc.i].half - 1.5;
+    const side = Math.sign(lane - q.lateral) || 1;
+    let dodge = q.lateral + (m.r + 2.5) * side;
+    if (Math.abs(dodge) > edge) dodge = q.lateral - (m.r + 2.5) * side;
+    lane = Math.max(-edge, Math.min(edge, dodge));
+  }
   // 木の実の影（Soki Forest）: まだ落ちていない木の実の落ちる所が、自分の走る線の近く（3m）なら、その横へずれる
   for (const nut of track.nuts?.list ?? []) {
     if (Math.hypot(nut.x - kart.x, nut.z - kart.z) > 35) continue;
@@ -180,7 +192,7 @@ export function cpuControl(cpu, kart, track, t) {
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
   const starting = cpu.drifting && !kart.drift.active;
   const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
-  return { steer: out, brake, drift: cpu.drifting };
+  return { steer: kart.muddy > 0 ? -out : out, brake, drift: cpu.drifting };
 }
 
 // CPU が、このバンプ（b 番目）で、この周（lap）に減速を忘れるか（2割くらい。レース・CPU・バンプ・周で決まる）

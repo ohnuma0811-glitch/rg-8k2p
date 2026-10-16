@@ -384,6 +384,13 @@ export function buildTrack(def) {
     const j = (def.jumps ?? []).find((q) => q.at === def.dino.at);
     t.dino = { s: markS(t, [def.dino.at, def.dino.at, 0]), period: def.dino.period, phase: def.dino.phase, from: j.gap[0] - 2, to: j.gap[1] + 14 };
   }
+  // ぬかるみ（Soki Forest。2026-10-16）: at は [道の id, 割合]、lateral は道の真ん中からの横の位置（m）、r は半径（m）
+  t.muds = (def.muds ?? []).map((m) => {
+    const path = t.paths.find((q) => q.id === m.at[0]);
+    const i = path.start + Math.round(m.at[1] * (path.count - 1));
+    const p = t.samples[i];
+    return { i, r: m.r, x: p.x - Math.sin(p.h) * m.lateral, z: p.z + Math.cos(p.h) * m.lateral, y: p.y ?? 0 };
+  });
   // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
   t.monkeys = (def.monkeys ?? []).map((m) => {
     const path = t.paths.find((q) => q.id === m.at[0]);

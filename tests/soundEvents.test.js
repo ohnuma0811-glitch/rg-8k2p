@@ -183,3 +183,7 @@ test('恐竜が川から上がってくるとき（近くにいたら）dinoRoar
 test('恐竜に食べられたら eaten（ぎゃーーー）', () => {
   assert.deepEqual(soundEvents(st({}, { eaten: 0 }), st({}, { eaten: 1 }), 3), ['eaten']);
 });
+
+test('ぬかるみに入ったら mudSlip（4秒のスリップの音）', () => {
+  assert.deepEqual(soundEvents(st({}, { mudHits: 0 }), st({}, { mudHits: 1 }), 3), ['mudSlip']);
+});

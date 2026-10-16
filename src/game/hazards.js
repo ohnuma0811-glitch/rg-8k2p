@@ -244,6 +244,18 @@ export function dinoContact(kart, track, time) {
   return 'eaten';
 }
 
+// ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）
+export const MUD_TIME = 4;
+export function mudContact(kart, track, dt) {
+  if (kart.muddy > 0) kart.muddy = Math.max(0, kart.muddy - dt);
+  const inside = !kart.airborne && !(kart.respawn > 0) && (track.muds ?? []).some((m) => Math.hypot(kart.x - m.x, kart.z - m.z) < m.r);
+  if (inside && !kart.onMud) {
+    kart.muddy = MUD_TIME;
+    kart.mudHits = (kart.mudHits || 0) + 1;
+  }
+  kart.onMud = inside;
+}
+
 // 自分の車から range m 以内に、飛び出す前（予告）のイノシシがいるか（「ブヒッ」を鳴らす）
 export function boarWarning(track, kart, time, range = 60) {
   return (track.boars ?? []).some((boar) => {

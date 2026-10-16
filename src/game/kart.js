@@ -167,7 +167,8 @@ export function stepKart(kart, ctl, track, params, dt) {
     return;
   }
   const here = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-  const steer = Math.max(-1, Math.min(1, ctl.steer));
+  // ぬかるみ（Soki Forest）: ハンドルが左右逆になる
+  const steer = Math.max(-1, Math.min(1, ctl.steer)) * (kart.muddy > 0 ? -1 : 1);
 
   if (!kart.airborne) {
     if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, ahead, behind, span } from '../src/game/track.js';
-import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK } from '../src/game/hazards.js';
+import { createNuts, stepNuts, nutContact, NUT_FALL, NUT_RADIUS, dinoPose, dinoContact, DINO_BLACK, mudContact, MUD_TIME } from '../src/game/hazards.js';
 import { boarPose, boarContact, BOAR_RADIUS } from '../src/game/hazards.js';
 import { COURSE3, COURSES } from '../src/data/tracks.js';
 
@@ -308,4 +308,38 @@ test('恐竜がかくれているときは、ジャンプ②を飛んでも食�
   while (dinoPose(t, up).state !== 'up') up += 0.05;
   const ground = createKart(t, Math.round(markS(t, ['J2', 'J2', 0])) + 40, 0);
   assert.equal(dinoContact(ground, t, up + 0.2), null);
+});
+
+test('近道に大きめのぬかるみが3つ。入ると4秒、ハンドルが左右逆になる（2026-10-16 のユーザー依頼）', () => {
+  assert.equal(t.muds.length, 3);
+  for (const m of t.muds) {
+    assert.equal(t.samples[m.i].path, 2, '近道の上');
+    assert.ok(m.r >= 5, '大きめ');
+  }
+  assert.equal(MUD_TIME, 4);
+  const m = t.muds[0];
+  const kart = createKart(t, m.i, 0);
+  kart.x = m.x;
+  kart.z = m.z;
+  kart.speed = 15;
+  mudContact(kart, t, 1 / 60);
+  assert.ok(Math.abs(kart.muddy - MUD_TIME) < 0.05);
+  assert.equal(kart.mudHits, 1);
+  mudContact(kart, t, 1 / 60);
+  assert.equal(kart.mudHits, 1, '中にいる間は1回');
+  // 右にハンドルを切ると、左へ曲がる
+  const h0 = kart.heading;
+  for (let k = 0; k < 20; k++) stepKart(kart, { steer: 1, drift: false }, t, params, 1 / 60);
+  const turned = Math.atan2(Math.sin(kart.heading - h0), Math.cos(kart.heading - h0));
+  const normal = createKart(t, m.i, 0);
+  normal.speed = 15;
+  const n0 = normal.heading;
+  for (let k = 0; k < 20; k++) stepKart(normal, { steer: 1, drift: false }, t, params, 1 / 60);
+  const nTurn = Math.atan2(Math.sin(normal.heading - n0), Math.cos(normal.heading - n0));
+  assert.ok(Math.sign(turned) === -Math.sign(nTurn) && nTurn !== 0, `${turned} ${nTurn}`);
+  // 4秒たつと元にもどる
+  const far = createKart(t, 0, 0);
+  far.muddy = MUD_TIME;
+  for (let k = 0; k < 60 * MUD_TIME + 2; k++) mudContact(far, t, 1 / 60);
+  assert.ok(far.muddy <= 0);
 });

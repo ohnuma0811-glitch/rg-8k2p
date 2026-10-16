@@ -5,6 +5,7 @@ import { driftLevel } from '../game/kart.js';
 const MAX = 200;
 const SMOKE = [new THREE.Color(0xf4f4f4), new THREE.Color(0xffd84a), new THREE.Color(0xff3b2f)];
 const DUST = new THREE.Color(0xd9b98a);
+const MUD_SMOKE = new THREE.Color(0x9a8a78); // ぬかるみで出る、灰色がかった茶色の煙
 
 export function createEffects(scene) {
   const pos = new Float32Array(MAX * 3);
@@ -50,6 +51,13 @@ export function createEffects(scene) {
         for (const side of [-1, 1]) {
           emit(kart.x - fx * 1 + rx * side * 0.9, kart.y + 0.3, kart.z - fz * 1 + rz * side * 0.9,
             (Math.random() - 0.5) * 2, 1 + Math.random() * 1.5, (Math.random() - 0.5) * 2, c, 0.35);
+        }
+      }
+      // ぬかるみ（Soki Forest）: ハンドルが逆の間、車からもくもく煙
+      if (kart.muddy > 0) {
+        for (let k = 0; k < 2; k++) {
+          emit(kart.x + (Math.random() - 0.5) * 2, kart.y + 0.8, kart.z + (Math.random() - 0.5) * 2,
+            (Math.random() - 0.5) * 1.5, 2 + Math.random() * 2, (Math.random() - 0.5) * 1.5, MUD_SMOKE, 0.9);
         }
       }
       if (kart.surface === 'dirt' && !kart.airborne && Math.abs(kart.speed) > 5) {

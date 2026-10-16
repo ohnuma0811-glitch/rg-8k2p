@@ -631,6 +631,15 @@ export function buildTrackMesh(track) {
         }
       }
     }
+    // ぬかるみ（近道に3つ）: こげ茶の泥を、少しずつずらした丸を重ねて
+    for (const m of track.muds ?? []) {
+      [[0, 0, 1, 0x5a3d22], [m.r * 0.3, -m.r * 0.2, 0.7, 0x4a3018], [-m.r * 0.35, m.r * 0.25, 0.55, 0x6b4a2c], [m.r * 0.1, m.r * 0.15, 0.35, 0x3a2512]].forEach(([dx, dz, f, c], k) => {
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(m.r * f, 18), new THREE.MeshLambertMaterial({ color: c }));
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.set(m.x + dx, m.y + 0.07 + k * 0.03, m.z + dz); // 重ねる丸は少しずつ高く（ちらつかないように）
+        group.add(disc);
+      });
+    }
     // サルのいる高い木（枝が道の方へのびる）
     for (const m of track.monkeys ?? []) {
       const q = track.samples[m.i];
