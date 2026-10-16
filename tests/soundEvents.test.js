@@ -191,3 +191,8 @@ test('恐竜に食べられたら eaten（ぎゃーーー）', () => {
 test('ぬかるみに入ったら mudSlip（4秒のスリップの音）', () => {
   assert.deepEqual(soundEvents(st({}, { mudHits: 0 }), st({}, { mudHits: 1 }), 3), ['mudSlip']);
 });
+
+test('スタートダッシュは startDash（ユーザーが用意したロケットスタートの音）。加速板の boost とは別（2026-10-16）', () => {
+  assert.deepEqual(soundEvents(st({}, { dashes: 0 }), st({}, { dashes: 1, boost: 1 }), 3), ['startDash']);
+  assert.deepEqual(soundEvents(st({}, { dashes: 1 }), st({}, { dashes: 1, boost: 1 }), 3), ['boost']);
+});

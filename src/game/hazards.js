@@ -92,6 +92,7 @@ export function cowContact(kart, track, time, phys) {
 export const BOAR_RADIUS = 1.3; // イノシシの大きさ（半径 m）
 const BOAR_WARN = 0.35; // 道のはしで止まって向きを変える（「ブヒッ」。秒）
 const BOAR_RUN = 1.6; // 道を横切る時間（秒）
+const BOAR_LINE = 3.5; // 親子の列の、真ん中から両わきの子まで（m。src/game/track.js の BOAR_GAP と同じ）
 // 時刻 time のイノシシ: いつも道を左右に突進して行ったり来たり（2026-10-16 のユーザー依頼「常に道を左右に突進」）。
 // はし（道のふちの少し外）で BOAR_WARN 秒止まり、BOAR_RUN 秒で反対のはしへ
 export function boarPose(track, boar, time) {
@@ -99,7 +100,7 @@ export function boarPose(track, boar, time) {
   const half = BOAR_WARN + BOAR_RUN;
   const cycle = Math.floor((time + boar.phase) / half);
   const tin = time + boar.phase - cycle * half;
-  const from = (cycle % 2 === 0 ? boar.side : -boar.side) * (p.half + 1);
+  const from = (cycle % 2 === 0 ? boar.side : -boar.side) * (p.half + 1 - (boar.offset === undefined ? 0 : BOAR_LINE)); // 親子の列の真ん中の、はし（はしの子が道のふちの少し外まで）
   let lateral = from;
   let state = 'warn';
   if (tin >= BOAR_WARN) {
@@ -107,6 +108,7 @@ export function boarPose(track, boar, time) {
     lateral = from - 2 * from * ((tin - BOAR_WARN) / BOAR_RUN);
   }
   const dir = Math.sign(-from);
+  lateral += boar.offset ?? 0; // 親子の列の中の場所（横に並ぶ）
   return { x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, lateral, heading: p.h + (dir * Math.PI) / 2, state };
 }
 

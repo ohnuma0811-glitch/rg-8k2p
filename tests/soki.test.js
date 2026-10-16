@@ -173,10 +173,12 @@ test('イノシシは3頭の親子が5か所。いつも道を左右に突進し
     assert.equal(f.length, 3);
     for (let time = 0; time < 30; time += 0.5) {
       const ls = f.map((b) => boarPose(t, b, time));
-      assert.ok(ls.every((l) => l.state === ls[0].state && Math.abs(l.lateral - ls[0].lateral) < 0.01), '同時に渡る');
+      assert.ok(ls.every((l) => l.state === ls[0].state), '同時に渡る');
     }
-    const ss = f.map((b) => b.s).sort((a, b) => a - b);
-    assert.ok(ss[2] - ss[0] > 4 && ss[2] - ss[0] < 12, '道に沿って横一列');
+    // 走ってくる車から見て横に3頭（同じ所で、道の横に並ぶ。2026-10-16 のユーザー依頼「縦ではなく横に3匹」）
+    assert.ok(f.every((b) => b.s === f[0].s), '同じ所');
+    const ls = f.map((b) => boarPose(t, b, 1).lateral).sort((a, b) => a - b);
+    assert.ok(ls[1] - ls[0] > 2.5 && ls[2] - ls[1] > 2.5, `横にならぶ ${ls}`);
   }
   // 2026-10-16 のユーザー依頼「常に道を左右に突進するように。接触が少なすぎる」
   for (const boar of t.boars) {
@@ -453,4 +455,41 @@ test('近道に大きめのぬかるみが3つ。入ると4秒、ハンドルが
   far.muddy = MUD_TIME;
   for (let k = 0; k < 60 * MUD_TIME + 2; k++) mudContact(far, t, 1 / 60);
   assert.ok(far.muddy <= 0);
+});
+
+test('一度食べられた CPU は、恐竜がもぐってから飛べるように待って、二回続けて食べられない（2026-10-16 のユーザー依頼）', () => {
+  const j = Math.round(markS(t, ['J2', 'J2', 0]));
+  for (let t0 = 0; t0 < t.dino.period; t0 += 0.75) {
+    const cpu = createCpu(1, 7);
+    const kart = createKart(t, (j - 90 + t.length) % t.length, 0);
+    kart.eaten = 1;
+    cpu.lap = 0;
+    cpu.lastS = t.samples[kart.seg].s;
+    let time = t0;
+    let passed = false;
+    for (let k = 0; k < 60 * 25 && !passed; k++) {
+      stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(params, 1), 1 / 60);
+      time += 1 / 60;
+      assert.equal(dinoContact(kart, t, time), null, `t0=${t0}: また食べられた`);
+      const p = t.samples[kart.seg];
+      passed = p.path === 0 && span(t, j, p.s) > 40 && span(t, j, p.s) < 200 && !kart.airborne;
+    }
+    assert.ok(passed, `t0=${t0}: ジャンプ②を通れない`);
+  }
+});
+
+test('大きな丘のあと（滝のあたり）: 少し急な左カーブのあと、大きな右カーブ（2026-10-16 のユーザー依頼）', () => {
+  const a = Math.round(t.marks.HILL);
+  const b = Math.round(t.marks.J2);
+  const turn = (i, len) => Math.atan2(Math.sin(t.samples[i + len].h - t.samples[i].h), Math.cos(t.samples[i + len].h - t.samples[i].h));
+  let left = null;
+  for (let i = a; i < b - 50; i += 2) if (turn(i, 50) < -0.6) { left = i; break; }
+  assert.ok(left !== null, '急な左カーブがない');
+  let right = false;
+  for (let i = left; i < b - 120; i += 2) if (turn(i, 120) > 1.2) right = true;
+  assert.ok(right, '大きな右カーブがない');
+});
+
+test('滝は大きい（はば 18m 以上、高さ 14m 以上）', () => {
+  assert.ok(COURSE3.waterfall.width >= 18 && COURSE3.waterfall.height >= 14);
 });

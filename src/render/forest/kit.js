@@ -8,7 +8,7 @@ const LEAF = [0x5fbf3f, 0x4caa36, 0x3f962f, 0x6fcf4a]; // ブロッコリーの�
 // ブロッコリーのような木: こげ茶の幹の上に、丸いかたまりを少しずつずらして重ねる。k で形を変える
 export function broccoliTree(b, { size = 1, k = 0 } = {}) {
   const h = 4 * size;
-  b.cyl(0.35 * size, 0.5 * size, h, 6, TRUNK, 0, 0, 0);
+  b.cyl(0.35 * size, 0.5 * size, h, 6, TRUNK, 0, 0, 0, true); // 幹のふたは見えないので、なし
   const n = 2 + (k % 2);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + k;

@@ -15,7 +15,7 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, mergeStatic } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -132,6 +132,7 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
       audio.unlock();
       if (!first || !audio.ctx) return;
       voices.load();
+      crowd.load(); // スタジアムの歓声のファイル
       // 曲を作るのに少し時間がかかるので、タイトルの曲、コースの曲（一覧の順）、ゴールと結果の曲の順に作っておく
       const order = ['title', ...new Set(COURSES.map((c) => c.music)), 'victory', 'consolation', 'results'];
       order.reduce((p, name) => p.then(() => music.prepare(name)), Promise.resolve());
@@ -233,7 +234,7 @@ function createGame(name, charId) {
     const isMe = k === PLAYER_SLOT;
     const look = isMe ? { body: me.body, character: me.id } : CPU_LOOKS[cpuNo];
     cpus.push(isMe ? createCpu(7, seed) : createCpu(cpuNo, seed));
-    models.push(createKartModel(look));
+    models.push(mergeStatic(createKartModel(look))); // 動かない部品は1つの形に（タブレットで描く回数を減らす）
     if (!isMe) cpuNo++;
   }
   models.forEach((m) => scene.add(m));
@@ -287,7 +288,7 @@ function createGame(name, charId) {
 function placeCows(time) {
   if (!track.cows.length) return;
   if (!track.cowModels) {
-    track.cowModels = track.cows.map((_, k) => createCowModel(k));
+    track.cowModels = track.cows.map((_, k) => mergeStatic(createCowModel(k)));
     track.cowModels.forEach((m) => track.mesh.add(m));
   }
   track.cows.forEach((cow, k) => {
@@ -303,7 +304,7 @@ function placeCows(time) {
 function placeBoars(time) {
   if (!track.boars.length) return;
   if (!track.boarModels) {
-    track.boarModels = track.boars.map((b, k) => createBoarModel(k, b.size));
+    track.boarModels = track.boars.map((b, k) => mergeStatic(createBoarModel(k, b.size)));
     track.boarModels.forEach((m) => track.mesh.add(m));
   }
   track.boars.forEach((boar, k) => {
@@ -319,7 +320,7 @@ function placeBoars(time) {
 function placeDino(time) {
   if (!track.dino) return;
   if (!track.dinoModel) {
-    track.dinoModel = createDinoModel();
+    track.dinoModel = mergeStatic(createDinoModel());
     track.mesh.add(track.dinoModel);
   }
   const pose = dinoPose(track, time);
@@ -377,10 +378,12 @@ const jawTop = jawDiv(true);
 const jawBottom = jawDiv(false);
 const gulp = document.createElement('div');
 gulp.textContent = 'GULP!';
-gulp.style.cssText = 'position:absolute;left:0;right:0;top:50%;text-align:center;font:900 min(18vw,140px)/1 sans-serif;color:#ffd84a;-webkit-text-stroke:4px #6b2a00;transform:translateY(-50%)';
+gulp.style.cssText = 'position:absolute;left:0;right:0;top:50%;text-align:center;font:900 min(18vw,140px)/1 sans-serif;color:#ffd84a;text-shadow:4px 0 #6b2a00,-4px 0 #6b2a00,0 4px #6b2a00,0 -4px #6b2a00,3px 3px #6b2a00,-3px 3px #6b2a00,3px -3px #6b2a00,-3px -3px #6b2a00;transform:translateY(-50%)';
 dinoBlack.append(dinoDark, jawTop, jawBottom, gulp);
 document.body.appendChild(dinoBlack);
 const DINO_CHOMP = 0.45; // あごが閉じるまで（秒）
+const DINO_AFTER = 1.0; // 走り直してからも暗いままの秒数
+const DINO_FADE_IN = 0.5; // そのあと明るくなる秒数
 // 食べられてからの秒数 e（まだなら null）で、あご・文字・暗さを決める
 function showChomp(e) {
   dinoBlack.style.display = e === null ? 'none' : 'block';
@@ -389,9 +392,9 @@ function showChomp(e) {
   const ease = 1 - (1 - close) ** 3;
   jawTop.style.transform = `translateY(${(-100 * (1 - ease)).toFixed(1)}%)`;
   jawBottom.style.transform = `translateY(${(100 * (1 - ease)).toFixed(1)}%)`;
-  const left = DINO_BLACK - e; // 走り直すまでの秒数
-  // 閉じたあと、だんだん暗く。走り直す前に、だんだん明るく
-  dinoDark.style.opacity = String(Math.max(0, Math.min(1, (e - DINO_CHOMP - 0.4) / 0.5, left / 0.3)));
+  // 閉じたあと、だんだん暗く。走り直したあとも DINO_AFTER 秒は暗いまま（カメラが戻るのが見えないように。2026-10-16 のユーザー依頼）、そのあとだんだん明るく
+  const back = e - DINO_BLACK; // 走り直してからの秒数（マイナスはまだ）
+  dinoDark.style.opacity = String(Math.max(0, Math.min(1, (e - DINO_CHOMP - 0.4) / 0.5, 1 - (back - DINO_AFTER) / 0.5)));
   jawTop.style.opacity = jawBottom.style.opacity = String(Math.max(0, Math.min(1, 1 - (e - DINO_CHOMP - 0.6) / 0.4)));
   const pop = e < DINO_CHOMP ? 0 : Math.min(1, (e - DINO_CHOMP) / 0.15);
   gulp.style.opacity = String(Math.max(0, Math.min(pop, 1 - (e - 1.6) / 0.4)));
@@ -402,7 +405,7 @@ function placeMonkeys(time, nuts) {
   if (!track.monkeys.length) return;
   if (!track.monkeyModels) {
     track.monkeyModels = track.monkeys.map((m) => {
-      const model = createMonkeyModel();
+      const model = mergeStatic(createMonkeyModel());
       model.position.set(m.x, m.y + MONKEY_HEIGHT, m.z);
       // 道の方を向く
       const q = track.samples[m.i];
@@ -438,7 +441,7 @@ function placeMonkeys(time, nuts) {
 function placeBuses(time) {
   if (!track.buses.length) return;
   if (!track.busModels) {
-    track.busModels = track.buses.map(() => createBusModel());
+    track.busModels = track.buses.map(() => mergeStatic(createBusModel()));
     track.busModels.forEach((m) => track.mesh.add(m));
   }
   track.buses.forEach((bus, k) => {
@@ -739,7 +742,10 @@ function renderGame(alpha, dt) {
   placeDino(g.race.t);
   // 食べられた演出（血のりは出さない。2026-10-16 のユーザーの判断「子供向けには刺激が強い」）
   const meK = g.karts[g.me];
-  showChomp(meK.swallowed ? DINO_BLACK - meK.respawn : null);
+  if (meK.swallowed) g.chompE = DINO_BLACK - meK.respawn;
+  else if (g.chompE != null) g.chompE += dt; // 走り直したあと（まだ暗い）
+  if (g.chompE != null && g.chompE > DINO_BLACK + DINO_AFTER + DINO_FADE_IN) g.chompE = null;
+  showChomp(g.chompE ?? null);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -777,6 +783,8 @@ function renderGame(alpha, dt) {
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
     else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
     else if (name === 'dinoRoar') voices.play('roar', dinoVolume(kart)); // 恐竜の咆哮（遠いほど小さく）
+    else if (name === 'startDash') voices.has('rocket') ? voices.play('rocket') : sfx.play('boost'); // スタートダッシュ（ユーザーが用意した音）
+    else if (name === 'busPass') voices.has('horn') ? voices.play('horn') : sfx.play('busPass'); // バスのクラクション（ユーザーが用意した音）
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
     if (name === 'go') music.play(course.music);

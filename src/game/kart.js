@@ -101,6 +101,7 @@ export const DASH_BASE = 0.5;
 export const DASH_PER_ACCEL = 0.15;
 export function startDash(kart, params, accelLevel) {
   startBoost(kart, params, DASH_BASE + DASH_PER_ACCEL * accelLevel);
+  kart.dashes = (kart.dashes || 0) + 1; // スタートダッシュの音のため
 }
 
 // factor: 加速中の最高速の倍率（加速板・スタートダッシュは BOOST_FACTOR、ミニターボは MT_FACTOR）。

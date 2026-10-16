@@ -78,8 +78,8 @@ export function terrainHeight(track, x, z) {
       }
     }
   }
-  // いちばん近い点とほぼ同じ近さ（0.5m 以内）の点だけで、高さの上限を決める
-  for (const [e, y] of close) if (e <= bestE + 0.5) cap = Math.min(cap, y);
+  // いちばん近い点とほぼ同じ近さ（0.15m 以内）の点だけで、高さの上限を決める
+  for (const [e, y] of close) if (e <= bestE + 0.15) cap = Math.min(cap, y);
   let y = weight ? Math.min(sum / weight, cap) : 0;
   if (!onRoad && river.length > 1) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));

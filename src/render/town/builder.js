@@ -33,8 +33,9 @@ export function createBuilder() {
       add(new THREE.BoxGeometry(w, h, d), color, x, y + h / 2, z, ry);
     },
     // 立てた円柱（上の半径 rTop、下の半径 rBottom、高さ h）。(x, y, z) は底の真ん中
-    cyl(rTop, rBottom, h, segments, color, x, y, z) {
-      add(new THREE.CylinderGeometry(rTop, rBottom, h, segments), color, x, y + h / 2, z, 0);
+    // open: 上下のふたなし（木の幹や円すいの葉など、ふたが見えない所。三角が半分になる）
+    cyl(rTop, rBottom, h, segments, color, x, y, z, open = false) {
+      add(new THREE.CylinderGeometry(rTop, rBottom, h, segments, 1, open), color, x, y + h / 2, z, 0);
     },
     // x の向きに寝かせた円柱（半径 r、長さ len）。(x, y, z) は真ん中
     cylX(r, len, segments, color, x, y, z) {

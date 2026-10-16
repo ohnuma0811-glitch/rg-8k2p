@@ -50,6 +50,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
     monkeyThrows, // 近くのサルが投げた数の合計
     nutHits: kart.nutHits || 0, // 木の実が当たった回数
+    dashes: kart.dashes || 0, // スタートダッシュをした回数
     eaten: eatenHeard ?? (kart.eaten || 0), // 聞こえた「食べられた」の数（自分か、恐竜のまわりにいて誰かが）
     mudHits: kart.mudHits || 0, // ぬかるみに入った回数
     dinoRoar, // 近くの恐竜が、川から上がってきている
@@ -97,7 +98,9 @@ export function soundEvents(prev, cur, laps) {
   if (cur.drift && !prev.drift) ev.push('driftStart');
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');
-  if (cur.boost && !prev.boost) ev.push('boost');
+  // スタートダッシュは専用の音（2026-10-16 のユーザー依頼）。そのときは加速の音を重ねない
+  if (cur.dashes > prev.dashes) ev.push('startDash');
+  else if (cur.boost && !prev.boost) ev.push('boost');
   if (cur.onWall && !prev.onWall && !cur.airborne && prev.wallQuiet >= WALL_QUIET) ev.push('wall');
   // 着地: もうすぐ着くと分かったときに鳴らす。分からないまま着いたときは、着いたときに鳴らす
   if (cur.landingSoon && !prev.landingSoon) ev.push('land');

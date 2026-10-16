@@ -54,6 +54,44 @@ function mat(color) {
   return mats.get(color);
 }
 
+// 形の中の、動かない部品（色だけの箱や玉）を、グループごとに1つの形にまとめる（描く回数を減らす。2026-10-16 のユーザー依頼「タブレットでカクつく」）
+// 動く部品（userData に入れたもの: タイヤなど）と、子のグループ（頭・足・あごなど）はそのまま。子のグループの中も、同じようにまとめる
+const VERTEX_MAT = new THREE.MeshLambertMaterial({ vertexColors: true });
+export function mergeStatic(root) {
+  const keep = new Set();
+  for (const v of Object.values(root.userData)) {
+    for (const o of Array.isArray(v) ? v : [v]) if (o && o.isObject3D) keep.add(o);
+  }
+  const visit = (g) => {
+    for (const c of g.children) if (!c.isMesh && c.children.length) visit(c);
+    const parts = g.children.filter((c) => c.isMesh && !keep.has(c) && !c.children.length && c.material?.isMeshLambertMaterial && !c.material.map && !c.material.transparent && !c.material.vertexColors);
+    if (parts.length < 2) return;
+    const pos = [];
+    const nor = [];
+    const col = [];
+    for (const p of parts) {
+      p.updateMatrix();
+      const geo = (p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()).applyMatrix4(p.matrix);
+      const a = geo.attributes.position.array;
+      const n = geo.attributes.normal.array;
+      const { r, g: gg, b } = p.material.color;
+      for (let i = 0; i < a.length; i += 3) {
+        pos.push(a[i], a[i + 1], a[i + 2]);
+        nor.push(n[i], n[i + 1], n[i + 2]);
+        col.push(r, gg, b);
+      }
+      g.remove(p);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.add(new THREE.Mesh(geo, VERTEX_MAT));
+  };
+  visit(root);
+  return root;
+}
+
 function mesh(geo, color, x, y, z) {
   const m = new THREE.Mesh(geo, mat(color));
   m.position.set(x, y, z);
@@ -459,6 +497,7 @@ export function createMonkeyModel() {
   g.add(box(0.18, 0.6, 0.18, fur, 0.1, 0.35, -0.35)); // もう片方の腕
   const tail = box(0.12, 1.4, 0.12, fur, -0.4, -0.5, 0); // 長いしっぽ（下へたれる）
   g.add(tail);
+  g.userData.tail = tail; // 動かすので、まとめない
   g.userData.throwAt = (time, since) => {
     arm.rotation.z = since < 0.4 ? -2.2 * (1 - since / 0.4) : 0;
     tail.rotation.x = Math.sin(time * 2) * 0.25;

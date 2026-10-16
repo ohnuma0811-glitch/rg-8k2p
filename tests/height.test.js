@@ -55,10 +55,14 @@ test('坂の頂上を速く越えると少し浮いて、着地して走り続�
     let flew = false;
     for (let k = 0; k < 60 * 4; k++) {
       // ゆっくりのほうは、速さ 10 を超えたらブレーキ（自動のアクセルで速くなるので）
-      stepKart(kart, kart.speed > cap ? { ...STRAIGHT, brake: true } : STRAIGHT, t, params, 1 / 60);
+      // 道に沿ってハンドルを切る（丘の前後はカーブなので。2026-10-16 にコースを変えた）
+      const here = locate(t, kart.x, kart.z, kart.seg, 40, kart.y);
+      const turn = Math.atan2(Math.sin(here.heading - kart.move), Math.cos(here.heading - kart.move));
+      const steer = Math.max(-1, Math.min(1, turn * 3 - here.lateral * 0.08));
+      stepKart(kart, { ...STRAIGHT, steer, brake: kart.speed > cap }, t, params, 1 / 60);
       if (kart.airborne) flew = true;
       if (!kart.airborne) {
-        const loc = locate(t, kart.x, kart.z, kart.seg);
+        const loc = locate(t, kart.x, kart.z, kart.seg, 40, kart.y); // 車と同じ探し方（高さも見る）
         assert.ok(Math.abs(kart.y - loc.ground) < 0.05, '地面からずれている');
       }
     }

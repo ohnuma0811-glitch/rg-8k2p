@@ -1,4 +1,5 @@
 // コースの外側の、何もない所をジャングルにする（2026-10-15 のユーザー依頼。コースの内側は今のまま）
+import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from './builder.js';
 import { broccoliTree } from '../forest/kit.js';
 
@@ -66,18 +67,38 @@ export function jungleSpots(track, avoid, { inside = false } = {}) {
 // ジャングルの形（濃い緑の高い木のかたまりと、ときどきヤシ）
 const LEAVES = [0x1f5a2a, 0x2a6b2e, 0x245f32, 0x337a35];
 // groundY(x, z): 地面の高さ（森の坂。省けば 0）。inside: 森の中のブロッコリーの木（Soki Forest）
+// 木は CHUNK m の区画ごとに別の形にする（画面に映らない区画は描かないので、タブレットで軽い。2026-10-16 のユーザー依頼「カクつく」）
+export const CHUNK = 220;
+function chunked() {
+  const builders = new Map();
+  return {
+    at(x, z) {
+      const key = `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
+      if (!builders.has(key)) builders.set(key, createBuilder());
+      return builders.get(key);
+    },
+    build() {
+      const group = new THREE.Group();
+      for (const b of builders.values()) group.add(b.build());
+      return group;
+    },
+  };
+}
+
 export function buildJungle(track, avoid, { groundY = () => 0, inside = false } = {}) {
-  const b = createBuilder();
+  const chunks = chunked();
   if (inside) {
     // 1か所に1本（三角の数を減らす。2026-10-16 のブラウザ確認で 28万 → 少なく）
     for (const p of jungleSpots(track, avoid, { inside: true })) {
+      const b = chunks.at(p.x, p.z);
       b.push(p.x, groundY(p.x, p.z), p.z, p.k);
       broccoliTree(b, { size: 1.3 + (p.k % 4) * 0.25, k: p.k });
       b.pop();
     }
-    return b.build();
+    return chunks.build();
   }
   for (const p of jungleSpots(track, avoid)) {
+    const b = chunks.at(p.x, p.z);
     const n = 2 + (p.k % 2);
     for (let i = 0; i < n; i++) {
       const ox = ((p.k * (i + 3) * 7) % 13) - 6;
@@ -85,9 +106,10 @@ export function buildJungle(track, avoid, { groundY = () => 0, inside = false } 
       const h = 10 + ((p.k * (i + 1)) % 9);
       const color = LEAVES[(p.k + i) % LEAVES.length];
       const y = groundY(p.x + ox, p.z + oz);
-      b.cyl(0.4, 0.6, h * 0.4, 5, 0x5a4030, p.x + ox, y, p.z + oz);
-      b.cyl(0, 5 + (i % 2) * 2, h * 0.75, 6, color, p.x + ox, y + h * 0.3, p.z + oz);
+      // ふたは見えないので、なし（タブレットで軽く。2026-10-16）
+      b.cyl(0.4, 0.6, h * 0.4, 5, 0x5a4030, p.x + ox, y, p.z + oz, true);
+      b.cyl(0, 5 + (i % 2) * 2, h * 0.75, 6, color, p.x + ox, y + h * 0.3, p.z + oz, true);
     }
   }
-  return b.build();
+  return chunks.build();
 }

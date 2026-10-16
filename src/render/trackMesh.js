@@ -8,6 +8,7 @@ import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
 import { buildTerrain, terrainHeight } from './terrain.js';
+import { mergeMeshes } from './mergeMeshes.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
 import { cornerUW, markS } from '../game/track.js';
 
@@ -660,6 +661,8 @@ export function buildTrackMesh(track) {
     group.add(bank(track, sides, -1), bank(track, sides, 1));
     group.add(roadside(track, sides));
   }
+  // 動かない形は、同じ材質ごと・区画ごとに1つにまとめる（タブレットで描く回数を減らす。2026-10-16）
+  group.userData.merged = mergeMeshes(group);
   return group;
 }
 
