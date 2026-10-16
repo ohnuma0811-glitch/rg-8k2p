@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=77f29ff';
-import { SOKI_SCENERY } from './soki.js?v=77f29ff';
+import { KAMPAR_SCENERY } from './kampar.js?v=ca732e7';
+import { SOKI_SCENERY } from './soki.js?v=ca732e7';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -181,7 +181,7 @@ export const COURSE3 = {
     { at: ['inner', 0.74], lateral: -1, r: 6.5 },
   ],
   // 恐竜（2026-10-16 のユーザー依頼）: ジャンプ②の川から、ときどき大きな顔が口を開けて出てくる。period 秒ごと、phase でずらす
-  dino: { at: 'J2', period: 11, phase: 6 }, // 2026-10-16 に 13秒から（出るのを多く）
+  dino: { at: 'J2', period: 9, phase: 6 }, // 2026-10-16 に 13秒から（出るのを多く。食べられる 6割くらい）
   // 近道が有利すぎたので5匹に（2026-10-16 のユーザー依頼「近道をもう少し難しく」）
   monkeys: [
     { at: ['inner', 0.15], side: 1 },

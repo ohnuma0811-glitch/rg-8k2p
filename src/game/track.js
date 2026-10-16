@@ -702,7 +702,8 @@ export function respawnIndex(track, i) {
   for (let k = 1; k < n; k++) {
     j = samples[j].prev;
     const p = samples[j];
-    const flat = p.y === 0 && !p.ramp && !p.boost;
+    // 地面のある、ジャンプ台・加速板でない所（坂の道でもよい。2026-10-16: 高さのあるコースで、ずっと後ろまで戻されていた）
+    const flat = p.y !== null && !p.ramp && !p.boost && !p.bridge;
     run = flat ? run + 1 : 0;
     if (run >= 10) return j;
   }

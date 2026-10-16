@@ -1,8 +1,8 @@
 // 石のアーチ橋（Soki Forest。2026-10-16 のユーザー依頼「下の道の上に大きな橋を」）。
 // 本線の橋の点（p.bridge）に沿って、石の板（道の下）・石の手すり・橋脚と、橋脚の間のアーチを作る。
 // 下の道（ほかの道）の上は、橋脚を置かず、大きなアーチにする
-import { createBuilder } from '../town/builder.js?v=77f29ff';
-import { span } from '../../game/track.js?v=77f29ff';
+import { createBuilder } from '../town/builder.js?v=ca732e7';
+import { span } from '../../game/track.js?v=ca732e7';
 
 const STONE = 0x9a958c; // 橋の石
 const STONE_DARK = 0x8a857c; // アーチの内側（少し暗く）
@@ -16,7 +16,9 @@ export function buildBridge(track) {
   const { samples } = track;
   const pts = samples.slice(0, track.length).filter((p) => p.bridge);
   if (!pts.length) return b.build();
-  const width = 2 * track.roadHalf + 2;
+  // 橋のはば: 車が通れる所（柵 p.wall）のはしに、手すりの内がわを合わせる
+  const wall = pts[0].wall;
+  const width = 2 * wall + 1.2;
   // 走る向きを部品の +z にする回転
   const ryOf = (p) => Math.PI / 2 - p.h;
   // 道の下の板と、両はしの手すり（2m ごと）

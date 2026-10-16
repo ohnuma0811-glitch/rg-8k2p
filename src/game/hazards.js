@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=77f29ff';
-import { span, locate, ahead, behind } from './track.js?v=77f29ff';
+import { SPEED_SHOW } from '../hud.js?v=ca732e7';
+import { span, locate, ahead, behind } from './track.js?v=ca732e7';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 1; // 転がって走れない秒数（2026-10-15 のユーザー依頼で3秒から1秒に）
@@ -214,10 +214,10 @@ export function dropFallen(nuts, time) {
 // 恐竜（Soki Forest。2026-10-16 のユーザー依頼）: ジャンプ②の下の川から、大きな顔が口を開けて、ジャンプの通り道に出てくる
 // そのとき飛んだ車は食べられて、DINO_BLACK 秒まっくら。そのあとジャンプ台の DINO_BACK m 手前から走り直し
 export const DINO_BLACK = 3; // 食べられて、まっくらの秒数
-export const DINO_BACK = 30; // 走り直す所（ジャンプ②の印の手前 m）
-// 急に出て、ゆっくり川にかくれる（2026-10-16 のユーザー依頼）。ジャンプ②に来た車の 3割くらいが食べられる間
+export const DINO_BACK = 90; // 走り直す所（ジャンプ②の印の手前 m。2026-10-16 に 30 から3倍に）
+// 急に出て、ゆっくり川にかくれる（2026-10-16 のユーザー依頼）。ジャンプ②に来た車の 6割くらいが食べられる間（同じ日に 3割から）
 const DINO_RISE = 0.25; // 川から飛び出す秒数
-const DINO_UP = 1.2; // 顔を出している秒数
+const DINO_UP = 3.0; // 顔を出している秒数
 const DINO_SINK = 2.2; // ゆっくりもぐる秒数
 // 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
 export function dinoPose(track, time) {

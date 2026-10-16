@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=77f29ff';
-import { PHYS } from '../game/kart.js?v=77f29ff';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=77f29ff';
+import * as THREE from '../../vendor/three.module.min.js?v=ca732e7';
+import { PHYS } from '../game/kart.js?v=ca732e7';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=ca732e7';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で1秒）
 const TUMBLE_FLY = 0.55;
@@ -420,16 +420,21 @@ export function createDinoModel() {
   for (let z = -W / 2 + 1.2; z <= W / 2 - 1.2; z += 2.2) upper.add(box(0.6, 1.3, 0.6, 0xffffff, 9.6, -0.6, z)); // 上の歯
   for (const z of [-3, 3]) upper.add(box(0.8, 0.8, 1.2, 0x2a4a20, 9.8, 2.2, z)); // 鼻の穴
   for (let x = 1; x <= 8; x += 3.5) upper.add(box(1.6, 1.2, W * 0.5, dark, x, 3.2, 0)); // 背中のでこぼこ
-  // 目（上あごの上。走ってくる車から見える）
-  for (const z of [-W / 2 + 2.5, W / 2 - 2.5]) {
-    upper.add(box(3, 3, 3, 0xffffff, 2, 4, z));
-    upper.add(box(1.4, 1.6, 1.6, 0x111111, 3.2, 4.4, z));
-  }
   upper.position.set(-3.5, 2.6, 0);
   upper.rotation.z = 0.8; // 口を大きく開ける
   g.add(upper);
-  // 頭の後ろ（首）
+  // 頭の後ろ（首）と、頭のてっぺん
   g.add(box(6, 9, W - 2, dark, -5.5, 4.5, 0));
+  g.add(box(5, 4, W - 4, skin, -4.5, 11, 0));
+  // 大きな目（頭のてっぺんの、上あごより高い所に出っぱる。黄色い目に、たての黒いひとみ。2026-10-16 のユーザー依頼「大きな目で恐竜らしく」）
+  for (const z of [-W / 2 + 3.6, W / 2 - 3.6]) {
+    g.add(ball(3.4, 0xffffff, -3.2, 14, z, 14)); // 白目
+    g.add(ball(2.3, 0xf2c21a, -1.4, 14, z, 12)); // 黄色い目
+    g.add(box(0.8, 3, 0.8, 0x111111, 0.7, 14, z)); // たてのひとみ
+    const brow = box(4.4, 1.3, 4.6, dark, -3, 17.3, z); // こわい顔のまゆ（目の上に、内がわを下げて）
+    brow.rotation.x = z > 0 ? 0.25 : -0.25;
+    g.add(brow);
+  }
   return g;
 }
 
