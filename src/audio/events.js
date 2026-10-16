@@ -32,6 +32,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     stage: kart.drift.active ? kart.drift.stage : 0,
     boost: kart.boost > 0,
     airborne: kart.airborne,
+    rampJump: !!kart.airborne && !!kart.launched, // ジャンプ台から飛び出して空中にいる（坂の頂上で浮いたときは false）
     // もうすぐ着地する（落ちている途中で、いまの速さのままなら LAND_LEAD 秒以内に高さ 0 に着く）
     landingSoon: !!kart.airborne && (kart.vy || 0) < 0 && (kart.y || 0) / -kart.vy <= LAND_LEAD,
     hop: (kart.hop || 0) > 0, // ドリフトのボタンで跳ねている
@@ -86,7 +87,7 @@ export function soundEvents(prev, cur, laps) {
   // ジャンプ台の声: もうすぐ飛び出すと分かったときに鳴らす。分からないまま飛び出したときは、飛び出したときに鳴らす
   // （ドリフトの跳ねは airborne にならない）
   if (cur.jumpSoon && !prev.jumpSoon) ev.push('jump');
-  else if (cur.airborne && !prev.airborne && !prev.jumpSoon) ev.push('jump');
+  else if (cur.rampJump && !prev.rampJump && !prev.jumpSoon) ev.push('jump'); // ジャンプ台の時だけ（2026-10-16 のユーザー依頼）
   if (cur.drift && !prev.drift) ev.push('driftStart');
   if (!cur.drift && prev.drift) ev.push('driftEnd');
   if (cur.stage > prev.stage) ev.push('spark');

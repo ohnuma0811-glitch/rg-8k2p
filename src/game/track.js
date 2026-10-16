@@ -345,7 +345,10 @@ export function buildTrack(def) {
   t.bumps = (def.bumps ?? []).map((ref) => markS(t, ref)); // バンプの場所（s）
   // 牛: 区間の中に等しい間をあけて並べ、牛ごとに動く速さとタイミングをずらす
   // イノシシ（Soki Forest。2026-10-16）: at の所。side はかくれている側、period は周期（秒）、phase はずらし（秒）
-  t.boars = (def.boars ?? []).map((b) => ({ s: markS(t, b.at), side: b.side, period: b.period, phase: b.phase }));
+  // 3頭の親子（真ん中が親、前後が子。道に沿って BOAR_GAP m ずつ）が、同時に渡る
+  t.boars = (def.boars ?? []).flatMap((b, f) => [-1, 0, 1].map((k) => ({
+    s: (markS(t, b.at) + k * BOAR_GAP + t.length) % t.length, side: b.side, period: b.period, phase: b.phase, family: f, size: k === 0 ? 1 : 0.7,
+  })));
   t.cows = [];
   if (def.cows) {
     const from = markS(t, def.cows.from);
@@ -477,7 +480,20 @@ function addBranches(t, def, fit) {
     const join = Math.round(markS(t, [b.to, b.to, 0])) % t.length;
     const pf = samples[fork];
     const pj = samples[join];
-    const pts = [[pf.x, pf.z], ...b.points.map(([x, z]) => { const w = t.toWorld(x, z); return [w.x, w.z]; }), [pj.x, pj.z]];
+    const given = b.points.map(([x, z]) => { const w = t.toWorld(x, z); return [w.x, w.z]; });
+    // 高速道路の合流（b.merge m）: 合流する所の手前 merge m は、本線の横に並び、だんだん近づいて1本になる
+    const taper = [];
+    if (b.merge) {
+      const p0 = samples[(join - b.merge + t.length) % t.length];
+      const [lx, lz] = given[given.length - 1];
+      const side = Math.sign(-Math.sin(p0.h) * (lx - p0.x) + Math.cos(p0.h) * (lz - p0.z)) || 1;
+      for (let d = b.merge; d > 4; d -= 8) {
+        const p = samples[(join - d + t.length) % t.length];
+        const lat = side * (def.roadHalf + half) * (1 - Math.cos((Math.PI * d) / b.merge)) / 2;
+        taper.push([p.x - Math.sin(p.h) * lat, p.z + Math.cos(p.h) * lat]);
+      }
+    }
+    const pts = [[pf.x, pf.z], ...given, ...taper, [pj.x, pj.z]];
     const { points, step, total } = resampleOpen(smoothOpen(pts));
     const start = samples.length;
     const pathIndex = t.paths.length;
@@ -510,11 +526,12 @@ function addBranches(t, def, fit) {
     // 高さ: はしは分かれる所・合流する所の高さ、あいだは b.heights（[割合, 高さ]）をなめらかに。でこぼこも
     const count = points.length;
     const hk = [[0, pf.y ?? 0], ...(b.heights ?? []).map(([f, y]) => [f * (count + 1), y]), [count + 1, pj.y ?? 0]];
-    const bm = (def.bumpy ?? []).find((q) => q.path === b.id);
+    const bms = (def.bumpy ?? []).filter((q) => q.path === b.id);
     for (let k = 0; k < count; k++) {
       const p = samples[start + k];
       p.y = smoothKeys(hk, k + 1, count + 1, false);
-      if (bm && k / count >= bm.from && k / count <= bm.to) {
+      for (const bm of bms) {
+        if (k / count < bm.from || k / count > bm.to) continue;
         const a = bm.from * count;
         p.y += bump(bm.amp, bm.wave, (k - a) * step, (bm.to - bm.from) * count * step);
         p.bumpy = true;
@@ -529,6 +546,7 @@ function addBranches(t, def, fit) {
 
 // 橋（2026-10-16 のユーザー依頼）: 本線が、高さが 4m 以上ちがうほかの道の上を通る所の前後 BRIDGE_REACH m を、橋の点にする
 export const BRIDGE_REACH = 40;
+const BOAR_GAP = 3.5; // イノシシの親子の間（m）
 function markBridges(t) {
   const { samples } = t;
   t.bridges = [];

@@ -249,6 +249,21 @@ function nearIndex(samples) {
 
 // 柵を立てられるか（点 i の左右 -1 / 1）。地面がある平らな所で、柵の位置がほかの道の舗装（＋1m）の上でなければ立てる
 // （交わる所の近くでも、下を通る道をふさがない所には柵を描く。ジャンプの着地の所も囲む）
+// 点 p から横に lat m の所が、ほかの道（ほかの path、または同じ道の遠い所）の道の面の上か。高さが 3m 以上ちがう道（橋の上と下）は数えない
+const otherRoadCache = new WeakMap();
+export function onOtherRoad(track, p, lat) {
+  if (!otherRoadCache.has(track)) otherRoadCache.set(track, nearIndex(track.samples));
+  const near = otherRoadCache.get(track);
+  const x = p.x - Math.sin(p.h) * lat;
+  const z = p.z + Math.cos(p.h) * lat;
+  return near(x, z, track.roadHalf + 2, (j) => {
+    const q = track.samples[j];
+    if (q.y === null || Math.abs(q.y - (p.y ?? 0)) >= 3) return false;
+    const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
+    return other && Math.hypot(q.x - x, q.z - z) < q.half;
+  });
+}
+
 // mouths: 通行止めの道の口（src/render/town/scenery.js の stubMouths）。口の前の壁はあける
 export function fenceSides(track, mouths = []) {
   const { samples, roadHalf } = track;
@@ -473,8 +488,10 @@ export function buildTrackMesh(track) {
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
   if (forest) {
-    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
-    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, hasGround, { color: 0x6aa84f }));
+    // 道のふちの草は、分かれる所・合流する所で、ほかの道の上にはみ出さない（2026-10-16 のユーザー依頼「つなぎ目の草と土がおかしい」）
+    const grassOk = (side) => (p) => hasGround(p) && !onOtherRoad(track, p, side * (p.half + dirt / 2)) && !onOtherRoad(track, p, side * (p.half + 0.5));
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { color: 0x6aa84f }));
+    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { color: 0x6aa84f }));
   } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));

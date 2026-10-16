@@ -134,12 +134,16 @@ export function buildTerrain(track) {
 function buildShoulders(track) {
   const { samples } = track;
   const { grid } = prep(track);
-  const onOther = (x, z) => {
+  // (x, z) が、ほかの道（self の道の近くはのぞく）の柵の内側か
+  const onOther = (x, z, self) => {
     const cx = Math.floor(x / CELL);
     const cz = Math.floor(z / CELL);
     for (let gx = cx - 2; gx <= cx + 2; gx++) {
       for (let gz = cz - 2; gz <= cz + 2; gz++) {
-        for (const p of grid.get(`${gx},${gz}`) ?? []) if (Math.hypot(p.x - x, p.z - z) < p.wall + 1) return true;
+        for (const p of grid.get(`${gx},${gz}`) ?? []) {
+          if (p.path === self.path && Math.min(Math.abs(p.s - self.s), track.length - Math.abs(p.s - self.s)) < 40) continue;
+          if (Math.hypot(p.x - x, p.z - z) < p.wall + 1) return true;
+        }
       }
     }
     return false;
@@ -153,7 +157,11 @@ function buildShoulders(track) {
       const rz = Math.cos(p.h) * side;
       const ox = p.x + rx * (p.wall + SHOULDER);
       const oz = p.z + rz * (p.wall + SHOULDER);
-      if (onOther(ox, oz)) return null;
+      // 草の坂の、まん中や道のそばも、ほかの道にかからないか（分かれる所・合流する所）
+      for (const f of [0.15, 0.5, 1]) {
+        const d = p.wall + SHOULDER * f;
+        if (onOther(p.x + rx * d, p.z + rz * d, p)) return null;
+      }
       return {
         a: [p.x + rx * p.wall, p.y + 0.02, p.z + rz * p.wall],
         b: [ox, terrainHeight(track, ox, oz) - 0.15, oz],

@@ -154,7 +154,7 @@ export function boarContact(kart, track, time, phys) {
 export const NUT_FALL = 1.0; // 投げてから落ちるまで（秒。そのあいだ落ちる所に影が見える）
 export const NUT_RADIUS = 1.6; // 落ちた所からこの距離の車に当たる（m）
 export const MONKEY_RANGE = 40; // この距離より近い車をねらう（m）
-export const MONKEY_EVERY = 3; // 1匹が投げる間（秒）
+export const MONKEY_EVERY = 2.5; // 1匹が投げる間（秒。2026-10-16 に 3 から。近道をもう少し難しく）
 export const MONKEY_HEIGHT = 9; // 木の上の高さ（m）
 
 export function createNuts(track) {

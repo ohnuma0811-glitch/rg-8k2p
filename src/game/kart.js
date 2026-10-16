@@ -282,6 +282,7 @@ export function stepKart(kart, ctl, track, params, dt) {
       kart.y = loc.ground;
       kart.vy = 0;
       kart.airborne = false;
+      kart.launched = false;
       // 空中でドリフトボタンを押してハンドルを切っていれば、着地してすぐドリフト（マリオカート64 のように）
       if (ctl.drift && Math.abs(steer) > PHYS.COUNTER && kart.speed >= PHYS.DRIFT_MIN_SPEED) {
         kart.drift = { active: true, dir: Math.sign(steer), stage: 0, counter: false, flicks: 0, time: 0 };
@@ -295,6 +296,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   } else if (loc.ground === null) {
     // 地面がなくなった。前に走っていればジャンプ台から飛び出す（いつも同じ速さで、必ず向こう側に届く）
     kart.airborne = true;
+    kart.launched = true; // ジャンプ台から飛び出した（「イヤッホー！」の声。坂の頂上で浮いたときは false）
     kart.hop = 0; // 跳ねている途中でも、飛び出したら跳ねは終わり
     if (kart.drift.active) endDrift(kart, params, false);
     if (kart.speed > 0) {
@@ -313,7 +315,10 @@ export function stepKart(kart, ctl, track, params, dt) {
     const b = track.samples[c.next];
     if (a.y !== null && b.y !== null && !a.ramp && !b.ramp && !c.ramp) {
       const bend = b.y - 2 * c.y + a.y; // 1m ごとの高さの曲がり（頂上でマイナス）
-      if (bend * kart.speed * kart.speed < -PHYS.GRAVITY) kart.airborne = true;
+      if (bend * kart.speed * kart.speed < -PHYS.GRAVITY) {
+        kart.airborne = true;
+        kart.launched = false;
+      }
     }
   }
 

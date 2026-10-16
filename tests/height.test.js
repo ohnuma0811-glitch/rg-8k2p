@@ -77,7 +77,8 @@ test('どの坂も、止まらずに上れる（自動のアクセルで、ハ�
 function crossing() {
   const inner = t.paths[2];
   let best = { d: Infinity };
-  for (let i = inner.start; i < inner.start + inner.count; i++) {
+  // 出口の合流（本線の横に並ぶ所）は、交わる所ではないので見ない
+  for (let i = inner.start; i < inner.start + inner.count - 130; i++) {
     const q = t.samples[i];
     for (let j = 0; j < t.length; j++) {
       const p = t.samples[j];

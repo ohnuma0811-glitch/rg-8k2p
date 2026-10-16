@@ -366,7 +366,7 @@ export function createCowModel(k = 0) {
 }
 
 // イノシシ（Soki Forest。2026-10-16 のユーザー依頼）: こげ茶の体、短い足4本、白い牙、小さな耳。前は +x
-export function createBoarModel(k = 0) {
+export function createBoarModel(k = 0, size = 1) {
   const g = new THREE.Group();
   const coat = k % 2 ? 0x3d3430 : 0x4a3d36; // 黒っぽい灰色の茶（茶色い土の道で見えるように）
   g.add(box(1.8, 0.9, 0.9, coat, 0, 0.85, 0)); // 体
@@ -396,7 +396,7 @@ export function createBoarModel(k = 0) {
     });
     g.rotation.x = state === 'warn' ? Math.sin(time * 30) * 0.08 : 0;
   };
-  g.scale.setScalar(1.4); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）
+  g.scale.setScalar(1.4 * size); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）。子どもは size 0.7
   return g;
 }
 

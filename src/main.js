@@ -303,7 +303,7 @@ function placeCows(time) {
 function placeBoars(time) {
   if (!track.boars.length) return;
   if (!track.boarModels) {
-    track.boarModels = track.boars.map((_, k) => createBoarModel(k));
+    track.boarModels = track.boars.map((b, k) => createBoarModel(k, b.size));
     track.boarModels.forEach((m) => track.mesh.add(m));
   }
   track.boars.forEach((boar, k) => {

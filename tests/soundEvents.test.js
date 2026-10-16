@@ -97,7 +97,9 @@ test('壁の音は、ぶつかった最初だけ。壁にこすりながら走�
 });
 
 test('ジャンプ台から飛び出した瞬間に jump（「イヤッホー！」の声。2026-10-15 のユーザー依頼）。空中にいる間と、ドリフトの跳ねでは鳴らさない', () => {
-  assert.deepEqual(soundEvents(st(), st({}, { airborne: true, y: 0, vy: 5 }), 3), ['jump']);
+  assert.deepEqual(soundEvents(st(), st({}, { airborne: true, launched: true, y: 0, vy: 5 }), 3), ['jump']);
+  // 坂の頂上でふわっと浮いたとき（ジャンプ台ではない）は叫ばない（2026-10-16 のユーザー依頼「ジャンプ台の時だけ」）
+  assert.deepEqual(soundEvents(st(), st({}, { airborne: true, launched: false, y: 3, vy: 1 }), 3), []);
   assert.deepEqual(soundEvents(st({}, { airborne: true, y: 1, vy: 4 }), st({}, { airborne: true, y: 1.3, vy: 3 }), 3), []);
   assert.deepEqual(soundEvents(st(), st({}, { hop: 0.1 }), 3), ['hop']);
 });
@@ -131,7 +133,7 @@ test('飛び出す少し前（JUMP_LEAD 秒前）に jump。そのまま飛び�
   // 鳴らすのは「もうすぐ飛ぶ」に変わったときの1回だけ
   const soon = st({ jumpSoon: true });
   assert.deepEqual(soundEvents(st(), soon, 3), ['jump']);
-  assert.deepEqual(soundEvents(soon, st({ jumpSoon: false }, { airborne: true, y: 0, vy: 5 }), 3), []);
+  assert.deepEqual(soundEvents(soon, st({ jumpSoon: false }, { airborne: true, launched: true, y: 0, vy: 5 }), 3), []);
 });
 
 test('一時停止で音を止めたあとは、ドリフトの途中でも「止まっている」として扱う。つづけると、ドリフトの音がまた鳴る（M5 のレビュー）', async () => {

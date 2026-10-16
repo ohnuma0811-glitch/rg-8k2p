@@ -122,3 +122,34 @@ export function monkeyTree(b) {
   b.cyl(1.4, 2.6, 1.6, 7, LEAF[3], -1.5, 14.6, 0);
   b.cyl(1.8, 2.4, 1.6, 7, LEAF[2], 0.5, 10.6, 1.2);
 }
+
+// 近道の分かれる所の手前の案内板（2026-10-16 のユーザー依頼）: 道の両わきに杭を立て、道の上に板をわたす
+// 左（本線）に main、右（近道）に short。道のふちに置き、前（+z）の向きに道をまたぐ（logGate と同じ置き方）
+export function forkSign(b, { main = '', short = '', span = 28 } = {}) {
+  const height = 5.5;
+  for (const z of [0, span]) b.cyl(0.35, 0.4, height + 2.2, 7, LOG, 0, 0, z);
+  b.push(0, height + 2, span / 2, 0);
+  b.box(0.5, 0.5, span + 1, LOG_DARK, 0, 0, 0);
+  b.pop();
+  b.box(0.25, 2.6, span * 0.8, 0x8a6038, 0, height - 0.6, span / 2);
+  for (const x of [-0.14, 0.14]) b.label(forkDraw(main, short), [1024, 160], x, height + 0.7, span / 2, x < 0 ? -Math.PI / 2 : Math.PI / 2, span * 0.78, 2.3);
+}
+function forkDraw(main, short) {
+  const draw = (g, w, h) => {
+    g.fillStyle = '#2f8a3a';
+    g.fillRect(0, 0, w / 2, h);
+    g.fillStyle = '#d8302a';
+    g.fillRect(w / 2, 0, w / 2, h);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 8;
+    g.strokeRect(4, 4, w - 8, h - 8);
+    g.fillStyle = '#ffffff';
+    g.font = `bold ${Math.floor(h * 0.55)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(main, w / 4, h / 2 + 3, w * 0.45);
+    g.fillText(short, (w * 3) / 4, h / 2 + 3, w * 0.45);
+  };
+  draw.key = `fork:${main}:${short}`;
+  return draw;
+}

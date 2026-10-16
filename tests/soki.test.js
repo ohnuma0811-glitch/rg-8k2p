@@ -135,8 +135,21 @@ test('川の上（地面のない所）は、ジャンプ①②の2か所だけ'
   assert.equal(gaps.length, 2);
 });
 
-test('イノシシは3頭。ふだんは道の外のしげみにかくれ、ときどき約2秒で道を横切る。飛び出す前に予告がある', () => {
-  assert.equal(t.boars.length, 3);
+test('イノシシは3頭の親子が5か所。ふだんは道の外のしげみにかくれ、ときどき約2秒で道を横切る。飛び出す前に予告がある', () => {
+  // 3頭の親子（横一列に並んで同時に渡る）が、5か所（2026-10-16 のユーザー依頼「全然当たらない」）
+  assert.equal(t.boars.length, 15);
+  const fams = new Map();
+  for (const b of t.boars) (fams.get(b.family) ?? fams.set(b.family, []).get(b.family)).push(b);
+  assert.equal(fams.size, 5);
+  for (const f of fams.values()) {
+    assert.equal(f.length, 3);
+    for (let time = 0; time < 30; time += 0.5) {
+      const ls = f.map((b) => boarPose(t, b, time));
+      assert.ok(ls.every((l) => l.state === ls[0].state && Math.abs(l.lateral - ls[0].lateral) < 0.01), '同時に渡る');
+    }
+    const ss = f.map((b) => b.s).sort((a, b) => a - b);
+    assert.ok(ss[2] - ss[0] > 4 && ss[2] - ss[0] < 12, '道に沿って横一列');
+  }
   for (const boar of t.boars) {
     const states = new Set();
     let crossings = 0;
@@ -170,8 +183,8 @@ test('イノシシに、メーター150以上でぶつかるとスピン、遅�
   }
 });
 
-test('サルは内の道だけに3匹。40m 以内に車がいると、その車が少し先で通る所をねらって投げる', () => {
-  assert.equal(t.monkeys.length, 3);
+test('サルは内の道だけに5匹。40m 以内に車がいると、その車が少し先で通る所をねらって投げる', () => {
+  assert.equal(t.monkeys.length, 5);
   for (const m of t.monkeys) assert.equal(t.samples[m.i].path, 2);
   const nuts = createNuts(t);
   const m = t.monkeys[0];
@@ -185,7 +198,7 @@ test('サルは内の道だけに3匹。40m 以内に車がいると、その車
   // ねらう所は、車がいまの速さで NUT_FALL 秒後にいる所の近く（道の上）
   const target = t.samples[ahead(t, kart.seg, Math.round(25 * NUT_FALL))];
   assert.ok(Math.hypot(nut.x - target.x, nut.z - target.z) < 4);
-  assert.equal(stepNuts(nuts, t, [kart], 1.5).length, 0, '3秒に1回');
+  assert.equal(stepNuts(nuts, t, [kart], 2.5).length, 0, '2.5秒に1回');
 });
 
 test('木の実が落ちたとき、落ちる所の近く（1.6m）にいる車はスピン。外れた木の実は消える', () => {
@@ -200,4 +213,46 @@ test('木の実が落ちたとき、落ちる所の近く（1.6m）にいる車�
   assert.equal(nutContact(kart, nuts, NUT_FALL + 0.1, PHYS), null);
   assert.equal(nuts.list.length, 0, '外れた木の実が残っている');
   assert.ok(NUT_RADIUS > 1);
+});
+
+test('近道の分かれる所の手前（真ん中の道）は、でこぼこがない（2026-10-16 のユーザー依頼）', () => {
+  const mid = t.paths.find((p) => p.id === 'middle');
+  const inner = t.paths.find((p) => p.id === 'inner');
+  const fork = inner.fork; // 真ん中の道の上の点
+  for (let k = 0; k < 120; k++) {
+    let i = fork;
+    for (let c = 0; c < k; c++) i = t.samples[i].prev;
+    assert.ok(!t.samples[i].bumpy, `分かれる所の ${k}m 手前がでこぼこ`);
+  }
+  assert.ok(t.samples.slice(mid.start, mid.start + mid.count).some((p) => p.bumpy), '真ん中の道のほかの所はでこぼこ');
+});
+
+test('でこぼこは、ハンドルが効くように大きな波（1つの波が 50m 以上）', () => {
+  for (const b of COURSE3.bumpy) assert.ok(b.wave >= 50, `${b.path} ${b.wave}`);
+});
+
+test('右上の丘のあたり（M2〜J2）は、左右にくねくね曲がる', () => {
+  const a = Math.round(t.marks.M2), b = Math.round(t.marks.J2);
+  let turns = 0;
+  let prev = 0;
+  for (let i = a; i < b; i += 10) {
+    const d = Math.atan2(Math.sin(t.samples[i + 10].h - t.samples[i].h), Math.cos(t.samples[i + 10].h - t.samples[i].h));
+    const sign = Math.abs(d) < 0.02 ? 0 : Math.sign(d);
+    if (sign && prev && sign !== prev) turns++;
+    if (sign) prev = sign;
+  }
+  assert.ok(turns >= 4, `左右の切りかえ ${turns} 回`);
+});
+
+test('近道の手前に、杭の案内板「本線↑」「近道（危険）→」がある', async () => {
+  const { SOKI_SCENERY } = await import('../src/data/soki.js');
+  const sign = SOKI_SCENERY.find((i) => i.part === 'forkSign');
+  assert.ok(sign && sign.path === 'middle');
+  assert.equal(sign.main, '本線↑');
+  assert.equal(sign.short, '近道（危険）→');
+  const inner = t.paths.find((p) => p.id === 'inner');
+  const mid = t.paths.find((p) => p.id === 'middle');
+  const at = mid.start + Math.round(sign.at * (mid.count - 1));
+  const before = inner.fork - at;
+  assert.ok(before > 20 && before < 70, `分かれる所の ${before}m 手前`);
 });
