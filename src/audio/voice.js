@@ -29,13 +29,14 @@ export function createVoices(audio, { fetch: get = (u) => fetch(u) } = {}) {
     has(kind) {
       return !!bufs[kind];
     },
-    play(kind) {
+    // scale: 大きさの倍率（遠くの声を小さく）
+    play(kind, scale = 1) {
       const ctx = audio.ctx;
       if (!ctx || !bufs[kind]) return;
       const src = ctx.createBufferSource();
       src.buffer = bufs[kind];
       const g = ctx.createGain();
-      g.gain.value = VOICE_GAIN[kind];
+      g.gain.value = VOICE_GAIN[kind] * scale;
       src.connect(g).connect(audio.sfxOut);
       src.start(ctx.currentTime);
     },

@@ -1,41 +1,41 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=6009f37';
-import { startLoop } from './loop.js?v=6009f37';
-import { COURSES } from './data/tracks.js?v=6009f37';
-import { buildTrack, span } from './game/track.js?v=6009f37';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=6009f37';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, DINO_BLACK } from './game/hazards.js?v=6009f37';
-import { kartParams } from './game/stats.js?v=6009f37';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=6009f37';
-import { pushApart, newBumps } from './game/collide.js?v=6009f37';
+import * as THREE from '../vendor/three.module.min.js?v=79b6a69';
+import { startLoop } from './loop.js?v=79b6a69';
+import { COURSES } from './data/tracks.js?v=79b6a69';
+import { buildTrack, span } from './game/track.js?v=79b6a69';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=79b6a69';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, DINO_BLACK } from './game/hazards.js?v=79b6a69';
+import { kartParams } from './game/stats.js?v=79b6a69';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=79b6a69';
+import { pushApart, newBumps } from './game/collide.js?v=79b6a69';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=6009f37';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=6009f37';
-import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=6009f37';
-import { createMinimap } from './render/minimap.js?v=6009f37';
-import { grandstandSpot } from './render/trackMesh.js?v=6009f37';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel } from './render/models.js?v=6009f37';
-import { faceSvg } from './titleArt.js?v=6009f37';
-import { createEffects } from './render/effects.js?v=6009f37';
-import { nextQuality, pixelRatio } from './render/quality.js?v=6009f37';
-import { blendPose, poseOf } from './render/interp.js?v=6009f37';
-import { speedText } from './hud.js?v=6009f37';
-import { addRecent, cleanRecent } from './names.js?v=6009f37';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=6009f37';
-import { load, save } from './storage.js?v=6009f37';
-import * as screens from './screens.js?v=6009f37';
-import { createAudio } from './audio/audio.js?v=6009f37';
-import { createSfx } from './audio/sfx.js?v=6009f37';
-import { createVoices } from './audio/voice.js?v=6009f37';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=6009f37';
-import { createCrowd } from './audio/crowd.js?v=6009f37';
-import { crowdMix } from './audio/mix.js?v=6009f37';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=6009f37';
-import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=6009f37';
+} from './game/race.js?v=79b6a69';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=79b6a69';
+import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=79b6a69';
+import { createMinimap } from './render/minimap.js?v=79b6a69';
+import { grandstandSpot } from './render/trackMesh.js?v=79b6a69';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel } from './render/models.js?v=79b6a69';
+import { faceSvg } from './titleArt.js?v=79b6a69';
+import { createEffects } from './render/effects.js?v=79b6a69';
+import { nextQuality, pixelRatio } from './render/quality.js?v=79b6a69';
+import { blendPose, poseOf } from './render/interp.js?v=79b6a69';
+import { speedText } from './hud.js?v=79b6a69';
+import { addRecent, cleanRecent } from './names.js?v=79b6a69';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=79b6a69';
+import { load, save } from './storage.js?v=79b6a69';
+import * as screens from './screens.js?v=79b6a69';
+import { createAudio } from './audio/audio.js?v=79b6a69';
+import { createSfx } from './audio/sfx.js?v=79b6a69';
+import { createVoices } from './audio/voice.js?v=79b6a69';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=79b6a69';
+import { createCrowd } from './audio/crowd.js?v=79b6a69';
+import { crowdMix } from './audio/mix.js?v=79b6a69';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=79b6a69';
+import { createCup, addRace, standings, isOver, courseOf } from './game/cup.js?v=79b6a69';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '6009f37';
+const VERSION = '79b6a69';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -342,6 +342,13 @@ function nearDino(kart) {
   const p = track.samples[kart.seg];
   if (!p || p.path !== 0) return false;
   return span(track, p.s, track.dino.s) < DINO_HEAR || span(track, track.dino.s, p.s) < 30;
+}
+// 恐竜の声の大きさ: 近いほど大きく、DINO_HEAR m 手前で 0.3（2026-10-16 のユーザー依頼「遠くにいるときは少し小さく」）
+function dinoVolume(kart) {
+  const p = track.samples[kart.seg];
+  if (!track.dino || !p) return 1;
+  const d = Math.min(span(track, p.s, track.dino.s), span(track, track.dino.s, p.s));
+  return Math.max(0.3, Math.min(1, 1 - (0.7 * (d - 20)) / (DINO_HEAR - 20)));
 }
 // 恐竜が川から上がってきていて、自分の車が恐竜のまわりにいる（咆哮を鳴らす）
 function dinoNear(kart, time) {
@@ -769,7 +776,7 @@ function renderGame(alpha, dt) {
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
     else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
-    else if (name === 'dinoRoar') voices.play('roar'); // 恐竜の咆哮
+    else if (name === 'dinoRoar') voices.play('roar', dinoVolume(kart)); // 恐竜の咆哮（遠いほど小さく）
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
     if (name === 'go') music.play(course.music);
