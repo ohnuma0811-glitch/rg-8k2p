@@ -129,7 +129,8 @@ export function strip(track, from, to, y, material, tiles = 1, side = 0) {
   const { samples } = track;
   const pos = [];
   const uv = [];
-  const list = samples.filter((p) => p.s >= from && p.s < to);
+  // 本線の点だけ（分かれ道の点も、本線でいうと同じ s を持つので）
+  const list = samples.slice(0, track.length).filter((p) => p.s >= from && p.s < to);
   const w = (p) => p.half ?? track.roadHalf;
   // 板の左はし・右はし（右が正）
   const lo = (p) => (side > 0 ? p.median || 0 : -w(p));
@@ -470,7 +471,8 @@ export function buildTrackMesh(track) {
   });
   group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p) && !p.bridge, { color: 0xffffff, map: asphalt, vScale: 4 }));
   // 橋の上の道は石の色（Soki Forest。2026-10-16）
-  if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
+  // 橋の上は、柵（車が通れる所のはし）まで石（手すりは柵の所。2026-10-16 のユーザー依頼「橋の縁がずれている」）
+  if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.wall, (p) => p.wall, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
   if (corners.length) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && inSquare(p), { color: 0xffffff, map: asphaltMid, vScale: 4 }));
   // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
   const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
@@ -489,7 +491,7 @@ export function buildTrackMesh(track) {
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
   if (forest) {
     // 道のふちの草は、分かれる所・合流する所で、ほかの道の上にはみ出さない（2026-10-16 のユーザー依頼「つなぎ目の草と土がおかしい」）
-    const grassOk = (side) => (p) => hasGround(p) && !onOtherRoad(track, p, side * (p.half + dirt / 2)) && !onOtherRoad(track, p, side * (p.half + 0.5));
+    const grassOk = (side) => (p) => hasGround(p) && !p.bridge && !onOtherRoad(track, p, side * (p.half + dirt / 2)) && !onOtherRoad(track, p, side * (p.half + 0.5));
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { color: 0x6aa84f }));
     group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { color: 0x6aa84f }));
   } else if (!town) {
@@ -544,7 +546,8 @@ export function buildTrackMesh(track) {
 
   // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
   const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
-  for (const [from, to, side] of boostRuns(samples)) group.add(strip(track, from, to, () => 0.06, padMat, 1, side));
+  // 加速板は道の高さに（坂の上の加速板が道の下にかくれないように。2026-10-16 のユーザー依頼「遠いルートの加速板が見えない」）
+  for (const [from, to, side] of boostRuns(samples)) group.add(strip(track, from, to, (p) => (p.y ?? 0) + 0.06, padMat, 1, side));
   if (track.cross) {
     const r = track.def.jump.ramp;
     // ジャンプ台: 赤に黄色の矢印をくり返し（飛び出す方向を指す）

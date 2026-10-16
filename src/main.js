@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
-import { buildTrack } from './game/track.js';
+import { buildTrack, span } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
 import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoContact, mudContact } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
@@ -266,6 +266,7 @@ function createGame(name, charId) {
     bumps: 0, // 自分がぶつかった回数（効果音用）
     nuts: createNuts(track), // サルが投げた木の実（Soki Forest）
     monkeyThrows: 0, // 自分の車の近くのサルが投げた数（効果音用）
+    eatenHeard: 0, // 聞こえた「食べられた」の数（自分か、恐竜のまわりにいて誰かが。効果音用）
     wallQuiet: Infinity, // 壁から離れている秒数（壁の音を最初だけ鳴らす）
     sound: null, // 前のフレームの音の様子
     me: PLAYER_SLOT,
@@ -331,18 +332,68 @@ function placeDino(time) {
   m.rotation.y = -(p.h + Math.PI); // 前（+x）を、走ってくる車の方へ
 }
 
-// 恐竜が川から上がってきていて、自分の車が DINO_HEAR m 以内（咆哮を鳴らす）
-const DINO_HEAR = 220;
+// 自分の車が恐竜のまわり（ジャンプ②の DINO_HEAR m 手前から、少し先まで。本線の上）にいるか
+// （2026-10-16 のユーザー依頼「スタート直後に叫び声がする。恐竜周辺にいる時だけ」。前は、まっすぐの距離で見ていてスタートでも鳴った）
+const DINO_HEAR = 160;
+function nearDino(kart) {
+  if (!track.dino) return false;
+  const p = track.samples[kart.seg];
+  if (!p || p.path !== 0) return false;
+  return span(track, p.s, track.dino.s) < DINO_HEAR || span(track, track.dino.s, p.s) < 30;
+}
+// 恐竜が川から上がってきていて、自分の車が恐竜のまわりにいる（咆哮を鳴らす）
 function dinoNear(kart, time) {
-  if (!track.dino || dinoPose(track, time).state !== 'rise') return false;
-  const p = track.samples[Math.round(track.dino.s) % track.length];
-  return Math.hypot(p.x - kart.x, p.z - kart.z) < DINO_HEAR;
+  return !!track.dino && dinoPose(track, time).state === 'rise' && nearDino(kart);
 }
 
 // 恐竜に食べられている間、画面をまっくらに（自分の車だけ）
 const dinoBlack = document.createElement('div');
 dinoBlack.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:50';
 document.body.appendChild(dinoBlack);
+// まっくらの上の血のり（2026-10-16 のユーザー依頼）。食べられるたびに、ちがう形で描く
+const blood = document.createElement('canvas');
+blood.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+dinoBlack.appendChild(blood);
+let bloodShown = false;
+function drawBlood() {
+  const w = (blood.width = Math.max(320, Math.round(innerWidth / 2)));
+  const h = (blood.height = Math.max(200, Math.round(innerHeight / 2)));
+  const g = blood.getContext('2d');
+  g.clearRect(0, 0, w, h);
+  const red = () => `rgba(${150 + Math.random() * 60 | 0},0,${Math.random() * 20 | 0},${0.75 + Math.random() * 0.25})`;
+  // 大きなしぶき（まわりに小さな点）
+  for (let k = 0; k < 7; k++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h * 0.8;
+    const r = (0.06 + Math.random() * 0.12) * Math.min(w, h);
+    g.fillStyle = red();
+    g.beginPath();
+    for (let a = 0; a <= 24; a++) {
+      const t = (a / 24) * Math.PI * 2;
+      const rr = r * (0.7 + Math.random() * 0.5);
+      g.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr);
+    }
+    g.fill();
+    for (let d = 0; d < 14; d++) {
+      const t = Math.random() * Math.PI * 2;
+      const dist = r * (1.1 + Math.random() * 1.2);
+      g.beginPath();
+      g.arc(x + Math.cos(t) * dist, y + Math.sin(t) * dist, r * (0.04 + Math.random() * 0.1), 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  // 上からたれる血
+  for (let k = 0; k < 18; k++) {
+    const x = Math.random() * w;
+    const len = (0.15 + Math.random() * 0.5) * h;
+    const bw = 3 + Math.random() * 10;
+    g.fillStyle = red();
+    g.fillRect(x - bw / 2, 0, bw, len);
+    g.beginPath();
+    g.arc(x, len, bw * 0.9, 0, Math.PI * 2);
+    g.fill();
+  }
+}
 
 // サルと木の実と影（Soki Forest）。サルは木の上に置いたまま、木の実は投げた所から落ちる所へ放物線で
 function placeMonkeys(time, nuts) {
@@ -457,7 +508,12 @@ function stepGame(dt) {
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆
   if (track.muds.length) karts.forEach((kart) => mudContact(kart, track, dt));
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
-  if (track.dino) karts.forEach((kart) => dinoContact(kart, track, race.t));
+  // 自分が食べられたとき、または恐竜のまわりにいて誰かが食べられたとき、悲鳴が聞こえる
+  if (track.dino) {
+    karts.forEach((kart, k) => {
+      if (dinoContact(kart, track, race.t) && (k === g.me || nearDino(karts[g.me]))) g.eatenHeard++;
+    });
+  }
   // サル（Soki Forest）: 投げて、落ちた木の実の当たりを全部の車で見てから消す
   if (track.monkeys.length) {
     track.nuts = g.nuts; // CPU が影をよけるため
@@ -680,7 +736,10 @@ function renderGame(alpha, dt) {
   placeBoars(g.race.t);
   placeMonkeys(g.race.t, g.nuts);
   placeDino(g.race.t);
-  dinoBlack.style.opacity = g.karts[g.me].swallowed ? '1' : '0';
+  const swallowed = !!g.karts[g.me].swallowed;
+  if (swallowed && !bloodShown) drawBlood();
+  bloodShown = swallowed;
+  dinoBlack.style.opacity = swallowed ? '1' : '0';
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
     if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
@@ -710,7 +769,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t) });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), eatenHeard: g.eatenHeard });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);

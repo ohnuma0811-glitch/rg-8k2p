@@ -180,6 +180,10 @@ test('恐竜が川から上がってくるとき（近くにいたら）dinoRoar
   assert.deepEqual(soundEvents(st({ dinoRoar: true }), st({ dinoRoar: true }), 3), []);
 });
 
+test('恐竜のまわりにいて、誰かが食べられたのが聞こえたら eaten', () => {
+  assert.deepEqual(soundEvents(st({ eatenHeard: 0 }), st({ eatenHeard: 1 }), 3), ['eaten']);
+});
+
 test('恐竜に食べられたら eaten（ぎゃーーー）', () => {
   assert.deepEqual(soundEvents(st({}, { eaten: 0 }), st({}, { eaten: 1 }), 3), ['eaten']);
 });

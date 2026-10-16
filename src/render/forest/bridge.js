@@ -16,7 +16,9 @@ export function buildBridge(track) {
   const { samples } = track;
   const pts = samples.slice(0, track.length).filter((p) => p.bridge);
   if (!pts.length) return b.build();
-  const width = 2 * track.roadHalf + 2;
+  // 橋のはば: 車が通れる所（柵 p.wall）のはしに、手すりの内がわを合わせる
+  const wall = pts[0].wall;
+  const width = 2 * wall + 1.2;
   // 走る向きを部品の +z にする回転
   const ryOf = (p) => Math.PI / 2 - p.h;
   // 道の下の板と、両はしの手すり（2m ごと）

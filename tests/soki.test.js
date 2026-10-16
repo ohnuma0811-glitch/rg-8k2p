@@ -71,7 +71,8 @@ test('CPU 4台が、分かれ道を通って3周を走りきる（1周 80秒よ�
   assert.ok(all.has(1) || all.has(2), 'だれも分かれ道を通らない');
 });
 
-test('CPU は3本の道を、だいたい同じ確率で選ぶ（周ごとにランダム）', () => {
+// 2026-10-16 のユーザー依頼「最初の分岐で CPU は左右に 50% ずつ」: 外の道 1/2、真ん中の道 1/4、近道 1/4
+test('CPU は最初の分かれる所で半分ずつ、真ん中の道に入ったら近道と半分ずつ（周ごとにランダム）', () => {
   const count = [0, 0, 0];
   const f1 = t.paths[1].fork;
   const f2 = t.paths[2].fork;
@@ -86,7 +87,34 @@ test('CPU は3本の道を、だいたい同じ確率で選ぶ（周ごとにラ
     }
   }
   const total = count[0] + count[1] + count[2];
-  for (const c of count) assert.ok(Math.abs(c / total - 1 / 3) < 0.07, `${count}`);
+  [1 / 2, 1 / 4, 1 / 4].forEach((want, k) => assert.ok(Math.abs(count[k] / total - want) < 0.07, `${count}`));
+});
+
+test('近道を通る CPU は、1回通るうち 3割くらい、わな（ぬかるみ）にかかる（2026-10-16 のユーザー依頼）', async () => {
+  const { trapLap } = await import('../src/game/cpu.js');
+  let traps = 0;
+  let n = 0;
+  for (let seed = 0; seed < 50; seed++) for (let id = 0; id < 4; id++) for (let lap = 0; lap < 3; lap++) {
+    n++;
+    if (trapLap(createCpu(id, seed), lap)) traps++;
+  }
+  assert.ok(Math.abs(traps / n - 0.3) < 0.07, `${traps}/${n}`);
+  // わなにかかる周の CPU は、近道を走ると、本当にぬかるみに入る
+  let cpu = null;
+  for (let seed = 0; !cpu; seed++) {
+    const c = createCpu(1, seed);
+    if (trapLap(c, 0)) cpu = c;
+  }
+  const inner = t.paths[2];
+  const kart = createKart(t, inner.start + 5, 0);
+  kart.speed = 20;
+  cpu.lap = 0;
+  cpu.lastS = t.samples[kart.seg].s;
+  for (let k = 0; k < 60 * 30 && !kart.mudHits; k++) {
+    stepKart(kart, cpuControl(cpu, kart, t, k / 60), t, cpuParams(params, 1), 1 / 60);
+    mudContact(kart, t, 1 / 60);
+  }
+  assert.ok(kart.mudHits >= 1, 'ぬかるみに入らない');
 });
 
 test('同じ CPU・同じ周なら、同じ道を選ぶ（とちゅうで迷わない）', () => {
@@ -279,7 +307,7 @@ test('恐竜: ジャンプ②の川から、ときどき口を開けて顔を出
     prev = d.state;
   }
   assert.deepEqual([...states].sort(), ['hide', 'rise', 'sink', 'up']);
-  assert.ok(ups >= 3 && ups <= 6, `60秒で ${ups} 回`);
+  assert.ok(ups >= 3 && ups <= 8, `60秒で ${ups} 回`);
 });
 
 // ジャンプ②で飛び出してすぐの車（時刻 time）
@@ -293,7 +321,7 @@ function flyingAtJ2(time) {
   return kart;
 }
 
-test('恐竜が顔を出しているときにジャンプ②を飛ぶと食べられる: 3秒真っ暗で、ジャンプ台の 30m 手前から走り直し', () => {
+test('恐竜が顔を出しているときにジャンプ②を飛ぶと食べられる: 3秒真っ暗で、ジャンプ台の 90m 手前から走り直し', () => {
   let up = 0;
   while (dinoPose(t, up).state !== 'up') up += 0.05;
   const kart = flyingAtJ2(up);
@@ -304,10 +332,10 @@ test('恐竜が顔を出しているときにジャンプ②を飛ぶと食べ�
   for (let k = 0; k < 60 * DINO_BLACK + 5; k++) stepKart(kart, { steer: 0, drift: false }, t, params, 1 / 60);
   assert.ok(!kart.swallowed && kart.respawn <= 0);
   const back = span(t, t.samples[kart.seg].s, markS(t, ['J2', 'J2', 0]));
-  assert.ok(Math.abs(back - 30) < 2, `${back}m 手前`);
+  assert.ok(Math.abs(back - 90) < 2, `${back}m 手前`);
 });
 
-test('恐竜: ジャンプ②に来る時刻をずらすと、3割くらいが食べられる（2026-10-16 のユーザー依頼）', () => {
+test('恐竜: ジャンプ②に来る時刻をずらすと、6割くらいが食べられる（2026-10-16 のユーザー依頼）', () => {
   const j = Math.round(markS(t, ['J2', 'J2', 0]));
   let eaten = 0;
   let n = 0;
@@ -324,7 +352,7 @@ test('恐竜: ジャンプ②に来る時刻をずらすと、3割くらいが�
     n++;
     if (got) eaten++;
   }
-  assert.ok(eaten / n > 0.22 && eaten / n < 0.4, `${(eaten / n).toFixed(2)}`);
+  assert.ok(eaten / n > 0.52 && eaten / n < 0.68, `${(eaten / n).toFixed(2)}`);
 });
 
 test('いちばん遠い外の道に、加速板が2つ（2026-10-16 のユーザー依頼）', () => {
@@ -333,6 +361,26 @@ test('いちばん遠い外の道に、加速板が2つ（2026-10-16 のユー�
   let pads = 0;
   for (let i = Math.round(a); i < Math.round(b); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) pads++;
   assert.equal(pads, 2);
+});
+
+test('川に落ちたら（川の上で止まって落ちる）、ジャンプ台の少し手前の道にもどる', () => {
+  for (const m of ['J1', 'J2']) {
+    const j = Math.round(markS(t, [m, m, 0]));
+    // 川の上（地面のない所）で止まってしまった（ほかの車に押された、など）
+    const kart = createKart(t, j, 0);
+    kart.speed = 0;
+    let fell = false;
+    for (let k = 0; k < 60 * 8; k++) {
+      stepKart(kart, { steer: 0, drift: false, brake: true }, t, params, 1 / 60);
+      if (kart.respawn > 0) fell = true;
+      if (fell && kart.respawn <= 0) break;
+    }
+    assert.ok(fell, `${m}: 落ちない`);
+    const p = t.samples[kart.seg];
+    const back = span(t, p.s, j);
+    assert.ok(back > 30 && back < 90, `${m}: ${back.toFixed(0)}m 手前にもどった`);
+    assert.ok(p.y !== null && !p.ramp && Math.abs(kart.y - p.y) < 0.01, `${m}: 道の上`);
+  }
 });
 
 test('恐竜がかくれているときは、ジャンプ②を飛んでも食べられない。道を走っているだけでも食べられない', () => {

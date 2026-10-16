@@ -23,7 +23,7 @@ export function jumpAhead(track, kart, lead = JUMP_LEAD) {
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
 // jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false }) {
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null }) {
   return {
     count,
     lap,
@@ -50,7 +50,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
     monkeyThrows, // 近くのサルが投げた数の合計
     nutHits: kart.nutHits || 0, // 木の実が当たった回数
-    eaten: kart.eaten || 0, // 恐竜に食べられた回数
+    eaten: eatenHeard ?? (kart.eaten || 0), // 聞こえた「食べられた」の数（自分か、恐竜のまわりにいて誰かが）
     mudHits: kart.mudHits || 0, // ぬかるみに入った回数
     dinoRoar, // 近くの恐竜が、川から上がってきている
   };

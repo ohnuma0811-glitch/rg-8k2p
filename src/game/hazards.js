@@ -214,10 +214,10 @@ export function dropFallen(nuts, time) {
 // 恐竜（Soki Forest。2026-10-16 のユーザー依頼）: ジャンプ②の下の川から、大きな顔が口を開けて、ジャンプの通り道に出てくる
 // そのとき飛んだ車は食べられて、DINO_BLACK 秒まっくら。そのあとジャンプ台の DINO_BACK m 手前から走り直し
 export const DINO_BLACK = 3; // 食べられて、まっくらの秒数
-export const DINO_BACK = 30; // 走り直す所（ジャンプ②の印の手前 m）
-// 急に出て、ゆっくり川にかくれる（2026-10-16 のユーザー依頼）。ジャンプ②に来た車の 3割くらいが食べられる間
+export const DINO_BACK = 90; // 走り直す所（ジャンプ②の印の手前 m。2026-10-16 に 30 から3倍に）
+// 急に出て、ゆっくり川にかくれる（2026-10-16 のユーザー依頼）。ジャンプ②に来た車の 6割くらいが食べられる間（同じ日に 3割から）
 const DINO_RISE = 0.25; // 川から飛び出す秒数
-const DINO_UP = 1.2; // 顔を出している秒数
+const DINO_UP = 3.0; // 顔を出している秒数
 const DINO_SINK = 2.2; // ゆっくりもぐる秒数
 // 時刻 time の恐竜: state は 'hide' 'rise' 'up' 'sink'、rise は 0（川の中）〜1（いちばん上）
 export function dinoPose(track, time) {

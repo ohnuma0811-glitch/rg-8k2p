@@ -1,6 +1,6 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf, branchesBeyond } from './track.js';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js';
 import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
 
 export const CPU = {
@@ -45,9 +45,8 @@ export function rubberFactor(cpuProgress, playerProgress, L) {
   return 1 + Math.max(-CPU.RUBBER_MAX, Math.min(CPU.RUBBER_MAX, diff * CPU.RUBBER));
 }
 
-// 分かれる所で、その周にどの道を進むか（2026-10-16 のユーザー依頼: 3本の道を同じ確率で）。
-// 分かれた先でさらに分かれる道があるときは、その数だけ分かれた道を選びやすくする:
-// F1 では、真ん中の道の先にもう1本（内の道）あるので、そのまま（外の道）1/3・真ん中 2/3。F2 では、そのまま 1/2・内 1/2。
+// 分かれる所で、その周にどの道を進むか。どの分かれる所でも半分ずつ（2026-10-16 のユーザー依頼「最初の分岐で左右に 50% ずつ」。
+// Soki Forest では外の道 1/2、真ん中の道 1/4、近道 1/4）。
 // 道の番号か null（そのまま）。レース・CPU・分かれる所・周で決まる（同じ周の中では変わらない）
 export function routeChoice(cpu, fork, paths, lap, track) {
   let h = Math.imul((cpu.seed ?? 0) + 7, 2654435761) ^ Math.imul((cpu.id ?? 0) + 3, 73856093) ^ Math.imul(fork + 1, 19349663) ^ Math.imul(lap + 1, 83492791);
@@ -55,8 +54,8 @@ export function routeChoice(cpu, fork, paths, lap, track) {
   h = Math.imul(h ^ (h >>> 13), 3266489917);
   h ^= h >>> 16;
   const r = (h >>> 0) / 4294967296;
-  const ways = 1 + paths.reduce((n, path) => n + 1 + branchesBeyond(track, path), 0); // この先の道の数（そのままを含む）
-  return r < 1 / ways ? null : paths[0];
+  // どの分かれる所でも、そのまま・分かれ道を半分ずつ（2026-10-16 のユーザー依頼「最初の分岐で左右に 50% ずつ」）
+  return r < 0.5 ? null : paths[0];
 }
 
 // その時の操作（{ steer, brake, drift }）。t はレースの時刻（線をゆらすため）
@@ -137,8 +136,15 @@ export function cpuControl(cpu, kart, track, t) {
     else lane = Math.min(lane, b.lateral - BUS_WIDTH / 2 - 6.2);
     if (ahead < 40 || ahead > track.length - 12) aim = at(8);
   }
+  // 近道のわな（Soki Forest）: 1回通るうち 3割くらいは、うっかり、ぬかるみの1つに入る（よけない。2026-10-16 のユーザー依頼）
+  const careless = trapLap(cpu, cpu.lap);
+  const mudIn = (track.muds ?? [])[trapMud(cpu, cpu.lap, (track.muds ?? []).length)];
+  if (careless && mudIn && Math.hypot(mudIn.x - kart.x, mudIn.z - kart.z) < 45) {
+    const q = locate(track, mudIn.x, mudIn.z, loc.i, 40, mudIn.y);
+    lane = q.lateral;
+  }
   // ぬかるみ（Soki Forest）: 先のぬかるみが自分の走る線にかかっていたら、横へよける。入ってしまったら、ハンドルを逆に切る（kart.js で逆になるので）
-  for (const m of track.muds ?? []) {
+  for (const m of careless ? [] : track.muds ?? []) {
     const d = Math.hypot(m.x - kart.x, m.z - kart.z);
     if (d > 45) continue;
     const q = locate(track, m.x, m.z, loc.i, 40, m.y);
@@ -193,6 +199,23 @@ export function cpuControl(cpu, kart, track, t) {
   const starting = cpu.drifting && !kart.drift.active;
   const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
   return { steer: kart.muddy > 0 ? -out : out, brake, drift: cpu.drifting };
+}
+
+// CPU が、この周（lap）に近道を通るとき、うっかりわなにかかるか（3割くらい。レース・CPU・周で決まる）
+export const TRAP_RATE = 0.3;
+function hash01(cpu, salt, lap) {
+  let h = Math.imul((cpu.seed ?? 0) + 11, 2654435761) ^ Math.imul((cpu.id ?? 0) + 5, 73856093) ^ Math.imul(salt, 19349663) ^ Math.imul(lap + 1, 83492791);
+  h = Math.imul(h ^ (h >>> 15), 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 3266489917);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+export function trapLap(cpu, lap) {
+  return hash01(cpu, 101, lap) < TRAP_RATE;
+}
+// うっかり入るぬかるみの番号
+function trapMud(cpu, lap, n) {
+  return Math.floor(hash01(cpu, 202, lap) * n);
 }
 
 // CPU が、このバンプ（b 番目）で、この周（lap）に減速を忘れるか（2割くらい。レース・CPU・バンプ・周で決まる）
