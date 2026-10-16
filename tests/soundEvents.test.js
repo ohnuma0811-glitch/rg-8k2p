@@ -175,6 +175,11 @@ test('サルが投げたら monkey（キキッ）、木の実が当たったら 
   assert.deepEqual(soundEvents(st({}, { nutHits: 0 }), st({}, { nutHits: 1 }), 3), ['nutHit']);
 });
 
+test('恐竜が川から上がってくるとき（近くにいたら）dinoRoar（咆哮）', () => {
+  assert.deepEqual(soundEvents(st({ dinoRoar: false }), st({ dinoRoar: true }), 3), ['dinoRoar']);
+  assert.deepEqual(soundEvents(st({ dinoRoar: true }), st({ dinoRoar: true }), 3), []);
+});
+
 test('恐竜に食べられたら eaten（ぎゃーーー）', () => {
   assert.deepEqual(soundEvents(st({}, { eaten: 0 }), st({}, { eaten: 1 }), 3), ['eaten']);
 });

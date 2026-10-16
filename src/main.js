@@ -331,6 +331,14 @@ function placeDino(time) {
   m.rotation.y = -(p.h + Math.PI); // 前（+x）を、走ってくる車の方へ
 }
 
+// 恐竜が川から上がってきていて、自分の車が DINO_HEAR m 以内（咆哮を鳴らす）
+const DINO_HEAR = 220;
+function dinoNear(kart, time) {
+  if (!track.dino || dinoPose(track, time).state !== 'rise') return false;
+  const p = track.samples[Math.round(track.dino.s) % track.length];
+  return Math.hypot(p.x - kart.x, p.z - kart.z) < DINO_HEAR;
+}
+
 // 恐竜に食べられている間、画面をまっくらに（自分の車だけ）
 const dinoBlack = document.createElement('div');
 dinoBlack.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:50';
@@ -700,13 +708,14 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t) });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
     else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
+    else if (name === 'dinoRoar') voices.play('roar'); // 恐竜の咆哮
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
     if (name === 'go') music.play(course.music);
