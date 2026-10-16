@@ -34,6 +34,47 @@ function smoothLoop(points) {
   return line;
 }
 
+// 開いたなめらかな線（分かれ道）。はしの外に、はしの向きのまま延ばした点を足して、はしまでなめらかに
+// （同じ点をくり返すと、なめらかにする計算が 0 で割ることになる）
+function smoothOpen(points) {
+  const n = points.length;
+  const at = (i) => {
+    if (i < 0) return [2 * points[0][0] - points[1][0], 2 * points[0][1] - points[1][1]];
+    if (i > n - 1) return [2 * points[n - 1][0] - points[n - 2][0], 2 * points[n - 1][1] - points[n - 2][1]];
+    return points[i];
+  };
+  const line = [];
+  for (let i = 0; i < n - 1; i++) line.push(...catmullRom(at(i - 1), at(i), at(i + 1), at(i + 2), 40));
+  line.push(points[n - 1]);
+  return line;
+}
+
+// 開いた折れ線の、はしからはしまでを、約 1m ごとに取り直す（はしの2点はのぞく）
+function resampleOpen(line) {
+  const seg = [];
+  let total = 0;
+  for (let i = 0; i < line.length - 1; i++) {
+    const d = Math.hypot(line[i + 1][0] - line[i][0], line[i + 1][1] - line[i][1]);
+    seg.push(d);
+    total += d;
+  }
+  const count = Math.max(1, Math.round(total / SAMPLE_STEP) - 1);
+  const step = total / (count + 1);
+  const out = [];
+  let j = 0;
+  let acc = 0;
+  for (let k = 1; k <= count; k++) {
+    const want = k * step;
+    while (j < seg.length - 1 && acc + seg[j] < want) {
+      acc += seg[j];
+      j++;
+    }
+    const t = seg[j] > 0 ? (want - acc) / seg[j] : 0;
+    out.push({ x: line[j][0] + (line[j + 1][0] - line[j][0]) * t, z: line[j][1] + (line[j + 1][1] - line[j][1]) * t });
+  }
+  return { points: out, step, total };
+}
+
 // 折れ線を、決めた長さ（m）にするための大きさの倍率 k と、真ん中 (cx, cz)
 function fitOf(line, length) {
   const seg = line.map((p, i) => Math.hypot(line[(i + 1) % line.length][0] - p[0], line[(i + 1) % line.length][1] - p[1]));
@@ -210,6 +251,11 @@ export function buildTrack(def) {
     const p = samples[i];
     const q = samples[(i + 1) % n];
     p.h = Math.atan2(q.z - p.z, q.x - p.x);
+    // 点のつながり（分かれ道があるコースでも、本線の点は 0〜n-1 の輪）
+    p.path = 0;
+    p.next = (i + 1) % n;
+    p.prev = (i - 1 + n) % n;
+    p.along = p.s;
   }
   // ジャンプがあるコースは、交わる所がちょうど1か所
   let cross = null;
@@ -325,12 +371,86 @@ export function buildTrack(def) {
       }
     }
   }
+  addBranches(t, def, fit);
   return t;
+}
+
+// 分かれ道（2026-10-16 のユーザー依頼「複数の分岐」）: 点を samples の後ろに足し、分かれる所・合流する所とつなぐ。
+// 分かれ道の点の s は、本線でいうとどこにあたるか（分かれる所の s から合流する所の s まで、長さに比例して増える）
+function addBranches(t, def, fit) {
+  const { samples } = t;
+  t.paths = [{ id: 'main', start: 0, count: t.length, fork: null, join: null, len: t.length }];
+  t.forks = {};
+  t.joins = {};
+  t.toWorld = (x, z) => ({ x: (x - fit.cx) * fit.k, z: (z - fit.cz) * fit.k });
+  const half = def.branchHalf ?? def.roadHalf;
+  for (const b of def.branches ?? []) {
+    const [fromPath, fromAt] = b.from;
+    let fork;
+    if (fromPath === 'main') fork = Math.round(markS(t, [fromAt, fromAt, 0])) % t.length;
+    else {
+      const fp = t.paths.find((q) => q.id === fromPath);
+      fork = fp.start + Math.round(fromAt * (fp.count - 1));
+    }
+    const join = Math.round(markS(t, [b.to, b.to, 0])) % t.length;
+    const pf = samples[fork];
+    const pj = samples[join];
+    const pts = [[pf.x, pf.z], ...b.points.map(([x, z]) => { const w = t.toWorld(x, z); return [w.x, w.z]; }), [pj.x, pj.z]];
+    const { points, step, total } = resampleOpen(smoothOpen(pts));
+    const start = samples.length;
+    const pathIndex = t.paths.length;
+    const sFork = pf.s;
+    const sSpan = span(t, sFork, pj.s);
+    points.forEach((q, k) => {
+      samples.push({
+        x: q.x,
+        z: q.z,
+        s: (sFork + (sSpan * (k + 1)) / (points.length + 1)) % t.length,
+        path: pathIndex,
+        along: pf.along + step * (k + 1),
+        prev: k === 0 ? fork : start + k - 1,
+        next: k === points.length - 1 ? join : start + k + 1,
+        y: 0,
+        wall: half + def.dirt,
+        half,
+        ramp: false,
+        boost: false,
+        noWall: false,
+        median: 0,
+        boostTime: 0,
+      });
+    });
+    for (let i = start; i < samples.length; i++) {
+      const p = samples[i];
+      const q = samples[p.next];
+      p.h = Math.atan2(q.z - p.z, q.x - p.x);
+    }
+    (t.forks[fork] ??= []).push(pathIndex);
+    (t.joins[join] ??= []).push(samples.length - 1);
+    t.paths.push({ id: b.id, start, count: points.length, fork, join, len: total });
+  }
+}
+
+// 点 i から k 個先の点の番号。分かれる所では choose(i, 分かれる道の番号の配列) が返す道へ（null なら本線のまま）
+export function ahead(track, i, k, choose = null) {
+  for (let c = 0; c < k; c++) {
+    const forks = track.forks?.[i];
+    const pick = forks && choose ? choose(i, forks) : null;
+    i = pick !== null && pick !== undefined ? track.paths[pick].start : track.samples[i].next;
+  }
+  return i;
+}
+
+// 点 i から k 個前の点の番号（分かれ道の最初の点からは、分かれる所へもどる）
+export function behind(track, i, k) {
+  for (let c = 0; c < k; c++) i = track.samples[i].prev;
+  return i;
 }
 
 // 位置 (x, z) に一番近いコースの点を探す。hint（前の点の番号）があれば、その前後だけを探す
 // （交わる所で、もう一方の道の点を拾わないため）
-export function locate(track, x, z, hint = null, win = 40) {
+// y（車の高さ）があれば、高さのちがう道（橋の上と下）の点は拾いにくくする
+export function locate(track, x, z, hint = null, win = 40, y = null) {
   const { samples, length } = track;
   const n = samples.length;
   let best = 0;
@@ -339,7 +459,8 @@ export function locate(track, x, z, hint = null, win = 40) {
     const p = samples[i];
     const dx = x - p.x;
     const dz = z - p.z;
-    const d = dx * dx + dz * dz;
+    const dy = y !== null && p.y !== null ? 3 * (p.y - y) : 0;
+    const d = dx * dx + dz * dz + dy * dy;
     if (d < bestD) {
       bestD = d;
       best = i;
@@ -348,7 +469,26 @@ export function locate(track, x, z, hint = null, win = 40) {
   if (hint === null) {
     for (let i = 0; i < n; i++) scan(i);
   } else {
-    for (let k = -win; k <= win; k++) scan((((hint + k) % n) + n) % n);
+    // hint から、点のつながり（前・次、分かれる所・合流する所）をたどって win 個まで
+    const seen = new Set([hint]);
+    let front = [hint];
+    scan(hint);
+    for (let d = 0; d < win && front.length; d++) {
+      const nextFront = [];
+      for (const i of front) {
+        const p = samples[i];
+        const near = [p.next, p.prev];
+        if (track.forks?.[i]) for (const k of track.forks[i]) near.push(track.paths[k].start);
+        if (track.joins?.[i]) near.push(...track.joins[i]);
+        for (const j of near) {
+          if (j === undefined || seen.has(j)) continue;
+          seen.add(j);
+          scan(j);
+          nextFront.push(j);
+        }
+      }
+      front = nextFront;
+    }
   }
   const p = samples[best];
   const fx = Math.cos(p.h);
@@ -367,6 +507,7 @@ export function locate(track, x, z, hint = null, win = 40) {
   const surface = onRoad ? 'road' : a <= wall ? 'dirt' : 'out';
   return {
     i: best,
+    path: p.path,
     s,
     lateral,
     heading: p.h,
@@ -384,8 +525,9 @@ export function respawnIndex(track, i) {
   const { samples } = track;
   const n = samples.length;
   let run = 0;
+  let j = i;
   for (let k = 1; k < n; k++) {
-    const j = (((i - k) % n) + n) % n;
+    j = samples[j].prev;
     const p = samples[j];
     const flat = p.y === 0 && !p.ramp && !p.boost;
     run = flat ? run + 1 : 0;
