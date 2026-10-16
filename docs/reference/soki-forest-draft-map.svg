@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1150" width="1300" font-family="sans-serif">
+  <rect width="2000" height="1150" fill="#eef3e6"/>
+  <!-- 森 -->
+  <path d="M520 330 Q 700 250 980 300 Q 1250 360 1400 470 Q 1440 640 1380 700 Q 1100 640 900 560 Q 700 640 560 700 Z" fill="#cfe3c2"/>
+  <text x="900" y="460" font-size="46" fill="#3b6b2e" text-anchor="middle">ブリッジと森</text>
+  <!-- 川 -->
+  <path d="M650 1120 C 690 960 740 860 750 760 C 780 640 860 560 960 545 C 1120 530 1300 620 1490 700 C 1650 760 1780 800 1950 850" fill="none" stroke="#6fb3e0" stroke-width="34" stroke-linecap="round"/>
+  <text x="1700" y="745" font-size="34" fill="#2c6f9e">川</text>
+  <!-- 道（灰色の帯） -->
+  <g fill="none" stroke="#5b5f66" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 本線: スタート → 下の道を西へ → 分かれる所 -->
+    <path id="main1" d="M1260 890 L1130 885 Q1060 860 1030 820 Q980 775 860 770 L640 800 L600 805"/>
+    <!-- 外の道（でこぼこ） -->
+    <path d="M600 805 Q470 860 340 860 Q290 830 290 700 L292 480 Q300 300 360 190 L380 160"/>
+    <!-- 真ん中の道（でこぼこ） -->
+    <path d="M600 805 Q470 740 410 650 Q380 560 382 400 Q384 280 380 160"/>
+    <!-- 内の道（いちばんの近道。橋の下をくぐる） -->
+    <path d="M400 625 Q480 570 490 480 L488 420 Q495 320 590 265 Q660 230 700 165 Q760 100 860 110 Q930 140 940 270"/>
+    <!-- 上の道（東へ。橋で内の道の上を渡る） -->
+    <path d="M380 160 Q430 120 560 130 Q640 150 690 190 Q780 240 920 270"/>
+    <!-- 本線: 合流 → 大きな丘 → 右がわを南へ → スタート -->
+    <path d="M920 270 Q1100 290 1230 330 Q1380 390 1450 500 Q1490 600 1485 690 Q1470 800 1380 860 L1260 890"/>
+  </g>
+  <!-- 橋（上の道が、内の道の上を渡る。石のアーチ橋） -->
+  <path d="M600 148 Q660 168 720 210" fill="none" stroke="#b9b2a4" stroke-width="44" stroke-linecap="round"/>
+  <path d="M600 148 Q660 168 720 210" fill="none" stroke="#5b5f66" stroke-width="24" stroke-linecap="round"/>
+  <!-- 矢印（走る向き） -->
+  <g fill="#ffd400" stroke="#333" stroke-width="2">
+    <path d="M1180 875 l-30 12 l30 12 z"/>
+    <path d="M290 560 l-12 30 l24 0 z"/>
+    <path d="M383 520 l-12 30 l24 0 z"/>
+    <path d="M489 445 l-12 30 l24 0 z"/>
+    <path d="M850 252 L788 250 L803 212 z"/>
+    <path d="M1115 292 l-30 -12 l0 24 z"/>
+    <path d="M1482 615 l-12 -30 l24 0 z"/>
+  </g>
+  <!-- 印 -->
+  <g font-size="30" font-weight="bold">
+    <rect x="1240" y="868" width="14" height="44" fill="#fff" stroke="#000"/>
+    <text x="1250" y="955" text-anchor="middle">スタート / ゴール</text>
+    <circle cx="720" cy="788" r="34" fill="none" stroke="#e8742a" stroke-width="6"/>
+    <text x="720" y="740" text-anchor="middle" fill="#c4581a">ジャンプ①</text>
+    <circle cx="1486" cy="692" r="34" fill="none" stroke="#e8742a" stroke-width="6"/>
+    <text x="1600" y="660" fill="#c4581a">ジャンプ②</text>
+    <circle cx="1230" cy="330" r="46" fill="none" stroke="#e8742a" stroke-width="6"/>
+    <text x="1230" y="270" text-anchor="middle" fill="#c4581a">大きな丘</text>
+    <circle cx="680" cy="182" r="48" fill="none" stroke="#e8742a" stroke-width="6"/>
+    <text x="680" y="90" text-anchor="middle" fill="#c4581a">はし（上の道が渡る。内の道は下をくぐる）</text>
+    <text x="150" y="640" fill="#c4581a">外の道</text>
+    <text x="150" y="680" fill="#c4581a">（でこぼこ）</text>
+    <text x="370" y="330" font-size="24" fill="#c4581a" text-anchor="end">真ん中の道→</text>
+    <text x="505" y="420" font-size="24" fill="#c4581a">内の道（近道）</text>
+    <circle cx="600" cy="805" r="14" fill="#d8262b"/>
+    <text x="600" y="860" text-anchor="middle" font-size="26">2本に分かれる</text>
+    <circle cx="400" cy="625" r="14" fill="#d8262b"/>
+    <text x="420" y="700" font-size="24">内の道が分かれる</text>
+    <circle cx="380" cy="160" r="14" fill="#2a62b8"/>
+    <text x="300" y="120" font-size="26">合流①</text>
+    <circle cx="925" cy="270" r="14" fill="#2a62b8"/>
+    <text x="960" y="250" font-size="26">合流②</text>
+  </g>
+  <text x="40" y="1110" font-size="28" fill="#555">Soki Forest（下書き）: 赤丸＝分かれる所、青丸＝合流、黄色の三角＝走る向き</text>
+</svg>

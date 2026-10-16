@@ -238,8 +238,8 @@
 | 番号 | 名前 | 状態 |
 |---|---|---|
 | 1 | Kenta Circuit（Kentaサーキット） | できている（8.1） |
-| 2 | Kampar Town | 作っている（設計書: `docs/superpowers/specs/2026-10-15-kampar-town-design.md`。M3 より先に作る: 2026-10-15 のユーザー依頼） |
-| 3 | Soki Forest | これから（次に作る） |
+| 2 | Kampar Town | できている（設計書: `docs/superpowers/specs/2026-10-15-kampar-town-design.md`。2026-10-16 にユーザーが完成とした） |
+| 3 | Soki Forest | 作っている（設計書: `docs/superpowers/specs/2026-10-16-soki-forest-design.md`） |
 | 4 | Kyugo Mountain | これから |
 | 5 | Global City | これから（はじめの名前は World Travel） |
 
