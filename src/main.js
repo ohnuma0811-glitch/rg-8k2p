@@ -747,13 +747,14 @@ function renderGame(alpha, dt) {
     return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
-  // 浮いている車の下の影: 地面（川の上は水面）に。高いほど小さく、うすく
+  // 浮いている車の下の影（全部のコースで。2026-10-17 のユーザー依頼）: 地面に。高いほど小さく、うすく
   views.forEach((v, k) => {
     const sh = g.shadows[k];
     sh.visible = !!v.airborne && !v.swallowed && !(v.respawn > 0);
     if (!sh.visible) return;
     const loc = locate(track, v.x, v.z, v.seg, 40, v.y);
-    const ground = loc.ground ?? -1.15;
+    // 地面のない所（ジャンプ台の先）: 森は川の水面、ほかのコースは下の地面（高さ 0。Kenta Circuit は下を通る道）
+    const ground = loc.ground ?? (track.def.theme === 'forest' ? -1.15 : 0);
     const h = Math.max(0, v.y - ground);
     sh.position.set(v.x, ground + 0.12, v.z);
     sh.scale.setScalar(Math.max(0.6, 1.4 - h * 0.06));
