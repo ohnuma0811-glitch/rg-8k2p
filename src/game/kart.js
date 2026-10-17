@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=2840473';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=2840473';
+import { locate, respawnIndex } from './track.js?v=54cfb0c';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=54cfb0c';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -64,6 +64,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.speed = 0;
   kart.seg = i;
   kart.airborne = false;
+  kart.launched = false; // ジャンプ台から飛んだしるしも消す（コースに戻したとき着地の音が鳴らないように）
   kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
   kart.hop = 0;
   kart.prevDrift = false;

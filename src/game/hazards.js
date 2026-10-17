@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=2840473';
-import { span, locate, ahead, behind } from './track.js?v=2840473';
+import { SPEED_SHOW } from '../hud.js?v=54cfb0c';
+import { span, locate, ahead, behind } from './track.js?v=54cfb0c';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -269,6 +269,10 @@ export function dinoContact(kart, track, time) {
   if (!insideDino(-a, w, (kart.y ?? 0) + 0.8 - c.y)) return null;
   kart.eaten = (kart.eaten || 0) + 1;
   kart.swallowed = true; // 見えなくする（自分の車なら画面をまっくらに）
+  // 空中のしるしを消す（走り直すときに着地の音が鳴らないように。2026-10-17 のユーザー依頼）
+  kart.airborne = false;
+  kart.launched = false;
+  kart.vy = 0;
   kart.respawn = DINO_BLACK;
   kart.respawnAt = Math.round(d.s - DINO_BACK + track.length) % track.length;
   kart.speed = 0;
