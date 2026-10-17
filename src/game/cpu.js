@@ -212,12 +212,14 @@ export function cpuControl(cpu, kart, track, t) {
       // 一度食べられた CPU（2026-10-16 のユーザー依頼「二回続けて食べられないように」）: 今から、着いて飛び終わるまで
       // ずっと恐竜が低い（顔が通り道にない）と分かるまで、ジャンプ台の手前 DINO_HOLD m で止まって待つ
       // （着く時刻は速めに見る: 手前の加速板で速くなるので）
-      const arrive = ahead / Math.max(20, kart.speed);
+      const arrive = ahead / Math.max(25, kart.speed);
       let safe = true;
-      for (let d = 0; d <= arrive + 1.5 && safe; d += 0.1) safe = dinoPose(track, t + d).rise < 0.5;
+      // 顔のてっぺんが通り道にかかるのは rise 0.3 くらいから。ほぼ沈みきった（0.2 より下の）ときだけ進む（最終レビュー）
+      for (let d = 0; d <= arrive + 0.8 && safe; d += 0.1) safe = dinoPose(track, t + d).rise < 0.2;
       if (!safe) {
-        const target = Math.max(0, ahead - DINO_HOLD) * 0.8; // 止まる所までに、だんだん遅く
-        dinoBrake = kart.speed > target + 1;
+        // 止まる所までに、だんだん遅く。止まる所からは、しっかり止まる（少しずつ進んで加速板に乗らないように。最終レビュー）
+        const target = Math.max(0, ahead - DINO_HOLD) * 0.8;
+        dinoBrake = ahead <= DINO_HOLD ? kart.speed > 0.2 : kart.speed > target + 1;
       }
     } else if (ahead < 110 && ahead > 20) {
       const arrive = t + ahead / Math.max(8, kart.speed);
@@ -240,7 +242,7 @@ export function cpuControl(cpu, kart, track, t) {
   return { steer: kart.muddy > 0 ? -out : out, brake, drift: cpu.drifting };
 }
 
-const DINO_HOLD = 45; // 一度食べられた CPU が、恐竜を待つ所（ジャンプ②の手前 m）
+const DINO_HOLD = 58; // 一度食べられた CPU が、恐竜を待つ所（ジャンプ②の手前 m。加速板（40m 手前）より十分手前。最終レビューで 45 から）
 
 // CPU が、この周（lap）に近道を通るとき、うっかりわなにかかるか（3割くらい。レース・CPU・周で決まる）
 export const TRAP_RATE = 0.3;

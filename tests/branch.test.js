@@ -157,3 +157,34 @@ test('合流の手前に、進む向きの白い矢印（合流に入ってく�
     for (const p of mine) assert.ok(Math.hypot(p.x - j.x, p.z - j.z) < 160, `${path.id} の矢印が合流から遠い`);
   }
 });
+
+test('合流で横に並ぶ所・分かれる所・合流する所の近くは、となりの道の上に寄っても「柵の外」にならない（最終レビュー: 見えない壁）', async () => {
+  const { COURSE3 } = await import('../src/data/tracks.js');
+  const s3 = buildTrack(COURSE3);
+  let checked = 0;
+  for (const path of s3.paths.slice(1)) {
+    for (let k = 0; k < path.count; k++) {
+      const i = path.start + k;
+      const p = s3.samples[i];
+      // いちばん近い本線の点
+      let m = null;
+      let md = Infinity;
+      for (let j = 0; j < s3.length; j++) {
+        const q = s3.samples[j];
+        const d = Math.hypot(q.x - p.x, q.z - p.z);
+        if (d < md && Math.abs((q.y ?? 0) - (p.y ?? 0)) < 2) {
+          md = d;
+          m = q;
+        }
+      }
+      if (!m || md > m.half + p.half - 2 || md < 6) continue; // 2本の道が重なっている所だけ
+      // 本線の真ん中の点に、分かれ道の点からたどって探しても、本線の上の点からたどって探しても、道の上
+      for (const hint of [i, s3.samples.indexOf(m)]) {
+        const loc = locate(s3, m.x, m.z, hint, 40, m.y);
+        assert.notEqual(loc.surface, 'out', `${path.id} の点 ${i}（本線から ${md.toFixed(1)}m）`);
+      }
+      checked++;
+    }
+  }
+  assert.ok(checked > 20, `${checked}`);
+});

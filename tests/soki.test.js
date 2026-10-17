@@ -459,7 +459,7 @@ test('近道に大きめのぬかるみが3つ。入ると4秒、ハンドルが
 
 test('一度食べられた CPU は、恐竜がもぐってから飛べるように待って、二回続けて食べられない（2026-10-16 のユーザー依頼）', () => {
   const j = Math.round(markS(t, ['J2', 'J2', 0]));
-  for (let t0 = 0; t0 < t.dino.period; t0 += 0.75) {
+  for (let t0 = 0; t0 < t.dino.period; t0 += 0.1) { // 細かく（最終レビュー: 待つ間に少しずつ進んで加速板に乗り、また食べられた）
     const cpu = createCpu(1, 7);
     const kart = createKart(t, (j - 90 + t.length) % t.length, 0);
     kart.eaten = 1;
@@ -624,4 +624,56 @@ test('恐竜に食べられて走り直すとき、着地の音は鳴らさな�
   }
   assert.ok(eaten);
   assert.ok(!events.includes('land'), events.join(','));
+});
+
+test('一度食べられた CPU が恐竜を待つ間は、止まったまま。ジャンプ台の手前の加速板に乗らない（最終レビュー）', () => {
+  const j = Math.round(markS(t, ['J2', 'J2', 0]));
+  let up = 0;
+  while (dinoPose(t, up).state !== 'rise') up += 0.02;
+  const cpu = createCpu(1, 7);
+  const kart = createKart(t, (j - 70 + t.length) % t.length, 0);
+  kart.eaten = 1;
+  kart.speed = 10;
+  cpu.lap = 0;
+  cpu.lastS = t.samples[kart.seg].s;
+  let time = up - 1;
+  for (let k = 0; k < 60 * 6; k++) {
+    stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(params, 1), 1 / 60);
+    time += 1 / 60;
+    if (dinoPose(t, time).rise > 0.2) assert.ok(!t.samples[kart.seg].boost && kart.boost <= 0, `恐竜が出ているのに加速板に乗った（${time.toFixed(2)}）`);
+  }
+});
+
+test('車8台・全部の仕掛けで走っても、一度食べられた CPU が続けて食べられない（最終レビュー: 待つ間に加速板に乗った）', async () => {
+  const { pushApart } = await import('../src/game/collide.js');
+  const H = await import('../src/game/hazards.js');
+  for (const [level, seed, secs] of [[3, 2, 80], [2, 2, 90]]) {
+    const karts = [...Array(8).keys()].map((k) => {
+      const s = gridSlot(t, k);
+      return createKart(t, s.i, s.lateral);
+    });
+    const cpus = karts.map((_, k) => createCpu(k, seed));
+    const nuts = H.createNuts(t);
+    t.nuts = nuts;
+    let contacts = new Set();
+    let time = -3;
+    const lastEat = karts.map(() => -1e9);
+    for (let f = 0; f < 60 * secs; f++) {
+      karts.forEach((kart, k) => stepKart(kart, time < 0 ? { steer: 0, brake: true, drift: false } : cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1, level), 1 / 60));
+      karts.forEach((kart) => H.boarContact(kart, t, time, PHYS));
+      karts.forEach((kart) => H.pierContact(kart, t, time, PHYS));
+      karts.forEach((kart) => H.mudContact(kart, t, 1 / 60));
+      karts.forEach((kart, k) => {
+        if (!H.dinoContact(kart, t, time)) return;
+        assert.ok(time - lastEat[k] > 25, `Level ${level} seed ${seed} の CPU ${k} が ${time.toFixed(1)} 秒にまた食べられた`);
+        lastEat[k] = time;
+      });
+      H.stepNuts(nuts, t, karts, time);
+      karts.forEach((kart) => H.nutContact(kart, nuts, time, PHYS, { keep: true }));
+      H.dropFallen(nuts, time);
+      contacts = pushApart(karts, contacts);
+      time += 1 / 60;
+    }
+  }
+  t.nuts = null;
 });

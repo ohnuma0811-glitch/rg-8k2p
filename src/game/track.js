@@ -634,6 +634,22 @@ export function behind(track, i, k) {
 // 位置 (x, z) に一番近いコースの点を探す。hint（前の点の番号）があれば、その前後だけを探す
 // （交わる所で、もう一方の道の点を拾わないため）
 // y（車の高さ）があれば、高さのちがう道（橋の上と下）の点は拾いにくくする
+// 点を探すます目（NEAR_CELL m ごとに、その中の点の番号）。track ごとに一度だけ作る
+const NEAR_CELL = 30;
+const nearGrids = new WeakMap();
+function nearGrid(track) {
+  if (!nearGrids.has(track)) {
+    const grid = new Map();
+    track.samples.forEach((p, i) => {
+      const key = `${Math.floor(p.x / NEAR_CELL)},${Math.floor(p.z / NEAR_CELL)}`;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(i);
+    });
+    nearGrids.set(track, grid);
+  }
+  return nearGrids.get(track);
+}
+
 export function locate(track, x, z, hint = null, win = 40, y = null) {
   const { samples, length } = track;
   const n = samples.length;
@@ -672,6 +688,18 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
         }
       }
       front = nextFront;
+    }
+    // 分かれ道のあるコース: たどった道で道のはばの外なら、まわりの点（ほかの道も）からも探す。
+    // 合流で横に並ぶ所・分かれる所・合流する所は、つながりをたどると遠いので（最終レビュー: 見えない壁）
+    if (track.paths?.length > 1 && Math.sqrt(bestD) > samples[best].half) {
+      const grid = nearGrid(track);
+      const cx = Math.floor(x / NEAR_CELL);
+      const cz = Math.floor(z / NEAR_CELL);
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        for (let gz = cz - 1; gz <= cz + 1; gz++) {
+          for (const i of grid.get(`${gx},${gz}`) ?? []) scan(i);
+        }
+      }
     }
   }
   const p = samples[best];
