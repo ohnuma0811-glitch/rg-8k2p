@@ -439,6 +439,7 @@ export function buildTrack(def) {
     }
   }
   addBranches(t, def, fit);
+  applyGrip(t, def);
   // らせんの段（Kyugo Mountain）: 上から見て、同じ道のほかの段と重なる点
   if (t.helix) {
     for (let i = t.helix.from; i <= t.helix.to; i++) {
@@ -524,6 +525,23 @@ function applyJumps(t, def) {
       if (inSpan(p.s, j.gap)) { p.y = null; p.wall = def.roadHalf; }
     }
   }
+}
+
+// すべりやすさ（Kyugo Mountain。2026-10-18）: 点の grip（1 ふつう、小さいほどすべる）
+export const GRIP_SNOW = 0.6;
+export const GRIP_ICE = 0.25;
+function applyGrip(t, def) {
+  for (const p of t.samples) p.grip = def.grip ?? 1;
+  for (const a of def.asphalt ?? []) {
+    const from = refS(t, a.from);
+    const to = refS(t, a.to);
+    for (let i = 0; i < t.length; i++) if (between(t, t.samples[i].s, from, to)) t.samples[i].grip = 1;
+  }
+  t.ices = (def.ices ?? []).map((ice) => {
+    const from = Math.round(markS(t, ice.at)) % t.length;
+    for (let k = 0; k < ice.len; k++) t.samples[(from + k) % t.length].grip = GRIP_ICE;
+    return { from, to: (from + ice.len) % t.length };
+  });
 }
 
 // 小さなジャンプ（Kyugo Mountain。2026-10-18）: 地面のある所で、ジャンプ台のいちばん上から決まった速さで小さく飛ぶ

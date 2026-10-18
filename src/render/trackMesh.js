@@ -10,7 +10,7 @@ import { buildRiver, buildWaterfall } from './forest/water.js';
 import { buildTerrain, terrainHeight } from './terrain.js';
 import { mergeMeshes } from './mergeMeshes.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
-import { cornerUW, markS } from '../game/track.js';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -523,7 +523,26 @@ export function buildTrackMesh(track) {
     g.fillStyle = '#e8e8e8';
     g.fillRect(w / 2 - 1, 0, 2, h / 2);
   });
-  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p) && !p.bridge, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  // 雪山: 雪の道（grip < 1）だけを雪の絵に。アスファルト（grip 1）は灰色に破線、凍った所は水色に白い光の筋（2026-10-18）
+  const roadOk = (p) => hasGround(p) && !inSquare(p) && !p.bridge && (!snow || (p.grip < 1 && p.grip > GRIP_ICE));
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, roadOk, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  if (snow) {
+    const paved = canvasTexture(64, 64, (g, w, h) => {
+      g.fillStyle = '#5f646c';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#e8e8e8';
+      g.fillRect(w / 2 - 1, 0, 2, h / 2);
+    });
+    const ice = canvasTexture(64, 64, (g, w, h) => {
+      g.fillStyle = '#a8dcf2';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#e9f8ff';
+      for (let k = 0; k < 6; k++) g.fillRect((k * 23) % (w - 20), (k * 11) % h, 20, 2);
+    });
+    const ok = (want) => (p) => hasGround(p) && !p.bridge && want(p.grip);
+    group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, ok((g) => g >= 1), { color: 0xffffff, map: paved, vScale: 4 }));
+    group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, ok((g) => g <= GRIP_ICE), { color: 0xffffff, map: ice, vScale: 8 }));
+  }
   // 橋の上の道は石の色（Soki Forest。2026-10-16）
   // 橋の上は、柵（車が通れる所のはし）まで石（手すりは柵の所。2026-10-16 のユーザー依頼「橋の縁がずれている」）
   if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.wall, (p) => p.wall, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));

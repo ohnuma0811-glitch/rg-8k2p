@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, markS, locate, span, between, expandHelix } from '../src/game/track.js';
+import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_ICE } from '../src/game/track.js';
+import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
@@ -234,4 +235,58 @@ test('曲がりにくい車も、右いっぱいでらせんを止まらずに�
 test('らせんの段の上と下で、柵が消えない（ほかの段の道を「ほかの道」と見ない）', () => {
   const f = fenceSides(t);
   for (let i = t.helix.from + 30; i < t.helix.to - 30; i++) assert.ok(f[i][-1] && f[i][1], `${i}`);
+});
+
+test('すべりやすさ: スタート〜観客席の先とトンネルはアスファルト（1）、雪の道は 0.6、A の凍った所（3か所、25m）は 0.25', () => {
+  assert.equal(t.samples[t.startIndex].grip, 1);
+  assert.equal(at('GS').grip, 1);
+  assert.equal(at(['TI', 'TO', 0.5]).grip, 1);
+  assert.equal(at(['X1', 'FK', 0.5]).grip, GRIP_SNOW);
+  assert.equal(onB(0.5).grip, GRIP_SNOW);
+  assert.equal(t.ices.length, 3);
+  for (const ice of t.ices) {
+    assert.ok(between(t, t.samples[ice.from].s, t.marks.XJ, t.marks.MG));
+    assert.ok(Math.abs(span(t, t.samples[ice.from].s, t.samples[ice.to].s) - 25) < 2);
+    assert.equal(t.samples[(ice.from + 10) % L].grip, GRIP_ICE);
+  }
+});
+
+test('ほかのコースは、どこもすべらない（grip 1）', () => {
+  for (const c of COURSES.slice(0, 3)) assert.ok(buildTrack(c).samples.every((p) => p.grip === 1), c.name);
+});
+
+test('すべる道では、同じハンドルでも外へふくらむ（進む向きが車の向きにそろうのが遅い）', () => {
+  const run = (grip) => {
+    const kart = createKart(t, t.startIndex, 0);
+    kart.speed = 30;
+    const save = t.samples.map((p) => p.grip);
+    t.samples.forEach((p) => { p.grip = grip; });
+    for (let f = 0; f < 30; f++) stepKart(kart, { throttle: 1, brake: 0, steer: 1, drift: false }, t, params, 1 / 60);
+    t.samples.forEach((p, i) => { p.grip = save[i]; });
+    return Math.abs(Math.atan2(Math.sin(kart.heading - kart.move), Math.cos(kart.heading - kart.move)));
+  };
+  assert.ok(run(GRIP_ICE) > run(GRIP_SNOW) * 1.5);
+  assert.ok(run(GRIP_SNOW) > run(1) * 1.2);
+});
+
+test('CPU が雪と氷の道で3周を走りきる。動けなくならない（6秒で 15m 以上進む）', () => {
+  for (let seed = 0; seed < 3; seed++) {
+    const kart = createKart(t, t.startIndex, 0);
+    const cpu = createCpu(1, seed);
+    const hist = [];
+    let laps = 0;
+    let prevS = t.samples[kart.seg].s;
+    for (let f = 0; f < 60 * 300 && laps < 3; f++) {
+      stepKart(kart, cpuControl(cpu, kart, t, f / 60), t, cpuParams(params, 1), 1 / 60);
+      const s = t.samples[kart.seg].path === 0 ? t.samples[kart.seg].s : prevS;
+      if (prevS > L - 200 && s < 200) laps++;
+      prevS = s;
+      if (f % 30) continue;
+      hist.push({ x: kart.x, z: kart.z });
+      if (hist.length < 13) continue;
+      const a = hist[hist.length - 13];
+      assert.ok(Math.hypot(a.x - kart.x, a.z - kart.z) > 15, `seed ${seed}: 点 ${kart.seg} で止まった`);
+    }
+    assert.equal(laps, 3, `seed ${seed}`);
+  }
 });

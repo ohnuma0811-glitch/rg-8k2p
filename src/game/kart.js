@@ -245,7 +245,8 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.boost = Math.max(0, kart.boost - dt);
 
   // 進む向きは、車の向きに少しずつそろう（ドリフト中はゆっくり＝外へ滑る）
-  const gripRate = kart.airborne ? 0 : kart.drift.active ? PHYS.DRIFT_GRIP : PHYS.GRIP;
+  const surfaceGrip = track.samples[kart.seg]?.grip ?? 1; // すべる道（Kyugo Mountain。ほかのコースは 1）
+  const gripRate = (kart.airborne ? 0 : kart.drift.active ? PHYS.DRIFT_GRIP : PHYS.GRIP) * surfaceGrip;
   kart.move = wrapAngle(kart.move + wrapAngle(kart.heading - kart.move) * Math.min(1, gripRate * dt));
   const fromX = kart.x;
   const fromZ = kart.z;
