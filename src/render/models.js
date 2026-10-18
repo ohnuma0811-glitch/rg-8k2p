@@ -457,7 +457,7 @@ export function createSnowmanModel() {
   scarf.rotation.x = Math.PI / 2;
   g.add(scarf);
   g.add(box(0.2, 0.6, 0.25, 0xd8262b, 0.35, 2.15, 0.35)); // マフラーのはし
-  g.scale.setScalar(0.6); // 高さ 約2.3m（src/game/hazards.js の SNOWMAN_HEIGHT。小さなジャンプで飛び越えられる大きさ。最終レビュー）
+  g.scale.setScalar(1.2); // 高さ 約4.6m（src/game/hazards.js の SNOWMAN_HEIGHT。2026-10-18 のユーザー依頼「2倍の大きさ」で 0.6 から）
   return g;
 }
 

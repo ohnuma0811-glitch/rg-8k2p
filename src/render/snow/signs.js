@@ -30,10 +30,22 @@ export function guideBanners(track) {
   const out = [];
   for (const path of (track.paths ?? []).slice(1)) {
     out.push({ kind: 'fork', i: (path.fork - 45 + track.length) % track.length, text: 'A ↑ Shortcut     B → Right road', color: '#d8262b' });
-    out.push({ kind: 'merge', i: (path.join - 40 + track.length) % track.length, text: 'MERGE → TUNNEL', color: '#2a62b8' });
-    out.push({ kind: 'merge', i: path.start + path.count - 40, text: 'MERGE → TUNNEL', color: '#2a62b8' });
+    // 合流の手前: その道から見て、合流のあとに曲がる向き（2026-10-18 のユーザー依頼「左に曲がれ、を英語で」）
+    for (const i of [(path.join - 40 + track.length) % track.length, path.start + path.count - 40]) {
+      out.push({ kind: 'merge', i, text: turnText(track, i, path.join), color: '#2a62b8' });
+    }
   }
   return out;
+}
+
+// 横断幕の所から、合流の 50m 先までに曲がる向き
+export function turnText(track, i, join) {
+  let k = join;
+  for (let c = 0; c < 50; c++) k = track.samples[k].next;
+  const turn = wrap(track.samples[k].h - track.samples[i].h);
+  if (turn < -0.35) return '← TURN LEFT';
+  if (turn > 0.35) return 'TURN RIGHT →';
+  return '↑ GO STRAIGHT';
 }
 
 // 黒い板に黄色の矢印（曲がる向きを指す）

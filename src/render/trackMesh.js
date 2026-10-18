@@ -355,7 +355,10 @@ export function mergeArrowSpots(track) {
       out.push(samples[(path.join - d + track.length) % track.length]);
     }
   }
-  return out.filter((p) => p && p.y !== null);
+  // スローの板（Kyugo Mountain）の上には置かない（板の矢印と重なる。2026-10-18 のユーザー依頼）
+  const n = track.length;
+  const onSlow = (p) => p.path === 0 && (track.slows ?? []).some((sl) => (track.samples.indexOf(p) - sl.from + 4 + n) % n < 38);
+  return out.filter((p) => p && p.y !== null && !onSlow(p));
 }
 function mergeArrows(track) {
   const g = new THREE.Group();

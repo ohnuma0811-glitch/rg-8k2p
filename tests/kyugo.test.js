@@ -152,7 +152,7 @@ test('観客席の前の小さなジャンプ: 飛んで（雪だるまの上を
   const air = fr.slice(k0).filter((k, n, a) => a.slice(0, n + 1).every((q) => q.airborne));
   assert.ok(air.length > 20, `${air.length}`); // 0.33秒より長く飛ぶ
   const top = Math.max(...air.map((k) => k.y - t.samples[k.seg].y));
-  assert.ok(top > 2.2 && top < 4, `${top}`); // 雪だるま（高さ 約2.3m）の頭のあたりまで上がるが、① ほど高くない
+  assert.ok(top > SNOWMAN_HEIGHT + SNOWMAN_HOP && top < 8, `${top}`); // 雪だるま（高さ 約4.6m）の頭の上まで上がるが、高すぎない
   const land = k0 + air.length;
   assert.ok(land > 0);
   assert.ok(fr.slice(land, land + 60).every((k) => !k.airborne), '跳ね続けた');
@@ -921,4 +921,14 @@ test('トンネルの中（道から天井まで）には、雪山・地面の�
     }
   }
   assert.deepEqual(bad.slice(0, 8), [], `${bad.length} か所`);
+});
+
+import { mergeArrowSpots } from '../src/render/trackMesh.js';
+
+test('合流の手前の白い矢印は、スローの板の上に置かない（2026-10-18 のユーザー依頼）', () => {
+  for (const p of mergeArrowSpots(t)) {
+    const i = t.samples.indexOf(p);
+    for (const sl of t.slows) assert.ok(p.path !== 0 || (i - sl.from + L) % L >= 34, `${i}`);
+  }
+  assert.ok(mergeArrowSpots(t).length >= 2);
 });

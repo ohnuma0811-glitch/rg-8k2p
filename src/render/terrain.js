@@ -146,6 +146,40 @@ export function buildTerrain(track) {
   const z0 = Math.min(...zs) - MARGIN;
   const nx = Math.ceil((Math.max(...xs) + MARGIN - x0) / GRID);
   const nz = Math.ceil((Math.max(...zs) + MARGIN - z0) / GRID);
+  const meshY = meshHeightOf(track);
+  const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
+  for (let j = 0; j <= nz; j++) {
+    for (let i = 0; i <= nx; i++) {
+      const x = x0 + i * GRID;
+      const z = z0 + j * GRID;
+      pos.set([x, meshY(x, z), z], (j * (nx + 1) + i) * 3);
+    }
+  }
+  const index = [];
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const a = j * (nx + 1) + i;
+      const b = a + 1;
+      const c = a + nx + 1;
+      const d = c + 1;
+      index.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
+  group.add(buildShoulders(track));
+  return group;
+}
+
+// 地面の形の、ます目の点の高さ（buildTerrain と、道のふちの土手の外のはし。2026-10-18: 土手だけが急な坂になっていた）
+// 道の下の点は少し下げる（ます目の間で、道の上に地面が出ないように）
+const meshCache = new WeakMap();
+function meshHeightOf(track) {
+  if (meshCache.has(track)) return meshCache.get(track);
   const { grid } = prep(track);
   const under = (x, z) => {
     const cx = Math.floor(x / CELL);
@@ -190,40 +224,20 @@ export function buildTerrain(track) {
     }
     return low;
   };
-  const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
-  for (let j = 0; j <= nz; j++) {
-    for (let i = 0; i <= nx; i++) {
-      const x = x0 + i * GRID;
-      const z = z0 + j * GRID;
-      let y = terrainHeight(track, x, z) - 0.15 - (under(x, z) ? 1 : 0);
-      if (snow) y = Math.min(y, nearRoadY(x, z) - 0.3);
-      if (snow) y = outOfTunnel(x, z, y);
-      pos.set([x, y, z], (j * (nx + 1) + i) * 3);
-    }
-  }
-  const index = [];
-  for (let j = 0; j < nz; j++) {
-    for (let i = 0; i < nx; i++) {
-      const a = j * (nx + 1) + i;
-      const b = a + 1;
-      const c = a + nx + 1;
-      const d = c + 1;
-      index.push(a, c, b, b, c, d);
-    }
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setIndex(index);
-  geo.computeVertexNormals();
-  const group = new THREE.Group();
-  group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
-  group.add(buildShoulders(track));
-  return group;
+  const fn = (x, z) => {
+    let y = terrainHeight(track, x, z) - 0.15 - (under(x, z) ? 1 : 0);
+    if (snow) y = Math.min(y, nearRoadY(x, z) - 0.3);
+    if (snow) y = outOfTunnel(x, z, y);
+    return y;
+  };
+  meshCache.set(track, fn);
+  return fn;
 }
 
 // 道のふち（柵）の外の草の坂: 道の高さから、SHOULDER m 先の地面の高さへ。ほかの道の上にはかけない
 function buildShoulders(track) {
   const { samples } = track;
+  const meshY = meshHeightOf(track);
   const { grid } = prep(track);
   // (x, z) が、ほかの道（self の道の近くはのぞく）の柵の内側か
   const onOther = (x, z, self) => {
@@ -255,7 +269,7 @@ function buildShoulders(track) {
       }
       return {
         a: [p.x + rx * p.wall, p.y + 0.02, p.z + rz * p.wall],
-        b: [ox, terrainHeight(track, ox, oz) - 0.15, oz],
+        b: [ox, track.def.theme === 'snow' ? meshY(ox, oz) : terrainHeight(track, ox, oz) - 0.15, oz],
       };
     });
     samples.forEach((p, i) => {

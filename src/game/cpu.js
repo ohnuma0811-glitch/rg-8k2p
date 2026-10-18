@@ -272,8 +272,10 @@ export function cpuControl(cpu, kart, track, t) {
   // 橋の下の橋脚のすき間は、ゆっくり通る（せまいので）
   // すべる道（Kyugo Mountain の雪と氷）: カーブの手前で、すべりやすさに合わせて少し遅く（外へすべって板や柵に行かないように）
   const grip = Math.min(samples[loc.i].grip ?? 1, at(CPU.BEND_AHEAD).grip ?? 1);
+  // コブゾーン（Kyugo Mountain）: 手前から中まで、速すぎれば落とす（速いまま当たると跳ねて、すべる雪の上で向きを失う）
+  const mogulBrake = (track.moguls ?? []).some((m) => samples[m.i].path === samples[loc.i].path && span(track, loc.s, samples[m.i].s) < 45) && kart.speed > 30;
   const slipBrake = grip < 1 && bend > CPU.BRAKE_BEND * 0.7 && kart.speed > CPU.CORNER_SPEED * (0.55 + 0.45 * grip);
-  const brake = lost || slipBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
+  const brake = lost || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
