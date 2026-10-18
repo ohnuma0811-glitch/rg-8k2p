@@ -26,7 +26,8 @@ import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
-import { updateBest } from './timetrial.js';
+import { SharedTimes, dateText } from './sharedTimes.js';
+import { TIMES_URL } from './config.js';
 import { createAudio } from './audio/audio.js';
 import { createSfx } from './audio/sfx.js';
 import { createVoices } from './audio/voice.js';
@@ -716,15 +717,23 @@ async function runTimeTrial(name, charId, def) {
   const time = game.race.entries[game.me].time;
   removeGame();
   placeButtons();
-  const r = updateBest(load('ttBest', {}), course.name, time);
-  save('ttBest', r.bests);
-  music.play(r.record ? 'victory' : 'results');
-  const text = `${course.name}<br>TIME ${timeText(time)}<br>${r.record ? '★ NEW RECORD! ★' : `BEST ${timeText(r.best)}`}`;
-  const shown = screens.message(menu, 'Time Trial', text, [
-    { id: 'again', label: '↻ AGAIN' },
-    { id: 'courses', label: '◀ COURSES' },
-    { id: 'title', label: '⌂ TITLE' },
-  ]);
+  // みんなの記録に送って、受け取り直す（つながらなければ、その端末にためて、前に受け取った記録で出す）
+  const mine = await sharedTimes.add({ course: course.name, name, character: charId, time, date: dateText(new Date()) });
+  const view = await withTimeout(sharedTimes.refresh(), 4000) ?? sharedTimes.view();
+  const list = view[course.name] ?? [];
+  const place = list.findIndex((e) => e.id === mine.id);
+  music.play(place === 0 ? 'victory' : 'results');
+  const shown = screens.ttResults(menu, {
+    course: course.name,
+    timeText: `TIME ${timeText(time)}`,
+    note: place === 0 ? '★ NEW RECORD! ★' : place > 0 ? `TOP 10! (${place + 1})` : '',
+    rows: screens.ttRows(list, mine.id, CHAR_NAMES, timeText),
+    buttons: [
+      { id: 'again', label: '↻ AGAIN' },
+      { id: 'courses', label: '◀ COURSES' },
+      { id: 'title', label: '⌂ TITLE' },
+    ],
+  });
   fade(0);
   return shown;
 }
@@ -758,6 +767,24 @@ pauseBtn.addEventListener('click', async () => {
     end('title');
   }
 });
+
+// TIME TRIAL のみんなの記録（2026-10-18 のユーザー依頼）。手元の確かめ（https でない）では送らない（Super Kyugo＆Soki Brothers と同じ）
+let browserStorage = null;
+try {
+  browserStorage = window.localStorage;
+} catch {
+  // 使えない端末
+}
+const memoryStorage = { getItem: () => null, setItem: () => {} };
+const sharedTimes = new SharedTimes({
+  url: location.protocol === 'https:' ? TIMES_URL : '',
+  fetch: (url, opt) => fetch(url, opt),
+  storage: browserStorage ?? memoryStorage,
+  makeId: () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+});
+const CHAR_NAMES = Object.fromEntries(PLAYER_CHARS.map((c) => [c.id, c.name]));
+// つながらないときに待ちすぎない
+const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
 
 async function seeYouTomorrow(name) {
   await screens.message(menu, 'See you tomorrow!', `${name}, you played enough today.`, [{ id: 'ok', label: 'OK' }]);
@@ -803,6 +830,9 @@ async function flow() {
             useCourse(COURSES[k]);
             if (sound) sfx.play('select');
           },
+          records: () => sharedTimes.view(),
+          line: (e) => screens.recordLine(e, CHAR_NAMES, timeText),
+          refresh: sharedTimes.refresh(),
         });
         if (pick === screens.BACK) {
           useCourse(COURSES[0]);

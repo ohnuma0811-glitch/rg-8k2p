@@ -757,3 +757,19 @@ html, body {
 #menu.see-through h1 {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
+/* TIME TRIAL のみんなの記録（2026-10-18） */
+#menu .courses button .rec {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #ffd84a;
+}
+#menu .courses button.picked .rec {
+  color: #1a2440;
+}
+#menu table.results.tt-table {
+  font-size: clamp(13px, 3.6vh, 20px);
+}
+#menu table.results.tt-table td {
+  padding: 1px 10px;
+}

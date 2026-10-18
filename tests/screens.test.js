@@ -77,3 +77,19 @@ test('コース選び: 押したコースを選ぶ（背景に出す）。同じ
   assert.deepEqual(courseStep(2, '2'), { selected: 2, done: true });
   assert.deepEqual(courseStep(1, 'ok'), { selected: 1, done: true });
 });
+
+test('TIME TRIAL のみんなの記録: コース選びには、いちばん速いタイム・名前・キャラ名。ゴールのあとは上位10位（日付・名前・キャラ名・タイム）', async () => {
+  const { recordLine, ttRows } = await import('../src/screens.js');
+  const fmt = (s) => `${s.toFixed(2)}s`;
+  const chars = { kyugo: 'Kyugo', soki: 'Soki' };
+  assert.equal(recordLine({ time: 63.21, name: 'KENTA', character: 'soki' }, chars, fmt), '63.21s  KENTA · Soki');
+  assert.equal(recordLine(undefined, chars, fmt), 'No record yet');
+  const list = [
+    { id: 'a', date: '17-Oct-26', name: 'SOKI', character: 'soki', time: 60 },
+    { id: 'b', date: '18-Oct-26', name: 'KYUGO', character: 'kyugo', time: 61.5 },
+  ];
+  assert.deepEqual(ttRows(list, 'b', chars, fmt), [
+    { place: '1st', date: '17-Oct-26', name: 'SOKI', character: 'Soki', time: '60.00s', me: false },
+    { place: '2nd', date: '18-Oct-26', name: 'KYUGO', character: 'Kyugo', time: '61.50s', me: true },
+  ]);
+});

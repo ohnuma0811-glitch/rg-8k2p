@@ -188,16 +188,51 @@ export function courseStep(selected, pick) {
   return { selected: k, done: k === selected };
 }
 
+// TIME TRIAL のみんなの記録（2026-10-18 のユーザー依頼）: コース選びの「いちばん速いタイム・名前・キャラ名」の1行
+// chars: キャラの id → 名前、fmt: タイム（秒）→ 文字
+export function recordLine(e, chars, fmt) {
+  return e ? `${fmt(e.time)}  ${e.name} · ${chars[e.character] ?? e.character}` : 'No record yet';
+}
+// ゴールのあとの上位10位の行（日付・名前・キャラ名・タイム）。mineId は今の記録
+export function ttRows(list, mineId, chars, fmt) {
+  return list.map((e, n) => ({ place: ordinalOf(n + 1), date: e.date, name: e.name, character: chars[e.character] ?? e.character, time: fmt(e.time), me: e.id === mineId }));
+}
+function ordinalOf(n) {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
+  return `${n}${s}`;
+}
+
+// ゴールのあと: 上位10位の表と、ボタン（AGAIN・COURSES・TITLE）。押したボタンの id を返す
+export async function ttResults(root, { course, timeText, note, rows, buttons }) {
+  show(root, `
+    <h1 class="results-title">TIME TRIAL<small>${course}</small></h1>
+    <p class="text">${timeText}${note ? `<br>${note}` : ''}</p>
+    <table class="results tt-table">${rows.length ? rows
+      .map((r) => `<tr class="${r.me ? 'me' : ''}"><td class="place">${r.place}</td><td>${r.date}</td><td>${r.name}</td><td>${r.character}</td><td class="time">${r.time}</td></tr>`)
+      .join('') : '<tr><td>No record yet</td></tr>'}</table>
+    <div class="choices">${buttons.map((b) => `<button type="button" data-pick="${b.id}">${b.label}</button>`).join('')}</div>`);
+  const pick = await waitPick(root);
+  hide(root);
+  return pick;
+}
+
 // courses: コースの一覧（name）。onSelect(k): 選んだコースを背景に出す・音を鳴らす。決まったコースの番号か BACK を返す
-export async function chooseCourse(root, courses, last = 0, { onSelect } = {}) {
+// records: () => { コース名: 速い順の記録 }、line(e): ボタンに出す記録の1行。refresh: みんなの記録を受け取り直す（終わったら出し直す）
+export async function chooseCourse(root, courses, last = 0, { onSelect, records = () => ({}), line = () => '', refresh = null } = {}) {
+  const recordHtml = (c) => `<small class="rec">${line((records()[c.name] ?? [])[0])}</small>`;
   show(root, `
     ${BACK_BUTTON}
     <h1>Time Trial</h1>
     <p class="text">Choose a course · tap again to start</p>
-    <div class="choices levels courses">${courses.map((c, k) => `<button type="button" data-pick="${k}">${c.name}</button>`).join('')}</div>
+    <div class="choices levels courses">${courses.map((c, k) => `<button type="button" data-pick="${k}">${c.name}${recordHtml(c)}</button>`).join('')}</div>
     <div class="choices"><button type="button" class="ok-btn" data-pick="ok">OK ▶</button></div>`);
   root.classList.add('see-through'); // うしろのコースが見えるように
   const buttons = [...root.querySelectorAll('.courses [data-pick]')];
+  // みんなの記録を受け取ったら、ボタンの記録を出し直す
+  refresh?.then(() => buttons.forEach((b, k) => {
+    const rec = b.querySelector('.rec');
+    if (rec) rec.outerHTML = recordHtml(courses[k]);
+  }));
   let selected = last;
   markPicked(buttons, String(selected));
   onSelect?.(selected, false);
