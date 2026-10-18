@@ -65,7 +65,7 @@ export function setDarkness(scene, dark, dim, kart = null, open = 0) {
   scene.background.copy(scene.fog.color);
   scene.fog.near = L.fogNear + (8 - L.fogNear) * fog;
   scene.fog.far = L.fogFar + (70 - L.fogFar) * fog;
-  L.headlight.intensity = kart ? 60 * dark : 0;
+  L.headlight.intensity = kart ? 120 * dark : 0; // 2026-10-18 のユーザー依頼「暗すぎる」で 60 から
   if (kart && dark > 0) {
     const fx = Math.cos(kart.move);
     const fz = Math.sin(kart.move);

@@ -846,6 +846,12 @@ export function buildTrackMesh(track) {
     }
     // 合流の手前の地面に、進む向きの白い矢印（2026-10-16 のユーザー依頼）。合流に入ってくる道（本線と分かれ道）の両方に
     group.add(mergeArrows(track));
+    // 道の上の動かない木（2026-10-18 のユーザー依頼）: 茶色の幹に、高い所の丸い葉（車の上の高さ）
+    for (const tr of track.trees ?? []) {
+      hide.push(tr.x, tr.y, tr.z, tr.k);
+      forestKit.broccoliTree(hide, { size: 1.15, k: tr.k });
+      hide.pop();
+    }
     // サルのいる高い木（枝が道の方へのびる）
     for (const m of track.monkeys ?? []) {
       const q = track.samples[m.i];

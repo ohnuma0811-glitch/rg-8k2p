@@ -37,6 +37,12 @@ export function createCpu(k, seed = 0) {
   };
 }
 
+// 木の場所（動かない）を、牛の場所と同じ形で
+function treePose(track, tr) {
+  const p = track.samples[tr.i];
+  return { x: tr.x, z: tr.z, lateral: -Math.sin(p.h) * (tr.x - p.x) + Math.cos(p.h) * (tr.z - p.z), state: 'stand' };
+}
+
 // プレイヤーとの差から、速さの倍率を決める（progress の差、1周の長さ L）
 export function rubberFactor(cpuProgress, playerProgress, L) {
   const diff = (playerProgress - cpuProgress) / L; // プレイヤーが前ならプラス
@@ -105,6 +111,8 @@ export function cpuControl(cpu, kart, track, t) {
     ...(track.boars ?? []).map((boar) => ({ s: boar.s, pose: (time) => boarPose(track, boar, time) })),
     // 雪だるま（Kyugo Mountain）: 自分と同じ道の雪だるまだけ
     ...(track.snowmen ?? []).filter((sm) => sm.path === samples[loc.i].path).map((sm) => ({ s: sm.s, pose: (time) => snowmanPose(track, sm, time) })),
+    // 道の上の動かない木（Soki Forest）: 自分と同じ道の木だけ
+    ...(track.trees ?? []).filter((tr) => tr.path === samples[loc.i].path).map((tr) => ({ s: tr.s, pose: () => treePose(track, tr) })),
   ];
   for (const a of animals) {
     const ahead = span(track, loc.s, a.s);

@@ -33,7 +33,8 @@ export const PHYS = {
   GRAVITY: 15, // m/s²
   SLOPE: 0.6, // 坂で速さが変わる強さ（上りは遅く、下りは速く。2026-10-16）
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
-  KICK_SPEED: 28, // 小さなジャンプ台（Kyugo Mountain）から飛び出す速さ（いつも同じ）
+  KICK_SPEED: 28, // 小さなジャンプ台（Kyugo Mountain）から飛び出す、いちばん遅い速さ
+  KICK_MAX: 45, // 小さなジャンプ台から飛び出す、いちばん速い速さ
   KICK_VY: 8, // 小さなジャンプ台から飛び出す上向きの速さ（m/s）
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
@@ -245,7 +246,9 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.boost = Math.max(0, kart.boost - dt);
 
   // 進む向きは、車の向きに少しずつそろう（ドリフト中はゆっくり＝外へ滑る）
-  const surfaceGrip = track.samples[kart.seg]?.grip ?? 1; // すべる道（Kyugo Mountain。ほかのコースは 1）
+  // すべる道（Kyugo Mountain。ほかのコースは 1）。遅いときはすべりにくい（向き直しやすい。25m/s で、そのすべりやすさ）
+  const rawGrip = track.samples[kart.seg]?.grip ?? 1;
+  const surfaceGrip = 1 - (1 - rawGrip) * Math.min(1, Math.abs(kart.speed) / 25);
   const gripRate = (kart.airborne ? 0 : kart.drift.active ? PHYS.DRIFT_GRIP : PHYS.GRIP) * surfaceGrip;
   kart.move = wrapAngle(kart.move + wrapAngle(kart.heading - kart.move) * Math.min(1, gripRate * dt));
   const fromX = kart.x;
@@ -294,7 +297,8 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.launched = true;
     kart.hop = 0;
     if (kart.drift.active) endDrift(kart, params, false);
-    kart.speed = PHYS.KICK_SPEED;
+    // 飛ぶ前の速さを残す（加速板の速さが消えないように。2026-10-18 のユーザー依頼「スピード板が反応していない」）。速すぎるときは KICK_MAX まで
+    kart.speed = Math.max(PHYS.KICK_SPEED, Math.min(kart.speed, PHYS.KICK_MAX));
     kart.vy = PHYS.KICK_VY;
   } else if (kart.airborne) {
     kart.vy -= PHYS.GRAVITY * dt;

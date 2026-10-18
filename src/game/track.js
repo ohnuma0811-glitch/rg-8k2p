@@ -491,6 +491,8 @@ export function buildTrack(def) {
     const p = t.samples[i];
     return { i, r: def.moguR, x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, y: p.y ?? 0 };
   });
+  // 道の上の動かない木（Soki Forest。2026-10-18 のユーザー依頼「コース中に30本、ランダムに」）
+  t.trees = def.trees ? placeTrees(t, def.trees) : [];
   // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
   t.monkeys = (def.monkeys ?? []).map((m) => {
     const path = t.paths.find((q) => q.id === m.at[0]);
@@ -500,6 +502,58 @@ export function buildTrack(def) {
     return { i, path: p.path, side: m.side, x: p.x - Math.sin(p.h) * m.side * d, z: p.z + Math.cos(p.h) * m.side * d, y: p.y ?? 0 };
   });
   return t;
+}
+
+// 道の上の木の場所: 決まった乱数（seed）で、本線と分かれ道の点からばらばらに選ぶ。置かない所:
+// スタートの前後 100m、ジャンプ台・地面のない所・橋・加速板（とその前後）、分かれる所・合流する所の近く（ほかの道が近い所）、
+// ぬかるみ・恐竜・イノシシの所。木どうしは TREE_GAP m より離す
+const TREE_GAP = 25;
+function placeTrees(t, { count, seed = 1 }) {
+  const { samples } = t;
+  let h = seed >>> 0;
+  const rand = () => {
+    h = (h + 0x6d2b79f5) >>> 0;
+    let x = Math.imul(h ^ (h >>> 15), 1 | h);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+  const s0 = samples[t.startIndex].s;
+  const nearMain = (p, d) => p.path === 0 && Math.min(span(t, p.s, d), span(t, d, p.s));
+  const okAt = (i) => {
+    const p = samples[i];
+    if (p.y === null || p.ramp || p.bridge) return false;
+    if (p.path === 0 && nearMain(p, s0) < 100) return false;
+    // 前後 15 点に、地面のない所・ジャンプ台・加速板がない
+    for (const dir of ['next', 'prev']) {
+      let k = i;
+      for (let c = 0; c < 15; c++) {
+        k = samples[k][dir];
+        const q = samples[k];
+        if (q.y === null || q.ramp || q.boost) return false;
+      }
+    }
+    // ほかの道が近い所（分かれる所・合流する所・横に並ぶ所）
+    for (const q of samples) {
+      if (q.path === p.path || q.y === null) continue;
+      if (Math.abs(q.x - p.x) < 40 && Math.abs(q.z - p.z) < 40 && Math.hypot(q.x - p.x, q.z - p.z) < p.wall + q.wall + 10 && Math.abs(q.y - p.y) < 4) return false;
+    }
+    if ((t.muds ?? []).some((m) => Math.hypot(m.x - p.x, m.z - p.z) < m.r + 15)) return false;
+    if (t.dino && p.path === 0 && nearMain(p, t.dino.s) < 70) return false;
+    if ((t.boars ?? []).some((b) => p.path === 0 && nearMain(p, b.s) < 20)) return false;
+    return true;
+  };
+  const out = [];
+  for (let tries = 0; out.length < count && tries < 5000; tries++) {
+    const i = Math.floor(rand() * samples.length);
+    if (!okAt(i)) continue;
+    const p = samples[i];
+    const lateral = (rand() * 2 - 1) * (p.half - 3);
+    const x = p.x - Math.sin(p.h) * lateral;
+    const z = p.z + Math.cos(p.h) * lateral;
+    if (out.some((o) => Math.hypot(o.x - x, o.z - z) < TREE_GAP)) continue;
+    out.push({ i, x, z, y: p.y, path: p.path, s: p.s, k: out.length });
+  }
+  return out;
 }
 
 // 場所の書き方（'S'、印の名前、[印, 印, 割合]）→ s

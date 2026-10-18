@@ -211,3 +211,7 @@ test('雪だるまにぶつかったら bump（ドン）、近くの雪だるま
 test('コブに当たったら boing（ぼよん。Kyugo Mountain）', () => {
   assert.deepEqual(soundEvents(st({}, { mogulHits: 0 }), st({}, { mogulHits: 1 }), 3), ['boing']);
 });
+
+test('道の上の木にぶつかったら bump（ドン。Soki Forest）', () => {
+  assert.deepEqual(soundEvents(st({}, { treeHits: 0 }), st({}, { treeHits: 1 }), 3), ['bump']);
+});

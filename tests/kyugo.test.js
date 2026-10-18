@@ -891,3 +891,11 @@ test('トンネルの両がわの壁と天井は、上を別の道が通る所�
   }
   assert.ok(missing.length < 80, `${missing.length}: ${missing.join(" ")}`); // らせんに入る所（上の段が天井）だけ
 });
+
+test('観客席の前の加速板で速くなったまま、小さなジャンプで飛ぶ（速さが消えない。2026-10-18 のユーザー依頼）', () => {
+  const kick = t.kicks[0];
+  const fr = drive((kick.top - 40 + L) % L, 2);
+  const k0 = fr.findIndex((k) => k.airborne && k.launched);
+  assert.ok(fr[k0].speed > 40, `${fr[k0].speed}`);
+  assert.ok(fr[k0].speed <= PHYS.KICK_MAX);
+});

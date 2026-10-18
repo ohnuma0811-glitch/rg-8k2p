@@ -676,3 +676,67 @@ test('車8台・全部の仕掛けで走っても、一度食べられた CPU �
   }
   t.nuts = null;
 });
+
+import { treeContact, TREE_RADIUS } from '../src/game/hazards.js';
+
+test('Soki Forest の道の上に、動かない木が30本（本線と分かれ道に、ばらばらに。2026-10-18 のユーザー依頼）', () => {
+  assert.equal(t.trees.length, 30);
+  const paths = new Set(t.trees.map((tr) => t.samples[tr.i].path));
+  assert.ok(paths.size >= 2, '分かれ道にもある');
+  const s0 = t.samples[t.startIndex].s;
+  for (const tr of t.trees) {
+    const p = t.samples[tr.i];
+    const loc = locate(t, tr.x, tr.z, tr.i, 40, tr.y);
+    assert.ok(Math.abs(loc.lateral) < p.half - 1.5, '道の中');
+    assert.ok(p.y !== null && !p.ramp && !p.bridge && !p.boost, `点 ${tr.i}`);
+    if (p.path === 0) assert.ok(Math.min(span(t, p.s, s0), span(t, s0, p.s)) > 100, 'スタートの近く');
+    for (const o of t.trees) if (o !== tr) assert.ok(Math.hypot(o.x - tr.x, o.z - tr.z) > 15, '木どうしが近い');
+  }
+  const lats = t.trees.map((tr) => locate(t, tr.x, tr.z, tr.i, 40, tr.y).lateral);
+  assert.ok(Math.min(...lats) < -4 && Math.max(...lats) > 4, '左右にばらける');
+});
+
+test('木にぶつかる: メーター150以上（30 m/s）でスピン、遅い（20 m/s）と跳ね返る。ドリフト解除。1.5秒は通りぬけられる（牛と同じ）', () => {
+  const tr = t.trees[3];
+  for (const [speed, want] of [[20, 'bounce'], [30, 'spin']]) {
+    const kart = createKart(t, tr.i, 0);
+    kart.x = tr.x;
+    kart.z = tr.z + 0.5;
+    kart.y = tr.y;
+    kart.speed = speed;
+    kart.drift = { active: true, dir: 1, stage: 1, counter: false, flicks: 0, time: 0 };
+    assert.equal(treeContact(kart, t, 3, PHYS), want, `${speed}`);
+    assert.equal(kart.drift.active, false);
+    assert.ok(Math.hypot(kart.x - tr.x, kart.z - tr.z) >= TREE_RADIUS);
+    kart.x = tr.x;
+    kart.z = tr.z + 0.5;
+    assert.equal(treeContact(kart, t, 3.5, PHYS), null);
+  }
+  for (const c of [COURSES[0], COURSES[1], COURSES[3]]) assert.deepEqual(buildTrack(c).trees, [], c.name);
+});
+
+test('CPU は木をよける。ぶつかってもはまって動けなくならない', () => {
+  let spins = 0;
+  for (let seed = 0; seed < 3; seed++) {
+    const karts = [0, 1, 2, 3].map((k) => createKart(t, (t.startIndex - k * 8 + t.length) % t.length, k % 2 ? 4 : -4));
+    const cpus = karts.map((_, k) => createCpu(k, seed));
+    const hist = karts.map(() => []);
+    let time = 0;
+    for (let f = 0; f < 60 * 90; f++) {
+      const before = karts.map((kart) => [kart.x, kart.z]);
+      karts.forEach((kart, k) => stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60));
+      karts.forEach((kart, k) => {
+        if (treeContact(kart, t, time, PHYS) === 'spin') spins++;
+        kart.odo = (kart.odo ?? 0) + Math.hypot(kart.x - before[k][0], kart.z - before[k][1]);
+      });
+      time += 1 / 60;
+      if (f % 30) continue;
+      karts.forEach((kart, k) => {
+        hist[k].push(kart.odo);
+        if (hist[k].length < 13 || kart.respawn > 0 || kart.swallowed) return;
+        assert.ok(kart.odo - hist[k][hist[k].length - 13] > 15, `seed ${seed} の CPU ${k} が 6秒動けない（点 ${kart.seg}）`);
+      });
+    }
+  }
+  assert.ok(spins <= 15, `${spins}`);
+});

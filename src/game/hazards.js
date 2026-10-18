@@ -382,6 +382,36 @@ export function mogulContact(kart, track) {
   return null;
 }
 
+// 道の上の動かない木（Soki Forest。2026-10-18 のユーザー依頼）: 牛と同じ当たり（メーター150以上でスピン、遅いと跳ね返る、
+// ドリフト解除、ぶつかったあと BOAR_PASS 秒は通りぬけられる）
+export const TREE_RADIUS = 0.9; // 幹の大きさ（半径 m）
+export function treeContact(kart, track, time, phys) {
+  if (!track.trees?.length || time < (kart.treePassUntil ?? -Infinity) || kart.airborne || kart.tumble > 0) return null;
+  for (const tr of track.trees) {
+    if (Math.abs((kart.y ?? 0) - tr.y) > 4) continue;
+    const dx = kart.x - tr.x;
+    const dz = kart.z - tr.z;
+    const d = Math.hypot(dx, dz);
+    const min = TREE_RADIUS + COW_PAD;
+    if (d >= min || d === 0) continue;
+    kart.x = tr.x + (dx / d) * min;
+    kart.z = tr.z + (dz / d) * min;
+    kart.treeHits = (kart.treeHits || 0) + 1;
+    kart.treePassUntil = time + BOAR_PASS;
+    cancelDrift(kart);
+    pushInside(kart, track);
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      return 'spin';
+    }
+    kart.speed *= phys.WALL_KEEP;
+    return 'bounce';
+  }
+  return null;
+}
+
 // スローの板（Kyugo Mountain。2026-10-18 のユーザー依頼「逆向きの歩く歩道」）: 乗っている間、うしろへ引っぱる。止まりはしない
 export const SLOW_PULL = 18; // m/s²
 export const SLOW_MIN = 8; // これより遅くはしない（m/s）

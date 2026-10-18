@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack, span, locate } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, DINO_BLACK } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -493,7 +493,7 @@ function placeBuses(time) {
 function showTunnel({ dark, black }, kart = null, open = 0) {
   setDarkness(scene, dark, TUNNEL_DIM, kart, open);
   const v = $('vignette');
-  v.style.opacity = String(Math.max(black, 0.85 * dark));
+  v.style.opacity = String(Math.max(black, 0.55 * dark)); // まわりの暗さは弱め（2026-10-18 のユーザー依頼「暗すぎる」で 0.85 から）
   v.classList.toggle('black', black > 0);
 }
 
@@ -559,6 +559,7 @@ function stepGame(dt) {
   if (track.boars.length) karts.forEach((kart) => boarContact(kart, track, race.t, PHYS));
   if (track.snowmen.length) karts.forEach((kart) => snowmanContact(kart, track, race.t, PHYS));
   if (track.moguls.length) karts.forEach((kart) => mogulContact(kart, track));
+  if (track.trees.length) karts.forEach((kart) => treeContact(kart, track, race.t, PHYS));
   // 橋の下の橋脚（Soki Forest）: ぶつかるとスピン
   if (track.bridgePiers?.length) karts.forEach((kart) => pierContact(kart, track, race.t, PHYS));
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆

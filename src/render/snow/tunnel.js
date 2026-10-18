@@ -55,7 +55,7 @@ export function buildTunnel(track) {
 // トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）
 export const TUNNEL_BLACK = 0.25; // 入るときのまっくらの秒数
 export const TUNNEL_FADE = 0.6; // 出るときに明るくなる秒数
-export const TUNNEL_DIM = 0.15; // 中の明るさ（外を 1 として）
+export const TUNNEL_DIM = 0.35; // 中の明るさ（外を 1 として。2026-10-18 のユーザー依頼「タブレットだと暗すぎる」で 0.15 から）
 // state = { dark: 0〜1 の暗さ, black: 入るときのまっくら 0〜1 }。inside は自分の車がトンネルの中か
 export function tunnelLight(state, inside, dt) {
   let { dark, black } = state;
