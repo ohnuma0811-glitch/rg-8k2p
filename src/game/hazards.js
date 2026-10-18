@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=cf5ab2b';
-import { span, locate, ahead, behind } from './track.js?v=cf5ab2b';
+import { SPEED_SHOW } from '../hud.js?v=18a816c';
+import { span, locate, ahead, behind } from './track.js?v=18a816c';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -308,8 +308,8 @@ export function pierContact(kart, track, time, phys) {
 
 // ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）
 // 雪だるま（Kyugo Mountain。2026-10-18 のユーザー依頼「ジャンプしながら左右に動いている」）
-export const SNOWMAN_RADIUS = 1.0;
-export const SNOWMAN_HEIGHT = 2.3; // 帽子のてっぺんまで（m。src/render/models.js の雪だるま）
+export const SNOWMAN_RADIUS = 2.0; // 2026-10-18 のユーザー依頼「2倍の大きさ」で 1.0 から
+export const SNOWMAN_HEIGHT = 4.6; // 帽子のてっぺんまで（m。src/render/models.js の雪だるま。2倍の大きさ）
 export const SNOWMAN_HOP = 0.8; // 跳ねる高さ（m。観客席の前の小さなジャンプで、頭の上を飛び越えられる高さ）
 export const SNOWMAN_HOP_TIME = 0.6; // 1回跳ねる秒数
 export function snowmanPose(track, sm, time) {

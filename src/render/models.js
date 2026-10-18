@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=cf5ab2b';
-import { PHYS } from '../game/kart.js?v=cf5ab2b';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=cf5ab2b';
+import * as THREE from '../../vendor/three.module.min.js?v=18a816c';
+import { PHYS } from '../game/kart.js?v=18a816c';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=18a816c';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -457,7 +457,7 @@ export function createSnowmanModel() {
   scarf.rotation.x = Math.PI / 2;
   g.add(scarf);
   g.add(box(0.2, 0.6, 0.25, 0xd8262b, 0.35, 2.15, 0.35)); // マフラーのはし
-  g.scale.setScalar(0.6); // 高さ 約2.3m（src/game/hazards.js の SNOWMAN_HEIGHT。小さなジャンプで飛び越えられる大きさ。最終レビュー）
+  g.scale.setScalar(1.2); // 高さ 約4.6m（src/game/hazards.js の SNOWMAN_HEIGHT。2026-10-18 のユーザー依頼「2倍の大きさ」で 0.6 から）
   return g;
 }
 

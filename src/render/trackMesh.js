@@ -1,19 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=cf5ab2b';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=cf5ab2b';
-import { buildJungle } from './town/jungle.js?v=cf5ab2b';
-import { buildWater } from './town/water.js?v=cf5ab2b';
-import { buildBridge } from './forest/bridge.js?v=cf5ab2b';
-import { buildTunnel } from './snow/tunnel.js?v=cf5ab2b';
-import { buildSnowScenery } from './snow/kit.js?v=cf5ab2b';
-import { buildSigns } from './snow/signs.js?v=cf5ab2b';
-import * as forestKit from './forest/kit.js?v=cf5ab2b';
-import { createBuilder } from './town/builder.js?v=cf5ab2b';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=cf5ab2b';
-import { buildTerrain, terrainHeight } from './terrain.js?v=cf5ab2b';
-import { mergeMeshes } from './mergeMeshes.js?v=cf5ab2b';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=cf5ab2b';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=cf5ab2b';
+import * as THREE from '../../vendor/three.module.min.js?v=18a816c';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=18a816c';
+import { buildJungle } from './town/jungle.js?v=18a816c';
+import { buildWater } from './town/water.js?v=18a816c';
+import { buildBridge } from './forest/bridge.js?v=18a816c';
+import { buildTunnel } from './snow/tunnel.js?v=18a816c';
+import { buildSnowScenery } from './snow/kit.js?v=18a816c';
+import { buildSigns } from './snow/signs.js?v=18a816c';
+import * as forestKit from './forest/kit.js?v=18a816c';
+import { createBuilder } from './town/builder.js?v=18a816c';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=18a816c';
+import { buildTerrain, terrainHeight } from './terrain.js?v=18a816c';
+import { mergeMeshes } from './mergeMeshes.js?v=18a816c';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=18a816c';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=18a816c';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -355,7 +355,10 @@ export function mergeArrowSpots(track) {
       out.push(samples[(path.join - d + track.length) % track.length]);
     }
   }
-  return out.filter((p) => p && p.y !== null);
+  // スローの板（Kyugo Mountain）の上には置かない（板の矢印と重なる。2026-10-18 のユーザー依頼）
+  const n = track.length;
+  const onSlow = (p) => p.path === 0 && (track.slows ?? []).some((sl) => (track.samples.indexOf(p) - sl.from + 4 + n) % n < 38);
+  return out.filter((p) => p && p.y !== null && !onSlow(p));
 }
 function mergeArrows(track) {
   const g = new THREE.Group();
@@ -414,7 +417,10 @@ export function fenceSides(track, mouths = []) {
         // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
         const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
         // 橋の上と下・らせんの段の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
-        const overBridge = (p.bridge || q.bridge || p.stacked || q.stacked) && Math.abs(q.y - (p.y ?? 0)) >= 3;
+        // 雪山（柵を道の高さに立てる）は、橋の点の手前でも、高さが 3m 以上ちがえば別の道（2026-10-18: 橋に入る所で柵が切れて、落ちそうに見えた）。
+        // Kenta Circuit の柵は地面から立てるので、上の道の柵が下の道の上に立たないよう、今のまま
+        const separate = p.bridge || q.bridge || p.stacked || q.stacked || track.def.theme === 'snow';
+        const overBridge = separate && Math.abs(q.y - (p.y ?? 0)) >= 3;
         return other && q.y !== null && !overBridge && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }

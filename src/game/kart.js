@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=cf5ab2b';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=cf5ab2b';
+import { locate, respawnIndex } from './track.js?v=18a816c';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=18a816c';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -35,7 +35,7 @@ export const PHYS = {
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
   KICK_SPEED: 28, // 小さなジャンプ台（Kyugo Mountain）から飛び出す、いちばん遅い速さ
   KICK_MAX: 45, // 小さなジャンプ台から飛び出す、いちばん速い速さ
-  KICK_VY: 8, // 小さなジャンプ台から飛び出す上向きの速さ（m/s）
+  KICK_VY: 12, // 小さなジャンプ台から飛び出す上向きの速さ（m/s。2倍の大きさの雪だるまの頭を越える高さ）
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
   WALL_KEEP: 0.6, // 柵にまっすぐぶつかったときに残る速さの割合
