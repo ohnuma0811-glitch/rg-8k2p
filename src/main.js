@@ -750,7 +750,7 @@ async function flow() {
         }
       } else {
         // レースの画面: CPU の速さを選ぶ（前に選んだ Level を覚えておく）
-        const pick = await screens.chooseLevel(menu, load('level', 2));
+        const pick = await screens.chooseLevel(menu, load('level', 2), { onSelect: () => sfx.play('select') });
         if (pick === screens.BACK) screen = screens.prevScreen('level');
         else {
           level = pick;

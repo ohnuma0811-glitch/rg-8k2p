@@ -387,6 +387,15 @@ html, body {
   border-color: #ffd84a;
   box-shadow: 0 0 0 3px #ffd84a;
 }
+/* 選んだ Level は光る（2026-10-18 のユーザー依頼） */
+#menu .choices.levels button.picked {
+  border-color: #fff6b0;
+  background: #ffd84a;
+  color: #1a2440;
+  box-shadow: 0 0 0 4px #fff6b0, 0 0 28px 8px #ffd84a;
+  transform: scale(1.08);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
 #menu .note,
 #menu .text {
   min-height: 1.5em;

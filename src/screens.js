@@ -178,7 +178,17 @@ export const LEVELS = [
   { id: 3, label: 'Level 3', sub: 'Hard' },
 ];
 // レースの画面: CPU の速さを選ぶ。選んだ Level（1〜3）か BACK を返す。last は前に選んだ Level（ふちを光らせる）
-export async function chooseLevel(root, last = 2) {
+// Level を選んだら、そのボタンを光らせ（前の黄色いふちは消す）、PICK_GLOW_MS 待ってから進む（2026-10-18 のユーザー依頼）
+export const PICK_GLOW_MS = 600;
+export function markPicked(buttons, id) {
+  for (const b of buttons) {
+    b.classList.toggle('last', false);
+    b.classList.toggle('picked', b.dataset.pick === id);
+  }
+}
+
+// onSelect: 選んだときに鳴らす音など
+export async function chooseLevel(root, last = 2, { onSelect } = {}) {
   show(root, `
     ${BACK_BUTTON}
     <h1>Race</h1>
@@ -194,6 +204,11 @@ export async function chooseLevel(root, last = 2) {
   const pick = await Promise.race([waitPick(root), esc]);
   window.removeEventListener('keydown', onKey);
   root.onclick = null;
+  if (pick !== BACK) {
+    markPicked([...root.querySelectorAll('.levels [data-pick]')], pick);
+    onSelect?.(Number(pick));
+    await new Promise((r) => setTimeout(r, PICK_GLOW_MS));
+  }
   hide(root);
   return pick === BACK ? BACK : Number(pick);
 }

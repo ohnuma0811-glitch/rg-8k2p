@@ -51,3 +51,13 @@ test('キャラ選びのボタンは、名前の上に Kyugo と Soki の顔（�
   assert.ok(!html.includes('⭐'), '星はなし');
   assert.ok(html.indexOf('face-svg') < html.indexOf('Soki</'), '顔が名前の上');
 });
+
+test('Level を選ぶと、そのボタンが光り（ほかは消える）、少し待ってから進む（2026-10-18 のユーザー依頼）', async () => {
+  const { markPicked, PICK_GLOW_MS } = await import('../src/screens.js');
+  const btn = (id, cls) => ({ dataset: { pick: String(id) }, cls: new Set(cls), classList: { toggle(c, on) { on ? this.owner.cls.add(c) : this.owner.cls.delete(c); } } });
+  const list = [btn(1, []), btn(2, ['last']), btn(3, [])];
+  list.forEach((b) => { b.classList.owner = b; });
+  markPicked(list, '3');
+  assert.deepEqual(list.map((b) => [...b.cls].sort().join(',')), ['', '', 'picked']);
+  assert.ok(PICK_GLOW_MS >= 300 && PICK_GLOW_MS <= 900);
+});
