@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="380 260 1000 560" width="1300" height="728" font-family="sans-serif">
+  <!-- Kyugo Mountain（下書き）: Kyugo の絵（docs/reference/kyugo/）をもとにした道順。座標は絵の画素 -->
+  <rect x="380" y="260" width="1000" height="560" fill="#eef4fb"/>
+  <!-- 雪山（まわり） -->
+  <g fill="#ffffff" stroke="#b9c8d8" stroke-width="3">
+    <path d="M400 420 L470 290 L540 420 Z"/><path d="M560 380 L640 270 L720 380 Z"/>
+    <path d="M1080 380 L1170 280 L1260 380 Z"/><path d="M1260 480 L1330 360 L1380 480 Z"/>
+    <path d="M1200 700 L1270 560 L1340 700 Z"/><path d="M500 810 L580 690 L660 810 Z"/>
+    <path d="M780 810 L860 700 L940 810 Z"/>
+  </g>
+  <!-- 川（左上） -->
+  <path d="M700 270 C640 360 560 420 470 470 C430 500 400 560 380 600" fill="none" stroke="#6fb3e6" stroke-width="16"/>
+  <text x="400" y="590" font-size="20" fill="#2e7fb8">川</text>
+  <!-- 観客席 -->
+  <rect x="555" y="370" width="110" height="45" fill="#c9b18a" stroke="#7a6545" stroke-width="3"/>
+  <text x="565" y="398" font-size="18">観客席</text>
+  <!-- 森（雪の木） -->
+  <g fill="#7fae8c"><circle cx="540" cy="520" r="14"/><circle cx="600" cy="560" r="14"/><circle cx="650" cy="510" r="14"/><circle cx="560" cy="620" r="14"/><circle cx="640" cy="640" r="14"/><circle cx="690" cy="580" r="14"/></g>
+
+  <!-- 共通の道（灰色）: スタート → 北 → 東 → 分かれ道。コブゾーン → トンネル（下） → スタート -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M470 600 L475 480 Q480 445 515 442 L760 445 L870 470" stroke="#5b616b" stroke-width="16"/>
+    <path d="M1130 588 L1235 600 Q1270 640 1230 690 C1150 740 1060 720 980 760 C900 790 780 770 700 760 C600 750 500 760 470 700 L470 600" stroke="#5b616b" stroke-width="16"/>
+    <!-- トンネル（下の道。点線のふち） -->
+    <path d="M1235 640 Q1250 680 1200 705 C1120 740 1050 730 980 765 C900 795 780 775 700 765 C620 758 560 760 520 735" stroke="#222" stroke-width="22" stroke-dasharray="6 8" opacity="0.35"/>
+
+    <!-- A（赤）: 分かれ道 → 東 → 右上の輪 → スピードアップ → ジャンプで上の道を飛び越える → 南 → コインの道を東 → 合流 -->
+    <path d="M870 470 L960 455 Q1035 430 1030 360 Q1020 315 950 318 Q870 322 845 370 L832 412 L822 470 L815 590 L1130 588" stroke="#d93a2b" stroke-width="10"/>
+    <!-- B（緑）: 分かれ道 → 右下へ → コインの所 → 急な下り → くねくね道を西 → スローの道を北（上の道の下をくぐる） → 輪の内がわ → 右下 → 合流 -->
+    <path d="M870 470 L905 540 L970 590 L1010 650 Q1060 700 1030 700 L900 690 Q780 665 768 620 L765 500 L770 445 L800 410 Q860 395 960 392 Q1000 400 1010 430 L1060 520 L1125 584" stroke="#2f9a46" stroke-width="10"/>
+  </g>
+
+  <!-- 印 -->
+  <g font-size="18" font-weight="bold">
+    <rect x="460" y="590" width="20" height="8" fill="#000"/><text x="390" y="625">スタート</text>
+    <circle cx="870" cy="470" r="9" fill="#d93a2b"/><text x="880" y="500" fill="#d93a2b">分かれ道（A / B）</text>
+    <circle cx="1130" cy="588" r="9" fill="#2a5bd7"/><text x="1080" y="575" fill="#2a5bd7">合流</text>
+    <text x="1150" y="625">コブゾーン</text>
+    <circle cx="1235" cy="620" r="9" fill="#1aa3d9"/><text x="1255" y="625" fill="#1aa3d9">トンネル入口</text>
+    <circle cx="520" cy="735" r="9" fill="#1aa3d9"/><text x="400" y="770" fill="#1aa3d9">トンネル出口</text>
+    <text x="760" y="790">トンネル（中は舗装）</text>
+    <!-- 交わる所 -->
+    <circle cx="824" cy="447" r="14" fill="none" stroke="#e08a00" stroke-width="4"/><text x="640" y="330" fill="#e08a00">① A がジャンプで飛び越える</text>
+    <line x1="800" y1="335" x2="822" y2="432" stroke="#e08a00" stroke-width="2"/>
+    <circle cx="768" cy="445" r="14" fill="none" stroke="#7a3fc4" stroke-width="4"/><text x="560" y="485" fill="#7a3fc4">② B が下をくぐる</text>
+    <circle cx="968" cy="589" r="14" fill="none" stroke="#c4003f" stroke-width="4"/><text x="880" y="625" fill="#c4003f">③ A が橋で上、B が下をくぐる</text>
+    <circle cx="838" cy="398" r="14" fill="none" stroke="#0a7f7f" stroke-width="4"/><text x="1045" y="300" fill="#0a7f7f">④ A が橋で上、B が下をくぐる</text>
+    <line x1="1040" y1="300" x2="852" y2="395" stroke="#0a7f7f" stroke-width="2"/>
+    <text x="700" y="380" fill="#d93a2b" font-size="15">スピードアップ</text>
+    <text x="700" y="560" fill="#2f9a46" font-size="15">スロー（逆向きの板）</text>
+  </g>
+  <!-- 走る向き -->
+  <g fill="#333">
+    <path d="M470 540 l-8 14 h16 z"/><path d="M650 444 l-14 -8 v16 z"/>
+  </g>
+  <text x="395" y="290" font-size="16" fill="#555">Kyugo Mountain（下書き）: 赤 = A（近道）、緑 = B、灰色 = 共通の道</text>
+</svg>
