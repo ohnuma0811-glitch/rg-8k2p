@@ -67,9 +67,25 @@ function buildRun(b, track, pts, snow) {
   const index = new Map(pts.map((p, k) => [p, k]));
   const unders = (track.bridges ?? []).filter((br) => index.has(track.samples[br.i])).map((br) => index.get(track.samples[br.i]));
   const nearUnder = (k) => unders.some((u) => Math.abs(u - k) < UNDER_CLEAR);
+  // 柱や石をそこに立てると、下を通るほかの道（車の通る所）にかかる所（最終レビュー: ななめに交わる所で、柱が下の道の中に立った）
+  const lower = track.samples.filter((q) => q.y !== null && !q.bridge);
+  const blocked = pts.map((p) => {
+    const [ax, az] = [p.x + Math.sin(p.h) * (width / 2), p.z - Math.cos(p.h) * (width / 2)];
+    const [bx, bz] = [p.x - Math.sin(p.h) * (width / 2), p.z + Math.cos(p.h) * (width / 2)];
+    // 下の道のいちばん高い所（なければ null）
+    let below = null;
+    for (const q of lower) {
+      if (q.y >= p.y - DECK || Math.abs(q.x - p.x) > width + 20 || Math.abs(q.z - p.z) > width + 20) continue;
+      const dx = bx - ax;
+      const dz = bz - az;
+      const u = Math.max(0, Math.min(1, ((q.x - ax) * dx + (q.z - az) * dz) / (dx * dx + dz * dz)));
+      if (Math.hypot(ax + dx * u - q.x, az + dz * u - q.z) < q.wall + 1.5) below = Math.max(below ?? -Infinity, q.y);
+    }
+    return below;
+  });
   const pierK = [];
   pts.forEach((p, k) => {
-    if (k % PIER_EVERY === 0 && !nearUnder(k)) pierK.push(k);
+    if (k % PIER_EVERY === 0 && !nearUnder(k) && blocked[k] === null) pierK.push(k);
   });
   for (const pier of track.bridgePiers ?? []) if (index.has(track.samples[pier.i])) pierK.push(index.get(track.samples[pier.i]));
   pierK.sort((a, c) => a - c);
@@ -99,7 +115,8 @@ function buildRun(b, track, pts, snow) {
     const spring = top * (half < 5 ? 0.6 : 0.4);
     const arch = spring + (apex - spring) * Math.sqrt(Math.max(0, 1 - (u / half) ** 2));
     const h = top - arch;
-    if (h <= 0.05) return;
+    // 下の道の車（高さ 4m まで）にかかる石は作らない
+    if (h <= 0.05 || (blocked[k] !== null && arch < blocked[k] + 4)) return;
     b.push(p.x, arch, p.z, ryOf(p));
     b.box(width, h, 1.05, stoneDark, 0, 0, 0);
     b.pop();

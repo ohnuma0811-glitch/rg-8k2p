@@ -858,7 +858,8 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
         for (let gz = cz - 1; gz <= cz + 1; gz++) {
           // 地面のない所（ジャンプの上）の点は、高さで比べられないので、ここでは拾わない（つながりをたどれば拾える。
           // 2026-10-18: B の上で浮いた車が、近くの A のジャンプの上へワープして落ちた）
-          for (const i of grid.get(`${gx},${gz}`) ?? []) if (samples[i].y !== null) scan(i);
+          // 車の高さとちがう道（橋の上・下、立体交差の近く）の点も拾わない（最終レビュー: 道のはしで上の道へワープした）
+          for (const i of grid.get(`${gx},${gz}`) ?? []) if (samples[i].y !== null && (y === null || Math.abs(samples[i].y - y) <= 2)) scan(i);
         }
       }
     }

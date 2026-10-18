@@ -4,7 +4,7 @@ import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_
 import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
 import { createRace, raceTick, updateProgress, ranking, gridSlot, progress } from '../src/game/race.js';
 import { pushApart } from '../src/game/collide.js';
-import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY } from '../src/game/hazards.js';
+import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY, SNOWMAN_HEIGHT, SNOWMAN_HOP } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
@@ -153,7 +153,7 @@ test('観客席の前の小さなジャンプ: 飛んで（雪だるまの上を
   const air = fr.slice(k0).filter((k, n, a) => a.slice(0, n + 1).every((q) => q.airborne));
   assert.ok(air.length > 20, `${air.length}`); // 0.33秒より長く飛ぶ
   const top = Math.max(...air.map((k) => k.y - t.samples[k.seg].y));
-  assert.ok(top > 2.2 && top < 4, `${top}`); // 雪だるま（高さ 約2.4m）の頭を越えるが、① ほど高くない
+  assert.ok(top > 2.2 && top < 4, `${top}`); // 雪だるま（高さ 約2.3m）の頭のあたりまで上がるが、① ほど高くない
   const land = k0 + air.length;
   assert.ok(land > 0);
   assert.ok(fr.slice(land, land + 60).every((k) => !k.airborne), '跳ね続けた');
@@ -377,7 +377,7 @@ test('雪だるまは、跳ねながら道を左右に行ったり来たりす�
     assert.ok(p.hop >= 0);
   }
   assert.ok(minL < -6 && maxL > 6 && maxL < t.roadHalf);
-  assert.ok(maxHop > 1 && maxHop <= 1.25);
+  assert.ok(maxHop > 0.6 && maxHop <= SNOWMAN_HOP + 0.01);
 });
 
 test('雪だるまにぶつかる: メーター150以上（30 m/s）でスピン、遅い（20 m/s）と跳ね返る。ドリフト解除。1.5秒は通りぬけられる', () => {
@@ -715,4 +715,74 @@ test('CPU 8台が、押し合い・全部の仕掛けで3周を走りきる。�
     const byTime = [...race.entries.keys()].sort((x, y) => race.entries[x].time - race.entries[y].time);
     assert.deepEqual(order, byTime, `seed ${seed}: 順位とゴールの順がちがう`);
   }
+});
+
+test('コースのどこでも、道のはしを走っていても、高さのちがう道の点にワープしない（最終レビュー）', () => {
+  for (const c of [COURSE4, COURSES[2]]) {
+    const tr = c === COURSE4 ? t : buildTrack(c);
+    for (let i = 0; i < tr.samples.length; i += 3) {
+      const p = tr.samples[i];
+      if (p.y === null || p.ramp) continue;
+      for (let lat = -p.wall + 0.5; lat <= p.wall - 0.5; lat += 1.5) {
+        const loc = locate(tr, p.x - Math.sin(p.h) * lat, p.z + Math.cos(p.h) * lat, i, 40, p.y);
+        const q = tr.samples[loc.i];
+        assert.ok(q.y !== null && Math.abs(q.y - p.y) <= 1.5, `${c.name} 点 ${i} の横 ${lat.toFixed(1)}m で、点 ${loc.i}（高さ ${q.y} / ${p.y.toFixed(1)}）`);
+      }
+    }
+  }
+});
+
+test('道どうしが上から見て重なる所は、道のはしまで含めて、上と下の差が 5m 以上（分かれる所・合流する所はのぞく。最終レビュー）', () => {
+  const S = t.samples;
+  const bad = [];
+  for (let i = 0; i < S.length; i += 2) {
+    const p = S[i];
+    if (p.y === null) continue;
+    for (let j = i + 2; j < S.length; j += 2) {
+      const q = S[j];
+      if (q.y === null) continue;
+      if (p.path === q.path && Math.min(Math.abs(p.s - q.s), L - Math.abs(p.s - q.s)) < 80) continue;
+      if (Math.hypot(p.x - q.x, p.z - q.z) >= p.half + q.half) continue;
+      const dy = Math.abs(p.y - q.y);
+      if (dy <= 1.2) continue; // 分かれる所・合流する所（同じ高さで並ぶ）
+      if (dy < 5) bad.push(`${i}/${j}: ${dy.toFixed(1)}`);
+    }
+  }
+  assert.deepEqual(bad.slice(0, 10), []);
+});
+
+test('橋の柱や石は、下の道（車の通る所）の中に立たない（最終レビュー）', () => {
+  const a = buildBridge(t, { snow: true }).children[0].geometry.attributes.position;
+  const grid = new Map();
+  for (const q of t.samples) {
+    if (q.y === null) continue;
+    const key = `${Math.floor(q.x / 20)},${Math.floor(q.z / 20)}`;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(q);
+  }
+  const bad = new Set();
+  for (let k = 0; k < a.count; k++) {
+    const x = a.getX(k);
+    const y = a.getY(k);
+    const z = a.getZ(k);
+    for (let gx = Math.floor(x / 20) - 1; gx <= Math.floor(x / 20) + 1; gx++) {
+      for (let gz = Math.floor(z / 20) - 1; gz <= Math.floor(z / 20) + 1; gz++) {
+        for (const q of grid.get(`${gx},${gz}`) ?? []) {
+          if (q.bridge) continue;
+          const lat = -Math.sin(q.h) * (x - q.x) + Math.cos(q.h) * (z - q.z);
+          const fwd = Math.cos(q.h) * (x - q.x) + Math.sin(q.h) * (z - q.z);
+          if (Math.abs(fwd) < 0.6 && Math.abs(lat) < q.half - 0.5 && y > q.y + 0.2 && y < q.y + 3) bad.add(`${t.samples.indexOf(q)}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual([...bad].slice(0, 10), []);
+});
+
+test('観客席の前の小さなジャンプは、跳ねている雪だるまの頭より上を通る（最終レビュー）', () => {
+  const m = t.snowmen[0];
+  const fr = drive((t.kicks[0].top - 40 + L) % L, 3);
+  const over = fr.filter((k) => k.airborne && Math.abs(k.seg - m.i) <= 1);
+  assert.ok(over.length > 0, '雪だるまの上を飛んでいない');
+  for (const k of over) assert.ok(k.y - t.samples[k.seg].y > SNOWMAN_HEIGHT + SNOWMAN_HOP, `${(k.y - t.samples[k.seg].y).toFixed(2)}`);
 });
