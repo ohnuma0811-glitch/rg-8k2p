@@ -932,3 +932,18 @@ test('合流の手前の白い矢印は、スローの板の上に置かない�
   }
   assert.ok(mergeArrowSpots(t).length >= 2);
 });
+
+test('道の横が下の地面より 3m 以上高い所には、いつも柵・手すり・壁がある（橋のつなぎ目から落ちそうに見えない。2026-10-18 のユーザー依頼）', () => {
+  const f = fenceSides(t);
+  const bad = [];
+  t.samples.forEach((p, i) => {
+    if (p.y === null) return;
+    for (const side of [-1, 1]) {
+      if (p.bridge || p.tunnel || p.ramp || f[i][side]) continue;
+      const x = p.x - Math.sin(p.h) * side * (p.wall + 3);
+      const z = p.z + Math.cos(p.h) * side * (p.wall + 3);
+      if (p.y - terrainHeight(t, x, z) >= 3) bad.push(`${i}(${side})`);
+    }
+  });
+  assert.deepEqual(bad.slice(0, 10), [], `${bad.length} か所`);
+});

@@ -417,7 +417,10 @@ export function fenceSides(track, mouths = []) {
         // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
         const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
         // 橋の上と下・らせんの段の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
-        const overBridge = (p.bridge || q.bridge || p.stacked || q.stacked) && Math.abs(q.y - (p.y ?? 0)) >= 3;
+        // 雪山（柵を道の高さに立てる）は、橋の点の手前でも、高さが 3m 以上ちがえば別の道（2026-10-18: 橋に入る所で柵が切れて、落ちそうに見えた）。
+        // Kenta Circuit の柵は地面から立てるので、上の道の柵が下の道の上に立たないよう、今のまま
+        const separate = p.bridge || q.bridge || p.stacked || q.stacked || track.def.theme === 'snow';
+        const overBridge = separate && Math.abs(q.y - (p.y ?? 0)) >= 3;
         return other && q.y !== null && !overBridge && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }
