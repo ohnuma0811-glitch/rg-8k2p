@@ -368,6 +368,7 @@ export function buildTrack(def) {
   }
   applyHeights(t, def);
   applyJumps(t, def);
+  applyKicks(t, def);
   for (const pad of def.pads ?? []) {
     let at = markS(t, pad.at);
     // crest: でこぼこの頂上（近くでいちばん高い所）に置く（2026-10-16 のユーザー依頼「底にあると踏めないことがある」）
@@ -461,6 +462,32 @@ function applyJumps(t, def) {
       }
       if (inSpan(p.s, j.gap)) { p.y = null; p.wall = def.roadHalf; }
     }
+  }
+}
+
+// 小さなジャンプ（Kyugo Mountain。2026-10-18）: 地面のある所で、ジャンプ台のいちばん上から決まった速さで小さく飛ぶ
+function applyKicks(t, def) {
+  t.kicks = [];
+  for (const j of def.kicks ?? []) {
+    const at = refS(t, [j.at, j.at, 0]);
+    const rel = (s) => ((s - at + t.length * 1.5) % t.length) - t.length / 2;
+    let top = null;
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      const d = rel(p.s);
+      if (d >= j.boost[0] && d < j.boost[1]) { p.boost = true; p.boostTime = 1.0; }
+      if (d >= j.ramp[0] && d < j.ramp[1]) {
+        p.ramp = true;
+        p.y += (j.ramp[2] * (d - j.ramp[0])) / (j.ramp[1] - j.ramp[0]);
+        if (top === null || rel(t.samples[top].s) < d) top = i;
+      }
+    }
+    t.samples[top].kick = true;
+    // 台のいちばん上の先に、同じ高さのふちを 1m（飛ぶ前に、下の地面へ下がりはじめないように）
+    const lip = t.samples[t.samples[top].next];
+    lip.y = t.samples[top].y;
+    lip.ramp = true;
+    t.kicks.push({ s: t.samples[top].s, top });
   }
 }
 
@@ -567,6 +594,16 @@ function addBranches(t, def, fit) {
         const w = d <= b.merge ? 1 : (1 - Math.cos((Math.PI * (b.merge + 40 - d)) / 40)) / 2;
         const p = samples[start + k];
         p.y = p.y * (1 - w) + (m.y ?? 0) * w;
+      }
+    }
+    // 分かれ道の加速板（Kyugo Mountain。at は分かれ道の上の割合）
+    for (const pad of b.pads ?? []) {
+      const a = Math.round(pad.at * (count - 1));
+      for (let k = 0; k < pad.len; k++) {
+        const q = samples[start + Math.min(count - 1, a + k)];
+        q.boost = true;
+        q.boostTime = pad.time;
+        q.boostSide = 0;
       }
     }
     (t.forks[fork] ??= []).push(pathIndex);

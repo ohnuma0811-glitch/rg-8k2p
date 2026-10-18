@@ -33,6 +33,8 @@ export const PHYS = {
   GRAVITY: 15, // m/s²
   SLOPE: 0.6, // 坂で速さが変わる強さ（上りは遅く、下りは速く。2026-10-16）
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
+  KICK_SPEED: 28, // 小さなジャンプ台（Kyugo Mountain）から飛び出す速さ（いつも同じ）
+  KICK_VY: 6.5, // 小さなジャンプ台から飛び出す上向きの速さ（m/s）
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
   WALL_KEEP: 0.6, // 柵にまっすぐぶつかったときに残る速さの割合
@@ -276,10 +278,24 @@ export function stepKart(kart, ctl, track, params, dt) {
       }
     }
   }
+  // 小さなジャンプ台のいちばん上から前へ出た（Kyugo Mountain。2026-10-18）
+  let kicked = false;
+  if (!kart.airborne && kart.speed > 5 && track.kicks?.length) {
+    // 前の点から今の点まで（1フレームで数点進むこともある）に、台のいちばん上を通りぬけたか
+    for (let i = kart.seg, k = 0; i !== loc.i && k < 6; i = track.samples[i].next, k++) if (track.samples[i].kick) kicked = true;
+  }
   kart.seg = loc.i;
   kart.surface = loc.surface;
 
-  if (kart.airborne) {
+  if (kicked) {
+    // 決まった速さで小さく飛ぶ（ジャンプ台なので「イヤッホー」と着地の音あり）
+    kart.airborne = true;
+    kart.launched = true;
+    kart.hop = 0;
+    if (kart.drift.active) endDrift(kart, params, false);
+    kart.speed = PHYS.KICK_SPEED;
+    kart.vy = PHYS.KICK_VY;
+  } else if (kart.airborne) {
     kart.vy -= PHYS.GRAVITY * dt;
     kart.y += kart.vy * dt;
     if (loc.ground !== null && kart.y <= loc.ground) {

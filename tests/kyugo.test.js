@@ -3,6 +3,24 @@ import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, span, between } from '../src/game/track.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
+import { createKart, stepKart, PHYS } from '../src/game/kart.js';
+import { kartParams } from '../src/game/stats.js';
+
+const params = kartParams({ accel: 3, top: 3, handling: 3 });
+const full = { throttle: 1, brake: 0, steer: 0, drift: false };
+// 点 i から、道の真ん中をまっすぐ走らせる（道の向きへハンドル）。返すのは毎フレームの車の写し
+function drive(i, seconds, speed = 30) {
+  const kart = createKart(t, i, 0);
+  kart.speed = speed;
+  const frames = [];
+  for (let f = 0; f < seconds * 60; f++) {
+    const p = t.samples[kart.seg];
+    const d = Math.atan2(Math.sin(p.h - kart.heading), Math.cos(p.h - kart.heading));
+    stepKart(kart, { ...full, steer: Math.max(-1, Math.min(1, d * 3)) }, t, params, 1 / 60);
+    frames.push({ ...kart });
+  }
+  return frames;
+}
 
 const t = buildTrack(COURSE4);
 const L = t.length;
@@ -96,4 +114,52 @@ test('橋の形は、上の道（③ は B）の下に作る', () => {
     }
     assert.ok(deck, `${c.dy > 0 ? c.j : c.i} の橋の板がない`);
   }
+});
+
+test('① A は、上の道（X1）の上をジャンプで飛ぶ（地面のない所の下に上の道）', () => {
+  const xj = Math.round(t.marks.XJ);
+  const gap = [];
+  for (let d = -20; d <= 20; d++) if (t.samples[(xj + d) % L].y === null) gap.push((xj + d) % L);
+  assert.ok(gap.length > 20, `${gap.length}`);
+  const x1 = at('X1');
+  assert.ok(gap.some((i) => Math.hypot(t.samples[i].x - x1.x, t.samples[i].z - x1.z) < 6));
+});
+
+test('① ジャンプは、どの速さで来ても上の道の向こう側に着く', () => {
+  for (const v of [12, 25, 41]) {
+    const fr = drive(Math.round(t.marks.XJ) - 60, 6, v);
+    assert.ok(fr.some((k) => k.launched), `${v}`);
+    assert.ok(fr.every((k) => !(k.respawn > 0)), `${v}: 落ちた`);
+    const after = fr.find((k, n) => n > 0 && fr[n - 1].airborne && !k.airborne);
+    assert.equal(t.samples[after.seg].path, 0, `${v}`);
+    const d = span(t, t.marks.XJ, t.samples[after.seg].s);
+    assert.ok(d > 10 && d < 60, `${v}: ${d}`);
+  }
+});
+
+test('観客席の前の小さなジャンプ: 飛んで（雪だるまの上を越えて）、平らな所に着地して走り続ける', () => {
+  const kick = t.kicks[0];
+  const fr = drive((kick.top - 40 + L) % L, 4);
+  const air = fr.filter((k) => k.airborne);
+  assert.ok(air.length > 20, `${air.length}`); // 0.33秒より長く飛ぶ
+  const top = Math.max(...air.map((k) => k.y - t.samples[k.seg].y));
+  assert.ok(top > 2.2 && top < 4, `${top}`); // 雪だるま（高さ 約2.4m）の頭を越えるが、① ほど高くない
+  const land = fr.findIndex((k, n) => n > 0 && fr[n - 1].airborne && !k.airborne);
+  assert.ok(land > 0);
+  assert.ok(fr.slice(land, land + 60).every((k) => !k.airborne), '跳ね続けた');
+  assert.ok(fr[land + 59].speed > 20);
+});
+
+test('加速板: スタート付近の直線と、観客席の前と、B の最後の直線にある', () => {
+  const n = t.samples.length;
+  const boostNear = (i, d, path) => {
+    for (let k = -d; k <= d; k++) {
+      const q = t.samples[(i + k + n) % n];
+      if (q.boost && q.path === path) return true;
+    }
+    return false;
+  };
+  assert.ok(boostNear((t.startIndex + 60) % L, 50, 0));
+  assert.ok(boostNear(t.kicks[0].top, 30, 0));
+  assert.ok(boostNear(B.start + B.count - 40, 30, 1));
 });
