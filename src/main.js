@@ -114,7 +114,7 @@ function useCourse(def) {
   setCourse(scene, track);
   minimap = createMinimap($('minimap'), track);
   minimap.resize();
-  standSpot = def.theme === 'circuit' ? grandstandSpot(track) : null;
+  standSpot = def.theme === 'circuit' || def.grandstand ? grandstandSpot(track) : null; // Kyugo Mountain も観客席の前で歓声（2026-10-18 のユーザー依頼）
 }
 useCourse(COURSES[0]);
 const controls = new Controls();
@@ -487,8 +487,8 @@ function placeBuses(time) {
 }
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
-function showTunnel({ dark, black }, kart = null) {
-  setDarkness(scene, dark, TUNNEL_DIM, kart);
+function showTunnel({ dark, black }, kart = null, open = 0) {
+  setDarkness(scene, dark, TUNNEL_DIM, kart, open);
   const v = $('vignette');
   v.style.opacity = String(Math.max(black, 0.85 * dark));
   v.classList.toggle('black', black > 0);
@@ -818,7 +818,10 @@ function renderGame(alpha, dt) {
   placeSnowmen(g, g.race.t);
   // トンネル（Kyugo Mountain）: 入ると一度まっくら、中は暗く、車の前にライト、画面のまわりを暗く
   g.tunnel = tunnelLight(g.tunnel, !!track.samples[g.karts[g.me].seg]?.tunnel, dt);
-  showTunnel(g.tunnel, views[g.me]);
+  // 出口の 120m 手前から、霧を晴らす（外の景色が見える）
+  const me = g.karts[g.me];
+  const toExit = track.samples[me.seg]?.tunnel && track.marks.TO !== undefined ? span(track, track.samples[me.seg].s, track.marks.TO) : Infinity;
+  showTunnel(g.tunnel, views[g.me], Math.max(0, Math.min(1, 1 - toExit / 120)));
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）
   for (const tx of track.slowTextures ?? []) tx.offset.y = (tx.offset.y + dt * 1.5) % 1;
   // 食べられた演出（血のりは出さない。2026-10-16 のユーザーの判断「子供向けには刺激が強い」）

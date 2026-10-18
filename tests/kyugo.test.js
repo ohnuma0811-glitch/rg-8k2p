@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_ICE } from '../src/game/track.js';
-import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
+import { createCpu, cpuControl, cpuParams, trapLap } from '../src/game/cpu.js';
 import { createRace, raceTick, updateProgress, ranking, gridSlot, progress } from '../src/game/race.js';
 import { pushApart } from '../src/game/collide.js';
 import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY, SNOWMAN_HEIGHT, SNOWMAN_HOP } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
-import { fenceSides } from '../src/render/trackMesh.js';
+import { fenceSides, bridgeSlab } from '../src/render/trackMesh.js';
 import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK } from '../src/render/snow/tunnel.js';
 import { terrainHeight, buildTerrain } from '../src/render/terrain.js';
 import { buildSnowScenery } from '../src/render/snow/kit.js';
@@ -109,9 +109,8 @@ test('橋は上の道に（③ は B が橋）。Kyugo Mountain には、道の�
   assert.equal(t.bridgePiers.length, 0);
 });
 
-test('橋の形は、上の道（③ は B）の下に作る', () => {
-  const g = buildBridge(t, { snow: true });
-  const a = g.children[0].geometry.attributes.position;
+test('橋の形は、上の道（③ は B）の下に作る（坂にそった板）', () => {
+  const a = bridgeSlab(t).children[0].geometry.attributes.position;
   for (const c of crossings()) {
     const up = t.samples[c.dy > 0 ? c.j : c.i];
     let deck = false;
@@ -282,24 +281,26 @@ test('CPU が雪と氷の道で3周を走りきる。動けなくならない（
     const hist = [];
     let laps = 0;
     let prevS = t.samples[kart.seg].s;
+    let odo = 0; // 走った道のり（らせんでは1周で上から見て同じ場所にもどるので、場所ではなく道のりで見る）
     for (let f = 0; f < 60 * 300 && laps < 3; f++) {
+      const [x0, z0] = [kart.x, kart.z];
       stepKart(kart, cpuControl(cpu, kart, t, f / 60), t, cpuParams(params, 1), 1 / 60);
+      odo += Math.hypot(kart.x - x0, kart.z - z0);
       const s = t.samples[kart.seg].path === 0 ? t.samples[kart.seg].s : prevS;
       if (prevS > L - 200 && s < 200) laps++;
       prevS = s;
       if (f % 30) continue;
-      hist.push({ x: kart.x, z: kart.z });
+      hist.push(odo);
       if (hist.length < 13) continue;
-      const a = hist[hist.length - 13];
-      assert.ok(Math.hypot(a.x - kart.x, a.z - kart.z) > 15, `seed ${seed}: 点 ${kart.seg} で止まった`);
+      assert.ok(odo - hist[hist.length - 13] > 15, `seed ${seed}: 点 ${kart.seg} で止まった`);
     }
     assert.equal(laps, 3, `seed ${seed}`);
   }
 });
 
-test('スローの板: A に3枚、長さ 30m、はば 道の30%、左・右・左。凍った所とは重ならない', () => {
+test('スローの板: A に3枚、長さ 30m、はば 道の30%、道の真ん中（2026-10-18 のユーザー依頼）。凍った所とは重ならない', () => {
   assert.equal(t.slows.length, 3);
-  assert.deepEqual(t.slows.map((q) => Math.sign(q.lateral)), [-1, 1, -1]);
+  assert.deepEqual(t.slows.map((q) => q.lateral), [0, 0, 0]);
   for (const q of t.slows) {
     assert.ok(between(t, t.samples[q.from].s, t.marks.XJ, t.marks.MG));
     assert.ok(Math.abs(span(t, t.samples[q.from].s, t.samples[q.to].s) - 30) < 2);
@@ -315,7 +316,7 @@ test('板に乗っている間は、うしろへ引っぱられる。板のな�
   kart.speed = 30;
   assert.equal(slowContact(kart, t, 0.1), true);
   assert.ok(Math.abs(kart.speed - (30 - SLOW_PULL * 0.1)) < 1e-6);
-  const other = createKart(t, i, -q.lateral);
+  const other = createKart(t, i, q.half + 2);
   other.speed = 30;
   assert.equal(slowContact(other, t, 0.1), false);
   assert.equal(other.speed, 30);
@@ -336,10 +337,11 @@ test('ほかのコースには、スローの板はない', () => {
 test('CPU は、なるべくスローの板のない所を通る（3枚とも、乗るのは半分より少ない）', () => {
   let on = 0;
   let runs = 0;
-  for (let seed = 0; seed < 6; seed++) {
-    const kart = createKart(t, (Math.round(t.marks.XJ) + 20) % L, 0);
+  for (let seed = 0; seed < 12; seed++) {
+    const kart = createKart(t, (Math.round(t.marks.XJ) + 40) % L, 0);
     kart.speed = 25;
     const cpu = createCpu(seed % 4, seed);
+    if (trapLap(cpu, 0)) continue; // うっかりの周（3割）は、わざと乗る
     const hit = new Set();
     for (let f = 0; f < 60 * 25 && !between(t, t.samples[kart.seg].s, t.marks.MG, t.marks.MG + 20); f++) {
       stepKart(kart, cpuControl(cpu, kart, t, f / 60), t, cpuParams(params, 1), 1 / 60);
@@ -360,7 +362,7 @@ test('雪だるまは15体（共通7、A 4、B 4）。スタートの前後 100m
   const s0 = t.samples[t.startIndex].s;
   for (const m of main) {
     assert.ok(Math.min(span(t, m.s, s0), span(t, s0, m.s)) > 100, `${m.s}`);
-    assert.ok(!between(t, m.s, t.marks.BZ - 5, t.marks.TO + 5), `${m.s}`);
+    assert.ok(!between(t, m.s, t.marks.MG + 15, t.marks.TO + 5), `${m.s}`); // コブゾーンとトンネル
   }
 });
 
@@ -419,16 +421,18 @@ test('雪だるまにぶつかっても、CPU がはまって動けなくなら�
     const hist = karts.map(() => []);
     let time = seed * 0.37;
     for (let f = 0; f < 60 * 60; f++) {
+      const before = karts.map((kart) => [kart.x, kart.z]);
       karts.forEach((kart, k) => stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60));
       karts.forEach((kart) => snowmanContact(kart, t, time, PHYS));
+      karts.forEach((kart, k) => { kart.odo = (kart.odo ?? 0) + Math.hypot(kart.x - before[k][0], kart.z - before[k][1]); });
       time += 1 / 60;
       if (f % 30) continue;
       karts.forEach((kart, k) => {
+        // 走った道のりで見る（らせんでは1周で上から見て同じ場所にもどる）
         const h = hist[k];
-        h.push({ x: kart.x, z: kart.z });
+        h.push(kart.odo);
         if (h.length < 13) return;
-        const a = h[h.length - 13];
-        assert.ok(Math.hypot(a.x - kart.x, a.z - kart.z) > 15, `seed ${seed} の CPU ${k} が 6秒動けない（点 ${kart.seg}）`);
+        assert.ok(kart.odo - h[h.length - 13] > 15, `seed ${seed} の CPU ${k} が 6秒動けない（点 ${kart.seg}）`);
       });
     }
   }
@@ -449,13 +453,16 @@ test('CPU は雪だるまをよける（スピンするのは、ときどきだ�
   assert.ok(spins <= 12, `${spins}`); // よけないと 20回くらい
 });
 
-test('コブゾーン: BZ から 約60m に、半径 1.5m のコブが10個。道の中', () => {
+test('コブゾーン: 合流のあと〜トンネルの手前 8m に、半径 1.5m のコブが10個。左右に散らす。トンネルの中にはない（2026-10-18 のユーザー依頼）', () => {
   assert.equal(t.moguls.length, 10);
   for (const m of t.moguls) {
     const loc = locate(t, m.x, m.z, m.i, 40, m.y);
     assert.ok(Math.abs(loc.lateral) < t.roadHalf - 1);
-    assert.ok(between(t, t.samples[m.i].s, t.marks.BZ - 1, t.marks.BZ + 61));
+    assert.ok(between(t, t.samples[m.i].s, t.marks.MG + 10, t.marks.TI - 8), `${t.samples[m.i].s}`);
+    assert.ok(!t.samples[m.i].tunnel);
   }
+  const lats = t.moguls.map((m) => locate(t, m.x, m.z, m.i, 40, m.y).lateral);
+  assert.ok(Math.min(...lats) < -6 && Math.max(...lats) > 6);
 });
 
 test('コブに正面から当たると跳ねる（上へ）。そのあと着地して走り続ける', () => {
@@ -493,7 +500,7 @@ test('ほかのコースには、コブはない', () => {
 
 test('CPU はコブゾーンを通りぬけて、トンネルに入る', () => {
   for (let seed = 0; seed < 4; seed++) {
-    const kart = createKart(t, (Math.round(t.marks.BZ) - 40) % L, (seed % 3) * 4 - 4);
+    const kart = createKart(t, (Math.round(t.marks.MG) - 20) % L, (seed % 3) * 4 - 4);
     const cpu = createCpu(seed, seed);
     for (let f = 0; f < 60 * 8; f++) {
       stepKart(kart, cpuControl(cpu, kart, t, f / 60), t, cpuParams(params, 1), 1 / 60);
@@ -667,13 +674,13 @@ function lapTime(route, seed) {
   return { time: Infinity, used };
 }
 
-test('A と B の1周の時間の差は 3% 以内（どちらを通っても有利不利が出ない。2026-10-18 のユーザー依頼）。1周は 80秒より短い', () => {
+test('A と B の1周の時間の差は 3% 以内（どちらを通っても有利不利が出ない。2026-10-18 のユーザー依頼）。1周は 85秒より短い', () => {
   const a = lapTime('main', 1);
   const b = lapTime('B', 1);
   assert.deepEqual([...a.used], [0], 'A のつもりで B に入った');
   assert.ok(b.used.has(1), 'B に入らない');
   assert.ok(Math.abs(a.time - b.time) / a.time < 0.03, `A ${a.time.toFixed(1)} B ${b.time.toFixed(1)}`);
-  assert.ok(a.time < 80 && b.time < 80, `A ${a.time.toFixed(1)} B ${b.time.toFixed(1)}`);
+  assert.ok(a.time < 85 && b.time < 85, `A ${a.time.toFixed(1)} B ${b.time.toFixed(1)}`); // すべりやすくして（2026-10-18）少し遅くなった
 });
 
 test('CPU 8台が、押し合い・全部の仕掛けで3周を走りきる。動けなくならない。A と B のどちらも通る', () => {
@@ -785,4 +792,102 @@ test('観客席の前の小さなジャンプは、跳ねている雪だるま�
   const over = fr.filter((k) => k.airborne && Math.abs(k.seg - m.i) <= 1);
   assert.ok(over.length > 0, '雪だるまの上を飛んでいない');
   for (const k of over) assert.ok(k.y - t.samples[k.seg].y > SNOWMAN_HEIGHT + SNOWMAN_HOP, `${(k.y - t.samples[k.seg].y).toFixed(2)}`);
+});
+
+import { curveArrowSpots, guideBanners } from '../src/render/snow/signs.js';
+import { boostRunsAll } from '../src/render/trackMesh.js';
+
+test('トンネルのカーブでは、外がわの壁に曲がる向きの矢印の板がある（らせんも。2026-10-18 のユーザー依頼）', () => {
+  const spots = curveArrowSpots(t);
+  assert.ok(spots.length >= 20, `${spots.length}`);
+  for (const sp of spots) {
+    const p = t.samples[sp.i];
+    assert.ok(p.tunnel);
+    // 右へ曲がる所は左の壁（外がわ）に、右向きの矢印
+    const turn = Math.atan2(Math.sin(t.samples[sp.i + 15].h - t.samples[sp.i - 15].h), Math.cos(t.samples[sp.i + 15].h - t.samples[sp.i - 15].h));
+    assert.equal(sp.dir, Math.sign(turn));
+    assert.equal(sp.side, -sp.dir);
+  }
+  assert.ok(spots.some((sp) => sp.i > t.helix.from && sp.i < t.helix.to && sp.dir === 1), 'らせんに右向きの矢印');
+  assert.deepEqual(curveArrowSpots(buildTrack(COURSES[2])), []);
+});
+
+test('分かれ道の手前と、合流の手前（A と B の両方）に横断幕（2026-10-18 のユーザー依頼）', () => {
+  const list = guideBanners(t);
+  const fork = list.filter((b) => b.kind === 'fork');
+  const merge = list.filter((b) => b.kind === 'merge');
+  assert.equal(fork.length, 1);
+  const toFork = span(t, t.samples[fork[0].i].s, t.marks.FK);
+  assert.ok(toFork > 25 && toFork < 70, `${toFork}`);
+  assert.match(fork[0].text, /B →/);
+  assert.equal(merge.length, 2);
+  assert.deepEqual(merge.map((b) => t.samples[b.i].path).sort(), [0, 1]);
+});
+
+test('分かれ道（B）の加速板も、地面に描く', () => {
+  const runs = boostRunsAll(t);
+  const onB = runs.filter((r) => t.samples[r[0]].path === 1);
+  assert.equal(onB.length, COURSE4.branches[0].pads.length);
+});
+
+// 地面の形（buildTerrain の三角）の、(x, z) の高さ（ます目の三角で補う）
+function meshHeight(geo, x, z) {
+  const pos = geo.attributes.position.array;
+  const x0 = pos[0];
+  const z0 = pos[2];
+  let nx = 0;
+  while (pos[(nx + 1) * 3 + 2] === z0) nx++;
+  const G = pos[3] - pos[0];
+  const i = Math.floor((x - x0) / G);
+  const j = Math.floor((z - z0) / G);
+  const u = (x - x0) / G - i;
+  const v = (z - z0) / G - j;
+  const h = (ii, jj) => pos[(jj * (nx + 1) + ii) * 3 + 1];
+  // 三角 a(i,j) c(i,j+1) b(i+1,j) と b c d(i+1,j+1)
+  if (u + v <= 1) return h(i, j) + (h(i + 1, j) - h(i, j)) * u + (h(i, j + 1) - h(i, j)) * v;
+  return h(i + 1, j + 1) + (h(i, j + 1) - h(i + 1, j + 1)) * (1 - u) + (h(i + 1, j) - h(i + 1, j + 1)) * (1 - v);
+}
+
+test('雪山・地面は、トンネルの外のどの道（道はばいっぱい）の上にもかぶらない（トンネルの入口がふさがって見えない。2026-10-18 のユーザー依頼）', () => {
+  const geo = buildTerrain(t).children[0].geometry;
+  const bad = [];
+  for (let i = 0; i < t.samples.length; i += 2) {
+    const p = t.samples[i];
+    if (p.y === null || p.tunnel || p.bridge || p.ramp) continue;
+    for (let lat = -p.half; lat <= p.half; lat += 3) {
+      const x = p.x - Math.sin(p.h) * lat;
+      const z = p.z + Math.cos(p.h) * lat;
+      const y = meshHeight(geo, x, z);
+      if (y > p.y + 0.5) bad.push(`${i}(${lat}): ${y.toFixed(1)} > ${p.y.toFixed(1)}`);
+    }
+  }
+  bad.sort((a, b) => parseFloat(b.split(': ')[1]) - parseFloat(b.split(' > ')[1]) - (parseFloat(a.split(': ')[1]) - parseFloat(a.split(' > ')[1])));
+  assert.deepEqual(bad.slice(0, 8), [], `${bad.length} か所`);
+});
+
+test('トンネルの両がわの壁と天井は、上を別の道が通る所のほかは、いつもある（坂で壁や天井が消えて外が見えない）', () => {
+  const a = buildTunnel(t).children[0].geometry.attributes.position;
+  // 左右の壁の上のはし（天井の高さ）の頂点がある、トンネルの点
+  const tops = { '-1': new Set(), 1: new Set(), ceil: new Set() };
+  for (let k = 0; k < a.count; k++) {
+    const x = a.getX(k);
+    const y = a.getY(k);
+    const z = a.getZ(k);
+    for (let i = 0; i < L; i += 2) {
+      const p = t.samples[i];
+      if (!p.tunnel || Math.abs(p.x - x) > 17 || Math.abs(p.z - z) > 17) continue;
+      const fwd = Math.cos(p.h) * (x - p.x) + Math.sin(p.h) * (z - p.z);
+      const lat = -Math.sin(p.h) * (x - p.x) + Math.cos(p.h) * (z - p.z);
+      if (Math.abs(fwd) > 2) continue;
+      if (Math.abs(y - (p.y + TUNNEL_HEIGHT + 0.6)) < 0.6 && Math.abs(lat) < 1 + p.wall) tops.ceil.add(i); // 天井
+      if (Math.abs(Math.abs(lat) - (p.wall + 0.5)) > 0.6) continue;
+      if (Math.abs(y - (p.y + TUNNEL_HEIGHT)) < 0.6) tops[Math.sign(lat)].add(i);
+    }
+  }
+  const missing = [];
+  for (let i = 0; i < L; i += 2) {
+    if (!t.samples[i].tunnel || t.samples[i].stacked) continue;
+    for (const side of ['-1', 1, 'ceil']) if (!tops[side].has(i)) missing.push(`${i}(${side})`);
+  }
+  assert.ok(missing.length < 80, `${missing.length}: ${missing.join(" ")}`); // らせんに入る所（上の段が天井）だけ
 });

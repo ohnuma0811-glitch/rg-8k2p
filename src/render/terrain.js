@@ -14,7 +14,7 @@ const MARGIN = 200; // コースのはしから、地面を作る広さ（m）
 const SHOULDER = 10; // 道のふちの外の、草の坂の幅（m。地面のます目のすき間をうめる）
 const COLOR = 0x5f9e4a;
 const SNOW_COLOR = 0xf2f6fb; // 雪山（Kyugo Mountain）
-const PEAK_CLEAR = 25; // 道のふちから、この距離までは山を立てない（m）
+const PEAK_CLEAR = 40; // 道のふち（＋地面のます目 1つ）から、この距離で山の高さになる（m）
 const COVER = 8; // トンネルの柵の外、この距離まで山でおおう（m）
 const STAND_FLAT = 32; // 観客席の真ん中から、この距離までは平ら（m）
 
@@ -109,7 +109,7 @@ export function terrainHeight(track, x, z) {
       const d = Math.hypot(pk.x - x, pk.z - z);
       if (d < pk.r) peak = Math.max(peak, pk.h * (1 - (d / pk.r) ** 2) ** 2);
     }
-    y = Math.max(y, Math.min(y + peak, y + peak * smooth(0, PEAK_CLEAR, bestE)));
+    y = Math.max(y, Math.min(y + peak, y + peak * smooth(GRID, GRID + PEAK_CLEAR, bestE)));
   }
   if (stand) {
     const f = 1 - smooth(STAND_FLAT, STAND_FLAT + 30, Math.hypot(stand.x - x, stand.z - z));
@@ -120,10 +120,18 @@ export function terrainHeight(track, x, z) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));
     y = y * (1 - f) + RIVER_DEPTH * f;
   }
+  // トンネルの横と上だけ（トンネルの点から、道に直角の向きに COVER m まで）をおおう。入口・出口の手前の道にはかぶせない。
+  // ほかの道（トンネルでない道）の上にもかぶせない（2026-10-18 のユーザー依頼「入口が壁のようにふさがれて見える」）
   let cover = -Infinity;
-  for (let gx = cx - 1; gx <= cx + 1; gx++) {
-    for (let gz = cz - 1; gz <= cz + 1; gz++) {
-      for (const p of tunnel.get(`${gx},${gz}`) ?? []) if (Math.hypot(p.x - x, p.z - z) < p.wall + COVER) cover = Math.max(cover, p.y + TUNNEL_HEIGHT + 2);
+  if (bestE > NEAR) {
+    for (let gx = cx - 1; gx <= cx + 1; gx++) {
+      for (let gz = cz - 1; gz <= cz + 1; gz++) {
+        for (const p of tunnel.get(`${gx},${gz}`) ?? []) {
+          const fwd = (x - p.x) * Math.cos(p.h) + (z - p.z) * Math.sin(p.h);
+          const lat = -(x - p.x) * Math.sin(p.h) + (z - p.z) * Math.cos(p.h);
+          if (Math.abs(fwd) <= 1.5 && Math.abs(lat) < p.wall + COVER) cover = Math.max(cover, p.y + TUNNEL_HEIGHT + 2);
+        }
+      }
     }
   }
   return Math.max(y, cover);
@@ -149,12 +157,26 @@ export function buildTerrain(track) {
     }
     return false;
   };
+  // 雪山（Kyugo Mountain）: 道のふちから地面のます目 1つ分までの点は、近くの道より高くしない（ます目の三角が道の上にかぶらないように）
+  const snow = track.def.theme === 'snow';
+  const nearRoadY = (x, z) => {
+    let low = Infinity;
+    const cx = Math.floor(x / CELL);
+    const cz = Math.floor(z / CELL);
+    for (let gx = cx - 1; gx <= cx + 1; gx++) {
+      for (let gz = cz - 1; gz <= cz + 1; gz++) {
+        for (const p of grid.get(`${gx},${gz}`) ?? []) if (Math.hypot(p.x - x, p.z - z) < p.wall + GRID * 1.5) low = Math.min(low, p.y);
+      }
+    }
+    return low;
+  };
   const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
   for (let j = 0; j <= nz; j++) {
     for (let i = 0; i <= nx; i++) {
       const x = x0 + i * GRID;
       const z = z0 + j * GRID;
-      const y = terrainHeight(track, x, z) - 0.15 - (under(x, z) ? 1 : 0);
+      let y = terrainHeight(track, x, z) - 0.15 - (under(x, z) ? 1 : 0);
+      if (snow) y = Math.min(y, nearRoadY(x, z) - 0.3);
       pos.set([x, y, z], (j * (nx + 1) + i) * 3);
     }
   }

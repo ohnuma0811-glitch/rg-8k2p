@@ -487,7 +487,7 @@ export function buildTrack(def) {
   });
   // コブ（Kyugo Mountain）
   t.moguls = (def.moguls ?? []).map(([d, lateral]) => {
-    const i = Math.round(refS(t, ['BZ', 'BZ', 0]) + d) % t.length;
+    const i = Math.round(refS(t, ['MG', 'MG', 0]) + d) % t.length;
     const p = t.samples[i];
     return { i, r: def.moguR, x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, y: p.y ?? 0 };
   });
@@ -556,8 +556,8 @@ function applyJumps(t, def) {
 }
 
 // すべりやすさ（Kyugo Mountain。2026-10-18）: 点の grip（1 ふつう、小さいほどすべる）
-export const GRIP_SNOW = 0.6;
-export const GRIP_ICE = 0.25;
+export const GRIP_SNOW = 0.4; // 2026-10-18 のユーザー依頼「もう少し滑りやすく」で 0.6 から
+export const GRIP_ICE = 0.12; // 同じく 0.25 から
 function applyGrip(t, def) {
   for (const p of t.samples) p.grip = def.grip ?? 1;
   for (const a of def.asphalt ?? []) {

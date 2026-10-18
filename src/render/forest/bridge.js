@@ -50,8 +50,8 @@ function buildRun(b, track, pts, snow) {
   const width = 2 * wall + 1.2;
   // 走る向きを部品の +z にする回転
   const ryOf = (p) => Math.PI / 2 - p.h;
-  // 道の下の板と、両はしの手すり（2m ごと）。雪山は手すりの上に雪
-  for (let k = 0; k < pts.length; k += 2) {
+  // 道の下の板と、両はしの手すり（2m ごと）。雪山は、坂でも段々に見えないよう、src/render/trackMesh.js で坂にそった形にする
+  for (let k = 0; k < (snow ? 0 : pts.length); k += 2) {
     const p = pts[k];
     b.push(p.x, p.y - DECK, p.z, ryOf(p));
     b.box(width, DECK, 2.3, stone, 0, 0, 0);

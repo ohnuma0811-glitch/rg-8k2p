@@ -17,6 +17,8 @@ export function buildTunnel(track) {
   const roof = (p, x, z, r) => {
     let top = TUNNEL_HEIGHT;
     for (const q of near(x, z, r + 15)) {
+      // 同じ道の近く（坂のうしろの、少し高い所）は、上を通る道ではない
+      if (Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) < 60) continue;
       const dy = q.y - p.y;
       if (dy <= 1 || dy > TUNNEL_HEIGHT + 1) continue;
       if (Math.hypot(q.x - x, q.z - z) < q.wall + r) top = Math.min(top, dy - 0.3);
@@ -34,6 +36,8 @@ export function buildTunnel(track) {
       if (h > 0.3) b.box(0.8, h, STEP + 0.2, WALL, -side * w, 0, 0);
     }
     if (roof(p, p.x, p.z, w) >= TUNNEL_HEIGHT) b.box(2 * w + 0.8, 0.6, STEP + 0.2, CEIL, 0, TUNNEL_HEIGHT, 0);
+    // 道の裏（下の段から見たときの天井。道の絵が透けて見えないように。2026-10-18 のユーザー依頼「上部に道路が映っている」）
+    b.box(2 * w + 0.8, 0.4, STEP + 0.2, CEIL, 0, -0.5, 0);
     b.pop();
   }
   // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）
