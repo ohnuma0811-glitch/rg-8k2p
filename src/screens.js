@@ -202,12 +202,15 @@ function ordinalOf(n) {
   return `${n}${s}`;
 }
 
+// 上位10位の表の項目名（2026-10-18 のユーザー依頼「順位・日付・プレイヤーネーム・操作キャラクター・タイムを英語で」）
+export const TT_HEADINGS = ['RANK', 'DATE', 'PLAYER', 'CHARACTER', 'TIME'];
+
 // ゴールのあと: 上位10位の表と、ボタン（AGAIN・COURSES・TITLE）。押したボタンの id を返す
 export async function ttResults(root, { course, timeText, note, rows, buttons }) {
   show(root, `
     <h1 class="results-title">TIME TRIAL<small>${course}</small></h1>
     <p class="text">${timeText}${note ? `<br>${note}` : ''}</p>
-    <table class="results tt-table">${rows.length ? rows
+    <table class="results tt-table"><tr class="tt-head">${TT_HEADINGS.map((h) => `<th>${h}</th>`).join('')}</tr>${rows.length ? rows
       .map((r) => `<tr class="${r.me ? 'me' : ''}"><td class="place">${r.place}</td><td>${r.date}</td><td>${r.name}</td><td>${r.character}</td><td class="time">${r.time}</td></tr>`)
       .join('') : '<tr><td>No record yet</td></tr>'}</table>
     <div class="choices">${buttons.map((b) => `<button type="button" data-pick="${b.id}">${b.label}</button>`).join('')}</div>`);

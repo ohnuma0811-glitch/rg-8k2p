@@ -93,3 +93,8 @@ test('TIME TRIAL のみんなの記録: コース選びには、いちばん速�
     { place: '2nd', date: '18-Oct-26', name: 'KYUGO', character: 'Kyugo', time: '61.50s', me: true },
   ]);
 });
+
+test('TIME TRIAL の上位10位の表の上に、英語の項目名', async () => {
+  const { TT_HEADINGS } = await import('../src/screens.js');
+  assert.deepEqual(TT_HEADINGS, ['RANK', 'DATE', 'PLAYER', 'CHARACTER', 'TIME']);
+});

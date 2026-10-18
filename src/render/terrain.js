@@ -157,6 +157,26 @@ export function buildTerrain(track) {
     }
     return false;
   };
+  // トンネル（Kyugo Mountain）: トンネルの道と、両わき（壁の外 2 × GRID m）までの地面のます目の点は、道より下へ。雪山はその外がわ。
+  // ます目は粗い（GRID m）ので、トンネルの上に山の面を作ると、ます目の三角がトンネルの中を横切って、入口や中が白い面でふさがって見えた
+  // （2026-10-18 のユーザー依頼「入口がふさがって見える」「トンネル内で壁のように」）
+  const { tunnel } = prep(track);
+  const outOfTunnel = (x, z, y) => {
+    const cx = Math.floor(x / CELL);
+    const cz = Math.floor(z / CELL);
+    let out = y;
+    for (let gx = cx - 1; gx <= cx + 1; gx++) {
+      for (let gz = cz - 1; gz <= cz + 1; gz++) {
+        for (const p of tunnel.get(`${gx},${gz}`) ?? []) {
+          const fwd = (x - p.x) * Math.cos(p.h) + (z - p.z) * Math.sin(p.h);
+          const lat = -(x - p.x) * Math.sin(p.h) + (z - p.z) * Math.cos(p.h);
+          if (Math.abs(fwd) > GRID || Math.abs(lat) > p.wall + 0.5 + 2 * GRID) continue;
+          out = Math.min(out, p.y - 1);
+        }
+      }
+    }
+    return out;
+  };
   // 雪山（Kyugo Mountain）: 道のふちから地面のます目 1つ分までの点は、近くの道より高くしない（ます目の三角が道の上にかぶらないように）
   const snow = track.def.theme === 'snow';
   const nearRoadY = (x, z) => {
@@ -177,6 +197,7 @@ export function buildTerrain(track) {
       const z = z0 + j * GRID;
       let y = terrainHeight(track, x, z) - 0.15 - (under(x, z) ? 1 : 0);
       if (snow) y = Math.min(y, nearRoadY(x, z) - 0.3);
+      if (snow) y = outOfTunnel(x, z, y);
       pos.set([x, y, z], (j * (nx + 1) + i) * 3);
     }
   }

@@ -511,7 +511,7 @@ test('CPU はコブゾーンを通りぬけて、トンネルに入る', () => {
 });
 
 test('トンネルの点: TI から TO まで（らせんを含む）。ほかの所・ほかのコースにはない', () => {
-  assert.ok(at(['TI', 'TO', 0.01]).tunnel);
+  assert.ok(at(['TI', 'TO', 0.06]).tunnel);
   assert.ok(t.samples[t.helix.from + 50].tunnel);
   assert.ok(!at(['TO', 'S', 0.5]).tunnel);
   assert.ok(!at('MG').tunnel);
@@ -898,4 +898,27 @@ test('観客席の前の加速板で速くなったまま、小さなジャン�
   const k0 = fr.findIndex((k) => k.airborne && k.launched);
   assert.ok(fr[k0].speed > 40, `${fr[k0].speed}`);
   assert.ok(fr[k0].speed <= PHYS.KICK_MAX);
+});
+
+import { mainBoostRuns } from '../src/render/trackMesh.js';
+
+test('本線の上に描く加速板は、本線の加速板の所だけ（B の加速板を本線に描かない。2026-10-18 のユーザー依頼「反応していない」）', () => {
+  for (const [from, to] of mainBoostRuns(t)) {
+    const mid = t.samples[Math.round((from + to) / 2) % L];
+    assert.ok(mid.boost && mid.path === 0, `${from}〜${to} に本線の加速板がない`);
+  }
+});
+
+test('トンネルの中（道から天井まで）には、雪山・地面の面が入りこまない（入口・中が白い面でふさがって見えない。2026-10-18 のユーザー依頼）', () => {
+  const geo = buildTerrain(t).children[0].geometry;
+  const bad = [];
+  for (let i = 0; i < L; i += 2) {
+    const p = t.samples[i];
+    if (!p.tunnel) continue;
+    for (let lat = -p.wall; lat <= p.wall; lat += 1.5) { // 道のはしから壁まで
+      const y = meshHeight(geo, p.x - Math.sin(p.h) * lat, p.z + Math.cos(p.h) * lat);
+      if (y > p.y + 0.2 && y < p.y + TUNNEL_HEIGHT) bad.push(`${i}(${lat}): ${(y - p.y).toFixed(1)}`);
+    }
+  }
+  assert.deepEqual(bad.slice(0, 8), [], `${bad.length} か所`);
 });

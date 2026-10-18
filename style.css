@@ -782,3 +782,10 @@ html, body {
 #menu .choices.courses button {
   white-space: nowrap;
 }
+#menu table.results.tt-table th {
+  padding: 0 10px 2px;
+  font: 700 12px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  color: #ffd84a;
+  text-align: left;
+}
