@@ -312,6 +312,22 @@ export function pierContact(kart, track, time, phys) {
 }
 
 // ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）
+// スローの板（Kyugo Mountain。2026-10-18 のユーザー依頼「逆向きの歩く歩道」）: 乗っている間、うしろへ引っぱる。止まりはしない
+export const SLOW_PULL = 18; // m/s²
+export const SLOW_MIN = 8; // これより遅くはしない（m/s）
+export function slowContact(kart, track, dt) {
+  if (kart.airborne || !track.slows?.length) return false;
+  const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+  if (track.samples[loc.i].path !== 0) return false;
+  for (const sl of track.slows) {
+    const d = (loc.i - sl.from + track.length) % track.length;
+    if (d >= 30 || Math.abs(loc.lateral - sl.lateral) > sl.half) continue;
+    if (kart.speed > SLOW_MIN) kart.speed = Math.max(SLOW_MIN, kart.speed - SLOW_PULL * dt);
+    return true;
+  }
+  return false;
+}
+
 export const MUD_TIME = 4;
 export function mudContact(kart, track, dt) {
   if (kart.muddy > 0) kart.muddy = Math.max(0, kart.muddy - dt);

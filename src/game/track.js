@@ -440,6 +440,12 @@ export function buildTrack(def) {
   }
   addBranches(t, def, fit);
   applyGrip(t, def);
+  // スローの板（Kyugo Mountain）: 長さ 30m、はば 道の30%。道のはしに寄せる
+  t.slows = (def.slows ?? []).map((sl) => {
+    const from = Math.round(markS(t, sl.at)) % t.length;
+    const half = 0.3 * def.roadHalf;
+    return { from, to: (from + 30) % t.length, lateral: sl.side * (def.roadHalf - half), half };
+  });
   // らせんの段（Kyugo Mountain）: 上から見て、同じ道のほかの段と重なる点
   if (t.helix) {
     for (let i = t.helix.from; i <= t.helix.to; i++) {

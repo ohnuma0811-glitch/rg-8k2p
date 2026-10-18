@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_ICE } from '../src/game/track.js';
 import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
+import { slowContact, SLOW_PULL } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
@@ -289,4 +290,59 @@ test('CPU が雪と氷の道で3周を走りきる。動けなくならない（
     }
     assert.equal(laps, 3, `seed ${seed}`);
   }
+});
+
+test('スローの板: A に3枚、長さ 30m、はば 道の30%、左・右・左。凍った所とは重ならない', () => {
+  assert.equal(t.slows.length, 3);
+  assert.deepEqual(t.slows.map((q) => Math.sign(q.lateral)), [-1, 1, -1]);
+  for (const q of t.slows) {
+    assert.ok(between(t, t.samples[q.from].s, t.marks.XJ, t.marks.MG));
+    assert.ok(Math.abs(span(t, t.samples[q.from].s, t.samples[q.to].s) - 30) < 2);
+    assert.ok(Math.abs(q.half * 2 - 0.3 * 2 * t.roadHalf) < 0.5);
+    for (let i = q.from; i !== q.to; i = (i + 1) % L) assert.notEqual(t.samples[i].grip, GRIP_ICE);
+  }
+});
+
+test('板に乗っている間は、うしろへ引っぱられる。板のない所は変わらない', () => {
+  const q = t.slows[0];
+  const i = (q.from + 10) % L;
+  const kart = createKart(t, i, q.lateral);
+  kart.speed = 30;
+  assert.equal(slowContact(kart, t, 0.1), true);
+  assert.ok(Math.abs(kart.speed - (30 - SLOW_PULL * 0.1)) < 1e-6);
+  const other = createKart(t, i, -q.lateral);
+  other.speed = 30;
+  assert.equal(slowContact(other, t, 0.1), false);
+  assert.equal(other.speed, 30);
+});
+
+test('板の上でも止まりはしない（8 m/s より遅くはしない）', () => {
+  const q = t.slows[1];
+  const kart = createKart(t, (q.from + 5) % L, q.lateral);
+  kart.speed = 9;
+  for (let k = 0; k < 30; k++) slowContact(kart, t, 1 / 60);
+  assert.ok(kart.speed >= 8);
+});
+
+test('ほかのコースには、スローの板はない', () => {
+  for (const c of COURSES.slice(0, 3)) assert.deepEqual(buildTrack(c).slows, []);
+});
+
+test('CPU は、なるべくスローの板のない所を通る（3枚とも、乗るのは半分より少ない）', () => {
+  let on = 0;
+  let runs = 0;
+  for (let seed = 0; seed < 6; seed++) {
+    const kart = createKart(t, (Math.round(t.marks.XJ) + 20) % L, 0);
+    kart.speed = 25;
+    const cpu = createCpu(seed % 4, seed);
+    const hit = new Set();
+    for (let f = 0; f < 60 * 25 && !between(t, t.samples[kart.seg].s, t.marks.MG, t.marks.MG + 20); f++) {
+      stepKart(kart, cpuControl(cpu, kart, t, f / 60), t, cpuParams(params, 1), 1 / 60);
+      const loc = locate(t, kart.x, kart.z, kart.seg, 40, kart.y);
+      t.slows.forEach((q, k) => { if (loc.i < L && (loc.i - q.from + L) % L < 30 && Math.abs(loc.lateral - q.lateral) <= q.half) hit.add(k); });
+    }
+    on += hit.size;
+    runs += 3;
+  }
+  assert.ok(on < runs / 2, `${on} / ${runs}`);
 });

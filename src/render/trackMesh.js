@@ -124,6 +124,52 @@ function chevrons(bg, fg) {
   });
 }
 
+// うしろを指す矢印の模様（スローの板。Kyugo Mountain）。模様の下（v が小さい方）を指す
+function backArrows(bg, fg) {
+  return canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = fg;
+    for (let k = 0; k < 2; k++) {
+      const y0 = k * 32;
+      g.beginPath();
+      g.moveTo(8, y0 + 4);
+      g.lineTo(w / 2, y0 + 28);
+      g.lineTo(w - 8, y0 + 4);
+      g.lineTo(w - 20, y0 + 4);
+      g.lineTo(w / 2, y0 + 18);
+      g.lineTo(20, y0 + 4);
+      g.fill();
+    }
+  });
+}
+
+// スローの板（Kyugo Mountain）: 本線の点 from から 30 点、道の真ん中から lateral ± half の帯
+function slowPad(track, sl, material) {
+  const pos = [];
+  const uv = [];
+  for (let k = 0; k < 30; k++) {
+    const p = track.samples[(sl.from + k) % track.length];
+    const q = track.samples[(sl.from + k + 1) % track.length];
+    const [rpx, rpz] = rightOf(p);
+    const [rqx, rqz] = rightOf(q);
+    const lo = sl.lateral - sl.half;
+    const hi = sl.lateral + sl.half;
+    const a = [p.x + rpx * lo, p.y + 0.05, p.z + rpz * lo];
+    const b = [p.x + rpx * hi, p.y + 0.05, p.z + rpz * hi];
+    const c = [q.x + rqx * lo, q.y + 0.05, q.z + rqz * lo];
+    const d = [q.x + rqx * hi, q.y + 0.05, q.z + rqz * hi];
+    const v0 = k / 3;
+    const v1 = (k + 1) / 3;
+    pos.push(...a, ...b, ...c, ...b, ...d, ...c);
+    uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  return new THREE.Mesh(g, material);
+}
+
 // コースを横切る板（スタートライン、加速板、ジャンプ台の模様）。from〜to は s（m）。tiles は模様をくり返す回数
 // side が 1 なら道の右半分（分離帯の外）だけ、-1 なら左半分だけ
 export function strip(track, from, to, y, material, tiles = 1, side = 0) {
@@ -619,6 +665,13 @@ export function buildTrackMesh(track) {
   const startS = samples[track.startIndex].s;
   group.add(strip(track, startS - 1, startS + 2, () => 0.05, new THREE.MeshBasicMaterial({ map: checker })));
 
+  // スローの板（Kyugo Mountain）: 灰色に白い、うしろ向きの矢印。矢印は src/main.js で流す
+  track.slowTextures = [];
+  for (const sl of track.slows ?? []) {
+    const tx = backArrows('#6b7480', '#ffffff');
+    track.slowTextures.push(tx);
+    group.add(slowPad(track, sl, new THREE.MeshBasicMaterial({ map: tx })));
+  }
   // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
   const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
   // 加速板は道の高さに（坂の上の加速板が道の下にかくれないように。2026-10-16 のユーザー依頼「遠いルートの加速板が見えない」）

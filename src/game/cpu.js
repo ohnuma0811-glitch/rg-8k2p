@@ -155,6 +155,14 @@ export function cpuControl(cpu, kart, track, t) {
     if (Math.abs(dodge) > edge) dodge = q.lateral - (m.r + 2.5) * side;
     lane = Math.max(-edge, Math.min(edge, dodge));
   }
+  // スローの板（Kyugo Mountain）: 先 60m までに板があり、自分の走る線が板にかかっていたら、板の反対側を走る（うっかりの周はよけない）
+  for (const sl of careless ? [] : track.slows ?? []) {
+    if (samples[loc.i].path !== 0) break;
+    const ahead = (sl.from - loc.i + track.length) % track.length;
+    const behindEnd = (loc.i - sl.from + track.length) % track.length;
+    if (ahead > 60 && behindEnd >= 30) continue;
+    if (Math.abs(lane - sl.lateral) < sl.half + 2.5) lane = -Math.sign(sl.lateral) * 4;
+  }
   // 木の実の影（Soki Forest）: まだ落ちていない木の実の落ちる所が、自分の走る線の近く（3m）なら、その横へずれる
   for (const nut of track.nuts?.list ?? []) {
     if (Math.hypot(nut.x - kart.x, nut.z - kart.z) > 35) continue;
