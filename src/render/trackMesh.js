@@ -1,19 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=68c8adf';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=68c8adf';
-import { buildJungle } from './town/jungle.js?v=68c8adf';
-import { buildWater } from './town/water.js?v=68c8adf';
-import { buildBridge } from './forest/bridge.js?v=68c8adf';
-import { buildTunnel } from './snow/tunnel.js?v=68c8adf';
-import { buildSnowScenery } from './snow/kit.js?v=68c8adf';
-import { buildSigns } from './snow/signs.js?v=68c8adf';
-import * as forestKit from './forest/kit.js?v=68c8adf';
-import { createBuilder } from './town/builder.js?v=68c8adf';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=68c8adf';
-import { buildTerrain, terrainHeight } from './terrain.js?v=68c8adf';
-import { mergeMeshes } from './mergeMeshes.js?v=68c8adf';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=68c8adf';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=68c8adf';
+import * as THREE from '../../vendor/three.module.min.js?v=b46b839';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=b46b839';
+import { buildJungle } from './town/jungle.js?v=b46b839';
+import { buildWater } from './town/water.js?v=b46b839';
+import { buildBridge } from './forest/bridge.js?v=b46b839';
+import { buildTunnel } from './snow/tunnel.js?v=b46b839';
+import { buildSnowScenery } from './snow/kit.js?v=b46b839';
+import { buildSigns } from './snow/signs.js?v=b46b839';
+import * as forestKit from './forest/kit.js?v=b46b839';
+import { createBuilder } from './town/builder.js?v=b46b839';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=b46b839';
+import { buildTerrain, terrainHeight } from './terrain.js?v=b46b839';
+import { mergeMeshes } from './mergeMeshes.js?v=b46b839';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=b46b839';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=b46b839';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -846,6 +846,12 @@ export function buildTrackMesh(track) {
     }
     // 合流の手前の地面に、進む向きの白い矢印（2026-10-16 のユーザー依頼）。合流に入ってくる道（本線と分かれ道）の両方に
     group.add(mergeArrows(track));
+    // 道の上の動かない木（2026-10-18 のユーザー依頼）: 茶色の幹に、高い所の丸い葉（車の上の高さ）
+    for (const tr of track.trees ?? []) {
+      hide.push(tr.x, tr.y, tr.z, tr.k);
+      forestKit.broccoliTree(hide, { size: 1.15, k: tr.k });
+      hide.pop();
+    }
     // サルのいる高い木（枝が道の方へのびる）
     for (const m of track.monkeys ?? []) {
       const q = track.samples[m.i];

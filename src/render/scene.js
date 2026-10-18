@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=68c8adf';
-import { buildTrackMesh } from './trackMesh.js?v=68c8adf';
+import * as THREE from '../../vendor/three.module.min.js?v=b46b839';
+import { buildTrackMesh } from './trackMesh.js?v=b46b839';
 
 const SKY = 0x8fd3ff;
 
@@ -65,7 +65,7 @@ export function setDarkness(scene, dark, dim, kart = null, open = 0) {
   scene.background.copy(scene.fog.color);
   scene.fog.near = L.fogNear + (8 - L.fogNear) * fog;
   scene.fog.far = L.fogFar + (70 - L.fogFar) * fog;
-  L.headlight.intensity = kart ? 60 * dark : 0;
+  L.headlight.intensity = kart ? 120 * dark : 0; // 2026-10-18 のユーザー依頼「暗すぎる」で 60 から
   if (kart && dark > 0) {
     const fx = Math.cos(kart.move);
     const fz = Math.sin(kart.move);

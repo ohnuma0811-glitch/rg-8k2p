@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=68c8adf';
-import { span, locate, ahead, behind } from './track.js?v=68c8adf';
+import { SPEED_SHOW } from '../hud.js?v=b46b839';
+import { span, locate, ahead, behind } from './track.js?v=b46b839';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -378,6 +378,36 @@ export function mogulContact(kart, track) {
     kart.speed *= MOGUL_SIDE_KEEP;
     pushInside(kart, track);
     return 'side';
+  }
+  return null;
+}
+
+// 道の上の動かない木（Soki Forest。2026-10-18 のユーザー依頼）: 牛と同じ当たり（メーター150以上でスピン、遅いと跳ね返る、
+// ドリフト解除、ぶつかったあと BOAR_PASS 秒は通りぬけられる）
+export const TREE_RADIUS = 0.9; // 幹の大きさ（半径 m）
+export function treeContact(kart, track, time, phys) {
+  if (!track.trees?.length || time < (kart.treePassUntil ?? -Infinity) || kart.airborne || kart.tumble > 0) return null;
+  for (const tr of track.trees) {
+    if (Math.abs((kart.y ?? 0) - tr.y) > 4) continue;
+    const dx = kart.x - tr.x;
+    const dz = kart.z - tr.z;
+    const d = Math.hypot(dx, dz);
+    const min = TREE_RADIUS + COW_PAD;
+    if (d >= min || d === 0) continue;
+    kart.x = tr.x + (dx / d) * min;
+    kart.z = tr.z + (dz / d) * min;
+    kart.treeHits = (kart.treeHits || 0) + 1;
+    kart.treePassUntil = time + BOAR_PASS;
+    cancelDrift(kart);
+    pushInside(kart, track);
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      return 'spin';
+    }
+    kart.speed *= phys.WALL_KEEP;
+    return 'bounce';
   }
   return null;
 }

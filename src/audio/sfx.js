@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=68c8adf';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=68c8adf';
+import { midiToHz } from './notes.js?v=b46b839';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=b46b839';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -166,6 +166,8 @@ export function createSfx(audio) {
     },
     // ドリフトのボタンで跳ねたとき「ピヨン」: 高く上がって、少し戻る（2026-10-15 のユーザー依頼）
     hop: () => boing(),
+    // メニューで選んだ「ピロン」（Level を選んだとき。2026-10-18 のユーザー依頼）
+    select: () => pirorin([76, 83], 88, 0.25),
     // コブに当たった「ぼよん」（Kyugo Mountain）: 低く、上がって下がる、ゆれる音
     boing: () => {
       tone('sine', 180, 0.08, 0.5, { to: 320 });
