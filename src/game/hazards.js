@@ -46,6 +46,17 @@ export function cowPose(track, cow, time) {
   };
 }
 
+// 押し出したあと、柵の外に出ないように戻す（牛・イノシシ・雪だるま・コブ）
+export function pushInside(kart, track) {
+  const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+  const excess = Math.abs(loc.lateral) - loc.wall;
+  if (excess > 0) {
+    const side = Math.sign(loc.lateral);
+    kart.x -= -Math.sin(loc.heading) * side * excess;
+    kart.z -= Math.cos(loc.heading) * side * excess;
+  }
+}
+
 // 車と牛の当たり。最初に当たったときだけ 'spin'（メーター100以上）か 'bounce'（それより遅い。壁と同じ）を返す
 // phys は src/game/kart.js の PHYS（kart.js がこのファイルを読むので、ここからは読まない）
 export function cowContact(kart, track, time, phys) {
@@ -75,15 +86,7 @@ export function cowContact(kart, track, time, phys) {
     }
   }
   // 押し出したあと、柵の外に出ないように戻す
-  if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-    const excess = Math.abs(loc.lateral) - loc.wall;
-    if (excess > 0) {
-      const side = Math.sign(loc.lateral);
-      kart.x -= -Math.sin(loc.heading) * side * excess;
-      kart.z -= Math.cos(loc.heading) * side * excess;
-    }
-  }
+  if (touching) pushInside(kart, track);
   kart.onCow = touching;
   return hit;
 }
@@ -143,15 +146,7 @@ export function boarContact(kart, track, time, phys) {
       hit = 'bounce';
     }
   }
-  if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-    const excess = Math.abs(loc.lateral) - loc.wall;
-    if (excess > 0) {
-      const side = Math.sign(loc.lateral);
-      kart.x -= -Math.sin(loc.heading) * side * excess;
-      kart.z -= Math.cos(loc.heading) * side * excess;
-    }
-  }
+  if (touching) pushInside(kart, track);
   kart.onBoar = touching;
   return hit;
 }
@@ -312,6 +307,48 @@ export function pierContact(kart, track, time, phys) {
 }
 
 // ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）
+// 雪だるま（Kyugo Mountain。2026-10-18 のユーザー依頼「ジャンプしながら左右に動いている」）
+export const SNOWMAN_RADIUS = 1.2;
+export const SNOWMAN_HOP = 1.2; // 跳ねる高さ（m）
+export const SNOWMAN_HOP_TIME = 0.6; // 1回跳ねる秒数
+export function snowmanPose(track, sm, time) {
+  const p = track.samples[sm.i];
+  const a = (2 * Math.PI * time) / sm.period + sm.phase;
+  const lateral = (p.half - 2) * Math.sin(a);
+  const u = ((((time + sm.phase) % SNOWMAN_HOP_TIME) + SNOWMAN_HOP_TIME) % SNOWMAN_HOP_TIME) / SNOWMAN_HOP_TIME;
+  const hop = SNOWMAN_HOP * 4 * u * (1 - u);
+  return { x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, y: p.y ?? 0, lateral, hop, heading: p.h };
+}
+
+// 車と雪だるまの当たり（牛と同じ。2026-10-18 のユーザー依頼）。ぶつかったあと BOAR_PASS 秒は通りぬけられる
+export function snowmanContact(kart, track, time, phys) {
+  if (time < (kart.snowmanPassUntil ?? -Infinity) || kart.airborne || kart.tumble > 0) return null;
+  for (const sm of track.snowmen ?? []) {
+    const c = snowmanPose(track, sm, time);
+    if (Math.abs((kart.y ?? 0) - c.y) > 4) continue; // 橋の上と下
+    const dx = kart.x - c.x;
+    const dz = kart.z - c.z;
+    const d = Math.hypot(dx, dz);
+    const min = SNOWMAN_RADIUS + COW_PAD;
+    if (d >= min || d === 0) continue;
+    kart.x = c.x + (dx / d) * min;
+    kart.z = c.z + (dz / d) * min;
+    kart.snowmanHits = (kart.snowmanHits || 0) + 1;
+    kart.snowmanPassUntil = time + BOAR_PASS;
+    cancelDrift(kart);
+    pushInside(kart, track);
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      return 'spin';
+    }
+    kart.speed *= phys.WALL_KEEP;
+    return 'bounce';
+  }
+  return null;
+}
+
 // スローの板（Kyugo Mountain。2026-10-18 のユーザー依頼「逆向きの歩く歩道」）: 乗っている間、うしろへ引っぱる。止まりはしない
 export const SLOW_PULL = 18; // m/s²
 export const SLOW_MIN = 8; // これより遅くはしない（m/s）

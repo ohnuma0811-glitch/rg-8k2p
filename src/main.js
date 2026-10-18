@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack, span, locate } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, DINO_BLACK } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -15,7 +15,7 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, mergeStatic } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -279,6 +279,7 @@ function createGame(name, charId, level = 2, cup = null) {
     bumps: 0, // 自分がぶつかった回数（効果音用）
     nuts: createNuts(track), // サルが投げた木の実（Soki Forest）
     monkeyThrows: 0, // 自分の車の近くのサルが投げた数（効果音用）
+    snowmanHops: 0, // 自分の車の近くの雪だるまが跳ねて着いた数（効果音用。Kyugo Mountain）
     wallQuiet: Infinity, // 壁から離れている秒数（壁の音を最初だけ鳴らす）
     sound: null, // 前のフレームの音の様子
     me: PLAYER_SLOT,
@@ -325,6 +326,25 @@ function placeBoars(time) {
     m.position.set(p.x, track.samples[Math.round(boar.s) % track.length].y ?? 0, p.z);
     m.rotation.y = -p.heading;
     m.userData.walk(time, p.state);
+  });
+}
+
+// 雪だるま（Kyugo Mountain）: 跳ねながら左右に。顔は来る車の方へ。近くで着地したら「ぴょん」（g.snowmanHops を数える）
+function placeSnowmen(g, time) {
+  if (!track.snowmen.length) return;
+  if (!track.snowmanModels) {
+    track.snowmanModels = track.snowmen.map(() => mergeStatic(createSnowmanModel()));
+    track.snowmanModels.forEach((m) => track.mesh.add(m));
+  }
+  const me = g.karts[g.me];
+  track.snowmen.forEach((sm, k) => {
+    const p = snowmanPose(track, sm, time);
+    const m = track.snowmanModels[k];
+    const was = m.userData.hop ?? 0;
+    m.userData.hop = p.hop;
+    m.position.set(p.x, p.y + p.hop, p.z);
+    m.rotation.y = -(p.heading + Math.PI);
+    if (p.hop < 0.05 && was >= 0.05 && Math.hypot(p.x - me.x, p.z - me.z) < 25) g.snowmanHops++;
   });
 }
 
@@ -523,6 +543,7 @@ function stepGame(dt) {
   if (track.buses.length) karts.forEach((kart) => busContact(kart, track, race.t, PHYS));
   // イノシシ（Soki Forest）: 牛と同じ
   if (track.boars.length) karts.forEach((kart) => boarContact(kart, track, race.t, PHYS));
+  if (track.snowmen.length) karts.forEach((kart) => snowmanContact(kart, track, race.t, PHYS));
   // 橋の下の橋脚（Soki Forest）: ぶつかるとスピン
   if (track.bridgePiers?.length) karts.forEach((kart) => pierContact(kart, track, race.t, PHYS));
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆
@@ -782,6 +803,7 @@ function renderGame(alpha, dt) {
   placeBoars(g.race.t);
   placeMonkeys(g.race.t, g.nuts);
   placeDino(g.race.t);
+  placeSnowmen(g, g.race.t);
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）
   for (const tx of track.slowTextures ?? []) tx.offset.y = (tx.offset.y + dt * 1.5) % 1;
   // 食べられた演出（血のりは出さない。2026-10-16 のユーザーの判断「子供向けには刺激が強い」）
@@ -819,7 +841,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t) });
+  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), snowmanHop: g.snowmanHops });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, LAPS)) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);

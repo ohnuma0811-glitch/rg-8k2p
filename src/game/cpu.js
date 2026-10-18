@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
 import { locate, islandNear, span, ahead as aheadOf } from './track.js';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH } from './hazards.js';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -88,6 +88,8 @@ export function cpuControl(cpu, kart, track, t) {
   const animals = [
     ...(track.cows ?? []).map((cow) => ({ s: cow.s, pose: (time) => cowPose(track, cow, time) })),
     ...(track.boars ?? []).map((boar) => ({ s: boar.s, pose: (time) => boarPose(track, boar, time) })),
+    // 雪だるま（Kyugo Mountain）: 自分と同じ道の雪だるまだけ
+    ...(track.snowmen ?? []).filter((sm) => sm.path === samples[loc.i].path).map((sm) => ({ s: sm.s, pose: (time) => snowmanPose(track, sm, time) })),
   ];
   for (const a of animals) {
     const ahead = span(track, loc.s, a.s);
@@ -155,13 +157,18 @@ export function cpuControl(cpu, kart, track, t) {
     if (Math.abs(dodge) > edge) dodge = q.lateral - (m.r + 2.5) * side;
     lane = Math.max(-edge, Math.min(edge, dodge));
   }
-  // スローの板（Kyugo Mountain）: 先 60m までに板があり、自分の走る線が板にかかっていたら、板の反対側を走る（うっかりの周はよけない）
+  let slowBrake = false;
+  let slowNear = false;
+  // スローの板（Kyugo Mountain）: 先 90m までに板があり、自分の走る線が板にかかっていたら、板の反対側を走る（うっかりの周はよけない）
   for (const sl of careless ? [] : track.slows ?? []) {
     if (samples[loc.i].path !== 0) break;
     const ahead = (sl.from - loc.i + track.length) % track.length;
     const behindEnd = (loc.i - sl.from + track.length) % track.length;
-    if (ahead > 60 && behindEnd >= 30) continue;
+    if (ahead > 90 && behindEnd >= 30) continue;
     if (Math.abs(lane - sl.lateral) < sl.half + 2.5) lane = -Math.sign(sl.lateral) * 4;
+    slowNear = true; // 板の近くではドリフトしない（外へすべって板に乗らないように）
+    // 板の手前 40m で、まだ板の側にいたら（カーブで外へすべって）、速さを落として寄りやすくする
+    if (ahead < 40 && Math.sign(loc.lateral) === Math.sign(sl.lateral) && Math.abs(loc.lateral) > sl.half - 1) slowBrake = true;
   }
   // 木の実の影（Soki Forest）: まだ落ちていない木の実の落ちる所が、自分の走る線の近く（3m）なら、その横へずれる
   for (const nut of track.nuts?.list ?? []) {
@@ -237,12 +244,12 @@ export function cpuControl(cpu, kart, track, t) {
   // 目指す向きと大きくずれた（柵にぶつかった・ななめに着地した）ら、速さを落として向き直る（2026-10-16: 左右の柵を行き来して動けなくなった）
   const lost = Math.abs(angle) > 1.0 && kart.speed > 12 && !kart.airborne;
   // 橋の下の橋脚のすき間は、ゆっくり通る（せまいので）
-  const brake = lost || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake ||
+  const brake = lost || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
   if (!cpu.drifting && bend > CPU.DRIFT_BEND && kart.speed > 20 && !kart.airborne && !busNearby) cpu.drifting = true;
-  if (busNearby || underBridge) cpu.drifting = false;
+  if (busNearby || underBridge || slowNear) cpu.drifting = false;
   if (cpu.drifting && (bend < CPU.DRIFT_END || kart.speed < 14)) cpu.drifting = false;
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
   const starting = cpu.drifting && !kart.drift.active;

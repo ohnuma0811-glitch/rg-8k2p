@@ -201,3 +201,9 @@ test('スタートダッシュは startDash（ユーザーが用意したロケ�
   assert.deepEqual(soundEvents(st({}, { dashes: 0 }), st({}, { dashes: 1, boost: 1 }), 3), ['startDash']);
   assert.deepEqual(soundEvents(st({}, { dashes: 1 }), st({}, { dashes: 1, boost: 1 }), 3), ['boost']);
 });
+
+test('雪だるまにぶつかったら bump（ドン）、近くの雪だるまが跳ねて着いたら snowmanHop（ぴょん。Kyugo Mountain）', () => {
+  assert.deepEqual(soundEvents(st({}, { snowmanHits: 0 }), st({}, { snowmanHits: 1 }), 3), ['bump']);
+  assert.deepEqual(soundEvents(st({ snowmanHop: 0 }), st({ snowmanHop: 1 }), 3), ['snowmanHop']);
+  assert.deepEqual(soundEvents(st({ snowmanHop: 1 }), st({ snowmanHop: 1 }), 3), []);
+});

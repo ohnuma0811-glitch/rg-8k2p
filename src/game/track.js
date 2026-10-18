@@ -469,6 +469,14 @@ export function buildTrack(def) {
     const p = t.samples[i];
     return { i, r: m.r, x: p.x - Math.sin(p.h) * m.lateral, z: p.z + Math.cos(p.h) * m.lateral, y: p.y ?? 0 };
   });
+  // 雪だるま（Kyugo Mountain。2026-10-18）: 1体ずつ、左右に動く周期と跳ねるタイミングをずらす
+  t.snowmen = (def.snowmen ?? []).map((m, k) => {
+    let i;
+    const path = Array.isArray(m.at) && m.at.length === 2 ? t.paths.find((q) => q.id === m.at[0]) : null;
+    if (path) i = path.start + Math.round(m.at[1] * (path.count - 1));
+    else i = Math.round(refS(t, typeof m.at === 'string' ? [m.at, m.at, 0] : m.at) + (m.off ?? 0)) % t.length;
+    return { i, s: t.samples[i].s, path: t.samples[i].path, period: 4 + (k % 3), phase: k * 1.3 };
+  });
   // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
   t.monkeys = (def.monkeys ?? []).map((m) => {
     const path = t.paths.find((q) => q.id === m.at[0]);

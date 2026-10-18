@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_ICE } from '../src/game/track.js';
 import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
-import { slowContact, SLOW_PULL } from '../src/game/hazards.js';
+import { slowContact, SLOW_PULL, snowmanPose, snowmanContact } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
@@ -345,4 +345,101 @@ test('CPU は、なるべくスローの板のない所を通る（3枚とも、
     runs += 3;
   }
   assert.ok(on < runs / 2, `${on} / ${runs}`);
+});
+
+test('雪だるまは15体（共通7、A 4、B 4）。スタートの前後 100m・コブゾーン・トンネルにはいない', () => {
+  assert.equal(t.snowmen.length, 15);
+  const main = t.snowmen.filter((m) => m.path === 0);
+  assert.equal(main.filter((m) => between(t, m.s, t.marks.FK, t.marks.MG)).length, 4);
+  assert.equal(t.snowmen.filter((m) => m.path !== 0).length, 4);
+  const s0 = t.samples[t.startIndex].s;
+  for (const m of main) {
+    assert.ok(Math.min(span(t, m.s, s0), span(t, s0, m.s)) > 100, `${m.s}`);
+    assert.ok(!between(t, m.s, t.marks.BZ - 5, t.marks.TO + 5), `${m.s}`);
+  }
+});
+
+test('雪だるまは、跳ねながら道を左右に行ったり来たりする（道の中だけ）', () => {
+  const m = t.snowmen[0];
+  let minL = Infinity;
+  let maxL = -Infinity;
+  let maxHop = 0;
+  for (let time = 0; time < 12; time += 0.05) {
+    const p = snowmanPose(t, m, time);
+    minL = Math.min(minL, p.lateral);
+    maxL = Math.max(maxL, p.lateral);
+    maxHop = Math.max(maxHop, p.hop);
+    assert.ok(p.hop >= 0);
+  }
+  assert.ok(minL < -6 && maxL > 6 && maxL < t.roadHalf);
+  assert.ok(maxHop > 1 && maxHop <= 1.25);
+});
+
+test('雪だるまにぶつかる: メーター150以上（30 m/s）でスピン、遅い（20 m/s）と跳ね返る。ドリフト解除。1.5秒は通りぬけられる', () => {
+  const m = t.snowmen[2];
+  for (const [speed, want] of [[20, 'bounce'], [30, 'spin']]) {
+    const p = snowmanPose(t, m, 3);
+    const kart = createKart(t, m.i, 0);
+    kart.x = p.x;
+    kart.z = p.z + 0.5;
+    kart.y = p.y;
+    kart.speed = speed;
+    kart.drift = { active: true, dir: 1, stage: 1, counter: false, flicks: 0, time: 0 };
+    assert.equal(snowmanContact(kart, t, 3, PHYS), want, `${speed}`);
+    assert.equal(kart.drift.active, false);
+    kart.x = p.x;
+    kart.z = p.z + 0.5;
+    assert.equal(snowmanContact(kart, t, 3.5, PHYS), null);
+  }
+});
+
+test('空を飛んでいる車（観客席の前の小さなジャンプ）は、雪だるまに当たらない', () => {
+  const m = t.snowmen[0];
+  const p = snowmanPose(t, m, 1);
+  const kart = createKart(t, m.i, 0);
+  kart.x = p.x;
+  kart.z = p.z;
+  kart.airborne = true;
+  kart.speed = 28;
+  assert.equal(snowmanContact(kart, t, 1, PHYS), null);
+  // 観客席の前の雪だるまは、小さなジャンプで飛んでいる所にいる
+  const fr = drive((t.kicks[0].top - 40 + L) % L, 3);
+  assert.ok(fr.some((k) => k.airborne && k.launched && Math.abs(k.seg - m.i) < 2));
+});
+
+test('雪だるまにぶつかっても、CPU がはまって動けなくならない', () => {
+  for (let seed = 0; seed < 3; seed++) {
+    const karts = [0, 1, 2, 3].map((k) => createKart(t, (t.startIndex - k * 8 + L) % L, k % 2 ? 4 : -4));
+    const cpus = karts.map((_, k) => createCpu(k, seed));
+    const hist = karts.map(() => []);
+    let time = seed * 0.37;
+    for (let f = 0; f < 60 * 60; f++) {
+      karts.forEach((kart, k) => stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60));
+      karts.forEach((kart) => snowmanContact(kart, t, time, PHYS));
+      time += 1 / 60;
+      if (f % 30) continue;
+      karts.forEach((kart, k) => {
+        const h = hist[k];
+        h.push({ x: kart.x, z: kart.z });
+        if (h.length < 13) return;
+        const a = h[h.length - 13];
+        assert.ok(Math.hypot(a.x - kart.x, a.z - kart.z) > 15, `seed ${seed} の CPU ${k} が 6秒動けない（点 ${kart.seg}）`);
+      });
+    }
+  }
+});
+
+test('CPU は雪だるまをよける（スピンするのは、ときどきだけ）', () => {
+  let spins = 0;
+  for (let seed = 0; seed < 3; seed++) {
+    const karts = [0, 1, 2, 3].map((k) => createKart(t, (t.startIndex - k * 8 + L) % L, k % 2 ? 4 : -4));
+    const cpus = karts.map((_, k) => createCpu(k, seed));
+    let time = seed * 0.37;
+    for (let f = 0; f < 60 * 60; f++) {
+      karts.forEach((kart, k) => stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60));
+      karts.forEach((kart) => { if (snowmanContact(kart, t, time, PHYS) === 'spin') spins++; });
+      time += 1 / 60;
+    }
+  }
+  assert.ok(spins <= 12, `${spins}`); // よけないと 20回くらい
 });

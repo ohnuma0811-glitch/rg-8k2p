@@ -23,7 +23,7 @@ export function jumpAhead(track, kart, lead = JUMP_LEAD) {
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
 // jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null }) {
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null, snowmanHop = 0 }) {
   return {
     count,
     lap,
@@ -57,6 +57,8 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     eaten: eatenHeard ?? (kart.eaten || 0), // 聞こえた「食べられた」の数（自分か、恐竜のまわりにいて誰かが）
     mudHits: kart.mudHits || 0, // ぬかるみに入った回数
     dinoRoar, // 近くの恐竜が、川から上がってきている
+    snowmanHits: kart.snowmanHits || 0, // 雪だるまにぶつかった回数（Kyugo Mountain）
+    snowmanHop, // 近くの雪だるまが跳ねて着いた数の合計
   };
 }
 
@@ -88,7 +90,8 @@ export function soundEvents(prev, cur, laps) {
   if (cur.busNear && !prev.busNear) ev.push('busPass');
   if (cur.busHits > prev.busHits) ev.push('busHit');
   if (cur.boarWarn && !prev.boarWarn) ev.push('boarWarn');
-  if (cur.boarHits > prev.boarHits || cur.pierHits > prev.pierHits) ev.push('bump');
+  if (cur.boarHits > prev.boarHits || cur.pierHits > prev.pierHits || cur.snowmanHits > prev.snowmanHits) ev.push('bump');
+  if (cur.snowmanHop > prev.snowmanHop) ev.push('snowmanHop');
   if (cur.monkeyThrows > prev.monkeyThrows) ev.push('monkey');
   if (cur.nutHits > prev.nutHits) ev.push('nutHit');
   if (cur.eaten > prev.eaten) ev.push('eaten');
