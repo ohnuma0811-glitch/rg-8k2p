@@ -38,7 +38,11 @@
     <text x="1150" y="625">コブゾーン</text>
     <circle cx="1235" cy="620" r="9" fill="#1aa3d9"/><text x="1255" y="625" fill="#1aa3d9">トンネル入口</text>
     <circle cx="520" cy="735" r="9" fill="#1aa3d9"/><text x="400" y="770" fill="#1aa3d9">トンネル出口</text>
-    <text x="760" y="790">トンネル（中は舗装）</text>
+    <text x="760" y="790">トンネル（中は舗装・左右のカーブ）</text>
+    <!-- トンネルの中腹のらせん（右に曲がり続けて3周上る） -->
+    <circle cx="890" cy="772" r="26" fill="none" stroke="#5b616b" stroke-width="6"/>
+    <circle cx="890" cy="772" r="17" fill="none" stroke="#5b616b" stroke-width="4" stroke-dasharray="5 4"/>
+    <text x="925" y="745" font-size="15" fill="#5b616b">らせん（右に3周、上る）</text>
     <!-- 交わる所 -->
     <circle cx="824" cy="447" r="14" fill="none" stroke="#e08a00" stroke-width="4"/><text x="640" y="330" fill="#e08a00">① A がジャンプで飛び越える</text>
     <line x1="800" y1="335" x2="822" y2="432" stroke="#e08a00" stroke-width="2"/>
