@@ -4,6 +4,7 @@ import { buildScenery, stubMouths, inMouth } from './town/scenery.js';
 import { buildJungle } from './town/jungle.js';
 import { buildWater } from './town/water.js';
 import { buildBridge } from './forest/bridge.js';
+import { buildTunnel } from './snow/tunnel.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
@@ -630,7 +631,7 @@ export function buildTrackMesh(track) {
       return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
     };
     const off = (p) => side * p.wall;
-    if (snow) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 0.8, (p) => fenceOk(p) && !p.bridge, () => 0x8a6a4a)); // 低い木の柵（高さ0.8m）
+    if (snow) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 0.8, (p) => fenceOk(p) && !p.bridge && !p.tunnel, () => 0x8a6a4a)); // 低い木の柵（高さ0.8m。トンネルの中は壁）
     else if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
     else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
@@ -731,8 +732,12 @@ export function buildTrackMesh(track) {
     group.add(buildWater(track, avoid));
   }
 
-  // 雪山（Kyugo Mountain）: 雪のつもった石の橋
-  if (snow) group.add(buildBridge(track, { snow: true }));
+  // 雪山（Kyugo Mountain）: 雪のつもった石の橋、道の高さに合わせた雪の地面と雪山、トンネル
+  if (snow) {
+    group.add(buildBridge(track, { snow: true }));
+    group.add(buildTerrain(track));
+    group.add(buildTunnel(track));
+  }
   // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
   if (forest) {
     group.add(buildBridge(track));

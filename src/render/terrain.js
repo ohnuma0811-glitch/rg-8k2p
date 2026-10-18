@@ -1,6 +1,7 @@
 // 道の高さに合わせた地面（Soki Forest。2026-10-16 のユーザー依頼「道が上下に波打つ」）。
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
 import * as THREE from '../../vendor/three.module.min.js';
+import { TUNNEL_HEIGHT } from './snow/tunnel.js';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）
@@ -12,6 +13,9 @@ export const GRID = 10; // 地面のます目（m）
 const MARGIN = 200; // コースのはしから、地面を作る広さ（m）
 const SHOULDER = 10; // 道のふちの外の、草の坂の幅（m。地面のます目のすき間をうめる）
 const COLOR = 0x5f9e4a;
+const SNOW_COLOR = 0xf2f6fb; // 雪山（Kyugo Mountain）
+const PEAK_CLEAR = 25; // 道のふちから、この距離までは山を立てない（m）
+const COVER = 8; // トンネルの柵の外、この距離まで山でおおう（m）
 
 const smooth = (a, b, x) => {
   const u = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -24,14 +28,22 @@ function prep(track) {
   if (cache.has(track)) return cache.get(track);
   const grid = new Map();
   // 橋の上の点、ジャンプ台、地面のない所（川の上）は、地面を引っぱらない（ジャンプ台の下も川が見えるように）
-  const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp);
+  // トンネルの中の道（Kyugo Mountain）も、地面を引っぱらない（上を山でおおう）
+  const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel);
   for (const p of pts) {
     const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
     if (!grid.has(key)) grid.set(key, []);
     grid.get(key).push(p);
   }
   const river = (track.def.river ?? []).map(([x, z]) => track.toWorld(x, z));
-  const c = { grid, river, reach: Math.max(...pts.map((p) => p.wall)) + FALL };
+  const tunnel = new Map();
+  for (const p of track.samples) {
+    if (!p.tunnel) continue;
+    const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
+    if (!tunnel.has(key)) tunnel.set(key, []);
+    tunnel.get(key).push(p);
+  }
+  const c = { grid, river, tunnel, reach: Math.max(...pts.map((p) => p.wall)) + FALL };
   cache.set(track, c);
   return c;
 }
@@ -51,7 +63,7 @@ function riverDistance(river, x, z) {
 
 // (x, z) の地面の高さ（m）
 export function terrainHeight(track, x, z) {
-  const { grid, river, reach } = prep(track);
+  const { grid, river, tunnel, reach } = prep(track);
   const span = Math.ceil(reach / CELL);
   const cx = Math.floor(x / CELL);
   const cz = Math.floor(z / CELL);
@@ -85,7 +97,22 @@ export function terrainHeight(track, x, z) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));
     y = y * (1 - f) + RIVER_DEPTH * f;
   }
-  return y;
+  // 雪山（Kyugo Mountain）: 道から離れた所に山。トンネルの上は、天井より高い山でおおう
+  if (track.peaks?.length && !onRoad) {
+    let peak = 0;
+    for (const pk of track.peaks) {
+      const d = Math.hypot(pk.x - x, pk.z - z);
+      if (d < pk.r) peak = Math.max(peak, pk.h * (1 - (d / pk.r) ** 2) ** 2);
+    }
+    y = Math.max(y, Math.min(y + peak, y + peak * smooth(0, PEAK_CLEAR, bestE)));
+  }
+  let cover = -Infinity;
+  for (let gx = cx - 1; gx <= cx + 1; gx++) {
+    for (let gz = cz - 1; gz <= cz + 1; gz++) {
+      for (const p of tunnel.get(`${gx},${gz}`) ?? []) if (Math.hypot(p.x - x, p.z - z) < p.wall + COVER) cover = Math.max(cover, p.y + TUNNEL_HEIGHT + 2);
+    }
+  }
+  return Math.max(y, cover);
 }
 
 // コースのまわりの地面（GRID m のます目）。道の下の所は少し下げる（ます目の間で、道の上に地面が出ないように）
@@ -132,7 +159,7 @@ export function buildTerrain(track) {
   geo.setIndex(index);
   geo.computeVertexNormals();
   const group = new THREE.Group();
-  group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: COLOR })));
+  group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
   group.add(buildShoulders(track));
   return group;
 }
@@ -155,7 +182,7 @@ function buildShoulders(track) {
     }
     return false;
   };
-  const ok = (p) => p.y !== null && !p.bridge && !p.ramp;
+  const ok = (p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel;
   const pos = [];
   for (const side of [-1, 1]) {
     const edge = samples.map((p) => {
@@ -187,5 +214,5 @@ function buildShoulders(track) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: COLOR, side: THREE.DoubleSide }));
+  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR, side: THREE.DoubleSide }));
 }

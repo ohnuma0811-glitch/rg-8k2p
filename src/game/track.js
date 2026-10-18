@@ -440,6 +440,14 @@ export function buildTrack(def) {
   }
   addBranches(t, def, fit);
   applyGrip(t, def);
+  // トンネル（Kyugo Mountain）: TI〜TO の本線の点
+  if (def.tunnel) {
+    const from = refS(t, def.tunnel.from);
+    const to = refS(t, def.tunnel.to);
+    for (let i = 0; i < t.length; i++) t.samples[i].tunnel = between(t, t.samples[i].s, from, to);
+  }
+  // 雪山（地図の座標 → m）
+  t.peaks = (def.peaks ?? []).map((pk) => ({ ...t.toWorld(pk.at[0], pk.at[1]), h: pk.h, r: pk.r }));
   // スローの板（Kyugo Mountain）: 長さ 30m、はば 道の30%。道のはしに寄せる
   t.slows = (def.slows ?? []).map((sl) => {
     const from = Math.round(markS(t, sl.at)) % t.length;

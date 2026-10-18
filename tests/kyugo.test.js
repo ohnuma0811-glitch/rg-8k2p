@@ -6,6 +6,8 @@ import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGU
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
+import { buildTunnel, TUNNEL_HEIGHT } from '../src/render/snow/tunnel.js';
+import { terrainHeight } from '../src/render/terrain.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 
@@ -496,4 +498,54 @@ test('CPU はコブゾーンを通りぬけて、トンネルに入る', () => {
     }
     assert.ok(between(t, t.samples[kart.seg].s, t.marks.TI, t.marks.TO), `seed ${seed}: ${kart.seg}`);
   }
+});
+
+test('トンネルの点: TI から TO まで（らせんを含む）。ほかの所・ほかのコースにはない', () => {
+  assert.ok(at(['TI', 'TO', 0.01]).tunnel);
+  assert.ok(t.samples[t.helix.from + 50].tunnel);
+  assert.ok(!at(['TO', 'S', 0.5]).tunnel);
+  assert.ok(!at('MG').tunnel);
+  assert.ok(!t.samples.slice(L).some((p) => p.tunnel));
+  for (const c of COURSES.slice(0, 3)) assert.ok(!buildTrack(c).samples.some((p) => p.tunnel), c.name);
+});
+
+test('トンネルの上は山（地面がトンネルの天井より高い）。トンネルの外の道は、地面にうまらない', () => {
+  for (const f of [0.1, 0.3, 0.5, 0.8, 0.95]) {
+    const p = at(['TI', 'TO', f]);
+    assert.ok(terrainHeight(t, p.x, p.z) >= p.y + TUNNEL_HEIGHT, `${f}`);
+  }
+  for (let i = 0; i < t.samples.length; i += 7) {
+    const p = t.samples[i];
+    if (p.tunnel || p.y === null || p.bridge || p.ramp) continue;
+    // まわりにトンネルがない所だけ（トンネルの入口・出口の近くは山のがけ）
+    if (t.samples.some((q) => q.tunnel && Math.hypot(q.x - p.x, q.z - p.z) < q.wall + p.wall + 12)) continue;
+    assert.ok(terrainHeight(t, p.x, p.z) <= p.y + 0.01, `${i}: ${terrainHeight(t, p.x, p.z)} > ${p.y}`);
+  }
+});
+
+test('雪山がある（コースのまわりに、高さ 60m 以上の所）', () => {
+  let top = 0;
+  for (const pk of t.peaks) top = Math.max(top, terrainHeight(t, pk.x, pk.z));
+  assert.ok(top >= 60, `${top}`);
+});
+
+test('トンネルの壁と天井は、道（車の通る所）の中に出ない', () => {
+  const g = buildTunnel(t);
+  const a = g.children[0].geometry.attributes.position;
+  let n = 0;
+  for (let k = 0; k < a.count; k += 5) {
+    const x = a.getX(k);
+    const y = a.getY(k);
+    const z = a.getZ(k);
+    for (const p of t.samples) {
+      if (!p.tunnel || Math.abs(p.x - x) > 16 || Math.abs(p.z - z) > 16) continue;
+      const lat = -Math.sin(p.h) * (x - p.x) + Math.cos(p.h) * (z - p.z);
+      const fwd = Math.cos(p.h) * (x - p.x) + Math.sin(p.h) * (z - p.z);
+      if (Math.abs(fwd) > 0.5) continue;
+      n++;
+      const inside = Math.abs(lat) < p.half && y > p.y + 0.1 && y < p.y + 4;
+      assert.ok(!inside, `${x.toFixed(1)} ${y.toFixed(1)} ${z.toFixed(1)}`);
+    }
+  }
+  assert.ok(n > 100, `${n}`);
 });
