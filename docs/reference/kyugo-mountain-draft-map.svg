@@ -53,10 +53,11 @@
     <circle cx="824" cy="447" r="14" fill="none" stroke="#e08a00" stroke-width="4"/><text x="640" y="330" fill="#e08a00">① A がジャンプで飛び越える</text>
     <line x1="800" y1="335" x2="822" y2="432" stroke="#e08a00" stroke-width="2"/>
     <circle cx="768" cy="445" r="14" fill="none" stroke="#7a3fc4" stroke-width="4"/><text x="560" y="485" fill="#7a3fc4">② B が下をくぐる</text>
-    <circle cx="968" cy="589" r="14" fill="none" stroke="#c4003f" stroke-width="4"/><text x="880" y="625" fill="#c4003f">③ A が橋で上、B が下をくぐる</text>
+    <circle cx="968" cy="589" r="14" fill="none" stroke="#c4003f" stroke-width="4"/><text x="880" y="625" fill="#c4003f">③ B が橋で上、A が下をくぐる</text>
     <circle cx="838" cy="398" r="14" fill="none" stroke="#0a7f7f" stroke-width="4"/><text x="1045" y="300" fill="#0a7f7f">④ A が橋で上、B が下をくぐる</text>
     <line x1="1040" y1="300" x2="852" y2="395" stroke="#0a7f7f" stroke-width="2"/>
     <text x="700" y="380" fill="#d93a2b" font-size="15">スピードアップ</text>
+    <circle cx="1005" cy="425" r="14" fill="none" stroke="#7a3fc4" stroke-width="4"/><text x="1045" y="430" fill="#7a3fc4">⑤ A が橋で上、B が下をくぐる</text>
     <text x="700" y="560" fill="#2f9a46" font-size="15">加速板（遠回りでも早く）</text>
     <text x="840" y="650" fill="#d93a2b" font-size="15">くねくね・スロー（逆向きの板）・凍った所</text>
   </g>
