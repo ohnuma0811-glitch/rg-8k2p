@@ -7,7 +7,8 @@ import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
 import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK } from '../src/render/snow/tunnel.js';
-import { terrainHeight } from '../src/render/terrain.js';
+import { terrainHeight, buildTerrain } from '../src/render/terrain.js';
+import { buildSnowScenery } from '../src/render/snow/kit.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 
@@ -575,4 +576,55 @@ test('トンネルを出てすぐ（まだ少し暗い）にまた入っても�
   for (let f = 0; f < 10; f++) st = tunnelLight(st, false, 1 / 60);
   st = tunnelLight(st, true, 1 / 60);
   assert.equal(st.black, 0);
+});
+
+// 形の三角の数
+function triangles(g) {
+  let n = 0;
+  g.traverse((o) => {
+    if (!o.geometry) return;
+    const per = o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+    n += per * (o.isInstancedMesh ? o.count : 1);
+  });
+  return n;
+}
+
+test('雪の景色: もみの木は60本以上、どれも道（柵の内がわ）とトンネルの上の山に立たない', () => {
+  const g = buildSnowScenery(t);
+  const trees = [];
+  g.traverse((o) => { if (o.userData.fir) trees.push(o.position); });
+  assert.ok(trees.length >= 60, `${trees.length}`);
+  for (const p of trees) {
+    const loc = locate(t, p.x, p.z, null, 40);
+    assert.ok(Math.abs(loc.lateral) > loc.wall + 2, `${p.x} ${p.z}`);
+  }
+});
+
+test('観客席は GS の左がわ（2026-10-18 のユーザー依頼「右に曲がって、左手に観客席」）。川は道を横切らない', () => {
+  assert.deepEqual(COURSE4.grandstand, { at: 'GS', side: -1 });
+  const river = COURSE4.river.map(([x, z]) => t.toWorld(x, z));
+  for (let k = 0; k + 1 < river.length; k++) {
+    for (let u = 0; u <= 10; u++) {
+      const x = river[k].x + ((river[k + 1].x - river[k].x) * u) / 10;
+      const z = river[k].z + ((river[k + 1].z - river[k].z) * u) / 10;
+      const loc = locate(t, x, z, null, 40);
+      assert.ok(Math.abs(loc.lateral) > loc.wall + 8, `川が道に近い: ${x} ${z}`);
+    }
+  }
+});
+
+test('三角の数: 雪の景色・トンネル・橋・地面で、20万まで（道の形は別。全部で30万まで）', () => {
+  const n = triangles(buildSnowScenery(t)) + triangles(buildTunnel(t)) + triangles(buildBridge(t, { snow: true })) + triangles(buildTerrain(t));
+  assert.ok(n < 200000, `${n}`);
+});
+
+test('観客席の下とまわりの地面は、道の高さより上がらない（雪山の坂にうまらない）', () => {
+  const p = at('GS');
+  for (const d of [20, 30, 40]) {
+    for (const along of [-25, 0, 25]) {
+      const x = p.x + Math.sin(p.h) * d + Math.cos(p.h) * along; // 左がわ
+      const z = p.z - Math.cos(p.h) * d + Math.sin(p.h) * along;
+      assert.ok(terrainHeight(t, x, z) <= p.y, `${d} ${along}: ${terrainHeight(t, x, z)}`);
+    }
+  }
 });

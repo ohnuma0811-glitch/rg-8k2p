@@ -53,6 +53,19 @@ export function buildRiver(track) {
   const pts = densify(line, 4);
   group.add(strip(pts, RIVER_HALF, () => RIVER_Y, WATER));
   const b = createBuilder();
+  // 雪山（Kyugo Mountain）: 岸は雪の白、水の上に水色の氷の板（ところどころ）
+  const snow = track.def.theme === 'snow';
+  if (snow) {
+    pts.forEach((p, k) => {
+      if (k % 4 || k + 1 >= pts.length || (k * 7) % 3 === 0) return;
+      const q = pts[k + 1];
+      const len = Math.hypot(q.x - p.x, q.z - p.z) || 1;
+      const off = (((k * 11) % 9) - 4) * 1.2;
+      const x = p.x - ((q.z - p.z) / len) * off;
+      const z = p.z + ((q.x - p.x) / len) * off;
+      b.box(3 + (k % 3), 0.12, 2.2 + (k % 2), 0xcfeeff, x, RIVER_Y, z, k * 0.9);
+    });
+  }
   pts.forEach((p, k) => {
     if (k % 3 || k + 1 >= pts.length) return;
     const q = pts[k + 1];
@@ -63,7 +76,7 @@ export function buildRiver(track) {
       const z = p.z + ((q.x - p.x) / len) * side * off;
       if (onRoad(track, x, z)) continue;
       const s = 1.2 + ((k * 13 + side) % 4) * 0.4;
-      b.box(s * 1.4, s * 0.8, s, ROCK[(k + side + 3) % 3], x, terrainHeight(track, x, z) - 0.4, z, k * 0.7);
+      b.box(s * 1.4, s * 0.8, s, snow ? 0xeef3f8 : ROCK[(k + side + 3) % 3], x, terrainHeight(track, x, z) - 0.4, z, k * 0.7);
     }
   });
   group.add(b.build());

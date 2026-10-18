@@ -16,6 +16,7 @@ const COLOR = 0x5f9e4a;
 const SNOW_COLOR = 0xf2f6fb; // 雪山（Kyugo Mountain）
 const PEAK_CLEAR = 25; // 道のふちから、この距離までは山を立てない（m）
 const COVER = 8; // トンネルの柵の外、この距離まで山でおおう（m）
+const STAND_FLAT = 32; // 観客席の真ん中から、この距離までは平ら（m）
 
 const smooth = (a, b, x) => {
   const u = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -43,7 +44,15 @@ function prep(track) {
     if (!tunnel.has(key)) tunnel.set(key, []);
     tunnel.get(key).push(p);
   }
-  const c = { grid, river, tunnel, reach: Math.max(...pts.map((p) => p.wall)) + FALL };
+  // 観客席の所（Kyugo Mountain）: 観客席の下とまわりは、道の高さより上げない（雪山の坂にうまらないように）
+  let stand = null;
+  const gs = track.def.grandstand;
+  if (gs && track.marks?.[gs.at] !== undefined) {
+    const p = track.samples[Math.round(track.marks[gs.at]) % track.length];
+    const d = p.wall + 13;
+    stand = { x: p.x - Math.sin(p.h) * gs.side * d, z: p.z + Math.cos(p.h) * gs.side * d, y: p.y ?? 0 };
+  }
+  const c = { grid, river, tunnel, stand, reach: Math.max(...pts.map((p) => p.wall)) + FALL };
   cache.set(track, c);
   return c;
 }
@@ -63,7 +72,7 @@ function riverDistance(river, x, z) {
 
 // (x, z) の地面の高さ（m）
 export function terrainHeight(track, x, z) {
-  const { grid, river, tunnel, reach } = prep(track);
+  const { grid, river, tunnel, stand, reach } = prep(track);
   const span = Math.ceil(reach / CELL);
   const cx = Math.floor(x / CELL);
   const cz = Math.floor(z / CELL);
@@ -93,10 +102,6 @@ export function terrainHeight(track, x, z) {
   // いちばん近い点とほぼ同じ近さ（0.15m 以内）の点だけで、高さの上限を決める
   for (const [e, y] of close) if (e <= bestE + 0.15) cap = Math.min(cap, y);
   let y = weight ? Math.min(sum / weight, cap) : 0;
-  if (!onRoad && river.length > 1) {
-    const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));
-    y = y * (1 - f) + RIVER_DEPTH * f;
-  }
   // 雪山（Kyugo Mountain）: 道から離れた所に山。トンネルの上は、天井より高い山でおおう
   if (track.peaks?.length && !onRoad) {
     let peak = 0;
@@ -105,6 +110,15 @@ export function terrainHeight(track, x, z) {
       if (d < pk.r) peak = Math.max(peak, pk.h * (1 - (d / pk.r) ** 2) ** 2);
     }
     y = Math.max(y, Math.min(y + peak, y + peak * smooth(0, PEAK_CLEAR, bestE)));
+  }
+  if (stand) {
+    const f = 1 - smooth(STAND_FLAT, STAND_FLAT + 30, Math.hypot(stand.x - x, stand.z - z));
+    y = y * (1 - f) + Math.min(y, stand.y - 0.1) * f;
+  }
+  // 川（山の中でも、川の所は低く）
+  if (!onRoad && river.length > 1) {
+    const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));
+    y = y * (1 - f) + RIVER_DEPTH * f;
   }
   let cover = -Infinity;
   for (let gx = cx - 1; gx <= cx + 1; gx++) {

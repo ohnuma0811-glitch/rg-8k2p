@@ -43,8 +43,13 @@ export function setCourse(scene, track) {
   if (!track.mesh) track.mesh = buildTrackMesh(track);
   scene.add(track.mesh);
   scene.userData.course = track;
-  // 森は地面の形を作るので、平らな地面は川の底より下へ（2026-10-16）
-  if (scene.userData.ground) scene.userData.ground.position.y = track.def.theme === 'forest' ? -2.5 : 0;
+  // 森・雪山は地面の形を作るので、平らな地面は川の底より下へ（2026-10-16）。雪山は雪の色（2026-10-18）
+  const ground = scene.userData.ground;
+  if (ground) {
+    const shaped = track.def.theme === 'forest' || track.def.theme === 'snow';
+    ground.position.y = shaped ? -2.5 : 0;
+    ground.material.color.setHex(track.def.theme === 'snow' ? 0xf2f6fb : 0x5fae4b);
+  }
 }
 
 // トンネルの中の暗さ（Kyugo Mountain。0 ふつう 〜 1 トンネルの中）。dim は中の明るさ。kart があれば、その前にライト
