@@ -1,16 +1,18 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=3e79b84';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=3e79b84';
-import { buildJungle } from './town/jungle.js?v=3e79b84';
-import { buildWater } from './town/water.js?v=3e79b84';
-import { buildBridge } from './forest/bridge.js?v=3e79b84';
-import * as forestKit from './forest/kit.js?v=3e79b84';
-import { createBuilder } from './town/builder.js?v=3e79b84';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=3e79b84';
-import { buildTerrain, terrainHeight } from './terrain.js?v=3e79b84';
-import { mergeMeshes } from './mergeMeshes.js?v=3e79b84';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=3e79b84';
-import { cornerUW, markS } from '../game/track.js?v=3e79b84';
+import * as THREE from '../../vendor/three.module.min.js?v=ba423c0';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=ba423c0';
+import { buildJungle } from './town/jungle.js?v=ba423c0';
+import { buildWater } from './town/water.js?v=ba423c0';
+import { buildBridge } from './forest/bridge.js?v=ba423c0';
+import { buildTunnel } from './snow/tunnel.js?v=ba423c0';
+import { buildSnowScenery } from './snow/kit.js?v=ba423c0';
+import * as forestKit from './forest/kit.js?v=ba423c0';
+import { createBuilder } from './town/builder.js?v=ba423c0';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=ba423c0';
+import { buildTerrain, terrainHeight } from './terrain.js?v=ba423c0';
+import { mergeMeshes } from './mergeMeshes.js?v=ba423c0';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=ba423c0';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=ba423c0';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -124,6 +126,52 @@ function chevrons(bg, fg) {
   });
 }
 
+// うしろを指す矢印の模様（スローの板。Kyugo Mountain）。模様の下（v が小さい方）を指す
+function backArrows(bg, fg) {
+  return canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = fg;
+    for (let k = 0; k < 2; k++) {
+      const y0 = k * 32;
+      g.beginPath();
+      g.moveTo(8, y0 + 4);
+      g.lineTo(w / 2, y0 + 28);
+      g.lineTo(w - 8, y0 + 4);
+      g.lineTo(w - 20, y0 + 4);
+      g.lineTo(w / 2, y0 + 18);
+      g.lineTo(20, y0 + 4);
+      g.fill();
+    }
+  });
+}
+
+// スローの板（Kyugo Mountain）: 本線の点 from から 30 点、道の真ん中から lateral ± half の帯
+function slowPad(track, sl, material) {
+  const pos = [];
+  const uv = [];
+  for (let k = 0; k < 30; k++) {
+    const p = track.samples[(sl.from + k) % track.length];
+    const q = track.samples[(sl.from + k + 1) % track.length];
+    const [rpx, rpz] = rightOf(p);
+    const [rqx, rqz] = rightOf(q);
+    const lo = sl.lateral - sl.half;
+    const hi = sl.lateral + sl.half;
+    const a = [p.x + rpx * lo, p.y + 0.05, p.z + rpz * lo];
+    const b = [p.x + rpx * hi, p.y + 0.05, p.z + rpz * hi];
+    const c = [q.x + rqx * lo, q.y + 0.05, q.z + rqz * lo];
+    const d = [q.x + rqx * hi, q.y + 0.05, q.z + rqz * hi];
+    const v0 = k / 3;
+    const v1 = (k + 1) / 3;
+    pos.push(...a, ...b, ...c, ...b, ...d, ...c);
+    uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  return new THREE.Mesh(g, material);
+}
+
 // コースを横切る板（スタートライン、加速板、ジャンプ台の模様）。from〜to は s（m）。tiles は模様をくり返す回数
 // side が 1 なら道の右半分（分離帯の外）だけ、-1 なら左半分だけ
 export function strip(track, from, to, y, material, tiles = 1, side = 0) {
@@ -177,10 +225,12 @@ function distToTrack(samples, x, z) {
 
 // 観客席の向き（コースの外側）と、真ん中の場所。音（歓声）でも使う
 function grandstandFrame(track) {
-  const p = track.samples[track.startIndex];
+  // 置く場所を決めたコース（Kyugo Mountain: 観客席の前の印の、左がわ。2026-10-18）
+  const gs = track.def.grandstand;
+  const p = gs ? track.samples[Math.round(markS(track, [gs.at, gs.at, 0])) % track.length] : track.samples[track.startIndex];
   const base = p.wall + 4;
   const [r0x, r0z] = rightOf(p);
-  const side = insideLoop(track.samples, p.x + r0x * (base + 6), p.z + r0z * (base + 6)) ? -1 : 1;
+  const side = gs ? gs.side : insideLoop(track.samples, p.x + r0x * (base + 6), p.z + r0z * (base + 6)) ? -1 : 1;
   return { p, base, rx: r0x * side, rz: r0z * side };
 }
 
@@ -196,7 +246,8 @@ function grandstand(track) {
   const { p, base, rx, rz } = grandstandFrame(track);
   const length = 50;
   const steps = 10; // 段の数（マリオカート64 のように高い観客席）
-  const stand = new THREE.MeshLambertMaterial({ color: 0x9aa3ad });
+  const snowy = track.def.theme === 'snow';
+  const stand = new THREE.MeshLambertMaterial({ color: snowy ? 0xb9c2cc : 0x9aa3ad });
   for (let k = 0; k < steps; k++) {
     const box = new THREE.Mesh(new THREE.BoxGeometry(length, 1 + k * 1.2, 2), stand);
     const d = base + k * 2;
@@ -204,6 +255,23 @@ function grandstand(track) {
     box.rotation.y = -p.h;
     group.add(box);
   }
+  // 雪山: 段のうしろの一番上と両はしに、雪（白い板）
+  if (snowy) {
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(length + 0.4, 0.3, 2.2), new THREE.MeshLambertMaterial({ color: 0xf4f7fb }));
+    const d = base + (steps - 1) * 2;
+    cap.position.set(p.x + rx * d, 1 + (steps - 1) * 1.2 + 0.15, p.z + rz * d);
+    cap.rotation.y = -p.h;
+    group.add(cap);
+  }
+  // 道の高さ（Kyugo Mountain の観客席の前は 4m）。下の地面まで、土台でうめる
+  if (p.y) {
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(length, p.y + 0.2, steps * 2 + 2), stand);
+    const d = base + (steps - 1);
+    foot.position.set(p.x + rx * d, -p.y / 2, p.z + rz * d);
+    foot.rotation.y = -p.h;
+    group.add(foot);
+  }
+  group.position.y = p.y ?? 0;
   const perRow = 40;
   const people = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 1, 0.6), new THREE.MeshLambertMaterial(), steps * perRow);
   const m = new THREE.Matrix4();
@@ -327,8 +395,8 @@ export function fenceSides(track, mouths = []) {
         const q = samples[j];
         // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
         const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
-        // 橋の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
-        const overBridge = (p.bridge || q.bridge) && Math.abs(q.y - (p.y ?? 0)) >= 3;
+        // 橋の上と下・らせんの段の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
+        const overBridge = (p.bridge || q.bridge || p.stacked || q.stacked) && Math.abs(q.y - (p.y ?? 0)) >= 3;
         return other && q.y !== null && !overBridge && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }
@@ -482,6 +550,9 @@ export function buildTrackMesh(track) {
   const town = track.def.theme === 'town';
   // 森（Soki Forest。2026-10-16）: 茶色い土の道（線なし）、縁石なし、道の外は草、柵は丸太の色の低い柵
   const forest = track.def.theme === 'forest';
+  // 雪山（Kyugo Mountain。2026-10-18）: 雪のつもった道（線なし）、縁石なし、道の外は雪、柵は低い木の柵
+  const snow = track.def.theme === 'snow';
+  const natural = forest || snow;
   const group = new THREE.Group();
   const hasGround = (p) => p.y !== null;
   const flat = (p) => p.y === 0 && !p.ramp;
@@ -491,7 +562,13 @@ export function buildTrackMesh(track) {
   const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
-  const asphalt = forest ? canvasTexture(64, 64, (g, w, h) => {
+  const asphalt = snow ? canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = '#d9dde3';
+    g.fillRect(0, 0, w, h);
+    // 雪のわだち（少し濃い点）
+    g.fillStyle = '#c6ccd4';
+    for (let k = 0; k < 40; k++) g.fillRect((k * 37) % w, (k * 23) % h, 3, 2);
+  }) : forest ? canvasTexture(64, 64, (g, w, h) => {
     g.fillStyle = '#8a6a45';
     g.fillRect(0, 0, w, h);
     // 土のでこぼこ（少し濃い点）
@@ -514,7 +591,26 @@ export function buildTrackMesh(track) {
     g.fillStyle = '#e8e8e8';
     g.fillRect(w / 2 - 1, 0, 2, h / 2);
   });
-  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && !inSquare(p) && !p.bridge, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  // 雪山: 雪の道（grip < 1）だけを雪の絵に。アスファルト（grip 1）は灰色に破線、凍った所は水色に白い光の筋（2026-10-18）
+  const roadOk = (p) => hasGround(p) && !inSquare(p) && !p.bridge && (!snow || (p.grip < 1 && p.grip > GRIP_ICE));
+  group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, roadOk, { color: 0xffffff, map: asphalt, vScale: 4 }));
+  if (snow) {
+    const paved = canvasTexture(64, 64, (g, w, h) => {
+      g.fillStyle = '#5f646c';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#e8e8e8';
+      g.fillRect(w / 2 - 1, 0, 2, h / 2);
+    });
+    const ice = canvasTexture(64, 64, (g, w, h) => {
+      g.fillStyle = '#a8dcf2';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#e9f8ff';
+      for (let k = 0; k < 6; k++) g.fillRect((k * 23) % (w - 20), (k * 11) % h, 20, 2);
+    });
+    const ok = (want) => (p) => hasGround(p) && !p.bridge && want(p.grip);
+    group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, ok((g) => g >= 1), { color: 0xffffff, map: paved, vScale: 4 }));
+    group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, ok((g) => g <= GRIP_ICE), { color: 0xffffff, map: ice, vScale: 8 }));
+  }
   // 橋の上の道は石の色（Soki Forest。2026-10-16）
   // 橋の上は、柵（車が通れる所のはし）まで石（手すりは柵の所。2026-10-16 のユーザー依頼「橋の縁がずれている」）
   if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.wall, (p) => p.wall, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
@@ -525,7 +621,7 @@ export function buildTrackMesh(track) {
   if (corners.length) group.add(cornerWalls(corners, mouths));
   // 縁石（交差点の口の所と、直角の角の外側の四角の中はなし）
   const curbOk = (side) => (p) => {
-    if (!hasGround(p) || forest) return false;
+    if (!hasGround(p) || natural) return false;
     const [rx, rz] = rightOf(p);
     const x = p.x + rx * side * (p.half + 0.5);
     const z = p.z + rz * side * (p.half + 0.5);
@@ -534,11 +630,13 @@ export function buildTrackMesh(track) {
   group.add(ribbon(samples, (p) => -p.half - 1, (p) => -p.half, (p) => p.y + 0.04, curbOk(-1), { colorOf: curb }));
   group.add(ribbon(samples, half, (p) => p.half + 1, (p) => p.y + 0.04, curbOk(1), { colorOf: curb }));
   // 道の外: サーキットはダート。街は歩道を描かない（地面のまま。2026-10-15 のユーザー依頼）
-  if (forest) {
+  if (natural) {
     // 道のふちの草は、分かれる所・合流する所で、ほかの道の上にはみ出さない（2026-10-16 のユーザー依頼「つなぎ目の草と土がおかしい」）
     const grassOk = (side) => (p) => hasGround(p) && !p.bridge && !onOtherRoad(track, p, side * (p.half + dirt / 2)) && !onOtherRoad(track, p, side * (p.half + 0.5));
-    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { color: 0x6aa84f }));
-    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { color: 0x6aa84f }));
+    // 雪の白 / 草。トンネルの中は暗い灰色（舗装）
+    const edge = (p) => (p.tunnel ? 0x4a4e55 : snow ? 0xf4f7fb : 0x6aa84f);
+    group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { colorOf: edge }));
+    group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { colorOf: edge }));
   } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
@@ -555,11 +653,13 @@ export function buildTrackMesh(track) {
       return !corners.some((c) => inCornerOuter(c, p.x + rx * side * p.wall, p.z + rz * side * p.wall));
     };
     const off = (p) => side * p.wall;
-    if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
+    if (snow) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 0.8, (p) => fenceOk(p) && !p.bridge && !p.tunnel, () => 0x8a6a4a)); // 低い木の柵（高さ0.8m。トンネルの中は壁）
+    else if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
     else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
-    group.add(fence(samples, side * track.roadHalf, () => 0, (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
+    // 下は、台の高さの分だけ（高い所のジャンプ台が、地面までの大きな壁にならないように。Kyugo Mountain）
+    group.add(fence(samples, side * track.roadHalf, (p) => Math.max(0, p.y - 4), (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
     group.add(fence(samples, side * track.roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
 
@@ -589,6 +689,25 @@ export function buildTrackMesh(track) {
   const startS = samples[track.startIndex].s;
   group.add(strip(track, startS - 1, startS + 2, () => 0.05, new THREE.MeshBasicMaterial({ map: checker })));
 
+  // コブ（Kyugo Mountain）: 白い雪の半球（高さ 1m につぶす）
+  if (track.moguls?.length) {
+    const geo = new THREE.SphereGeometry(1, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2);
+    const mat = new THREE.MeshLambertMaterial({ color: 0xf7fafd });
+    const bumps = new THREE.InstancedMesh(geo, mat, track.moguls.length);
+    const m4 = new THREE.Matrix4();
+    track.moguls.forEach((m, k) => {
+      m4.makeScale(m.r, 1.0, m.r).setPosition(m.x, m.y, m.z);
+      bumps.setMatrixAt(k, m4);
+    });
+    group.add(bumps);
+  }
+  // スローの板（Kyugo Mountain）: 灰色に白い、うしろ向きの矢印。矢印は src/main.js で流す
+  track.slowTextures = [];
+  for (const sl of track.slows ?? []) {
+    const tx = backArrows('#6b7480', '#ffffff');
+    track.slowTextures.push(tx);
+    group.add(slowPad(track, sl, new THREE.MeshBasicMaterial({ map: tx })));
+  }
   // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
   const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
   // 加速板は道の高さに（坂の上の加速板が道の下にかくれないように。2026-10-16 のユーザー依頼「遠いルートの加速板が見えない」）
@@ -636,6 +755,15 @@ export function buildTrackMesh(track) {
     group.add(buildWater(track, avoid));
   }
 
+  // 雪山（Kyugo Mountain）: 雪のつもった石の橋、道の高さに合わせた雪の地面と雪山、トンネル
+  if (snow) {
+    group.add(buildBridge(track, { snow: true }));
+    group.add(buildTerrain(track));
+    group.add(buildTunnel(track));
+    group.add(buildRiver(track));
+    group.add(grandstand(track));
+    group.add(buildSnowScenery(track));
+  }
   // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
   if (forest) {
     group.add(buildBridge(track));

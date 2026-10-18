@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=3e79b84';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=3e79b84';
+import { locate, respawnIndex } from './track.js?v=ba423c0';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=ba423c0';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -33,6 +33,8 @@ export const PHYS = {
   GRAVITY: 15, // m/s²
   SLOPE: 0.6, // 坂で速さが変わる強さ（上りは遅く、下りは速く。2026-10-16）
   KICK: (18 * Math.PI) / 180, // ジャンプ台から飛び出す角度
+  KICK_SPEED: 28, // 小さなジャンプ台（Kyugo Mountain）から飛び出す速さ（いつも同じ）
+  KICK_VY: 8, // 小さなジャンプ台から飛び出す上向きの速さ（m/s）
   LAUNCH_SPEED: 30, // ジャンプ台から飛び出す速さ（いつも同じ。必ず向こう側の同じ所に着地する）
   AIR_TURN: 0.3, // 空中で曲がれる割合
   WALL_KEEP: 0.6, // 柵にまっすぐぶつかったときに残る速さの割合
@@ -243,7 +245,8 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.boost = Math.max(0, kart.boost - dt);
 
   // 進む向きは、車の向きに少しずつそろう（ドリフト中はゆっくり＝外へ滑る）
-  const gripRate = kart.airborne ? 0 : kart.drift.active ? PHYS.DRIFT_GRIP : PHYS.GRIP;
+  const surfaceGrip = track.samples[kart.seg]?.grip ?? 1; // すべる道（Kyugo Mountain。ほかのコースは 1）
+  const gripRate = (kart.airborne ? 0 : kart.drift.active ? PHYS.DRIFT_GRIP : PHYS.GRIP) * surfaceGrip;
   kart.move = wrapAngle(kart.move + wrapAngle(kart.heading - kart.move) * Math.min(1, gripRate * dt));
   const fromX = kart.x;
   const fromZ = kart.z;
@@ -276,10 +279,24 @@ export function stepKart(kart, ctl, track, params, dt) {
       }
     }
   }
+  // 小さなジャンプ台のいちばん上から前へ出た（Kyugo Mountain。2026-10-18）
+  let kicked = false;
+  if (!kart.airborne && kart.speed > 5 && track.kicks?.length) {
+    // 前の点から今の点まで（1フレームで数点進むこともある）に、台のいちばん上を通りぬけたか
+    for (let i = kart.seg, k = 0; i !== loc.i && k < 6; i = track.samples[i].next, k++) if (track.samples[i].kick) kicked = true;
+  }
   kart.seg = loc.i;
   kart.surface = loc.surface;
 
-  if (kart.airborne) {
+  if (kicked) {
+    // 決まった速さで小さく飛ぶ（ジャンプ台なので「イヤッホー」と着地の音あり）
+    kart.airborne = true;
+    kart.launched = true;
+    kart.hop = 0;
+    if (kart.drift.active) endDrift(kart, params, false);
+    kart.speed = PHYS.KICK_SPEED;
+    kart.vy = PHYS.KICK_VY;
+  } else if (kart.airborne) {
     kart.vy -= PHYS.GRAVITY * dt;
     kart.y += kart.vy * dt;
     if (loc.ground !== null && kart.y <= loc.ground) {

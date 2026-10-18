@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=3e79b84';
-import { PHYS } from '../game/kart.js?v=3e79b84';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=3e79b84';
+import * as THREE from '../../vendor/three.module.min.js?v=ba423c0';
+import { PHYS } from '../game/kart.js?v=ba423c0';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=ba423c0';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -435,6 +435,29 @@ export function createBoarModel(k = 0, size = 1) {
     g.rotation.x = state === 'warn' ? Math.sin(time * 30) * 0.08 : 0;
   };
   g.scale.setScalar(1.4 * size); // 少し大きく（2026-10-16 のブラウザ確認で小さく見えた）。子どもは size 0.7
+  return g;
+}
+
+// 雪だるま（Kyugo Mountain。2026-10-18 のユーザー依頼）: 白い玉3つ（高さ 約2.4m）、炭の目、にんじんの鼻、黒い帽子、赤いマフラー。
+// 前（+x）が顔。y = 0 が雪の玉の下
+export function createSnowmanModel() {
+  const g = new THREE.Group();
+  const snow = 0xf7f9fc;
+  g.add(ball(1.0, snow, 0, 0.9, 0));
+  g.add(ball(0.75, snow, 0, 2.0, 0));
+  g.add(ball(0.5, snow, 0, 2.85, 0));
+  for (const z of [-0.17, 0.17]) g.add(ball(0.07, 0x111111, 0.45, 2.95, z, 6)); // 炭の目
+  for (const y of [1.85, 2.15]) g.add(ball(0.08, 0x111111, 0.73, y, 0, 6)); // ボタン
+  const nose = mesh(new THREE.ConeGeometry(0.08, 0.45, 8), 0xff7a1a, 0.68, 2.85, 0); // にんじんの鼻
+  nose.rotation.z = -Math.PI / 2;
+  g.add(nose);
+  g.add(mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 12), 0x1a1a1a, 0, 3.25, 0)); // 帽子のつば
+  g.add(mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.55, 12), 0x1a1a1a, 0, 3.55, 0)); // 帽子
+  const scarf = mesh(new THREE.TorusGeometry(0.5, 0.13, 6, 14), 0xd8262b, 0, 2.45, 0); // 赤いマフラー
+  scarf.rotation.x = Math.PI / 2;
+  g.add(scarf);
+  g.add(box(0.2, 0.6, 0.25, 0xd8262b, 0.35, 2.15, 0.35)); // マフラーのはし
+  g.scale.setScalar(0.6); // 高さ 約2.3m（src/game/hazards.js の SNOWMAN_HEIGHT。小さなジャンプで飛び越えられる大きさ。最終レビュー）
   return g;
 }
 

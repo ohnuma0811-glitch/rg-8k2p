@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=3e79b84';
-import { span, locate, ahead, behind } from './track.js?v=3e79b84';
+import { SPEED_SHOW } from '../hud.js?v=ba423c0';
+import { span, locate, ahead, behind } from './track.js?v=ba423c0';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -46,6 +46,17 @@ export function cowPose(track, cow, time) {
   };
 }
 
+// 押し出したあと、柵の外に出ないように戻す（牛・イノシシ・雪だるま・コブ）
+export function pushInside(kart, track) {
+  const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+  const excess = Math.abs(loc.lateral) - loc.wall;
+  if (excess > 0) {
+    const side = Math.sign(loc.lateral);
+    kart.x -= -Math.sin(loc.heading) * side * excess;
+    kart.z -= Math.cos(loc.heading) * side * excess;
+  }
+}
+
 // 車と牛の当たり。最初に当たったときだけ 'spin'（メーター100以上）か 'bounce'（それより遅い。壁と同じ）を返す
 // phys は src/game/kart.js の PHYS（kart.js がこのファイルを読むので、ここからは読まない）
 export function cowContact(kart, track, time, phys) {
@@ -75,15 +86,7 @@ export function cowContact(kart, track, time, phys) {
     }
   }
   // 押し出したあと、柵の外に出ないように戻す
-  if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-    const excess = Math.abs(loc.lateral) - loc.wall;
-    if (excess > 0) {
-      const side = Math.sign(loc.lateral);
-      kart.x -= -Math.sin(loc.heading) * side * excess;
-      kart.z -= Math.cos(loc.heading) * side * excess;
-    }
-  }
+  if (touching) pushInside(kart, track);
   kart.onCow = touching;
   return hit;
 }
@@ -143,15 +146,7 @@ export function boarContact(kart, track, time, phys) {
       hit = 'bounce';
     }
   }
-  if (touching) {
-    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-    const excess = Math.abs(loc.lateral) - loc.wall;
-    if (excess > 0) {
-      const side = Math.sign(loc.lateral);
-      kart.x -= -Math.sin(loc.heading) * side * excess;
-      kart.z -= Math.cos(loc.heading) * side * excess;
-    }
-  }
+  if (touching) pushInside(kart, track);
   kart.onBoar = touching;
   return hit;
 }
@@ -312,6 +307,97 @@ export function pierContact(kart, track, time, phys) {
 }
 
 // ぬかるみ（Soki Forest の近道。2026-10-16 のユーザー依頼）: 入ると MUD_TIME 秒、ハンドルが左右逆になる（kart.js が kart.muddy を見る）
+// 雪だるま（Kyugo Mountain。2026-10-18 のユーザー依頼「ジャンプしながら左右に動いている」）
+export const SNOWMAN_RADIUS = 1.0;
+export const SNOWMAN_HEIGHT = 2.3; // 帽子のてっぺんまで（m。src/render/models.js の雪だるま）
+export const SNOWMAN_HOP = 0.8; // 跳ねる高さ（m。観客席の前の小さなジャンプで、頭の上を飛び越えられる高さ）
+export const SNOWMAN_HOP_TIME = 0.6; // 1回跳ねる秒数
+export function snowmanPose(track, sm, time) {
+  const p = track.samples[sm.i];
+  const a = (2 * Math.PI * time) / sm.period + sm.phase;
+  const lateral = (p.half - 2) * Math.sin(a);
+  const u = ((((time + sm.phase) % SNOWMAN_HOP_TIME) + SNOWMAN_HOP_TIME) % SNOWMAN_HOP_TIME) / SNOWMAN_HOP_TIME;
+  const hop = SNOWMAN_HOP * 4 * u * (1 - u);
+  return { x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, y: p.y ?? 0, lateral, hop, heading: p.h };
+}
+
+// 車と雪だるまの当たり（牛と同じ。2026-10-18 のユーザー依頼）。ぶつかったあと BOAR_PASS 秒は通りぬけられる
+export function snowmanContact(kart, track, time, phys) {
+  if (time < (kart.snowmanPassUntil ?? -Infinity) || kart.airborne || kart.tumble > 0) return null;
+  for (const sm of track.snowmen ?? []) {
+    const c = snowmanPose(track, sm, time);
+    if (Math.abs((kart.y ?? 0) - c.y) > 4) continue; // 橋の上と下
+    const dx = kart.x - c.x;
+    const dz = kart.z - c.z;
+    const d = Math.hypot(dx, dz);
+    const min = SNOWMAN_RADIUS + COW_PAD;
+    if (d >= min || d === 0) continue;
+    kart.x = c.x + (dx / d) * min;
+    kart.z = c.z + (dz / d) * min;
+    kart.snowmanHits = (kart.snowmanHits || 0) + 1;
+    kart.snowmanPassUntil = time + BOAR_PASS;
+    cancelDrift(kart);
+    pushInside(kart, track);
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      return 'spin';
+    }
+    kart.speed *= phys.WALL_KEEP;
+    return 'bounce';
+  }
+  return null;
+}
+
+// コブ（Kyugo Mountain。2026-10-18）: 正面（進む向きとコブへの向きの差が MOGUL_FRONT 以内）から当たると上へ跳ね、横からははじかれる
+export const MOGUL_HOP_VY = 6;
+export const MOGUL_FRONT = (35 * Math.PI) / 180;
+export const MOGUL_SIDE_PUSH = 2.5;
+export const MOGUL_SIDE_KEEP = 0.85;
+export function mogulContact(kart, track) {
+  if (kart.airborne || !track.moguls?.length) return null;
+  for (const m of track.moguls) {
+    const dx = m.x - kart.x;
+    const dz = m.z - kart.z;
+    const d = Math.hypot(dx, dz);
+    if (d >= m.r + COW_PAD || d === 0) continue;
+    kart.mogulHits = (kart.mogulHits || 0) + 1;
+    const toward = Math.atan2(dz, dx);
+    const off = Math.abs(Math.atan2(Math.sin(toward - kart.move), Math.cos(toward - kart.move)));
+    if (off < MOGUL_FRONT && kart.speed > 3) {
+      kart.airborne = true;
+      kart.launched = false; // ジャンプ台ではないので「イヤッホー」と着地の音はなし
+      kart.vy = MOGUL_HOP_VY;
+      return 'hop';
+    }
+    // 横から: コブの中心から外へ、ふれる所よりさらに MOGUL_SIDE_PUSH m 押し出す
+    const min = m.r + COW_PAD + MOGUL_SIDE_PUSH;
+    kart.x = m.x - (dx / d) * min;
+    kart.z = m.z - (dz / d) * min;
+    kart.speed *= MOGUL_SIDE_KEEP;
+    pushInside(kart, track);
+    return 'side';
+  }
+  return null;
+}
+
+// スローの板（Kyugo Mountain。2026-10-18 のユーザー依頼「逆向きの歩く歩道」）: 乗っている間、うしろへ引っぱる。止まりはしない
+export const SLOW_PULL = 18; // m/s²
+export const SLOW_MIN = 8; // これより遅くはしない（m/s）
+export function slowContact(kart, track, dt) {
+  if (kart.airborne || !track.slows?.length) return false;
+  const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+  if (track.samples[loc.i].path !== 0) return false;
+  for (const sl of track.slows) {
+    const d = (loc.i - sl.from + track.length) % track.length;
+    if (d >= 30 || Math.abs(loc.lateral - sl.lateral) > sl.half) continue;
+    if (kart.speed > SLOW_MIN) kart.speed = Math.max(SLOW_MIN, kart.speed - SLOW_PULL * dt);
+    return true;
+  }
+  return false;
+}
+
 export const MUD_TIME = 4;
 export function mudContact(kart, track, dt) {
   if (kart.muddy > 0) kart.muddy = Math.max(0, kart.muddy - dt);

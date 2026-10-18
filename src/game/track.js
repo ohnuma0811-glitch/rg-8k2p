@@ -240,7 +240,42 @@ export function between(track, s, from, to) {
   return span(track, from, s) < span(track, from, to);
 }
 
+// らせん（Kyugo Mountain。2026-10-18）: def.helix の at の点のあとに、右へ曲がり続ける円の点を turns 周ぶん足す。
+// 地図の点は画素なので、1周の長さ def.length に合わせたときの 1画素の m（k）を先に計算して、半径 r m を画素にする
+export const HELIX_PER_TURN = 16;
+export function expandHelix(def) {
+  if (!def.helix) return def;
+  const { at, r, turns } = def.helix;
+  const ai = def.marks[at];
+  const line = smoothLoop(def.points);
+  let px = 0;
+  for (let k = 0; k < line.length; k++) {
+    const a = line[k];
+    const b = line[(k + 1) % line.length];
+    px += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  const k = (def.length - 2 * Math.PI * r * turns) / px; // m / 画素（らせんの長さを引いた残りに、絵の道を合わせる）
+  const rp = r / k;
+  const p = def.points[ai];
+  const q = def.points[ai + 1];
+  const h = Math.atan2(q[1] - p[1], q[0] - p[0]);
+  // 円の中心は、入る向き h の右（x - sin h, z + cos h）。円の上の点は h から右回りに進む
+  const cx = p[0] - Math.sin(h) * rp;
+  const cz = p[1] + Math.cos(h) * rp;
+  const circle = [];
+  for (let n = 1; n <= turns * HELIX_PER_TURN; n++) {
+    const a = h + (2 * Math.PI * n) / HELIX_PER_TURN;
+    circle.push([cx + Math.sin(a) * rp, cz - Math.cos(a) * rp]);
+  }
+  const points = [...def.points.slice(0, ai + 1), ...circle, ...def.points.slice(ai + 1)];
+  const marks = {};
+  for (const [m, i] of Object.entries(def.marks)) marks[m] = i > ai ? i + circle.length : i;
+  for (let n = 0; n <= turns; n++) marks[`HX${n}`] = ai + n * HELIX_PER_TURN;
+  return { ...def, points, marks };
+}
+
 export function buildTrack(def) {
+  def = expandHelix(def);
   const line = smoothLoop(def.points);
   const fit = fitOf(line, def.length);
   let samples = resample(line, def.length);
@@ -296,6 +331,21 @@ export function buildTrack(def) {
   const startIndex = samples.findIndex((p) => p.s >= startS);
   const t = { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross, marks: {} };
   for (const [name, i] of Object.entries(def.marks ?? {})) t.marks[name] = pointS(samples, fit, def.points[i]);
+  if (def.helix) {
+    // らせんの段は上から見て同じ場所なので、印 HX1〜 は、前の段から道にそって1周（約 2πr）先の、いちばん近い点
+    const turn = 2 * Math.PI * def.helix.r;
+    for (let k = 1; k <= def.helix.turns; k++) {
+      const a = samples[Math.round(t.marks[`HX${k - 1}`]) % n];
+      let best = null;
+      for (let d = Math.round(turn * 0.8); d <= Math.round(turn * 1.2); d++) {
+        const q = samples[(Math.round(t.marks[`HX${k - 1}`]) + d) % n];
+        const dd = Math.hypot(q.x - a.x, q.z - a.z);
+        if (!best || dd < best.dd) best = { dd, s: q.s };
+      }
+      t.marks[`HX${k}`] = best.s;
+    }
+    t.helix = { from: Math.round(t.marks.HX0), to: Math.round(t.marks[`HX${def.helix.turns}`]), r: def.helix.r };
+  }
   // ロータリー: 真ん中に島を置き、島のまわりだけ道を広げる（島の両側を道の幅で走れる）
   t.islands = [];
   for (const rb of def.roundabouts ?? []) {
@@ -368,6 +418,7 @@ export function buildTrack(def) {
   }
   applyHeights(t, def);
   applyJumps(t, def);
+  applyKicks(t, def);
   for (const pad of def.pads ?? []) {
     let at = markS(t, pad.at);
     // crest: でこぼこの頂上（近くでいちばん高い所）に置く（2026-10-16 のユーザー依頼「底にあると踏めないことがある」）
@@ -388,6 +439,32 @@ export function buildTrack(def) {
     }
   }
   addBranches(t, def, fit);
+  applyGrip(t, def);
+  // トンネル（Kyugo Mountain）: TI〜TO の本線の点
+  if (def.tunnel) {
+    const from = refS(t, def.tunnel.from);
+    const to = refS(t, def.tunnel.to);
+    for (let i = 0; i < t.length; i++) t.samples[i].tunnel = between(t, t.samples[i].s, from, to);
+  }
+  // 雪山（地図の座標 → m）
+  t.peaks = (def.peaks ?? []).map((pk) => ({ ...t.toWorld(pk.at[0], pk.at[1]), h: pk.h, r: pk.r }));
+  // スローの板（Kyugo Mountain）: 長さ 30m、はば 道の30%。道のはしに寄せる
+  t.slows = (def.slows ?? []).map((sl) => {
+    const from = Math.round(markS(t, sl.at)) % t.length;
+    const half = 0.3 * def.roadHalf;
+    return { from, to: (from + 30) % t.length, lateral: sl.side * (def.roadHalf - half), half };
+  });
+  // らせんの段（Kyugo Mountain）: 上から見て、同じ道のほかの段と重なる点
+  if (t.helix) {
+    for (let i = t.helix.from; i <= t.helix.to; i++) {
+      for (let j = i + 60; j <= t.helix.to; j++) {
+        if (Math.hypot(samples[i].x - samples[j].x, samples[i].z - samples[j].z) < samples[i].wall * 2) {
+          samples[i].stacked = true;
+          samples[j].stacked = true;
+        }
+      }
+    }
+  }
   // 恐竜（Soki Forest。2026-10-16）: ジャンプ at の川。from〜to は、食べられる所（at からの m。川の上）
   if (def.dino) {
     const j = (def.jumps ?? []).find((q) => q.at === def.dino.at);
@@ -399,6 +476,20 @@ export function buildTrack(def) {
     const i = path.start + Math.round(m.at[1] * (path.count - 1));
     const p = t.samples[i];
     return { i, r: m.r, x: p.x - Math.sin(p.h) * m.lateral, z: p.z + Math.cos(p.h) * m.lateral, y: p.y ?? 0 };
+  });
+  // 雪だるま（Kyugo Mountain。2026-10-18）: 1体ずつ、左右に動く周期と跳ねるタイミングをずらす
+  t.snowmen = (def.snowmen ?? []).map((m, k) => {
+    let i;
+    const path = Array.isArray(m.at) && m.at.length === 2 ? t.paths.find((q) => q.id === m.at[0]) : null;
+    if (path) i = path.start + Math.round(m.at[1] * (path.count - 1));
+    else i = Math.round(refS(t, typeof m.at === 'string' ? [m.at, m.at, 0] : m.at) + (m.off ?? 0)) % t.length;
+    return { i, s: t.samples[i].s, path: t.samples[i].path, period: 4 + (k % 3), phase: k * 1.3 };
+  });
+  // コブ（Kyugo Mountain）
+  t.moguls = (def.moguls ?? []).map(([d, lateral]) => {
+    const i = Math.round(refS(t, ['BZ', 'BZ', 0]) + d) % t.length;
+    const p = t.samples[i];
+    return { i, r: def.moguR, x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, y: p.y ?? 0 };
   });
   // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
   t.monkeys = (def.monkeys ?? []).map((m) => {
@@ -461,6 +552,49 @@ function applyJumps(t, def) {
       }
       if (inSpan(p.s, j.gap)) { p.y = null; p.wall = def.roadHalf; }
     }
+  }
+}
+
+// すべりやすさ（Kyugo Mountain。2026-10-18）: 点の grip（1 ふつう、小さいほどすべる）
+export const GRIP_SNOW = 0.6;
+export const GRIP_ICE = 0.25;
+function applyGrip(t, def) {
+  for (const p of t.samples) p.grip = def.grip ?? 1;
+  for (const a of def.asphalt ?? []) {
+    const from = refS(t, a.from);
+    const to = refS(t, a.to);
+    for (let i = 0; i < t.length; i++) if (between(t, t.samples[i].s, from, to)) t.samples[i].grip = 1;
+  }
+  t.ices = (def.ices ?? []).map((ice) => {
+    const from = Math.round(markS(t, ice.at)) % t.length;
+    for (let k = 0; k < ice.len; k++) t.samples[(from + k) % t.length].grip = GRIP_ICE;
+    return { from, to: (from + ice.len) % t.length };
+  });
+}
+
+// 小さなジャンプ（Kyugo Mountain。2026-10-18）: 地面のある所で、ジャンプ台のいちばん上から決まった速さで小さく飛ぶ
+function applyKicks(t, def) {
+  t.kicks = [];
+  for (const j of def.kicks ?? []) {
+    const at = refS(t, [j.at, j.at, 0]);
+    const rel = (s) => ((s - at + t.length * 1.5) % t.length) - t.length / 2;
+    let top = null;
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      const d = rel(p.s);
+      if (d >= j.boost[0] && d < j.boost[1]) { p.boost = true; p.boostTime = 1.0; }
+      if (d >= j.ramp[0] && d < j.ramp[1]) {
+        p.ramp = true;
+        p.y += (j.ramp[2] * (d - j.ramp[0])) / (j.ramp[1] - j.ramp[0]);
+        if (top === null || rel(t.samples[top].s) < d) top = i;
+      }
+    }
+    t.samples[top].kick = true;
+    // 台のいちばん上の先に、同じ高さのふちを 1m（飛ぶ前に、下の地面へ下がりはじめないように）
+    const lip = t.samples[t.samples[top].next];
+    lip.y = t.samples[top].y;
+    lip.ramp = true;
+    t.kicks.push({ s: t.samples[top].s, top });
   }
 }
 
@@ -569,6 +703,16 @@ function addBranches(t, def, fit) {
         p.y = p.y * (1 - w) + (m.y ?? 0) * w;
       }
     }
+    // 分かれ道の加速板（Kyugo Mountain。at は分かれ道の上の割合）
+    for (const pad of b.pads ?? []) {
+      const a = Math.round(pad.at * (count - 1));
+      for (let k = 0; k < pad.len; k++) {
+        const q = samples[start + Math.min(count - 1, a + k)];
+        q.boost = true;
+        q.boostTime = pad.time;
+        q.boostSide = 0;
+      }
+    }
     (t.forks[fork] ??= []).push(pathIndex);
     (t.joins[join] ??= []).push(samples.length - 1);
     t.paths.push({ id: b.id, start, count: points.length, fork, join, len: total });
@@ -576,7 +720,8 @@ function addBranches(t, def, fit) {
   markBridges(t);
 }
 
-// 橋（2026-10-16 のユーザー依頼）: 本線が、高さが 4m 以上ちがうほかの道の上を通る所の前後 BRIDGE_REACH m を、橋の点にする
+// 橋（2026-10-16 のユーザー依頼。2026-10-18 に、分かれ道が上の所も）: 高さが 4m 以上ちがうほかの道の上を通る所の、
+// 上の道の前後 BRIDGE_REACH m を、橋の点にする
 export const BRIDGE_REACH = 40;
 export const PIER_HALF_THICK = 1.0; // 橋脚の厚さの半分（本線の向き。m）
 const PIER_OFFSETS = [-10.5, -3.5, 3.5, 10.5]; // 交わる所からの橋脚の場所（本線の向き。m）。すき間は 5m
@@ -584,21 +729,35 @@ const BOAR_GAP = 3.5; // イノシシの親子の間（m）
 function markBridges(t) {
   const { samples } = t;
   t.bridges = [];
+  // 上の道にそって前後へ BRIDGE_REACH 個（分かれ道のはしは本線へつながるので、ほかの道に出たら止める）
+  const reachMark = (i) => {
+    samples[i].bridge = true;
+    for (const dir of ['next', 'prev']) {
+      let k = i;
+      for (let c = 0; c < BRIDGE_REACH; c++) {
+        k = samples[k][dir];
+        if (samples[k].path !== samples[i].path) break;
+        samples[k].bridge = true;
+      }
+    }
+  };
   for (let i = t.length; i < samples.length; i++) {
     const q = samples[i];
     for (let j = 0; j < t.length; j++) {
       const p = samples[j];
-      if (p.y === null || p.y - q.y < 4 || Math.hypot(p.x - q.x, p.z - q.z) > 1.5) continue;
-      if (!t.bridges.some((b) => Math.abs(b.s - p.s) < BRIDGE_REACH)) t.bridges.push({ s: p.s, i: j, under: i });
+      if (p.y === null || q.y === null || Math.abs(p.y - q.y) < 4 || Math.hypot(p.x - q.x, p.z - q.z) > 1.5) continue;
+      const [up, down] = p.y > q.y ? [j, i] : [i, j];
+      const u = samples[up];
+      if (t.bridges.some((b) => samples[b.i].path === u.path && Math.hypot(samples[b.i].x - u.x, samples[b.i].z - u.z) < BRIDGE_REACH)) continue;
+      t.bridges.push({ s: u.s, i: up, under: down, path: u.path });
+      reachMark(up);
     }
   }
-  for (const p of samples.slice(0, t.length)) {
-    if (t.bridges.some((b) => Math.min(span(t, b.s, p.s), span(t, p.s, b.s)) < BRIDGE_REACH)) p.bridge = true;
-  }
   // 下の道の上の橋脚（2026-10-17 のユーザー依頼「写真のように橋の足を増やして、下を通りにくく」）。
-  // 橋のはばいっぱいの石の壁を、本線にそって PIER_GAP m おきに。下の道は、壁と壁のすき間を通る
+  // 橋のはばいっぱいの石の壁を、本線にそって PIER_GAP m おきに。下の道は、壁と壁のすき間を通る（本線の橋だけ。def.piers が false のコースはなし）
   t.bridgePiers = [];
-  for (const b of t.bridges) {
+  if (t.def.piers === false) return;
+  for (const b of t.bridges.filter((q) => q.path === 0)) {
     for (const off of PIER_OFFSETS) {
       const i = Math.round(b.s + off + t.length) % t.length;
       const p = samples[i];
@@ -697,7 +856,10 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
       const cz = Math.floor(z / NEAR_CELL);
       for (let gx = cx - 1; gx <= cx + 1; gx++) {
         for (let gz = cz - 1; gz <= cz + 1; gz++) {
-          for (const i of grid.get(`${gx},${gz}`) ?? []) scan(i);
+          // 地面のない所（ジャンプの上）の点は、高さで比べられないので、ここでは拾わない（つながりをたどれば拾える。
+          // 2026-10-18: B の上で浮いた車が、近くの A のジャンプの上へワープして落ちた）
+          // 車の高さとちがう道（橋の上・下、立体交差の近く）の点も拾わない（最終レビュー: 道のはしで上の道へワープした）
+          for (const i of grid.get(`${gx},${gz}`) ?? []) if (samples[i].y !== null && (y === null || Math.abs(samples[i].y - y) <= 2)) scan(i);
         }
       }
     }

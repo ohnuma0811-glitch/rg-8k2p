@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=3e79b84';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=3e79b84';
+import { midiToHz } from './notes.js?v=ba423c0';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=ba423c0';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -166,6 +166,14 @@ export function createSfx(audio) {
     },
     // ドリフトのボタンで跳ねたとき「ピヨン」: 高く上がって、少し戻る（2026-10-15 のユーザー依頼）
     hop: () => boing(),
+    // コブに当たった「ぼよん」（Kyugo Mountain）: 低く、上がって下がる、ゆれる音
+    boing: () => {
+      tone('sine', 180, 0.08, 0.5, { to: 320 });
+      tone('sine', 320, 0.3, 0.5, { to: 140, at: 0.08 });
+      tone('triangle', 90, 0.35, 0.25, { to: 60 });
+    },
+    // 雪だるまが跳ねて着いた「ぴょん」（Kyugo Mountain。小さく、短く高くなる）
+    snowmanHop: () => tone('sine', 600, 0.12, 0.3, { to: 1100 }),
     // ジャンプ台から着地したとき「ドッバーン」: もっと派手に（2026-10-15 のユーザー依頼）
     // 大きく長い「ドーン」＋地面がゆれる低い音＋シンバルのような「シャーン」＋はじける「バ」＋少し遅れたこだま
     land: () => {
@@ -409,10 +417,12 @@ export function createSfx(audio) {
         engine = { oscs, filter, gain };
       },
       // 毎フレーム呼ぶ（値をなめらかに近づけるだけ。物は作らない）
-      update(speed, top, boosting) {
+      // muffle: トンネルの中（Kyugo Mountain。0〜1）。高い音をけずって、こもった音に
+      update(speed, top, boosting, muffle = 0) {
         if (!engine) return;
         const p = engineParams(speed, top, boosting);
         const t = audio.ctx.currentTime;
+        engine.filter.frequency.setTargetAtTime(900 - 600 * muffle, t, 0.1);
         for (const o of engine.oscs) o.frequency.setTargetAtTime(p.freq, t, 0.05);
         engine.gain.gain.setTargetAtTime(p.gain, t, 0.08);
       },
