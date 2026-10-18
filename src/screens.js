@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=0776430';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=0776430';
+import { typeLetter, isValidName } from './names.js?v=cf5ab2b';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=cf5ab2b';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -202,12 +202,15 @@ function ordinalOf(n) {
   return `${n}${s}`;
 }
 
+// 上位10位の表の項目名（2026-10-18 のユーザー依頼「順位・日付・プレイヤーネーム・操作キャラクター・タイムを英語で」）
+export const TT_HEADINGS = ['RANK', 'DATE', 'PLAYER', 'CHARACTER', 'TIME'];
+
 // ゴールのあと: 上位10位の表と、ボタン（AGAIN・COURSES・TITLE）。押したボタンの id を返す
 export async function ttResults(root, { course, timeText, note, rows, buttons }) {
   show(root, `
     <h1 class="results-title">TIME TRIAL<small>${course}</small></h1>
     <p class="text">${timeText}${note ? `<br>${note}` : ''}</p>
-    <table class="results tt-table">${rows.length ? rows
+    <table class="results tt-table"><tr class="tt-head">${TT_HEADINGS.map((h) => `<th>${h}</th>`).join('')}</tr>${rows.length ? rows
       .map((r) => `<tr class="${r.me ? 'me' : ''}"><td class="place">${r.place}</td><td>${r.date}</td><td>${r.name}</td><td>${r.character}</td><td class="time">${r.time}</td></tr>`)
       .join('') : '<tr><td>No record yet</td></tr>'}</table>
     <div class="choices">${buttons.map((b) => `<button type="button" data-pick="${b.id}">${b.label}</button>`).join('')}</div>`);
@@ -228,11 +231,22 @@ export async function chooseCourse(root, courses, last = 0, { onSelect, records 
     <div class="choices"><button type="button" class="ok-btn" data-pick="ok">OK ▶</button></div>`);
   root.classList.add('see-through'); // うしろのコースが見えるように
   const buttons = [...root.querySelectorAll('.courses [data-pick]')];
+  // ボタンの大きさを、いちばん大きいボタンにそろえる（2026-10-18 のユーザー依頼）
+  const evenSize = () => {
+    buttons.forEach((b) => { b.style.width = ''; b.style.height = ''; });
+    const w = Math.max(...buttons.map((b) => b.offsetWidth));
+    const h = Math.max(...buttons.map((b) => b.offsetHeight));
+    buttons.forEach((b) => { b.style.width = `${w}px`; b.style.height = `${h}px`; });
+  };
+  evenSize();
   // みんなの記録を受け取ったら、ボタンの記録を出し直す
-  refresh?.then(() => buttons.forEach((b, k) => {
-    const rec = b.querySelector('.rec');
-    if (rec) rec.outerHTML = recordHtml(courses[k]);
-  }));
+  refresh?.then(() => {
+    buttons.forEach((b, k) => {
+      const rec = b.querySelector('.rec');
+      if (rec) rec.outerHTML = recordHtml(courses[k]);
+    });
+    evenSize();
+  });
   let selected = last;
   markPicked(buttons, String(selected));
   onSelect?.(selected, false);

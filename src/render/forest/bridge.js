@@ -1,7 +1,7 @@
 // 石のアーチ橋（Soki Forest。2026-10-16 のユーザー依頼「下の道の上に大きな橋を」）。
 // 本線の橋の点（p.bridge）に沿って、石の板（道の下）・石の手すり・橋脚と、橋脚の間のアーチを作る。
 // 下の道（ほかの道）の上は、橋脚を置かず、大きなアーチにする
-import { createBuilder } from '../town/builder.js?v=0776430';
+import { createBuilder } from '../town/builder.js?v=cf5ab2b';
 
 const STONE = 0x9a958c; // 橋の石
 const STONE_DARK = 0x8a857c; // アーチの内側（少し暗く）
@@ -15,6 +15,7 @@ const SNOW_STONE = 0xb8bec6;
 const SNOW_STONE_DARK = 0xa4aab3;
 const SNOW_RAIL = 0xd0d5db;
 const SNOW = 0xf4f7fb;
+const SNOW_PIER_EVERY = 20; // 雪山の橋の柱の間（m）
 
 // 橋の点を、同じ道の next でつながる続きごとに分ける（本線の橋も、分かれ道の橋も。2026-10-18）
 function bridgeRuns(samples) {
@@ -83,6 +84,24 @@ function buildRun(b, track, pts, snow) {
     }
     return below;
   });
+  // 雪山（Kyugo Mountain）: 橋の両はしの細い柱だけ（20m ごと）。アーチを箱で積むと、曲がった坂の橋で段々の岩のように見えた（2026-10-18 のユーザー依頼）
+  if (snow) {
+    pts.forEach((p, k) => {
+      const top = p.y - DECK;
+      if (k % SNOW_PIER_EVERY !== SNOW_PIER_EVERY / 2 || top <= 0.5) return;
+      for (const x of [-(width / 2 - 1.2), width / 2 - 1.2]) {
+        // 柱を立てる所が、下の道（車の通る所）にかからないか
+        const [rx, rz] = [-Math.sin(p.h), Math.cos(p.h)];
+        const cx = p.x - rx * x;
+        const cz = p.z - rz * x;
+        if (lower.some((q) => q.y < top && Math.abs(q.x - cx) < 30 && Math.abs(q.z - cz) < 30 && Math.hypot(q.x - cx, q.z - cz) < q.wall + 2)) continue;
+        b.push(p.x, 0, p.z, ryOf(p));
+        b.box(2, top, 2, stone, x, 0, 0);
+        b.pop();
+      }
+    });
+    return;
+  }
   const pierK = [];
   pts.forEach((p, k) => {
     if (k % PIER_EVERY === 0 && !nearUnder(k) && blocked[k] === null) pierK.push(k);

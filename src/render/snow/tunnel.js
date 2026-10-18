@@ -1,13 +1,14 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import { createBuilder } from '../town/builder.js?v=0776430';
+import * as THREE from '../../../vendor/three.module.min.js?v=cf5ab2b';
+import { createBuilder } from '../town/builder.js?v=cf5ab2b';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const WALL = 0x5a5f66;
 const CEIL = 0x4a4e55;
 const ARCH = 0x9a958c;
-const STEP = 2; // 壁と天井の板の間（m）
 
 export function buildTunnel(track) {
+  const group = new THREE.Group();
   const b = createBuilder();
   const pts = track.samples.slice(0, track.length).filter((p) => p.tunnel);
   if (!pts.length) return b.build();
@@ -25,21 +26,48 @@ export function buildTunnel(track) {
     }
     return top;
   };
-  for (let k = 0; k < pts.length; k += STEP) {
-    const p = pts[k];
+  // 壁・天井・道の裏は、点と点をつないだ一続きの面（板を並べると、カーブですき間から縦じまに見えた。2026-10-18 のユーザー依頼）
+  const rightOf = (p) => [-Math.sin(p.h), Math.cos(p.h)];
+  const info = pts.map((p) => {
     const w = p.wall + 0.5;
-    const [rx, rz] = [-Math.sin(p.h), Math.cos(p.h)];
-    b.push(p.x, p.y, p.z, ryOf(p));
+    const [rx, rz] = rightOf(p);
+    return {
+      p,
+      w,
+      wall: { '-1': roof(p, p.x - rx * w, p.z - rz * w, 0.5), 1: roof(p, p.x + rx * w, p.z + rz * w, 0.5) },
+      ceil: roof(p, p.x, p.z, w) >= TUNNEL_HEIGHT,
+    };
+  });
+  const pos = [];
+  const col = [];
+  const c = new THREE.Color();
+  const quad = (a, bb, cc, d, color) => {
+    pos.push(...a, ...bb, ...cc, ...cc, ...bb, ...d);
+    c.setHex(color);
+    for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
+  };
+  const at = (p, lat, y) => {
+    const [rx, rz] = rightOf(p);
+    return [p.x + rx * lat, y, p.z + rz * lat];
+  };
+  for (let k = 0; k + 1 < info.length; k++) {
+    const A = info[k];
+    const B = info[k + 1];
+    if (track.samples[A.p.next] !== B.p) continue;
     for (const side of [-1, 1]) {
-      const h = roof(p, p.x + rx * side * w, p.z + rz * side * w, 0.5);
-      // 部品の +x は道の左（ryOf の回転）なので、右（side 1）は -x
-      if (h > 0.3) b.box(0.8, h, STEP + 0.2, WALL, -side * w, 0, 0);
+      const ha = A.wall[side];
+      const hb = B.wall[side];
+      if (ha > 0.3 && hb > 0.3) quad(at(A.p, side * A.w, A.p.y), at(B.p, side * B.w, B.p.y), at(A.p, side * A.w, A.p.y + ha), at(B.p, side * B.w, B.p.y + hb), WALL);
     }
-    if (roof(p, p.x, p.z, w) >= TUNNEL_HEIGHT) b.box(2 * w + 0.8, 0.6, STEP + 0.2, CEIL, 0, TUNNEL_HEIGHT, 0);
+    if (A.ceil && B.ceil) quad(at(A.p, -A.w, A.p.y + TUNNEL_HEIGHT + 0.3), at(B.p, -B.w, B.p.y + TUNNEL_HEIGHT + 0.3), at(A.p, A.w, A.p.y + TUNNEL_HEIGHT + 0.3), at(B.p, B.w, B.p.y + TUNNEL_HEIGHT + 0.3), CEIL);
     // 道の裏（下の段から見たときの天井。道の絵が透けて見えないように。2026-10-18 のユーザー依頼「上部に道路が映っている」）
-    b.box(2 * w + 0.8, 0.4, STEP + 0.2, CEIL, 0, -0.5, 0);
-    b.pop();
+    quad(at(A.p, -A.w, A.p.y - 0.3), at(B.p, -B.w, B.p.y - 0.3), at(A.p, A.w, A.p.y - 0.3), at(B.p, B.w, B.p.y - 0.3), CEIL);
   }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
   // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）
   for (const p of [pts[0], pts[pts.length - 1]]) {
     const w = p.wall + 1.5;
@@ -49,7 +77,8 @@ export function buildTunnel(track) {
     b.box(2 * w + 2.5, 3, 2, ARCH, 0, TUNNEL_HEIGHT, 0);
     b.pop();
   }
-  return b.build();
+  group.add(b.build());
+  return group;
 }
 
 // トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）

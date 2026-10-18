@@ -1,19 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=0776430';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0776430';
-import { buildJungle } from './town/jungle.js?v=0776430';
-import { buildWater } from './town/water.js?v=0776430';
-import { buildBridge } from './forest/bridge.js?v=0776430';
-import { buildTunnel } from './snow/tunnel.js?v=0776430';
-import { buildSnowScenery } from './snow/kit.js?v=0776430';
-import { buildSigns } from './snow/signs.js?v=0776430';
-import * as forestKit from './forest/kit.js?v=0776430';
-import { createBuilder } from './town/builder.js?v=0776430';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=0776430';
-import { buildTerrain, terrainHeight } from './terrain.js?v=0776430';
-import { mergeMeshes } from './mergeMeshes.js?v=0776430';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=0776430';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=0776430';
+import * as THREE from '../../vendor/three.module.min.js?v=cf5ab2b';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=cf5ab2b';
+import { buildJungle } from './town/jungle.js?v=cf5ab2b';
+import { buildWater } from './town/water.js?v=cf5ab2b';
+import { buildBridge } from './forest/bridge.js?v=cf5ab2b';
+import { buildTunnel } from './snow/tunnel.js?v=cf5ab2b';
+import { buildSnowScenery } from './snow/kit.js?v=cf5ab2b';
+import { buildSigns } from './snow/signs.js?v=cf5ab2b';
+import * as forestKit from './forest/kit.js?v=cf5ab2b';
+import { createBuilder } from './town/builder.js?v=cf5ab2b';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=cf5ab2b';
+import { buildTerrain, terrainHeight } from './terrain.js?v=cf5ab2b';
+import { mergeMeshes } from './mergeMeshes.js?v=cf5ab2b';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=cf5ab2b';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=cf5ab2b';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -730,7 +730,7 @@ export function buildTrackMesh(track) {
   // 加速板: オレンジに黄色の矢印（続いている所ごとに1枚）
   const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
   // 加速板は道の高さに（坂の上の加速板が道の下にかくれないように。2026-10-16 のユーザー依頼「遠いルートの加速板が見えない」）
-  for (const [from, to, side] of boostRuns(samples)) group.add(strip(track, from, to, (p) => (p.y ?? 0) + 0.06, padMat, 1, side));
+  for (const [from, to, side] of mainBoostRuns(track)) group.add(strip(track, from, to, (p) => (p.y ?? 0) + 0.06, padMat, 1, side));
   for (const run of boostRunsAll(track)) group.add(runStrip(track, run, (p) => (p.y ?? 0) + 0.06, padMat));
   // 雪山: ジャンプ台の上も、赤に黄色の矢印（どこがジャンプ台か見えるように。2026-10-18 のユーザー依頼）
   if (snow) {
@@ -920,6 +920,11 @@ function runStrip(track, run, y, material, tiles = 1) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   return new THREE.Mesh(g, material);
+}
+
+// 本線の加速板（s の始まりと終わり、片側か）。分かれ道の点は、本線と同じ s を持つので入れない（2026-10-18: B の加速板が本線に描かれていた）
+export function mainBoostRuns(track) {
+  return boostRuns(track.samples.slice(0, track.length));
 }
 
 function boostRuns(samples) {
