@@ -576,7 +576,8 @@ function addBranches(t, def, fit) {
   markBridges(t);
 }
 
-// 橋（2026-10-16 のユーザー依頼）: 本線が、高さが 4m 以上ちがうほかの道の上を通る所の前後 BRIDGE_REACH m を、橋の点にする
+// 橋（2026-10-16 のユーザー依頼。2026-10-18 に、分かれ道が上の所も）: 高さが 4m 以上ちがうほかの道の上を通る所の、
+// 上の道の前後 BRIDGE_REACH m を、橋の点にする
 export const BRIDGE_REACH = 40;
 export const PIER_HALF_THICK = 1.0; // 橋脚の厚さの半分（本線の向き。m）
 const PIER_OFFSETS = [-10.5, -3.5, 3.5, 10.5]; // 交わる所からの橋脚の場所（本線の向き。m）。すき間は 5m
@@ -584,21 +585,35 @@ const BOAR_GAP = 3.5; // イノシシの親子の間（m）
 function markBridges(t) {
   const { samples } = t;
   t.bridges = [];
+  // 上の道にそって前後へ BRIDGE_REACH 個（分かれ道のはしは本線へつながるので、ほかの道に出たら止める）
+  const reachMark = (i) => {
+    samples[i].bridge = true;
+    for (const dir of ['next', 'prev']) {
+      let k = i;
+      for (let c = 0; c < BRIDGE_REACH; c++) {
+        k = samples[k][dir];
+        if (samples[k].path !== samples[i].path) break;
+        samples[k].bridge = true;
+      }
+    }
+  };
   for (let i = t.length; i < samples.length; i++) {
     const q = samples[i];
     for (let j = 0; j < t.length; j++) {
       const p = samples[j];
-      if (p.y === null || p.y - q.y < 4 || Math.hypot(p.x - q.x, p.z - q.z) > 1.5) continue;
-      if (!t.bridges.some((b) => Math.abs(b.s - p.s) < BRIDGE_REACH)) t.bridges.push({ s: p.s, i: j, under: i });
+      if (p.y === null || q.y === null || Math.abs(p.y - q.y) < 4 || Math.hypot(p.x - q.x, p.z - q.z) > 1.5) continue;
+      const [up, down] = p.y > q.y ? [j, i] : [i, j];
+      const u = samples[up];
+      if (t.bridges.some((b) => samples[b.i].path === u.path && Math.hypot(samples[b.i].x - u.x, samples[b.i].z - u.z) < BRIDGE_REACH)) continue;
+      t.bridges.push({ s: u.s, i: up, under: down, path: u.path });
+      reachMark(up);
     }
   }
-  for (const p of samples.slice(0, t.length)) {
-    if (t.bridges.some((b) => Math.min(span(t, b.s, p.s), span(t, p.s, b.s)) < BRIDGE_REACH)) p.bridge = true;
-  }
   // 下の道の上の橋脚（2026-10-17 のユーザー依頼「写真のように橋の足を増やして、下を通りにくく」）。
-  // 橋のはばいっぱいの石の壁を、本線にそって PIER_GAP m おきに。下の道は、壁と壁のすき間を通る
+  // 橋のはばいっぱいの石の壁を、本線にそって PIER_GAP m おきに。下の道は、壁と壁のすき間を通る（本線の橋だけ。def.piers が false のコースはなし）
   t.bridgePiers = [];
-  for (const b of t.bridges) {
+  if (t.def.piers === false) return;
+  for (const b of t.bridges.filter((q) => q.path === 0)) {
     for (const off of PIER_OFFSETS) {
       const i = Math.round(b.s + off + t.length) % t.length;
       const p = samples[i];

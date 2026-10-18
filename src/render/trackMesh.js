@@ -647,6 +647,8 @@ export function buildTrackMesh(track) {
     group.add(buildWater(track, avoid));
   }
 
+  // 雪山（Kyugo Mountain）: 雪のつもった石の橋
+  if (snow) group.add(buildBridge(track, { snow: true }));
   // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
   if (forest) {
     group.add(buildBridge(track));
