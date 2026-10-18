@@ -7,8 +7,7 @@ import { COURSE3, COURSES } from '../src/data/tracks.js';
 
 const t = buildTrack(COURSE3);
 
-test('Soki Forest は3つ目のコース。大会は3レース（2026-10-16 のユーザー依頼）', () => {
-  assert.equal(COURSES.length, 3);
+test('Soki Forest は3つ目のコース（2026-10-16 のユーザー依頼）', () => {
   assert.equal(COURSES[2], COURSE3);
   assert.equal(COURSE3.name, 'Soki Forest');
   assert.equal(COURSE3.theme, 'forest');

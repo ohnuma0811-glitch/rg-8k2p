@@ -165,6 +165,6 @@ test('コースの一覧: 1つ目は Kenta Circuit。どのコースにも名前
   assert.equal(COURSES[0].name, 'Kenta Circuit');
   for (const c of COURSES) {
     assert.ok(c.name && SONGS[c.music], c.name);
-    assert.ok(['circuit', 'town', 'forest'].includes(c.theme), c.name);
+    assert.ok(['circuit', 'town', 'forest', 'snow'].includes(c.theme), c.name);
   }
 });

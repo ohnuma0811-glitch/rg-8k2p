@@ -93,4 +93,16 @@ export const SONGS = {
            F5:2 G5:2 A5:2 C6:2 D6:2 C6:2 A5:2 C6:2  D6:2 F6:2 G6:2 A6:2 G6:4 F6:4  D6:2 C6:2 A5:2 G5:2 A5:4 C6:4  F6:4 C6:4 F5:4 R:4`,
     drums: { kick: 'x.....x...x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xx' },
   },
+  // Kyugo Mountain（2026-10-18）: 雪山の、鈴の音の明るくはずむ曲（G メジャー）
+  snow: {
+    voice: 'sleigh',
+    bpm: 150,
+    bars: 16,
+    chords: ['G', 'Am', 'G', 'D', 'C', 'G', 'Em', 'D', 'G', 'C', 'D', 'C', 'G', 'D', 'C', 'G'],
+    lead: `G5:2 B5:2 D6:2 B5:2 G6:4 D6:4  E6:2 D6:2 C6:2 B5:2 A5:8  B5:2 D6:2 G6:2 A6:2 B6:4 A6:4  G6:2 E6:2 D6:2 B5:2 D6:8
+           C6:1 E6:1 G6:2 E6:2 C6:2 E6:2 G6:2 A6:4  B6:2 A6:2 G6:2 E6:2 D6:8  G6:2 F#6:2 E6:2 D6:2 B5:4 D6:4  E6:4 F#6:4 G6:8
+           D6:3 B5:1 G5:2 B5:2 D6:2 G6:2 B6:4  A6:3 G6:1 E6:2 C6:2 E6:8  D6:2 E6:2 F#6:2 A6:2 G6:4 F#6:4  E6:2 D6:2 B5:2 A5:2 G5:8
+           B5:2 D6:2 G6:2 D6:2 E6:2 G6:2 C7:2 B6:2  A6:2 F#6:2 D6:2 F#6:2 A6:4 B6:4  G6:2 E6:2 C6:2 E6:2 D6:4 B5:4  G6:4 D6:4 G5:4 R:4`,
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx' },
+  },
 };

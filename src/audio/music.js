@@ -126,6 +126,17 @@ export const LEAD_VOICES = {
     release: 0.4,
     decay: 0.12,
   },
+  // Kyugo Mountain（2026-10-18）: そりの鈴ふう（高い音を重ねて、シャラッと短く鳴る）
+  sleigh: {
+    layers: [{ type: 'sine', detune: 0, gain: 1 }, { type: 'sine', detune: 1200, gain: 0.5 }, { type: 'triangle', detune: 2786, gain: 0.12 }],
+    gain: 0.13,
+    cutoff: null,
+    vibrato: 6,
+    attack: 0.002,
+    sustain: 0.2,
+    release: 0.25,
+    decay: 0.09,
+  },
 };
 
 export const FINAL_LAP_RATE = 1.12; // 最後の周は、曲をこの速さで流す
