@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MODES } from '../src/screens.js';
 
-test('タイトルで選べるのは4つ: SOLO RACE / TIME TRIAL / VS RACE / BATTLE（2026-10-14 のユーザー依頼）。いま遊べるのは SOLO RACE だけ', () => {
+test('タイトルで選べるのは4つ: SOLO RACE / TIME TRIAL / VS RACE / BATTLE（2026-10-14 のユーザー依頼）。いま遊べるのは SOLO RACE と TIME TRIAL（2026-10-18）', () => {
   assert.deepEqual(MODES.map((m) => m.id), ['solo', 'timetrial', 'versus', 'battle']);
   assert.deepEqual(MODES.map((m) => m.label), ['SOLO RACE', 'TIME TRIAL', 'VS RACE', 'BATTLE']);
-  assert.deepEqual(MODES.filter((m) => m.ready).map((m) => m.id), ['solo']);
+  assert.deepEqual(MODES.filter((m) => m.ready).map((m) => m.id), ['solo', 'timetrial']);
   for (const m of MODES) assert.ok(m.icon && m.sub, m.id);
 });
 
@@ -60,4 +60,20 @@ test('Level を選ぶと、そのボタンが光り（ほかは消える）、�
   markPicked(list, '3');
   assert.deepEqual(list.map((b) => [...b.cls].sort().join(',')), ['', '', 'picked']);
   assert.ok(PICK_GLOW_MS >= 300 && PICK_GLOW_MS <= 900);
+});
+
+test('TIME TRIAL: 名前 → コース選び → キャラ選び。BACK で1つ前へ（2026-10-18 のユーザー依頼）', async () => {
+  const { prevScreen } = await import('../src/screens.js');
+  assert.equal(prevScreen('course', 'timetrial'), 'name');
+  assert.equal(prevScreen('character', 'timetrial'), 'course');
+  assert.equal(prevScreen('name', 'timetrial'), 'title');
+  assert.equal(prevScreen('character'), 'name'); // SOLO はいままで
+  assert.equal(prevScreen('level'), 'character');
+});
+
+test('コース選び: 押したコースを選ぶ（背景に出す）。同じコースをもう一度押すか OK で決まる', async () => {
+  const { courseStep } = await import('../src/screens.js');
+  assert.deepEqual(courseStep(0, '2'), { selected: 2, done: false });
+  assert.deepEqual(courseStep(2, '2'), { selected: 2, done: true });
+  assert.deepEqual(courseStep(1, 'ok'), { selected: 1, done: true });
 });

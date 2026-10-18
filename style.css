@@ -743,3 +743,17 @@ html, body {
 #vignette.black {
   background: #000;
 }
+
+/* TIME TRIAL（2026-10-18）: 順位と上位3人は出さない */
+#race-hud.solo-tt #rank,
+#race-hud.solo-tt #top3 {
+  display: none;
+}
+/* コース選び: うしろのコースが見えるように、暗くせず、ボタンは下に */
+#menu.see-through {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent 55%);
+  align-items: flex-end;
+}
+#menu.see-through h1 {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}

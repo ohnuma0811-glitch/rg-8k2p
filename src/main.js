@@ -26,6 +26,7 @@ import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
+import { updateBest } from './timetrial.js';
 import { createAudio } from './audio/audio.js';
 import { createSfx } from './audio/sfx.js';
 import { createVoices } from './audio/voice.js';
@@ -219,9 +220,11 @@ function commitPlay() {
 }
 
 // ---- レース ----
-function createGame(name, charId, level = 2, cup = null) {
+// solo: TIME TRIAL（CPU なし。自分の車だけ）
+function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) {
   const me = PLAYER_CHARS.find((c) => c.id === charId);
-  const count = CPU_COUNT + 1;
+  const count = solo ? 1 : CPU_COUNT + 1;
+  const mySlot = solo ? 0 : PLAYER_SLOT;
   const race = createRace(count);
   const base = kartParams({ accel: 3, top: 3, handling: 3 });
   const karts = [];
@@ -234,7 +237,7 @@ function createGame(name, charId, level = 2, cup = null) {
   for (let k = 0; k < count; k++) {
     const slot = gridSlot(track, order.indexOf(k));
     karts.push(createKart(track, slot.i, slot.lateral));
-    const isMe = k === PLAYER_SLOT;
+    const isMe = k === mySlot;
     const look = isMe ? { body: me.body, character: me.id } : CPU_LOOKS[cpuNo];
     cpus.push(isMe ? createCpu(7, seed) : createCpu(cpuNo, seed));
     models.push(mergeStatic(createKartModel(look))); // 動かない部品は1つの形に（タブレットで描く回数を減らす）
@@ -249,11 +252,11 @@ function createGame(name, charId, level = 2, cup = null) {
     scene.add(sh);
     return sh;
   });
-  const names = karts.map((_, k) => (k === PLAYER_SLOT ? name : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1].name));
+  const names = karts.map((_, k) => (k === mySlot ? name : CPU_LOOKS[k < mySlot ? k : k - 1].name));
   // 頭の上の名前の札（自分の車には付けない。画面の真ん中をふさがないように）
   const tags = models.map((m, k) => {
-    if (k === PLAYER_SLOT) return null;
-    const look = CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1];
+    if (k === mySlot) return null;
+    const look = CPU_LOOKS[k < mySlot ? k : k - 1];
     const tag = createNameTag(names[k], `#${look.body.toString(16).padStart(6, '0')}`);
     m.add(tag);
     return tag;
@@ -272,7 +275,7 @@ function createGame(name, charId, level = 2, cup = null) {
     tags,
     // マップの点と、上位3人のアイコン（体の色と、キャラのしるし）
     faces: karts.map((_, k) => {
-      const look = k === PLAYER_SLOT ? { body: me.body, character: me.id } : CPU_LOOKS[k < PLAYER_SLOT ? k : k - 1];
+      const look = k === mySlot ? { body: me.body, character: me.id } : CPU_LOOKS[k < mySlot ? k : k - 1];
       const ch = PLAYER_CHARS.find((c) => c.id === look.character);
       return { color: `#${look.body.toString(16).padStart(6, '0')}`, icon: ch.icon, character: ch.id };
     }),
@@ -284,7 +287,7 @@ function createGame(name, charId, level = 2, cup = null) {
     tunnel: { dark: 0, black: 0 }, // トンネルの暗さ（Kyugo Mountain）
     wallQuiet: Infinity, // 壁から離れている秒数（壁の音を最初だけ鳴らす）
     sound: null, // 前のフレームの音の様子
-    me: PLAYER_SLOT,
+    me: mySlot,
     prev: karts.map(poseOf),
     contacts: new Set(),
     playSec: 0,
@@ -680,6 +683,51 @@ async function runRace(name, charId, cup, level = 2) {
   return over ? 'title' : 'next';
 }
 
+// TIME TRIAL の1レース（2026-10-18 のユーザー依頼）: CPU なしで3周。ゴールしたらタイムといちばん速いタイム。
+// 'again'（同じコースをもう一度）・'courses'（コース選びへ）・'title' を返す
+async function runTimeTrial(name, charId, def) {
+  useCourse(def);
+  music.stop(1.5);
+  await screens.courseIntro(menu, course.name, 'TIME TRIAL', COURSE_INTRO);
+  game = createGame(name, charId, 2, null, { solo: true });
+  track.dinoChomp = null;
+  buildTop3(game);
+  sfx.engine.start();
+  if (standSpot) crowd.start();
+  camera.userData = {};
+  raceHud.classList.add('show', 'solo-tt');
+  speedo.classList.remove('hidden');
+  countEl.classList.remove('go');
+  placeButtons();
+  const why = await new Promise((resolve) => {
+    game.onEnd = resolve;
+  });
+  commitPlay();
+  showChomp(null);
+  raceHud.classList.remove('show', 'solo-tt');
+  if (why === 'title') {
+    removeGame();
+    placeButtons();
+    return 'title';
+  }
+  music.stop(FADE_SEC);
+  await fade(1);
+  const time = game.race.entries[game.me].time;
+  removeGame();
+  placeButtons();
+  const r = updateBest(load('ttBest', {}), course.name, time);
+  save('ttBest', r.bests);
+  music.play(r.record ? 'victory' : 'results');
+  const text = `${course.name}<br>TIME ${timeText(time)}<br>${r.record ? '★ NEW RECORD! ★' : `BEST ${timeText(r.best)}`}`;
+  const shown = screens.message(menu, 'Time Trial', text, [
+    { id: 'again', label: '↻ AGAIN' },
+    { id: 'courses', label: '◀ COURSES' },
+    { id: 'title', label: '⌂ TITLE' },
+  ]);
+  fade(0);
+  return shown;
+}
+
 // 一時停止（SOLO だけ）: つづける / タイトルへ
 pauseBtn.addEventListener('click', async () => {
   // ゴールして結果の画面へ移る途中（画面が暗くなっていく間）は、止めない（M5 のレビュー）
@@ -715,23 +763,29 @@ async function seeYouTomorrow(name) {
 }
 
 async function flow() {
+  let resume = null; // TIME TRIAL の結果で「コース選び」を押したとき: { mode, name } でコース選びから
   for (;;) {
     music.play('title'); // タイトル・名前・キャラ選びの間ずっと（同じ曲が流れていれば何もしない）
-    useCourse(COURSES[0]); // タイトルのカメラは1つ目のコースを映す
-    // タイトル → 名前 → キャラ選び。BACK で1つ前の画面へ戻る
-    let screen = 'title';
-    let name = null;
+    // タイトル → 名前 → キャラ選び（→ Level）。BACK で1つ前の画面へ戻る
+    // TIME TRIAL（2026-10-18 のユーザー依頼）: タイトル → 名前 → コース選び → キャラ選び
+    let mode = resume?.mode ?? 'solo';
+    let screen = resume ? 'course' : 'title';
+    let name = resume?.name ?? null;
+    resume = null;
+    if (screen === 'title') useCourse(COURSES[0]); // タイトルのカメラは1つ目のコースを映す
     let charId = null;
     let level = null; // CPU の速さ（1〜3。2026-10-17 のユーザー依頼）
-    while (!level) {
+    let courseNo = load('ttCourse', 0);
+    let ready = false;
+    while (!ready) {
       if (screen === 'title') {
-        await screens.title(menu, audio);
+        mode = await screens.title(menu, audio);
         screen = 'name';
       } else if (screen === 'name') {
         const recent = cleanRecent(load('recent', []));
         name = await screens.askName(menu, recent);
         if (name === screens.BACK) {
-          screen = screens.prevScreen('name');
+          screen = screens.prevScreen('name', mode);
           continue;
         }
         save('recent', addRecent(recent, name));
@@ -740,25 +794,54 @@ async function flow() {
           screen = 'title';
           continue;
         }
+        screen = mode === 'timetrial' ? 'course' : 'character';
+      } else if (screen === 'course') {
+        // コースを押すと、そのコースを背景に映す（タイトルと同じカメラ）。もう一度押すと決まる
+        const pick = await screens.chooseCourse(menu, COURSES, courseNo, {
+          onSelect: (k, sound) => {
+            useCourse(COURSES[k]);
+            if (sound) sfx.play('select');
+          },
+        });
+        if (pick === screens.BACK) {
+          useCourse(COURSES[0]);
+          screen = screens.prevScreen('course', mode);
+          continue;
+        }
+        courseNo = pick;
+        save('ttCourse', courseNo);
         screen = 'character';
       } else if (screen === 'character') {
         const pick = await screens.chooseCharacter(menu, PLAYER_CHARS, remainingText(remainingSec(playStore(), name, Date.now())));
-        if (pick === screens.BACK) screen = screens.prevScreen('character');
+        if (pick === screens.BACK) screen = screens.prevScreen('character', mode);
         else {
           charId = pick;
-          screen = 'level';
+          if (mode === 'timetrial') ready = true;
+          else screen = 'level';
         }
       } else {
         // レースの画面: CPU の速さを選ぶ（前に選んだ Level を覚えておく）
         const pick = await screens.chooseLevel(menu, load('level', 2), { onSelect: () => sfx.play('select') });
-        if (pick === screens.BACK) screen = screens.prevScreen('level');
+        if (pick === screens.BACK) screen = screens.prevScreen('level', mode);
         else {
           level = pick;
           save('level', level);
+          ready = true;
         }
       }
     }
-    // 大会（コースの数のレースの、合計ポイントで優勝を決める）
+    if (mode === 'timetrial') {
+      for (;;) {
+        const pick = await runTimeTrial(name, charId, COURSES[courseNo]);
+        if (remainingSec(playStore(), name, Date.now()) <= 0) {
+          await seeYouTomorrow(name);
+          break;
+        }
+        if (pick === 'courses') resume = { mode, name };
+        if (pick !== 'again') break;
+      }
+      continue;
+    }
     const cup = createCup(CPU_COUNT + 1, COURSES.length);
     for (;;) {
       const pick = await runRace(name, charId, cup, level);

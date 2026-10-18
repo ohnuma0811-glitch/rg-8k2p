@@ -7,8 +7,11 @@ const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 // 前の画面に戻る（名前入力とキャラ選びの左上の ◀ BACK、パソコンでは Esc。2026-10-15 のユーザー依頼）
 export const BACK = 'back';
 const SCREENS = ['title', 'name', 'character', 'level'];
-export function prevScreen(screen) {
-  return SCREENS[Math.max(0, SCREENS.indexOf(screen) - 1)];
+// TIME TRIAL（2026-10-18 のユーザー依頼）: 名前のあとにコース選び、キャラ選びでレースへ
+const TT_SCREENS = ['title', 'name', 'course', 'character'];
+export function prevScreen(screen, mode = 'solo') {
+  const list = mode === 'timetrial' ? TT_SCREENS : SCREENS;
+  return list[Math.max(0, list.indexOf(screen) - 1)];
 }
 const BACK_BUTTON = '<button type="button" class="back-btn" data-pick="back" data-back="1">◀ BACK</button>';
 
@@ -35,7 +38,7 @@ function waitPick(root) {
 // タイトルで選べる遊び方（2026-10-14 のユーザー依頼）。ready でないものは「準備中」と出す
 export const MODES = [
   { id: 'solo', label: 'SOLO RACE', icon: '🏁', sub: '1 player + 4 CPU', ready: true },
-  { id: 'timetrial', label: 'TIME TRIAL', icon: '⏱️', sub: 'Practice alone · 3 laps', ready: false },
+  { id: 'timetrial', label: 'TIME TRIAL', icon: '⏱️', sub: 'Practice alone · 3 laps', ready: true },
   { id: 'versus', label: 'VS RACE', icon: '👥', sub: '2〜8 players', ready: false, code: true },
   { id: 'battle', label: 'BATTLE', icon: '🎈', sub: '3 hits and you are out', ready: false, code: true },
 ];
@@ -178,6 +181,46 @@ export const LEVELS = [
   { id: 3, label: 'Level 3', sub: 'Hard' },
 ];
 // レースの画面: CPU の速さを選ぶ。選んだ Level（1〜3）か BACK を返す。last は前に選んだ Level（ふちを光らせる）
+// コース選び（TIME TRIAL）: 押したコースを選んで背景に出す。同じコースをもう一度押すか OK で決まる
+export function courseStep(selected, pick) {
+  if (pick === 'ok') return { selected, done: true };
+  const k = Number(pick);
+  return { selected: k, done: k === selected };
+}
+
+// courses: コースの一覧（name）。onSelect(k): 選んだコースを背景に出す・音を鳴らす。決まったコースの番号か BACK を返す
+export async function chooseCourse(root, courses, last = 0, { onSelect } = {}) {
+  show(root, `
+    ${BACK_BUTTON}
+    <h1>Time Trial</h1>
+    <p class="text">Choose a course · tap again to start</p>
+    <div class="choices levels courses">${courses.map((c, k) => `<button type="button" data-pick="${k}">${c.name}</button>`).join('')}</div>
+    <div class="choices"><button type="button" class="ok-btn" data-pick="ok">OK ▶</button></div>`);
+  root.classList.add('see-through'); // うしろのコースが見えるように
+  const buttons = [...root.querySelectorAll('.courses [data-pick]')];
+  let selected = last;
+  markPicked(buttons, String(selected));
+  onSelect?.(selected, false);
+  for (;;) {
+    const pick = await waitPick(root);
+    if (pick === BACK) break;
+    const step = courseStep(selected, pick);
+    if (step.done) {
+      root.onclick = null;
+      root.classList.remove('see-through');
+      hide(root);
+      return step.selected;
+    }
+    selected = step.selected;
+    markPicked(buttons, String(selected));
+    onSelect?.(selected, true);
+  }
+  root.onclick = null;
+  root.classList.remove('see-through');
+  hide(root);
+  return BACK;
+}
+
 // Level を選んだら、そのボタンを光らせ（前の黄色いふちは消す）、PICK_GLOW_MS 待ってから進む（2026-10-18 のユーザー依頼）
 export const PICK_GLOW_MS = 600;
 export function markPicked(buttons, id) {
