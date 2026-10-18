@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_ICE } from '../src/game/track.js';
 import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
+import { createRace, raceTick, updateProgress, ranking, gridSlot, progress } from '../src/game/race.js';
+import { pushApart } from '../src/game/collide.js';
 import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
@@ -626,5 +628,91 @@ test('観客席の下とまわりの地面は、道の高さより上がらな�
       const z = p.z - Math.cos(p.h) * d + Math.sin(p.h) * along;
       assert.ok(terrainHeight(t, x, z) <= p.y, `${d} ${along}: ${terrainHeight(t, x, z)}`);
     }
+  }
+});
+
+test('CPU が A のつもりで分かれ道でスピンして B に入っても、ジャンプの地面のない所へワープして落ちない', () => {
+  const kart = createKart(t, t.startIndex, 0);
+  const cpu = createCpu(1, 1);
+  cpu.forceRoute = 'main';
+  let time = 0;
+  for (let f = 0; f < 60 * 60; f++) {
+    stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(params, 1), 1 / 60);
+    snowmanContact(kart, t, time, PHYS);
+    time += 1 / 60;
+    assert.ok(!(kart.respawn > 0), `${time.toFixed(1)}秒: 点 ${kart.seg} で落ちた`);
+  }
+});
+
+
+// CPU 1台で、決まった道（'main' は A、'B' は分かれ道）だけを通って1周の時間（秒）。通った道も返す
+function lapTime(route, seed) {
+  const kart = createKart(t, t.startIndex, 0);
+  const cpu = createCpu(1, seed);
+  cpu.forceRoute = route;
+  let time = 0;
+  let half = false;
+  const used = new Set();
+  for (let f = 0; f < 60 * 200; f++) {
+    stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(params, 1), 1 / 60);
+    slowContact(kart, t, 1 / 60);
+    snowmanContact(kart, t, time, PHYS);
+    mogulContact(kart, t);
+    time += 1 / 60;
+    const s = t.samples[kart.seg];
+    used.add(s.path);
+    if (s.path === 0 && s.s > L / 2) half = true;
+    if (half && s.path === 0 && s.s < 100) return { time, used };
+  }
+  return { time: Infinity, used };
+}
+
+test('A と B の1周の時間の差は 3% 以内（どちらを通っても有利不利が出ない。2026-10-18 のユーザー依頼）。1周は 80秒より短い', () => {
+  const a = lapTime('main', 1);
+  const b = lapTime('B', 1);
+  assert.deepEqual([...a.used], [0], 'A のつもりで B に入った');
+  assert.ok(b.used.has(1), 'B に入らない');
+  assert.ok(Math.abs(a.time - b.time) / a.time < 0.03, `A ${a.time.toFixed(1)} B ${b.time.toFixed(1)}`);
+  assert.ok(a.time < 80 && b.time < 80, `A ${a.time.toFixed(1)} B ${b.time.toFixed(1)}`);
+});
+
+test('CPU 8台が、押し合い・全部の仕掛けで3周を走りきる。動けなくならない。A と B のどちらも通る', () => {
+  for (const seed of [1, 2]) {
+    const n = 8;
+    const karts = [...Array(n)].map((_, k) => { const slot = gridSlot(t, k); return createKart(t, slot.i, slot.lateral); });
+    const cpus = karts.map((_, k) => createCpu(k, seed));
+    const race = createRace(n);
+    race.t = 0;
+    race.phase = 'racing';
+    const used = new Set();
+    const hist = karts.map(() => []);
+    let contacts = new Set();
+    let f = 0;
+    for (let time = 0; time < 300 && !race.entries.every((e) => e.finished); time += 1 / 60, f++) {
+      karts.forEach((kart, k) => {
+        stepKart(kart, cpuControl(cpus[k], kart, t, time), t, cpuParams(params, 1), 1 / 60);
+        slowContact(kart, t, 1 / 60);
+        snowmanContact(kart, t, time, PHYS);
+        mogulContact(kart, t);
+        updateProgress(race, k, t, kart.seg);
+        used.add(t.samples[kart.seg].path);
+      });
+      contacts = pushApart(karts, contacts);
+      raceTick(race, 1 / 60);
+      if (f % 30) continue;
+      karts.forEach((kart, k) => {
+        if (race.entries[k].finished || kart.respawn > 0) return;
+        // らせんでは1周（約6秒）で上から見て同じ場所にもどるので、進んだ道のりで見る
+        const h = hist[k];
+        h.push(progress(race, k, t));
+        if (h.length < 13) return;
+        assert.ok(h[h.length - 1] - h[h.length - 13] > 15, `seed ${seed} の CPU ${k} が 6秒動けない（点 ${kart.seg}）`);
+      });
+    }
+    race.entries.forEach((e, k) => assert.ok(e.finished, `seed ${seed} の CPU ${k} が3周できない（${e.lap}周）`));
+    assert.ok(used.has(0) && used.has(1), 'A と B の両方を通る');
+    const order = ranking(race, t);
+    const byTime = [...race.entries.keys()].sort((x, y) => race.entries[x].time - race.entries[y].time);
+    assert.deepEqual(order, byTime, `seed ${seed}: 順位とゴールの順がちがう`);
   }
 });

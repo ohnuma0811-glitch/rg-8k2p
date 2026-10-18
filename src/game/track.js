@@ -856,7 +856,9 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
       const cz = Math.floor(z / NEAR_CELL);
       for (let gx = cx - 1; gx <= cx + 1; gx++) {
         for (let gz = cz - 1; gz <= cz + 1; gz++) {
-          for (const i of grid.get(`${gx},${gz}`) ?? []) scan(i);
+          // 地面のない所（ジャンプの上）の点は、高さで比べられないので、ここでは拾わない（つながりをたどれば拾える。
+          // 2026-10-18: B の上で浮いた車が、近くの A のジャンプの上へワープして落ちた）
+          for (const i of grid.get(`${gx},${gz}`) ?? []) if (samples[i].y !== null) scan(i);
         }
       }
     }

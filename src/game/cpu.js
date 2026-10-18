@@ -49,6 +49,8 @@ export function rubberFactor(cpuProgress, playerProgress, L) {
 // Soki Forest では外の道 1/2、真ん中の道 1/4、近道 1/4）。
 // 道の番号か null（そのまま）。レース・CPU・分かれる所・周で決まる（同じ周の中では変わらない）
 export function routeChoice(cpu, fork, paths, lap, track) {
+  // テスト用: 決まった道を通らせる（'main' はそのまま、ほかは分かれ道の id）
+  if (cpu.forceRoute) return cpu.forceRoute === 'main' ? null : paths.find((p) => track.paths[p].id === cpu.forceRoute) ?? null;
   let h = Math.imul((cpu.seed ?? 0) + 7, 2654435761) ^ Math.imul((cpu.id ?? 0) + 3, 73856093) ^ Math.imul(fork + 1, 19349663) ^ Math.imul(lap + 1, 83492791);
   h = Math.imul(h ^ (h >>> 15), 2246822519);
   h = Math.imul(h ^ (h >>> 13), 3266489917);
@@ -78,6 +80,19 @@ export function cpuControl(cpu, kart, track, t) {
     const turnTo = wrap(at(60).h - loc.heading);
     const side = turnTo > 0.3 ? 1 : turnTo < -0.3 ? -1 : Math.sign(cpu.lane) || 1;
     lane = side * (isl.r + 5 + Math.abs(Math.sin(t * cpu.sway + cpu.phase)) * 2);
+  }
+  // 分かれ道の手前（60m）では、選んだ道の側に寄る（分かれる所では2本の道の点が近いので、反対の道の点に拾われないように。2026-10-18）
+  for (const [fi, list] of Object.entries(track.forks ?? {})) {
+    const f = samples[Number(fi)];
+    if (samples[loc.i].path !== f.path) continue;
+    const toFork = span(track, loc.s, f.s);
+    if (toFork > 60) continue;
+    const pick = routeChoice(cpu, Number(fi), list, cpu.lap, track);
+    for (const k of list) {
+      const q = samples[Math.min(track.paths[k].start + 30, track.paths[k].start + track.paths[k].count - 1)];
+      const side = Math.sign(-Math.sin(f.h) * (q.x - f.x) + Math.cos(f.h) * (q.z - f.z)) || 1;
+      lane = pick === k ? side * 5 : -side * 5;
+    }
   }
   // 牛: いちばん近い先の牛が、自分が着くころに走る線の近くにいたら、牛の横（5m 離れた所）を通る
   // よけた先が道のはしで牛に近ければ、反対側からよける。牛のすぐ手前では、ぶつかってもスピンしない速さまで落とす
