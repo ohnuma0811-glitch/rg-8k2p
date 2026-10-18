@@ -20,8 +20,8 @@ export function songEvents(song) {
     for (let k = 0; k < c.len; k += 2) ev.push({ t: (c.step + k) * s, dur: s * 1.8, inst: 'bass', midi: root + ((k / 2) % 2 ? 12 : 0) });
   }
   for (let bar = 0; bar < song.bars; bar++) {
-    for (const inst of ['kick', 'snare', 'hat']) {
-      [...song.drums[inst]].forEach((c, k) => {
+    for (const inst of ['kick', 'snare', 'hat', 'jingle']) {
+      [...(song.drums[inst] ?? '')].forEach((c, k) => {
         if (c === 'x') ev.push({ t: (bar * 16 + k) * s, dur: s, inst });
       });
     }
@@ -291,6 +291,7 @@ function makeInstruments(ctx, dest, noise, end, voice) {
   const snareBody = tonal('triangle', [0], 0);
   const snare = noisy(1800);
   const hat = noisy(7000);
+  const jingle = noisy(9000); // 鈴（Kyugo Mountain の曲）
   let padIndex = 0;
 
   return function play(e) {
@@ -319,6 +320,14 @@ function makeInstruments(ctx, dest, noise, end, voice) {
     } else if (e.inst === 'hat') {
       hat.setValueAtTime(0.08, t);
       hat.exponentialRampToValueAtTime(0.0001, t + 0.035);
+    } else if (e.inst === 'jingle') {
+      // そりの鈴: 短い「シャッ」を2回（ゆれる鈴）。2拍目と4拍目（小節の 4・12 番目）は強く
+      const step = Math.round(t / dur) % 16;
+      const peak = step === 4 || step === 12 ? 0.16 : 0.07;
+      jingle.setValueAtTime(peak, t);
+      jingle.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      jingle.setValueAtTime(peak * 0.6, t + 0.055);
+      jingle.exponentialRampToValueAtTime(0.0001, t + 0.1);
     }
   };
 }

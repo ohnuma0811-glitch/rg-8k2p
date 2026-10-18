@@ -172,3 +172,19 @@ test('Soki Forest の曲: 140 BPM・16小節、木の楽器ふう（marimba）�
   assert.equal(s.voice, 'marimba');
   for (const c of COURSES) assert.ok(SONGS[c.music], c.name);
 });
+
+test('Kyugo Mountain の曲: 鈴（ジングル）の音、明るくはずむ（G メジャー、150 BPM・16小節。2026-10-18）', async () => {
+  const { COURSE4 } = await import('../src/data/tracks.js');
+  const s = SONGS.snow;
+  assert.equal(COURSE4.music, 'snow');
+  assert.equal(s.bpm, 150);
+  assert.equal(s.bars, 16);
+  // メロディの音は G メジャーの音だけ（G A B C D E F#）
+  for (const n of parseTrack(s.lead).notes) assert.ok([7, 9, 11, 0, 2, 4, 6].includes(n.midi % 12), `${n.midi}`);
+  // 鈴は、8分音符より細かく、ずっと鳴る
+  assert.ok([...s.drums.jingle].filter((c) => c === 'x').length >= 8);
+  const ev = songEvents(s).filter((e) => e.inst === 'jingle');
+  assert.equal(ev.length, s.bars * [...s.drums.jingle].filter((c) => c === 'x').length);
+  // ほかの曲には鈴はない
+  for (const [name, song] of Object.entries(SONGS)) if (name !== 'snow') assert.equal(songEvents(song).filter((e) => e.inst === 'jingle').length, 0, name);
+});

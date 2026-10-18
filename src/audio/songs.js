@@ -103,6 +103,7 @@ export const SONGS = {
            C6:1 E6:1 G6:2 E6:2 C6:2 E6:2 G6:2 A6:4  B6:2 A6:2 G6:2 E6:2 D6:8  G6:2 F#6:2 E6:2 D6:2 B5:4 D6:4  E6:4 F#6:4 G6:8
            D6:3 B5:1 G5:2 B5:2 D6:2 G6:2 B6:4  A6:3 G6:1 E6:2 C6:2 E6:8  D6:2 E6:2 F#6:2 A6:2 G6:4 F#6:4  E6:2 D6:2 B5:2 A5:2 G5:8
            B5:2 D6:2 G6:2 D6:2 E6:2 G6:2 C7:2 B6:2  A6:2 F#6:2 D6:2 F#6:2 A6:4 B6:4  G6:2 E6:2 C6:2 E6:2 D6:4 B5:4  G6:4 D6:4 G5:4 R:4`,
-    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx' },
+    // jingle: そりの鈴（シャラシャラ）。2拍目と4拍目は強く（src/audio/music.js）
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', jingle: 'x.xxx.xxx.xxx.xx' },
   },
 };
