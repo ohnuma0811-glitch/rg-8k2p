@@ -773,3 +773,12 @@ html, body {
 #menu table.results.tt-table td {
   padding: 1px 10px;
 }
+/* コース選びのボタン: 名前は折り返さず、2×2 に並べる（大きさは src/screens.js で、いちばん大きいボタンにそろえる） */
+#menu .choices.courses {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: center;
+}
+#menu .choices.courses button {
+  white-space: nowrap;
+}

@@ -228,11 +228,22 @@ export async function chooseCourse(root, courses, last = 0, { onSelect, records 
     <div class="choices"><button type="button" class="ok-btn" data-pick="ok">OK ▶</button></div>`);
   root.classList.add('see-through'); // うしろのコースが見えるように
   const buttons = [...root.querySelectorAll('.courses [data-pick]')];
+  // ボタンの大きさを、いちばん大きいボタンにそろえる（2026-10-18 のユーザー依頼）
+  const evenSize = () => {
+    buttons.forEach((b) => { b.style.width = ''; b.style.height = ''; });
+    const w = Math.max(...buttons.map((b) => b.offsetWidth));
+    const h = Math.max(...buttons.map((b) => b.offsetHeight));
+    buttons.forEach((b) => { b.style.width = `${w}px`; b.style.height = `${h}px`; });
+  };
+  evenSize();
   // みんなの記録を受け取ったら、ボタンの記録を出し直す
-  refresh?.then(() => buttons.forEach((b, k) => {
-    const rec = b.querySelector('.rec');
-    if (rec) rec.outerHTML = recordHtml(courses[k]);
-  }));
+  refresh?.then(() => {
+    buttons.forEach((b, k) => {
+      const rec = b.querySelector('.rec');
+      if (rec) rec.outerHTML = recordHtml(courses[k]);
+    });
+    evenSize();
+  });
   let selected = last;
   markPicked(buttons, String(selected));
   onSelect?.(selected, false);
