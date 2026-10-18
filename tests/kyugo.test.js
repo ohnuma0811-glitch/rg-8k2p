@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, markS, locate, span, between } from '../src/game/track.js';
+import { buildTrack, markS, locate, span, between, expandHelix } from '../src/game/track.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
+import { fenceSides } from '../src/render/trackMesh.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 
@@ -140,11 +141,13 @@ test('① ジャンプは、どの速さで来ても上の道の向こう側に�
 test('観客席の前の小さなジャンプ: 飛んで（雪だるまの上を越えて）、平らな所に着地して走り続ける', () => {
   const kick = t.kicks[0];
   const fr = drive((kick.top - 40 + L) % L, 4);
-  const air = fr.filter((k) => k.airborne);
+  const k0 = fr.findIndex((k) => k.airborne && k.launched); // ジャンプ台から飛んだ所（坂の頂上で浮いたのはのぞく）
+  assert.ok(k0 > 0, "飛ばない");
+  const air = fr.slice(k0).filter((k, n, a) => a.slice(0, n + 1).every((q) => q.airborne));
   assert.ok(air.length > 20, `${air.length}`); // 0.33秒より長く飛ぶ
   const top = Math.max(...air.map((k) => k.y - t.samples[k.seg].y));
   assert.ok(top > 2.2 && top < 4, `${top}`); // 雪だるま（高さ 約2.4m）の頭を越えるが、① ほど高くない
-  const land = fr.findIndex((k, n) => n > 0 && fr[n - 1].airborne && !k.airborne);
+  const land = k0 + air.length;
   assert.ok(land > 0);
   assert.ok(fr.slice(land, land + 60).every((k) => !k.airborne), '跳ね続けた');
   assert.ok(fr[land + 59].speed > 20);
@@ -162,4 +165,73 @@ test('加速板: スタート付近の直線と、観客席の前と、B の最�
   assert.ok(boostNear((t.startIndex + 60) % L, 50, 0));
   assert.ok(boostNear(t.kicks[0].top, 30, 0));
   assert.ok(boostNear(B.start + B.count - 40, 30, 1));
+});
+
+test('らせん: 右に曲がり続けて3周。上と下の段の差は、どこも 7m 以上', () => {
+  const { from, to, r } = t.helix;
+  let turn = 0;
+  for (let i = from; i < to; i++) turn += Math.atan2(Math.sin(t.samples[i + 1].h - t.samples[i].h), Math.cos(t.samples[i + 1].h - t.samples[i].h));
+  assert.ok(Math.abs(turn - 6 * Math.PI) < 0.5, `${turn}`); // 右（h がふえる向き）に3周
+  assert.ok(t.samples[to].y - t.samples[from].y >= 23);
+  for (let i = from; i <= to; i += 2) {
+    for (let j = i + 60; j <= to; j += 2) {
+      const p = t.samples[i];
+      const q = t.samples[j];
+      if (Math.hypot(p.x - q.x, p.z - q.z) < 3) assert.ok(q.y - p.y >= 7, `${i} ${j}: ${q.y - p.y}`);
+    }
+  }
+  assert.ok(r > 20 && r < 45, `${r}`);
+});
+
+test('らせんは、ドリフトなしで右いっぱいにハンドルを切っておくだけで、ちょうど曲がれる（万能タイプと、曲がりやすい車）', () => {
+  for (const stats of [{ accel: 3, top: 3, handling: 3 }, { accel: 5, top: 1, handling: 5 }]) {
+    const p = kartParams(stats);
+    const kart = createKart(t, t.helix.from + 8, 0);
+    kart.speed = p.topSpeed * 0.9;
+    let worst = 0;
+    for (let f = 0; f < 60 * 25 && kart.seg < t.helix.to - 20; f++) {
+      stepKart(kart, { throttle: 1, brake: 0, steer: 1, drift: false }, t, p, 1 / 60);
+      const loc = locate(t, kart.x, kart.z, kart.seg, 40, kart.y);
+      if (loc.i > t.helix.from + 20) worst = Math.max(worst, Math.abs(loc.lateral));
+    }
+    assert.ok(kart.seg >= t.helix.to - 20, `${JSON.stringify(stats)}: とちゅうで止まった ${kart.seg - t.helix.from}`);
+    assert.ok(worst < t.samples[t.helix.from].half, `${JSON.stringify(stats)}: ${worst}`);
+  }
+});
+
+test('らせんの3段を続けて走っても、段がかわらない（車の点は、いつも前へ少しずつ進む）', () => {
+  const kart = createKart(t, t.helix.from - 30, 0);
+  kart.speed = 25;
+  let prev = kart.seg;
+  for (let f = 0; f < 60 * 40 && kart.seg < t.helix.to + 10; f++) {
+    const p = t.samples[kart.seg];
+    const loc = locate(t, kart.x, kart.z, kart.seg, 40, kart.y);
+    const d = Math.atan2(Math.sin(p.h - kart.heading), Math.cos(p.h - kart.heading));
+    stepKart(kart, { throttle: 0.8, brake: 0, steer: Math.max(-1, Math.min(1, d * 3 - loc.lateral * 0.1)), drift: false }, t, params, 1 / 60);
+    assert.ok(kart.seg >= prev - 2 && kart.seg - prev < 15, `${prev} → ${kart.seg}`);
+    prev = kart.seg;
+  }
+  assert.ok(kart.seg >= t.helix.to);
+});
+
+test('らせんの点は stacked。ほかのコースの点に stacked はない', () => {
+  assert.ok(t.samples[t.helix.from + 100].stacked);
+  for (const c of COURSES.slice(0, 3)) assert.ok(!buildTrack(c).samples.some((p) => p.stacked), c.name);
+});
+
+test('らせんがないコースは、expandHelix で変わらない', () => {
+  for (const c of COURSES.slice(0, 3)) assert.equal(expandHelix(c), c);
+});
+
+test('曲がりにくい車も、右いっぱいでらせんを止まらずに上りきる（柵にこすっても）', () => {
+  const p = kartParams({ accel: 2, top: 5, handling: 1 });
+  const kart = createKart(t, t.helix.from + 8, 0);
+  kart.speed = p.topSpeed * 0.9;
+  for (let f = 0; f < 60 * 40 && kart.seg < t.helix.to; f++) stepKart(kart, { throttle: 1, brake: 0, steer: 1, drift: false }, t, p, 1 / 60);
+  assert.ok(kart.seg >= t.helix.to, `${kart.seg - t.helix.from}`);
+});
+
+test('らせんの段の上と下で、柵が消えない（ほかの段の道を「ほかの道」と見ない）', () => {
+  const f = fenceSides(t);
+  for (let i = t.helix.from + 30; i < t.helix.to - 30; i++) assert.ok(f[i][-1] && f[i][1], `${i}`);
 });

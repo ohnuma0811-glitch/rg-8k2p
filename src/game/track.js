@@ -240,7 +240,42 @@ export function between(track, s, from, to) {
   return span(track, from, s) < span(track, from, to);
 }
 
+// らせん（Kyugo Mountain。2026-10-18）: def.helix の at の点のあとに、右へ曲がり続ける円の点を turns 周ぶん足す。
+// 地図の点は画素なので、1周の長さ def.length に合わせたときの 1画素の m（k）を先に計算して、半径 r m を画素にする
+export const HELIX_PER_TURN = 16;
+export function expandHelix(def) {
+  if (!def.helix) return def;
+  const { at, r, turns } = def.helix;
+  const ai = def.marks[at];
+  const line = smoothLoop(def.points);
+  let px = 0;
+  for (let k = 0; k < line.length; k++) {
+    const a = line[k];
+    const b = line[(k + 1) % line.length];
+    px += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  const k = (def.length - 2 * Math.PI * r * turns) / px; // m / 画素（らせんの長さを引いた残りに、絵の道を合わせる）
+  const rp = r / k;
+  const p = def.points[ai];
+  const q = def.points[ai + 1];
+  const h = Math.atan2(q[1] - p[1], q[0] - p[0]);
+  // 円の中心は、入る向き h の右（x - sin h, z + cos h）。円の上の点は h から右回りに進む
+  const cx = p[0] - Math.sin(h) * rp;
+  const cz = p[1] + Math.cos(h) * rp;
+  const circle = [];
+  for (let n = 1; n <= turns * HELIX_PER_TURN; n++) {
+    const a = h + (2 * Math.PI * n) / HELIX_PER_TURN;
+    circle.push([cx + Math.sin(a) * rp, cz - Math.cos(a) * rp]);
+  }
+  const points = [...def.points.slice(0, ai + 1), ...circle, ...def.points.slice(ai + 1)];
+  const marks = {};
+  for (const [m, i] of Object.entries(def.marks)) marks[m] = i > ai ? i + circle.length : i;
+  for (let n = 0; n <= turns; n++) marks[`HX${n}`] = ai + n * HELIX_PER_TURN;
+  return { ...def, points, marks };
+}
+
 export function buildTrack(def) {
+  def = expandHelix(def);
   const line = smoothLoop(def.points);
   const fit = fitOf(line, def.length);
   let samples = resample(line, def.length);
@@ -296,6 +331,21 @@ export function buildTrack(def) {
   const startIndex = samples.findIndex((p) => p.s >= startS);
   const t = { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross, marks: {} };
   for (const [name, i] of Object.entries(def.marks ?? {})) t.marks[name] = pointS(samples, fit, def.points[i]);
+  if (def.helix) {
+    // らせんの段は上から見て同じ場所なので、印 HX1〜 は、前の段から道にそって1周（約 2πr）先の、いちばん近い点
+    const turn = 2 * Math.PI * def.helix.r;
+    for (let k = 1; k <= def.helix.turns; k++) {
+      const a = samples[Math.round(t.marks[`HX${k - 1}`]) % n];
+      let best = null;
+      for (let d = Math.round(turn * 0.8); d <= Math.round(turn * 1.2); d++) {
+        const q = samples[(Math.round(t.marks[`HX${k - 1}`]) + d) % n];
+        const dd = Math.hypot(q.x - a.x, q.z - a.z);
+        if (!best || dd < best.dd) best = { dd, s: q.s };
+      }
+      t.marks[`HX${k}`] = best.s;
+    }
+    t.helix = { from: Math.round(t.marks.HX0), to: Math.round(t.marks[`HX${def.helix.turns}`]), r: def.helix.r };
+  }
   // ロータリー: 真ん中に島を置き、島のまわりだけ道を広げる（島の両側を道の幅で走れる）
   t.islands = [];
   for (const rb of def.roundabouts ?? []) {
@@ -389,6 +439,17 @@ export function buildTrack(def) {
     }
   }
   addBranches(t, def, fit);
+  // らせんの段（Kyugo Mountain）: 上から見て、同じ道のほかの段と重なる点
+  if (t.helix) {
+    for (let i = t.helix.from; i <= t.helix.to; i++) {
+      for (let j = i + 60; j <= t.helix.to; j++) {
+        if (Math.hypot(samples[i].x - samples[j].x, samples[i].z - samples[j].z) < samples[i].wall * 2) {
+          samples[i].stacked = true;
+          samples[j].stacked = true;
+        }
+      }
+    }
+  }
   // 恐竜（Soki Forest。2026-10-16）: ジャンプ at の川。from〜to は、食べられる所（at からの m。川の上）
   if (def.dino) {
     const j = (def.jumps ?? []).find((q) => q.at === def.dino.at);

@@ -327,8 +327,8 @@ export function fenceSides(track, mouths = []) {
         const q = samples[j];
         // ほかの道: 分かれ道どうし・本線と分かれ道（分かれる所・合流する所で道をふさがない）、同じ道の遠い所（60m 以上）
         const other = q.path !== p.path || Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) >= 60;
-        // 橋の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
-        const overBridge = (p.bridge || q.bridge) && Math.abs(q.y - (p.y ?? 0)) >= 3;
+        // 橋の上と下・らせんの段の上と下（高さが 3m 以上ちがう）は、ふさがないので柵を立てる
+        const overBridge = (p.bridge || q.bridge || p.stacked || q.stacked) && Math.abs(q.y - (p.y ?? 0)) >= 3;
         return other && q.y !== null && !overBridge && Math.hypot(q.x - x, q.z - z) <= q.half + 1;
       });
     }
