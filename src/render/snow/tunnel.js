@@ -1,5 +1,5 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import { createBuilder } from '../town/builder.js?v=b46b839';
+import { createBuilder } from '../town/builder.js?v=0776430';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const WALL = 0x5a5f66;

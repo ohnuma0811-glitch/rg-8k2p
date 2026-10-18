@@ -1,19 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=b46b839';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=b46b839';
-import { buildJungle } from './town/jungle.js?v=b46b839';
-import { buildWater } from './town/water.js?v=b46b839';
-import { buildBridge } from './forest/bridge.js?v=b46b839';
-import { buildTunnel } from './snow/tunnel.js?v=b46b839';
-import { buildSnowScenery } from './snow/kit.js?v=b46b839';
-import { buildSigns } from './snow/signs.js?v=b46b839';
-import * as forestKit from './forest/kit.js?v=b46b839';
-import { createBuilder } from './town/builder.js?v=b46b839';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=b46b839';
-import { buildTerrain, terrainHeight } from './terrain.js?v=b46b839';
-import { mergeMeshes } from './mergeMeshes.js?v=b46b839';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=b46b839';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=b46b839';
+import * as THREE from '../../vendor/three.module.min.js?v=0776430';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0776430';
+import { buildJungle } from './town/jungle.js?v=0776430';
+import { buildWater } from './town/water.js?v=0776430';
+import { buildBridge } from './forest/bridge.js?v=0776430';
+import { buildTunnel } from './snow/tunnel.js?v=0776430';
+import { buildSnowScenery } from './snow/kit.js?v=0776430';
+import { buildSigns } from './snow/signs.js?v=0776430';
+import * as forestKit from './forest/kit.js?v=0776430';
+import { createBuilder } from './town/builder.js?v=0776430';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=0776430';
+import { buildTerrain, terrainHeight } from './terrain.js?v=0776430';
+import { mergeMeshes } from './mergeMeshes.js?v=0776430';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=0776430';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=0776430';
 
 const COLORS = {
   dirt: 0xb08850,

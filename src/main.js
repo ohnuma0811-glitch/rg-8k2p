@@ -1,43 +1,44 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=b46b839';
-import { startLoop } from './loop.js?v=b46b839';
-import { COURSES } from './data/tracks.js?v=b46b839';
-import { buildTrack, span, locate } from './game/track.js?v=b46b839';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=b46b839';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=b46b839';
-import { kartParams } from './game/stats.js?v=b46b839';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=b46b839';
-import { pushApart, newBumps } from './game/collide.js?v=b46b839';
+import * as THREE from '../vendor/three.module.min.js?v=0776430';
+import { startLoop } from './loop.js?v=0776430';
+import { COURSES } from './data/tracks.js?v=0776430';
+import { buildTrack, span, locate } from './game/track.js?v=0776430';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=0776430';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=0776430';
+import { kartParams } from './game/stats.js?v=0776430';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=0776430';
+import { pushApart, newBumps } from './game/collide.js?v=0776430';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=b46b839';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=b46b839';
-import { tunnelLight, TUNNEL_DIM } from './render/snow/tunnel.js?v=b46b839';
-import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=b46b839';
-import { createMinimap } from './render/minimap.js?v=b46b839';
-import { grandstandSpot } from './render/trackMesh.js?v=b46b839';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js?v=b46b839';
-import { faceSvg } from './titleArt.js?v=b46b839';
-import { createEffects } from './render/effects.js?v=b46b839';
-import { nextQuality, pixelRatio } from './render/quality.js?v=b46b839';
-import { blendPose, poseOf } from './render/interp.js?v=b46b839';
-import { speedText } from './hud.js?v=b46b839';
-import { addRecent, cleanRecent } from './names.js?v=b46b839';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=b46b839';
-import { load, save } from './storage.js?v=b46b839';
-import * as screens from './screens.js?v=b46b839';
-import { updateBest } from './timetrial.js?v=b46b839';
-import { createAudio } from './audio/audio.js?v=b46b839';
-import { createSfx } from './audio/sfx.js?v=b46b839';
-import { createVoices } from './audio/voice.js?v=b46b839';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=b46b839';
-import { createCrowd } from './audio/crowd.js?v=b46b839';
-import { crowdMix } from './audio/mix.js?v=b46b839';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=b46b839';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=b46b839';
+} from './game/race.js?v=0776430';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=0776430';
+import { tunnelLight, TUNNEL_DIM } from './render/snow/tunnel.js?v=0776430';
+import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=0776430';
+import { createMinimap } from './render/minimap.js?v=0776430';
+import { grandstandSpot } from './render/trackMesh.js?v=0776430';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js?v=0776430';
+import { faceSvg } from './titleArt.js?v=0776430';
+import { createEffects } from './render/effects.js?v=0776430';
+import { nextQuality, pixelRatio } from './render/quality.js?v=0776430';
+import { blendPose, poseOf } from './render/interp.js?v=0776430';
+import { speedText } from './hud.js?v=0776430';
+import { addRecent, cleanRecent } from './names.js?v=0776430';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=0776430';
+import { load, save } from './storage.js?v=0776430';
+import * as screens from './screens.js?v=0776430';
+import { SharedTimes, dateText } from './sharedTimes.js?v=0776430';
+import { TIMES_URL } from './config.js?v=0776430';
+import { createAudio } from './audio/audio.js?v=0776430';
+import { createSfx } from './audio/sfx.js?v=0776430';
+import { createVoices } from './audio/voice.js?v=0776430';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=0776430';
+import { createCrowd } from './audio/crowd.js?v=0776430';
+import { crowdMix } from './audio/mix.js?v=0776430';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=0776430';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=0776430';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'b46b839';
+const VERSION = '0776430';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -716,15 +717,23 @@ async function runTimeTrial(name, charId, def) {
   const time = game.race.entries[game.me].time;
   removeGame();
   placeButtons();
-  const r = updateBest(load('ttBest', {}), course.name, time);
-  save('ttBest', r.bests);
-  music.play(r.record ? 'victory' : 'results');
-  const text = `${course.name}<br>TIME ${timeText(time)}<br>${r.record ? '★ NEW RECORD! ★' : `BEST ${timeText(r.best)}`}`;
-  const shown = screens.message(menu, 'Time Trial', text, [
-    { id: 'again', label: '↻ AGAIN' },
-    { id: 'courses', label: '◀ COURSES' },
-    { id: 'title', label: '⌂ TITLE' },
-  ]);
+  // みんなの記録に送って、受け取り直す（つながらなければ、その端末にためて、前に受け取った記録で出す）
+  const mine = await sharedTimes.add({ course: course.name, name, character: charId, time, date: dateText(new Date()) });
+  const view = await withTimeout(sharedTimes.refresh(), 4000) ?? sharedTimes.view();
+  const list = view[course.name] ?? [];
+  const place = list.findIndex((e) => e.id === mine.id);
+  music.play(place === 0 ? 'victory' : 'results');
+  const shown = screens.ttResults(menu, {
+    course: course.name,
+    timeText: `TIME ${timeText(time)}`,
+    note: place === 0 ? '★ NEW RECORD! ★' : place > 0 ? `TOP 10! (${place + 1})` : '',
+    rows: screens.ttRows(list, mine.id, CHAR_NAMES, timeText),
+    buttons: [
+      { id: 'again', label: '↻ AGAIN' },
+      { id: 'courses', label: '◀ COURSES' },
+      { id: 'title', label: '⌂ TITLE' },
+    ],
+  });
   fade(0);
   return shown;
 }
@@ -758,6 +767,24 @@ pauseBtn.addEventListener('click', async () => {
     end('title');
   }
 });
+
+// TIME TRIAL のみんなの記録（2026-10-18 のユーザー依頼）。手元の確かめ（https でない）では送らない（Super Kyugo＆Soki Brothers と同じ）
+let browserStorage = null;
+try {
+  browserStorage = window.localStorage;
+} catch {
+  // 使えない端末
+}
+const memoryStorage = { getItem: () => null, setItem: () => {} };
+const sharedTimes = new SharedTimes({
+  url: location.protocol === 'https:' ? TIMES_URL : '',
+  fetch: (url, opt) => fetch(url, opt),
+  storage: browserStorage ?? memoryStorage,
+  makeId: () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+});
+const CHAR_NAMES = Object.fromEntries(PLAYER_CHARS.map((c) => [c.id, c.name]));
+// つながらないときに待ちすぎない
+const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
 
 async function seeYouTomorrow(name) {
   await screens.message(menu, 'See you tomorrow!', `${name}, you played enough today.`, [{ id: 'ok', label: 'OK' }]);
@@ -803,6 +830,9 @@ async function flow() {
             useCourse(COURSES[k]);
             if (sound) sfx.play('select');
           },
+          records: () => sharedTimes.view(),
+          line: (e) => screens.recordLine(e, CHAR_NAMES, timeText),
+          refresh: sharedTimes.refresh(),
         });
         if (pick === screens.BACK) {
           useCourse(COURSES[0]);
