@@ -6,7 +6,7 @@ import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGU
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
-import { buildTunnel, TUNNEL_HEIGHT } from '../src/render/snow/tunnel.js';
+import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK } from '../src/render/snow/tunnel.js';
 import { terrainHeight } from '../src/render/terrain.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
@@ -548,4 +548,31 @@ test('トンネルの壁と天井は、道（車の通る所）の中に出な�
     }
   }
   assert.ok(n > 100, `${n}`);
+});
+
+test('トンネルに入ると、一度まっくら（0.25秒）、そのあと暗いまま。出たら明るさがもとに戻る', () => {
+  assert.equal(TUNNEL_BLACK, 0.25);
+  let st = { dark: 0, black: 0 };
+  st = tunnelLight(st, true, 1 / 60);
+  assert.ok(st.black > 0.9);
+  for (let f = 0; f < 14; f++) st = tunnelLight(st, true, 1 / 60);
+  assert.ok(st.black > 0, '0.25秒より前に明るくなった');
+  for (let f = 0; f < 46; f++) st = tunnelLight(st, true, 1 / 60);
+  assert.equal(st.black, 0);
+  assert.equal(st.dark, 1);
+  for (let f = 0; f < 120; f++) st = tunnelLight(st, false, 1 / 60);
+  assert.deepEqual(st, { dark: 0, black: 0 });
+});
+
+test('トンネルの外を走っているだけなら、暗くならない', () => {
+  let st = { dark: 0, black: 0 };
+  for (let f = 0; f < 600; f++) st = tunnelLight(st, false, 1 / 60);
+  assert.deepEqual(st, { dark: 0, black: 0 });
+});
+
+test('トンネルを出てすぐ（まだ少し暗い）にまた入っても、まっくらにはならない（らせんの出口など）', () => {
+  let st = { dark: 1, black: 0 };
+  for (let f = 0; f < 10; f++) st = tunnelLight(st, false, 1 / 60);
+  st = tunnelLight(st, true, 1 / 60);
+  assert.equal(st.black, 0);
 });

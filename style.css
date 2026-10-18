@@ -721,3 +721,16 @@ html, body {
   pointer-events: none;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+
+/* トンネルの中（Kyugo Mountain）: 画面のまわりを暗く。.black で、まっくら */
+#vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 60%, transparent 28%, #000 78%);
+}
+#vignette.black {
+  background: #000;
+}

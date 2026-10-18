@@ -12,7 +12,8 @@ import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
-import { createRenderer, createWorld, setCourse, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
+import { tunnelLight, TUNNEL_DIM } from './render/snow/tunnel.js';
+import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js';
@@ -280,6 +281,7 @@ function createGame(name, charId, level = 2, cup = null) {
     nuts: createNuts(track), // サルが投げた木の実（Soki Forest）
     monkeyThrows: 0, // 自分の車の近くのサルが投げた数（効果音用）
     snowmanHops: 0, // 自分の車の近くの雪だるまが跳ねて着いた数（効果音用。Kyugo Mountain）
+    tunnel: { dark: 0, black: 0 }, // トンネルの暗さ（Kyugo Mountain）
     wallQuiet: Infinity, // 壁から離れている秒数（壁の音を最初だけ鳴らす）
     sound: null, // 前のフレームの音の様子
     me: PLAYER_SLOT,
@@ -484,8 +486,17 @@ function placeBuses(time) {
   });
 }
 
+// トンネルの暗さを画面に（dark 0 で、もとの明るさ）
+function showTunnel({ dark, black }, kart = null) {
+  setDarkness(scene, dark, TUNNEL_DIM, kart);
+  const v = $('vignette');
+  v.style.opacity = String(Math.max(black, 0.85 * dark));
+  v.classList.toggle('black', black > 0);
+}
+
 function removeGame() {
   if (!game) return;
+  showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();
   crowd.stop();
   game.shadows.forEach((sh) => scene.remove(sh));
@@ -805,6 +816,9 @@ function renderGame(alpha, dt) {
   placeMonkeys(g.race.t, g.nuts);
   placeDino(g.race.t);
   placeSnowmen(g, g.race.t);
+  // トンネル（Kyugo Mountain）: 入ると一度まっくら、中は暗く、車の前にライト、画面のまわりを暗く
+  g.tunnel = tunnelLight(g.tunnel, !!track.samples[g.karts[g.me].seg]?.tunnel, dt);
+  showTunnel(g.tunnel, views[g.me]);
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）
   for (const tx of track.slowTextures ?? []) tx.offset.y = (tx.offset.y + dt * 1.5) % 1;
   // 食べられた演出（血のりは出さない。2026-10-16 のユーザーの判断「子供向けには刺激が強い」）
@@ -864,7 +878,7 @@ function renderGame(alpha, dt) {
     }
   }
   g.sound = now;
-  sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0);
+  sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0, g.tunnel.dark);
   if (standSpot) crowd.update(crowdMix(mine, standSpot));
   return { mine, kart };
 }

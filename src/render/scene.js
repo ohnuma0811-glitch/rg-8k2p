@@ -14,10 +14,17 @@ export function createWorld() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
   scene.fog = new THREE.Fog(SKY, 250, 1100);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x557744, 1.6));
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x557744, 1.6);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(200, 400, 100);
   scene.add(sun);
+  // 車のライト（Kyugo Mountain のトンネルの中だけ明るくする）
+  const headlight = new THREE.SpotLight(0xfff2d0, 0, 70, 0.55, 0.5, 1);
+  scene.add(headlight);
+  scene.add(headlight.target);
+  // トンネルの暗さ（setDarkness）で変える前の値
+  scene.userData.light = { hemi, sun, headlight, hemiBase: 1.6, sunBase: 1.4, fogNear: 250, fogFar: 1100, sky: new THREE.Color(SKY) };
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshLambertMaterial({ color: 0x5fae4b }));
   ground.rotation.x = -Math.PI / 2;
@@ -38,6 +45,26 @@ export function setCourse(scene, track) {
   scene.userData.course = track;
   // 森は地面の形を作るので、平らな地面は川の底より下へ（2026-10-16）
   if (scene.userData.ground) scene.userData.ground.position.y = track.def.theme === 'forest' ? -2.5 : 0;
+}
+
+// トンネルの中の暗さ（Kyugo Mountain。0 ふつう 〜 1 トンネルの中）。dim は中の明るさ。kart があれば、その前にライト
+const TUNNEL_FOG = new THREE.Color(0x07090c);
+export function setDarkness(scene, dark, dim, kart = null) {
+  const L = scene.userData.light;
+  const lit = 1 - dark * (1 - dim);
+  L.hemi.intensity = L.hemiBase * lit;
+  L.sun.intensity = L.sunBase * lit;
+  scene.fog.color.copy(L.sky).lerp(TUNNEL_FOG, dark);
+  scene.background.copy(scene.fog.color);
+  scene.fog.near = L.fogNear + (8 - L.fogNear) * dark;
+  scene.fog.far = L.fogFar + (70 - L.fogFar) * dark;
+  L.headlight.intensity = kart ? 60 * dark : 0;
+  if (kart && dark > 0) {
+    const fx = Math.cos(kart.move);
+    const fz = Math.sin(kart.move);
+    L.headlight.position.set(kart.x + fx, (kart.y ?? 0) + 1.6, kart.z + fz);
+    L.headlight.target.position.set(kart.x + fx * 18, kart.y ?? 0, kart.z + fz * 18);
+  }
 }
 
 export function resizeRenderer(renderer, camera, w, h, ratio) {

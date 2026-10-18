@@ -47,3 +47,20 @@ export function buildTunnel(track) {
   }
   return b.build();
 }
+
+// トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）
+export const TUNNEL_BLACK = 0.25; // 入るときのまっくらの秒数
+export const TUNNEL_FADE = 0.6; // 出るときに明るくなる秒数
+export const TUNNEL_DIM = 0.15; // 中の明るさ（外を 1 として）
+// state = { dark: 0〜1 の暗さ, black: 入るときのまっくら 0〜1 }。inside は自分の車がトンネルの中か
+export function tunnelLight(state, inside, dt) {
+  let { dark, black } = state;
+  if (inside && dark === 0 && black === 0) black = 1; // 明るい所から入った
+  if (black > 0) {
+    black = Math.max(0, black - dt / TUNNEL_BLACK);
+    if (black === 0) dark = 1;
+    return { dark, black };
+  }
+  dark = inside ? Math.min(1, dark + dt / TUNNEL_FADE) : Math.max(0, dark - dt / TUNNEL_FADE);
+  return { dark, black };
+}

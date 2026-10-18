@@ -417,10 +417,12 @@ export function createSfx(audio) {
         engine = { oscs, filter, gain };
       },
       // 毎フレーム呼ぶ（値をなめらかに近づけるだけ。物は作らない）
-      update(speed, top, boosting) {
+      // muffle: トンネルの中（Kyugo Mountain。0〜1）。高い音をけずって、こもった音に
+      update(speed, top, boosting, muffle = 0) {
         if (!engine) return;
         const p = engineParams(speed, top, boosting);
         const t = audio.ctx.currentTime;
+        engine.filter.frequency.setTargetAtTime(900 - 600 * muffle, t, 0.1);
         for (const o of engine.oscs) o.frequency.setTargetAtTime(p.freq, t, 0.05);
         engine.gain.gain.setTargetAtTime(p.gain, t, 0.08);
       },
