@@ -20,7 +20,7 @@
   <!-- 共通の道（灰色）: スタート → 北 → 東 → 分かれ道。コブゾーン → トンネル（下） → スタート -->
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M470 600 L475 480 Q480 445 515 442 L760 445 L870 470" stroke="#5b616b" stroke-width="16"/>
-    <path d="M1130 588 L1235 600 Q1270 640 1230 690 C1150 740 1060 720 980 760 C900 790 780 770 700 760 C600 750 500 760 470 700 L470 600" stroke="#5b616b" stroke-width="16"/>
+    <path d="M1130 588 L1235 600 Q1270 640 1230 690 C1150 760 1110 690 1040 740 C980 790 940 720 880 770 C820 815 760 730 700 770 C630 810 560 730 500 760 Q470 740 470 700 L470 600" stroke="#5b616b" stroke-width="16"/>
     <!-- トンネル（下の道。点線のふち） -->
     <path d="M1235 640 Q1250 680 1200 705 C1120 740 1050 730 980 765 C900 795 780 775 700 765 C620 758 560 760 520 735" stroke="#222" stroke-width="22" stroke-dasharray="6 8" opacity="0.35"/>
 
@@ -38,7 +38,13 @@
     <text x="1150" y="625">コブゾーン</text>
     <circle cx="1235" cy="620" r="9" fill="#1aa3d9"/><text x="1255" y="625" fill="#1aa3d9">トンネル入口</text>
     <circle cx="520" cy="735" r="9" fill="#1aa3d9"/><text x="400" y="770" fill="#1aa3d9">トンネル出口</text>
-    <text x="760" y="790">トンネル（中は舗装・左右のカーブ）</text>
+    <text x="700" y="805">トンネル（中は舗装・左右のカーブを多めに）</text>
+    <!-- 加速板とジャンプ台（観客席の前）、加速板（スタート付近・B の合流の手前） -->
+    <rect x="600" y="436" width="14" height="18" fill="#ff8c1a"/><path d="M620 436 l18 9 l-18 9 z" fill="#f2c21a" stroke="#222"/>
+    <circle cx="672" cy="445" r="7" fill="#fff" stroke="#555" stroke-width="2"/>
+    <text x="590" y="475" font-size="14" fill="#c46200">加速板＋小さなジャンプで雪だるまを飛び越える</text>
+    <rect x="463" y="520" width="14" height="14" fill="#ff8c1a"/><text x="400" y="515" font-size="14" fill="#c46200">加速板</text>
+    <rect x="1088" y="550" width="14" height="14" fill="#ff8c1a"/><text x="1105" y="545" font-size="14" fill="#c46200">加速板</text>
     <!-- トンネルの中腹のらせん（右に曲がり続けて3周上る） -->
     <circle cx="890" cy="772" r="26" fill="none" stroke="#5b616b" stroke-width="6"/>
     <circle cx="890" cy="772" r="17" fill="none" stroke="#5b616b" stroke-width="4" stroke-dasharray="5 4"/>
