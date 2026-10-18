@@ -59,6 +59,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     dinoRoar, // 近くの恐竜が、川から上がってきている
     snowmanHits: kart.snowmanHits || 0, // 雪だるまにぶつかった回数（Kyugo Mountain）
     snowmanHop, // 近くの雪だるまが跳ねて着いた数の合計
+    mogulHits: kart.mogulHits || 0, // コブに当たった回数（Kyugo Mountain）
   };
 }
 
@@ -92,6 +93,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.boarWarn && !prev.boarWarn) ev.push('boarWarn');
   if (cur.boarHits > prev.boarHits || cur.pierHits > prev.pierHits || cur.snowmanHits > prev.snowmanHits) ev.push('bump');
   if (cur.snowmanHop > prev.snowmanHop) ev.push('snowmanHop');
+  if (cur.mogulHits > prev.mogulHits) ev.push('boing');
   if (cur.monkeyThrows > prev.monkeyThrows) ev.push('monkey');
   if (cur.nutHits > prev.nutHits) ev.push('nutHit');
   if (cur.eaten > prev.eaten) ev.push('eaten');

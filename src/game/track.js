@@ -477,6 +477,12 @@ export function buildTrack(def) {
     else i = Math.round(refS(t, typeof m.at === 'string' ? [m.at, m.at, 0] : m.at) + (m.off ?? 0)) % t.length;
     return { i, s: t.samples[i].s, path: t.samples[i].path, period: 4 + (k % 3), phase: k * 1.3 };
   });
+  // コブ（Kyugo Mountain）
+  t.moguls = (def.moguls ?? []).map(([d, lateral]) => {
+    const i = Math.round(refS(t, ['BZ', 'BZ', 0]) + d) % t.length;
+    const p = t.samples[i];
+    return { i, r: def.moguR, x: p.x - Math.sin(p.h) * lateral, z: p.z + Math.cos(p.h) * lateral, y: p.y ?? 0 };
+  });
   // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
   t.monkeys = (def.monkeys ?? []).map((m) => {
     const path = t.paths.find((q) => q.id === m.at[0]);

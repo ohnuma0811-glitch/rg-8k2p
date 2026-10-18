@@ -665,6 +665,18 @@ export function buildTrackMesh(track) {
   const startS = samples[track.startIndex].s;
   group.add(strip(track, startS - 1, startS + 2, () => 0.05, new THREE.MeshBasicMaterial({ map: checker })));
 
+  // コブ（Kyugo Mountain）: 白い雪の半球（高さ 1m につぶす）
+  if (track.moguls?.length) {
+    const geo = new THREE.SphereGeometry(1, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2);
+    const mat = new THREE.MeshLambertMaterial({ color: 0xf7fafd });
+    const bumps = new THREE.InstancedMesh(geo, mat, track.moguls.length);
+    const m4 = new THREE.Matrix4();
+    track.moguls.forEach((m, k) => {
+      m4.makeScale(m.r, 1.0, m.r).setPosition(m.x, m.y, m.z);
+      bumps.setMatrixAt(k, m4);
+    });
+    group.add(bumps);
+  }
   // スローの板（Kyugo Mountain）: 灰色に白い、うしろ向きの矢印。矢印は src/main.js で流す
   track.slowTextures = [];
   for (const sl of track.slows ?? []) {

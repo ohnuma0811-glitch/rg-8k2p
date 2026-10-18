@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, markS, locate, span, between, expandHelix, GRIP_SNOW, GRIP_ICE } from '../src/game/track.js';
 import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
-import { slowContact, SLOW_PULL, snowmanPose, snowmanContact } from '../src/game/hazards.js';
+import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides } from '../src/render/trackMesh.js';
@@ -442,4 +442,58 @@ test('CPU は雪だるまをよける（スピンするのは、ときどきだ�
     }
   }
   assert.ok(spins <= 12, `${spins}`); // よけないと 20回くらい
+});
+
+test('コブゾーン: BZ から 約60m に、半径 1.5m のコブが10個。道の中', () => {
+  assert.equal(t.moguls.length, 10);
+  for (const m of t.moguls) {
+    const loc = locate(t, m.x, m.z, m.i, 40, m.y);
+    assert.ok(Math.abs(loc.lateral) < t.roadHalf - 1);
+    assert.ok(between(t, t.samples[m.i].s, t.marks.BZ - 1, t.marks.BZ + 61));
+  }
+});
+
+test('コブに正面から当たると跳ねる（上へ）。そのあと着地して走り続ける', () => {
+  const m = t.moguls[0];
+  const p = t.samples[m.i];
+  const kart = createKart(t, m.i, 0);
+  kart.x = m.x - Math.cos(p.h) * 2.4;
+  kart.z = m.z - Math.sin(p.h) * 2.4;
+  kart.heading = kart.move = p.h;
+  kart.speed = 30;
+  assert.equal(mogulContact(kart, t), 'hop');
+  assert.ok(kart.airborne && Math.abs(kart.vy - MOGUL_HOP_VY) < 1e-6 && !kart.launched);
+  for (let f = 0; f < 90; f++) stepKart(kart, full, t, params, 1 / 60);
+  assert.ok(!kart.airborne && kart.speed > 20);
+});
+
+test('コブに横から当たると、横へはじかれて少し遅くなる', () => {
+  const m = t.moguls[0];
+  const p = t.samples[m.i];
+  const kart = createKart(t, m.i, 0);
+  // 道にそって走りながら、コブの左横をこする（コブは進む向きから 70度くらい右）
+  kart.x = m.x - Math.cos(p.h) * 0.8 + Math.sin(p.h) * 2.3;
+  kart.z = m.z - Math.sin(p.h) * 0.8 - Math.cos(p.h) * 2.3;
+  kart.heading = kart.move = p.h;
+  kart.speed = 20;
+  assert.equal(mogulContact(kart, t), 'side');
+  assert.ok(Math.hypot(kart.x - m.x, kart.z - m.z) > 3.5);
+  assert.ok(Math.abs(kart.speed - 17) < 1e-6);
+  assert.ok(!kart.airborne);
+});
+
+test('ほかのコースには、コブはない', () => {
+  for (const c of COURSES.slice(0, 3)) assert.deepEqual(buildTrack(c).moguls, []);
+});
+
+test('CPU はコブゾーンを通りぬけて、トンネルに入る', () => {
+  for (let seed = 0; seed < 4; seed++) {
+    const kart = createKart(t, (Math.round(t.marks.BZ) - 40) % L, (seed % 3) * 4 - 4);
+    const cpu = createCpu(seed, seed);
+    for (let f = 0; f < 60 * 8; f++) {
+      stepKart(kart, cpuControl(cpu, kart, t, f / 60), t, cpuParams(params, 1), 1 / 60);
+      mogulContact(kart, t);
+    }
+    assert.ok(between(t, t.samples[kart.seg].s, t.marks.TI, t.marks.TO), `seed ${seed}: ${kart.seg}`);
+  }
 });

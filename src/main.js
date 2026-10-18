@@ -4,7 +4,7 @@ import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
 import { buildTrack, span, locate } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, DINO_BLACK } from './game/hazards.js';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
@@ -544,6 +544,7 @@ function stepGame(dt) {
   // イノシシ（Soki Forest）: 牛と同じ
   if (track.boars.length) karts.forEach((kart) => boarContact(kart, track, race.t, PHYS));
   if (track.snowmen.length) karts.forEach((kart) => snowmanContact(kart, track, race.t, PHYS));
+  if (track.moguls.length) karts.forEach((kart) => mogulContact(kart, track));
   // 橋の下の橋脚（Soki Forest）: ぶつかるとスピン
   if (track.bridgePiers?.length) karts.forEach((kart) => pierContact(kart, track, race.t, PHYS));
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆

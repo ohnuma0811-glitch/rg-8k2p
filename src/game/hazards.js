@@ -349,6 +349,38 @@ export function snowmanContact(kart, track, time, phys) {
   return null;
 }
 
+// コブ（Kyugo Mountain。2026-10-18）: 正面（進む向きとコブへの向きの差が MOGUL_FRONT 以内）から当たると上へ跳ね、横からははじかれる
+export const MOGUL_HOP_VY = 6;
+export const MOGUL_FRONT = (35 * Math.PI) / 180;
+export const MOGUL_SIDE_PUSH = 2.5;
+export const MOGUL_SIDE_KEEP = 0.85;
+export function mogulContact(kart, track) {
+  if (kart.airborne || !track.moguls?.length) return null;
+  for (const m of track.moguls) {
+    const dx = m.x - kart.x;
+    const dz = m.z - kart.z;
+    const d = Math.hypot(dx, dz);
+    if (d >= m.r + COW_PAD || d === 0) continue;
+    kart.mogulHits = (kart.mogulHits || 0) + 1;
+    const toward = Math.atan2(dz, dx);
+    const off = Math.abs(Math.atan2(Math.sin(toward - kart.move), Math.cos(toward - kart.move)));
+    if (off < MOGUL_FRONT && kart.speed > 3) {
+      kart.airborne = true;
+      kart.launched = false; // ジャンプ台ではないので「イヤッホー」と着地の音はなし
+      kart.vy = MOGUL_HOP_VY;
+      return 'hop';
+    }
+    // 横から: コブの中心から外へ、ふれる所よりさらに MOGUL_SIDE_PUSH m 押し出す
+    const min = m.r + COW_PAD + MOGUL_SIDE_PUSH;
+    kart.x = m.x - (dx / d) * min;
+    kart.z = m.z - (dz / d) * min;
+    kart.speed *= MOGUL_SIDE_KEEP;
+    pushInside(kart, track);
+    return 'side';
+  }
+  return null;
+}
+
 // スローの板（Kyugo Mountain。2026-10-18 のユーザー依頼「逆向きの歩く歩道」）: 乗っている間、うしろへ引っぱる。止まりはしない
 export const SLOW_PULL = 18; // m/s²
 export const SLOW_MIN = 8; // これより遅くはしない（m/s）

@@ -207,3 +207,7 @@ test('雪だるまにぶつかったら bump（ドン）、近くの雪だるま
   assert.deepEqual(soundEvents(st({ snowmanHop: 0 }), st({ snowmanHop: 1 }), 3), ['snowmanHop']);
   assert.deepEqual(soundEvents(st({ snowmanHop: 1 }), st({ snowmanHop: 1 }), 3), []);
 });
+
+test('コブに当たったら boing（ぼよん。Kyugo Mountain）', () => {
+  assert.deepEqual(soundEvents(st({}, { mogulHits: 0 }), st({}, { mogulHits: 1 }), 3), ['boing']);
+});
