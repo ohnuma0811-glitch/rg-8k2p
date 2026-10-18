@@ -1,7 +1,7 @@
 // 石のアーチ橋（Soki Forest。2026-10-16 のユーザー依頼「下の道の上に大きな橋を」）。
 // 本線の橋の点（p.bridge）に沿って、石の板（道の下）・石の手すり・橋脚と、橋脚の間のアーチを作る。
 // 下の道（ほかの道）の上は、橋脚を置かず、大きなアーチにする
-import { createBuilder } from '../town/builder.js?v=ba423c0';
+import { createBuilder } from '../town/builder.js?v=68c8adf';
 
 const STONE = 0x9a958c; // 橋の石
 const STONE_DARK = 0x8a857c; // アーチの内側（少し暗く）
@@ -50,8 +50,8 @@ function buildRun(b, track, pts, snow) {
   const width = 2 * wall + 1.2;
   // 走る向きを部品の +z にする回転
   const ryOf = (p) => Math.PI / 2 - p.h;
-  // 道の下の板と、両はしの手すり（2m ごと）。雪山は手すりの上に雪
-  for (let k = 0; k < pts.length; k += 2) {
+  // 道の下の板と、両はしの手すり（2m ごと）。雪山は、坂でも段々に見えないよう、src/render/trackMesh.js で坂にそった形にする
+  for (let k = 0; k < (snow ? 0 : pts.length); k += 2) {
     const p = pts[k];
     b.push(p.x, p.y - DECK, p.z, ryOf(p));
     b.box(width, DECK, 2.3, stone, 0, 0, 0);

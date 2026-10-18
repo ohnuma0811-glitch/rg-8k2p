@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=ba423c0';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=ba423c0';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=68c8adf';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=68c8adf';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -180,10 +180,13 @@ export function cpuControl(cpu, kart, track, t) {
     const ahead = (sl.from - loc.i + track.length) % track.length;
     const behindEnd = (loc.i - sl.from + track.length) % track.length;
     if (ahead > 90 && behindEnd >= 30) continue;
-    if (Math.abs(lane - sl.lateral) < sl.half + 2.5) lane = -Math.sign(sl.lateral) * 4;
+    // 板の横を通る（真ん中の板なら、自分の走る線の側へ）
+    if (Math.abs(lane - sl.lateral) < sl.half + 2.5) lane = sl.lateral ? -Math.sign(sl.lateral) * 4 : (Math.sign(cpu.lane) || 1) * (sl.half + 3);
     slowNear = true; // 板の近くではドリフトしない（外へすべって板に乗らないように）
+    // 板の手前 50m から板の上までは、近くの点をめざす（くねくね道で、カーブの内がわを切って板の上を通らないように）
+    if (ahead < 50 || behindEnd < 30) aim = at(12);
     // 板の手前 40m で、まだ板の側にいたら（カーブで外へすべって）、速さを落として寄りやすくする
-    if (ahead < 40 && Math.sign(loc.lateral) === Math.sign(sl.lateral) && Math.abs(loc.lateral) > sl.half - 1) slowBrake = true;
+    if (ahead < 40 && ahead > 15 && Math.abs(loc.lateral - sl.lateral) < sl.half + 1) slowBrake = true;
   }
   // 木の実の影（Soki Forest）: まだ落ちていない木の実の落ちる所が、自分の走る線の近く（3m）なら、その横へずれる
   for (const nut of track.nuts?.list ?? []) {
@@ -259,7 +262,10 @@ export function cpuControl(cpu, kart, track, t) {
   // 目指す向きと大きくずれた（柵にぶつかった・ななめに着地した）ら、速さを落として向き直る（2026-10-16: 左右の柵を行き来して動けなくなった）
   const lost = Math.abs(angle) > 1.0 && kart.speed > 12 && !kart.airborne;
   // 橋の下の橋脚のすき間は、ゆっくり通る（せまいので）
-  const brake = lost || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
+  // すべる道（Kyugo Mountain の雪と氷）: カーブの手前で、すべりやすさに合わせて少し遅く（外へすべって板や柵に行かないように）
+  const grip = Math.min(samples[loc.i].grip ?? 1, at(CPU.BEND_AHEAD).grip ?? 1);
+  const slipBrake = grip < 1 && bend > CPU.BRAKE_BEND * 0.7 && kart.speed > CPU.CORNER_SPEED * (0.55 + 0.45 * grip);
+  const brake = lost || slipBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）

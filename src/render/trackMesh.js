@@ -1,18 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=ba423c0';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=ba423c0';
-import { buildJungle } from './town/jungle.js?v=ba423c0';
-import { buildWater } from './town/water.js?v=ba423c0';
-import { buildBridge } from './forest/bridge.js?v=ba423c0';
-import { buildTunnel } from './snow/tunnel.js?v=ba423c0';
-import { buildSnowScenery } from './snow/kit.js?v=ba423c0';
-import * as forestKit from './forest/kit.js?v=ba423c0';
-import { createBuilder } from './town/builder.js?v=ba423c0';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=ba423c0';
-import { buildTerrain, terrainHeight } from './terrain.js?v=ba423c0';
-import { mergeMeshes } from './mergeMeshes.js?v=ba423c0';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=ba423c0';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=ba423c0';
+import * as THREE from '../../vendor/three.module.min.js?v=68c8adf';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=68c8adf';
+import { buildJungle } from './town/jungle.js?v=68c8adf';
+import { buildWater } from './town/water.js?v=68c8adf';
+import { buildBridge } from './forest/bridge.js?v=68c8adf';
+import { buildTunnel } from './snow/tunnel.js?v=68c8adf';
+import { buildSnowScenery } from './snow/kit.js?v=68c8adf';
+import { buildSigns } from './snow/signs.js?v=68c8adf';
+import * as forestKit from './forest/kit.js?v=68c8adf';
+import { createBuilder } from './town/builder.js?v=68c8adf';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=68c8adf';
+import { buildTerrain, terrainHeight } from './terrain.js?v=68c8adf';
+import { mergeMeshes } from './mergeMeshes.js?v=68c8adf';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=68c8adf';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=68c8adf';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -124,6 +125,23 @@ function chevrons(bg, fg) {
       g.fill();
     }
   });
+}
+
+// 雪山の橋の板と手すり（Kyugo Mountain）: 坂にそった、なめらかな形（2026-10-18 のユーザー依頼「階段のように見える」）
+export function bridgeSlab(track) {
+  const g = new THREE.Group();
+  const { samples } = track;
+  const ok = (p) => p.bridge && p.y !== null;
+  const STONE = 0xb8bec6;
+  const outer = (p) => p.wall + 0.6;
+  g.add(ribbon(samples, (p) => -outer(p), outer, (p) => p.y - 1.4, ok, { color: STONE })); // 板の裏
+  for (const side of [-1, 1]) {
+    g.add(fence(samples, (p) => side * p.wall, (p) => p.y - 1.4, (p) => p.y + 1.0, ok, () => STONE)); // 手すりの内がわ
+    g.add(fence(samples, (p) => side * outer(p), (p) => p.y - 1.4, (p) => p.y + 1.0, ok, () => STONE)); // 外がわ
+    const [a, b] = side < 0 ? [(p) => -outer(p), (p) => -p.wall] : [(p) => p.wall, outer];
+    g.add(ribbon(samples, a, b, (p) => p.y + 1.0, ok, { color: 0xf4f7fb })); // 手すりの上の雪
+  }
+  return g;
 }
 
 // うしろを指す矢印の模様（スローの板。Kyugo Mountain）。模様の下（v が小さい方）を指す
@@ -592,7 +610,8 @@ export function buildTrackMesh(track) {
     g.fillRect(w / 2 - 1, 0, 2, h / 2);
   });
   // 雪山: 雪の道（grip < 1）だけを雪の絵に。アスファルト（grip 1）は灰色に破線、凍った所は水色に白い光の筋（2026-10-18）
-  const roadOk = (p) => hasGround(p) && !inSquare(p) && !p.bridge && (!snow || (p.grip < 1 && p.grip > GRIP_ICE));
+  // 雪山は、橋の上も普通の道の見た目（石の色にしない。2026-10-18 のユーザー依頼「階段のように見える」）
+  const roadOk = (p) => hasGround(p) && !inSquare(p) && (snow || !p.bridge) && (!snow || (p.grip < 1 && p.grip > GRIP_ICE));
   group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, roadOk, { color: 0xffffff, map: asphalt, vScale: 4 }));
   if (snow) {
     const paved = canvasTexture(64, 64, (g, w, h) => {
@@ -607,13 +626,13 @@ export function buildTrackMesh(track) {
       g.fillStyle = '#e9f8ff';
       for (let k = 0; k < 6; k++) g.fillRect((k * 23) % (w - 20), (k * 11) % h, 20, 2);
     });
-    const ok = (want) => (p) => hasGround(p) && !p.bridge && want(p.grip);
+    const ok = (want) => (p) => hasGround(p) && want(p.grip);
     group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, ok((g) => g >= 1), { color: 0xffffff, map: paved, vScale: 4 }));
     group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, ok((g) => g <= GRIP_ICE), { color: 0xffffff, map: ice, vScale: 8 }));
   }
   // 橋の上の道は石の色（Soki Forest。2026-10-16）
   // 橋の上は、柵（車が通れる所のはし）まで石（手すりは柵の所。2026-10-16 のユーザー依頼「橋の縁がずれている」）
-  if (samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.wall, (p) => p.wall, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
+  if (!snow && samples.some((p) => p.bridge)) group.add(ribbon(samples, (p) => -p.wall, (p) => p.wall, (p) => p.y + 0.03, (p) => p.bridge, { color: 0x8c877e }));
   if (corners.length) group.add(ribbon(samples, (p) => -p.half, half, (p) => p.y + 0.03, (p) => hasGround(p) && inSquare(p), { color: 0xffffff, map: asphaltMid, vScale: 4 }));
   // 街の交差点: 通行止めの道の口と、角のまん中（コースと同じ道の絵でつなぐ。2026-10-15 のユーザー依頼「しっかり交差点に」）
   const mouths = town ? stubMouths(track, track.def.scenery ?? []) : [];
@@ -712,6 +731,12 @@ export function buildTrackMesh(track) {
   const padMat = new THREE.MeshBasicMaterial({ map: chevrons('#ff8a00', '#fff36b') });
   // 加速板は道の高さに（坂の上の加速板が道の下にかくれないように。2026-10-16 のユーザー依頼「遠いルートの加速板が見えない」）
   for (const [from, to, side] of boostRuns(samples)) group.add(strip(track, from, to, (p) => (p.y ?? 0) + 0.06, padMat, 1, side));
+  for (const run of boostRunsAll(track)) group.add(runStrip(track, run, (p) => (p.y ?? 0) + 0.06, padMat));
+  // 雪山: ジャンプ台の上も、赤に黄色の矢印（どこがジャンプ台か見えるように。2026-10-18 のユーザー依頼）
+  if (snow) {
+    const rampMat = new THREE.MeshBasicMaterial({ map: chevrons('#d8262b', '#ffd800') });
+    for (const run of runsOn(track, (p) => p.ramp && p.y !== null)) group.add(runStrip(track, run, (p) => p.y + 0.07, rampMat, Math.max(1, Math.round(run.length / 4))));
+  }
   if (track.cross) {
     const r = track.def.jump.ramp;
     // ジャンプ台: 赤に黄色の矢印をくり返し（飛び出す方向を指す）
@@ -758,11 +783,14 @@ export function buildTrackMesh(track) {
   // 雪山（Kyugo Mountain）: 雪のつもった石の橋、道の高さに合わせた雪の地面と雪山、トンネル
   if (snow) {
     group.add(buildBridge(track, { snow: true }));
+    group.add(bridgeSlab(track));
     group.add(buildTerrain(track));
     group.add(buildTunnel(track));
     group.add(buildRiver(track));
     group.add(grandstand(track));
     group.add(buildSnowScenery(track));
+    group.add(buildSigns(track)); // トンネルのカーブの矢印、分かれ道と合流の横断幕
+    group.add(mergeArrows(track)); // 合流の手前の、進む向きの白い矢印
   }
   // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
   if (forest) {
@@ -841,6 +869,53 @@ export function buildTrackMesh(track) {
 }
 
 // 加速板が続いている所（s の始まりと終わり）
+// 分かれ道の上の加速板（本線は boostRuns と strip）: 続いている所ごとの点の番号の並び（2026-10-18 のユーザー依頼「見えない」）
+export function boostRunsAll(track) {
+  return runsOn(track, (p) => p.boost).filter((r) => track.samples[r[0]].path !== 0);
+}
+// 本線・分かれ道の上で、ok な点が next でつながる並び
+function runsOn(track, ok) {
+  const { samples } = track;
+  const runs = [];
+  const seen = new Set();
+  samples.forEach((p, i) => {
+    if (!ok(p) || seen.has(i)) return;
+    const prev = samples[p.prev];
+    if (ok(prev) && prev.path === p.path && !seen.has(p.prev)) return; // 続きのとちゅう（始まりから数える）
+    const run = [];
+    for (let k = i; ok(samples[k]) && samples[k].path === p.path && !seen.has(k); k = samples[k].next) {
+      seen.add(k);
+      run.push(k);
+    }
+    runs.push(run);
+  });
+  return runs;
+}
+// 点の番号の並びにそった、道はばいっぱいの板（分かれ道の上でも）
+function runStrip(track, run, y, material, tiles = 1) {
+  const pos = [];
+  const uv = [];
+  const list = [...run, track.samples[run[run.length - 1]].next].map((i) => track.samples[i]);
+  for (let k = 0; k + 1 < list.length; k++) {
+    const p = list[k];
+    const q = list[k + 1];
+    const [rpx, rpz] = rightOf(p);
+    const [rqx, rqz] = rightOf(q);
+    const v0 = (k / (list.length - 1)) * tiles;
+    const v1 = ((k + 1) / (list.length - 1)) * tiles;
+    const a = [p.x - rpx * p.half, y(p), p.z - rpz * p.half];
+    const b = [p.x + rpx * p.half, y(p), p.z + rpz * p.half];
+    const c = [q.x - rqx * q.half, y(q), q.z - rqz * q.half];
+    const d = [q.x + rqx * q.half, y(q), q.z + rqz * q.half];
+    pos.push(...a, ...b, ...c, ...b, ...d, ...c);
+    uv.push(0, v0, 1, v0, 0, v1, 1, v0, 1, v1, 0, v1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  return new THREE.Mesh(g, material);
+}
+
 function boostRuns(samples) {
   const runs = [];
   let from = null;
