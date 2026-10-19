@@ -1,7 +1,7 @@
 // 道の高さに合わせた地面（Soki Forest。2026-10-16 のユーザー依頼「道が上下に波打つ」）。
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
-import * as THREE from '../../vendor/three.module.min.js?v=3ba7342';
-import { TUNNEL_HEIGHT } from './snow/tunnel.js?v=3ba7342';
+import * as THREE from '../../vendor/three.module.min.js?v=412c7a8';
+import { TUNNEL_HEIGHT } from './snow/tunnel.js?v=412c7a8';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）
@@ -17,6 +17,7 @@ const SNOW_COLOR = 0xf2f6fb; // 雪山（Kyugo Mountain）
 const PEAK_CLEAR = 40; // 道のふち（＋地面のます目 1つ）から、この距離で山の高さになる（m）
 const COVER = 8; // トンネルの柵の外、この距離まで山でおおう（m）
 const STAND_FLAT = 32; // 観客席の真ん中から、この距離までは平ら（m）
+export const GAP_DROP = 6; // ジャンプの地面のない所の地面は、両はしの道よりこれだけ低く（m）
 
 const smooth = (a, b, x) => {
   const u = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -52,7 +53,22 @@ function prep(track) {
     const d = p.wall + 13;
     stand = { x: p.x - Math.sin(p.h) * gs.side * d, z: p.z + Math.cos(p.h) * gs.side * d, y: p.y ?? 0 };
   }
-  const c = { grid, river, tunnel, stand, reach: Math.max(...pts.map((p) => p.wall)) + FALL };
+  // ジャンプの地面のない所（Kyugo Mountain。2026-10-19 のユーザー依頼「着地するところがわかりにくい。崖をしっかり描いて」）:
+  // 地面は、両はしの道より GAP_DROP m 低く（着地の道の手前まで、道と同じ高さの雪が続いて見えないように）
+  const gaps = new Map();
+  for (let i = 0; i < track.length; i++) {
+    const p = track.samples[i];
+    if (p.y !== null || p.tunnel) continue;
+    let a = p;
+    let b = p;
+    for (let k = 0; k < 200 && a.y === null; k++) a = track.samples[a.prev];
+    for (let k = 0; k < 200 && b.y === null; k++) b = track.samples[b.next];
+    if (a.y === null || b.y === null) continue;
+    const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
+    if (!gaps.has(key)) gaps.set(key, []);
+    gaps.get(key).push({ p, floor: Math.min(a.y, b.y) - GAP_DROP });
+  }
+  const c = { grid, river, tunnel, stand, gaps, reach: Math.max(...pts.map((p) => p.wall)) + FALL };
   cache.set(track, c);
   return c;
 }
@@ -72,7 +88,7 @@ function riverDistance(river, x, z) {
 
 // (x, z) の地面の高さ（m）
 export function terrainHeight(track, x, z) {
-  const { grid, river, tunnel, stand, reach } = prep(track);
+  const { grid, river, tunnel, stand, gaps, reach } = prep(track);
   const span = Math.ceil(reach / CELL);
   const cx = Math.floor(x / CELL);
   const cz = Math.floor(z / CELL);
@@ -83,6 +99,7 @@ export function terrainHeight(track, x, z) {
   // 道のふちから NEAR m までは、いちばん近い道の点より高くしない（坂で、少し後ろの低い点に引っぱられないように）
   let bestE = Infinity;
   const close = [];
+  const edgeNear = []; // ふちから 4m 以内の道の点
   for (let gx = cx - span; gx <= cx + span; gx++) {
     for (let gz = cz - span; gz <= cz + span; gz++) {
       for (const p of grid.get(`${gx},${gz}`) ?? []) {
@@ -90,6 +107,7 @@ export function terrainHeight(track, x, z) {
         if (e > FALL) continue;
         if (e <= 0) cap = Math.min(cap, p.y); // その場所を通る道より高くしない
         if (e <= NEAR) close.push([e, p.y]);
+        if (e <= 4) edgeNear.push(p);
         bestE = Math.min(bestE, e);
         if (e <= 0) onRoad = true;
         // 近い道ほど強く効く（遠い道に引っぱられないように）
@@ -119,6 +137,19 @@ export function terrainHeight(track, x, z) {
   if (!onRoad && river.length > 1) {
     const f = 1 - smooth(RIVER_FULL, RIVER_EDGE, riverDistance(river, x, z));
     y = y * (1 - f) + RIVER_DEPTH * f;
+  }
+  // ジャンプの地面のない所の下は低く（下を通るほかの道のふちから 4m までは、その道に合わせたまま）
+  const L = track.length;
+  for (let gx = cx - 1; gx <= cx + 1; gx++) {
+    for (let gz = cz - 1; gz <= cz + 1; gz++) {
+      for (const { p, floor } of gaps.get(`${gx},${gz}`) ?? []) {
+        let low = floor;
+        for (const q of edgeNear) if (q.path !== p.path || Math.min(Math.abs(q.s - p.s), L - Math.abs(q.s - p.s)) > 60) low = Math.max(low, q.y);
+        const fwd = (x - p.x) * Math.cos(p.h) + (z - p.z) * Math.sin(p.h);
+        const lat = -(x - p.x) * Math.sin(p.h) + (z - p.z) * Math.cos(p.h);
+        if (Math.abs(fwd) <= 0.6 && Math.abs(lat) <= p.wall + 3) y = Math.min(y, low);
+      }
+    }
   }
   // トンネルの横と上だけ（トンネルの点から、道に直角の向きに COVER m まで）をおおう。入口・出口の手前の道にはかぶせない。
   // ほかの道（トンネルでない道）の上にもかぶせない（2026-10-18 のユーザー依頼「入口が壁のようにふさがれて見える」）

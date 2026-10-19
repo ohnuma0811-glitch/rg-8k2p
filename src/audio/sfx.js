@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=3ba7342';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=3ba7342';
+import { midiToHz } from './notes.js?v=412c7a8';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=412c7a8';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -419,12 +419,10 @@ export function createSfx(audio) {
         engine = { oscs, filter, gain };
       },
       // 毎フレーム呼ぶ（値をなめらかに近づけるだけ。物は作らない）
-      // muffle: トンネルの中（Kyugo Mountain。0〜1）。高い音をけずって、こもった音に
-      update(speed, top, boosting, muffle = 0) {
+      update(speed, top, boosting) {
         if (!engine) return;
         const p = engineParams(speed, top, boosting);
         const t = audio.ctx.currentTime;
-        engine.filter.frequency.setTargetAtTime(900 - 600 * muffle, t, 0.1);
         for (const o of engine.oscs) o.frequency.setTargetAtTime(p.freq, t, 0.05);
         engine.gain.gain.setTargetAtTime(p.gain, t, 0.08);
       },

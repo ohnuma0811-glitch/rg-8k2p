@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=3ba7342';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=3ba7342';
+import { locate, respawnIndex } from './track.js?v=412c7a8';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=412c7a8';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -124,6 +124,15 @@ function endDrift(kart, params, release) {
   if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST, PHYS.MT_FACTOR);
 }
 
+// 車の大きさ（src/render/models.js の車の形。タイヤの外がわ・バンパーの先まで）。柵には、中心ではなく車の端が当たる
+// （2026-10-19 のユーザー依頼「壁にぶつかる時にカートが壁に食い込んでいる」）
+const KART_HALF_WIDTH = 1.15;
+const KART_HALF_LENGTH = 1.4;
+// 道の向きから rel だけ向きがずれた車の、中心から横（柵の方）へ、いちばん出ている所までの長さ（m）
+export function wallReach(rel) {
+  return KART_HALF_WIDTH * Math.abs(Math.cos(rel)) + KART_HALF_LENGTH * Math.abs(Math.sin(rel));
+}
+
 // ctl: { steer: -1〜1（右が正）, brake: bool, drift: bool }
 export function stepKart(kart, ctl, track, params, dt) {
   if (kart.respawn > 0) {
@@ -141,7 +150,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.seg = loc.i;
     if (!kart.airborne && loc.ground !== null) kart.y = loc.ground; // 坂でも地面の上（2026-10-19 のユーザー依頼「スピンすると地面に埋まる」）
     // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
-    const excess = Math.abs(loc.lateral) - loc.wall;
+    const excess = Math.abs(loc.lateral) - (loc.wall - wallReach(kart.heading - loc.heading));
     if (excess > 0) {
       const side = Math.sign(loc.lateral);
       kart.x -= -Math.sin(loc.heading) * side * excess;
@@ -259,7 +268,16 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.x += Math.cos(kart.move) * kart.speed * dt;
   kart.z += Math.sin(kart.move) * kart.speed * dt;
   let loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-  if (!kart.airborne && loc.ground === null && Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0) {
+  // 逆走・バックで地面のない所へ向かうときは、車の中心ではなく、進む向きの車の端（バンパー）で止める
+  // （着地の道のはしに壁を描いた。2026-10-19 のユーザー依頼）
+  const backward = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0;
+  const edgeGone = () => {
+    const dir = kart.speed < 0 ? -1 : 1;
+    const x = kart.x + Math.cos(kart.move) * dir * KART_HALF_LENGTH;
+    const z = kart.z + Math.sin(kart.move) * dir * KART_HALF_LENGTH;
+    return locate(track, x, z, loc.i, 40, kart.y ?? null).ground === null;
+  };
+  if (!kart.airborne && backward && (loc.ground === null || edgeGone())) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる
     // （2026-10-14 の実機確認で、逆走して飛び越えてしまった）
     kart.x = fromX;
@@ -354,11 +372,12 @@ export function stepKart(kart, ctl, track, params, dt) {
   // スピードを落とすのはぶつかった最初の1回だけで、角度が大きいほど落とす（こすっている間は柵ぞいに走れる）
   // 空中では押し戻すだけ（ジャンプ中にハンドルを切っても落ちないように）
   const a = Math.abs(loc.lateral);
+  const wall = loc.wall - wallReach(kart.heading - loc.heading); // 車の中心が行ける所まで
   let touching = false;
-  if (a > loc.wall) {
+  if (a > wall) {
     touching = true;
     const side = Math.sign(loc.lateral);
-    const excess = loc.lateral - side * loc.wall;
+    const excess = loc.lateral - side * wall;
     kart.x -= -Math.sin(loc.heading) * excess;
     kart.z -= Math.cos(loc.heading) * excess;
     const out = Math.sin(wrapAngle(kart.move - loc.heading)) * side * Math.sign(kart.speed);

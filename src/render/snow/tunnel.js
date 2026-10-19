@@ -1,6 +1,6 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import * as THREE from '../../../vendor/three.module.min.js?v=3ba7342';
-import { createBuilder } from '../town/builder.js?v=3ba7342';
+import * as THREE from '../../../vendor/three.module.min.js?v=412c7a8';
+import { createBuilder } from '../town/builder.js?v=412c7a8';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const WALL = 0x5a5f66;
@@ -68,6 +68,7 @@ export function buildTunnel(track) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
   group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  group.add(moundMesh(track, info));
   // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）
   for (const p of [pts[0], pts[pts.length - 1]]) {
     const w = p.wall + 1.5;
@@ -81,6 +82,93 @@ export function buildTunnel(track) {
   return group;
 }
 
+// トンネルの外は雪の山（2026-10-19 のユーザー依頼「トンネルの外観は全て雪で覆って。山の下に隠してしまってよい」）
+// 天井の上に雪をかぶせ、壁の外がわは、天井の高さから下の地面まで雪の坂。ほかの道の上にはかからない
+export const MOUND_ABOVE = 8.8; // 道から雪の上まで（天井 8.3m の上。上を通るほかの道は 9m より上）
+const MOUND_GAP = 0.6; // 雪は壁の 0.6m 外から（壁と同じ所だと、ちらついて灰色の壁が見えた）
+const MOUND_SLOPE = 1.2; // 雪の坂の横の長さ ÷ 高さ
+const MOUND_CLEAR = 3; // ほかの道の柵から、雪の坂のはしまで（m）
+const SNOW = 0xf2f6fb; // 雪山の地面と同じ色（src/render/terrain.js）
+
+// 雪の坂（点ごと・左右ごと）: { i, side, w: 壁の位置, top: 上の高さ, base: 下の地面の高さ, reach: 壁から坂のはしまで, end: はしの高さ }
+// tunnelInfo は buildTunnel の中の点ごとの情報（壁の高さ）。なければ作る
+export function snowMound(track, tunnelInfo = null) {
+  const samples = track.samples.slice(0, track.length);
+  const pts = samples.filter((p) => p.tunnel);
+  const others = track.samples.filter((q) => !q.tunnel && q.y !== null);
+  const info = tunnelInfo ?? pts.map((p) => ({ p, w: p.wall + 0.5, wall: { '-1': TUNNEL_HEIGHT, 1: TUNNEL_HEIGHT } }));
+  const out = [];
+  for (const it of info) {
+    const p = it.p;
+    const top = p.y + MOUND_ABOVE;
+    let base = p.y;
+    for (const q of pts) if (Math.abs(q.x - p.x) < 40 && Math.abs(q.z - p.z) < 40) base = Math.min(base, q.y);
+    base -= 3;
+    for (const side of [-1, 1]) {
+      if (it.wall[side] < TUNNEL_HEIGHT - 0.01) continue; // 上をほかの道が通る壁（らせんの下の段）は、上の段の雪の下
+      const rx = -Math.sin(p.h) * side;
+      const rz = Math.cos(p.h) * side;
+      // 壁の真下をほかの道が通る（トンネルが B の上を渡る所）: 雪はその道の上 6m まで
+      let floor = base;
+      for (const q of others) {
+        if (Math.abs(q.x - p.x) > 40 || Math.abs(q.z - p.z) > 40 || q.y >= p.y) continue;
+        const dx = q.x - p.x;
+        const dz = q.z - p.z;
+        const l = dx * rx + dz * rz - it.w;
+        if (Math.abs(dx * Math.cos(p.h) + dz * Math.sin(p.h)) <= q.wall + 4 && l - q.wall - MOUND_CLEAR < 0 && l + q.wall > 0) floor = Math.max(floor, q.y + 6);
+      }
+      const full = (top - floor) * MOUND_SLOPE;
+      let reach = full;
+      for (const q of others) {
+        const dx = q.x - p.x;
+        const dz = q.z - p.z;
+        if (Math.abs(dx) > it.w + full + 20 || Math.abs(dz) > it.w + full + 20) continue;
+        const along = dx * Math.cos(p.h) + dz * Math.sin(p.h);
+        if (Math.abs(along) > q.wall + 4) continue;
+        const l = dx * rx + dz * rz - it.w - MOUND_GAP; // 雪の内がわから外への距離
+        const near = l - q.wall - MOUND_CLEAR; // ほかの道の柵の手前
+        if (l + q.wall < 0) continue; // 反対がわ
+        const h = top - ((top - floor) * Math.max(0, near)) / full; // その道の柵の手前での雪の高さ
+        if (h > q.y - 1) reach = Math.min(reach, Math.max(0, near));
+      }
+      out.push({ i: track.samples.indexOf(p), side, w: it.w + MOUND_GAP, top, base: floor, reach, end: top - ((top - floor) * reach) / full });
+    }
+  }
+  return out;
+}
+
+function moundMesh(track, info) {
+  const slopes = snowMound(track, info);
+  const bySide = new Map(slopes.map((m) => [`${m.i}:${m.side}`, m]));
+  const pos = [];
+  const quad = (a, b, c, d) => pos.push(...a, ...b, ...c, ...c, ...b, ...d);
+  const at = (p, lat, y) => [p.x - Math.sin(p.h) * lat, y, p.z + Math.cos(p.h) * lat];
+  for (let k = 0; k + 1 < info.length; k++) {
+    const A = info[k];
+    const B = info[k + 1];
+    if (track.samples[A.p.next] !== B.p) continue;
+    // 天井の上の雪
+    const wa = A.w + MOUND_GAP;
+    const wb = B.w + MOUND_GAP;
+    if (A.ceil && B.ceil) quad(at(A.p, -wa, A.p.y + MOUND_ABOVE), at(B.p, -wb, B.p.y + MOUND_ABOVE), at(A.p, wa, A.p.y + MOUND_ABOVE), at(B.p, wb, B.p.y + MOUND_ABOVE));
+    const ia = track.samples.indexOf(A.p);
+    const ib = track.samples.indexOf(B.p);
+    for (const side of [-1, 1]) {
+      const ma = bySide.get(`${ia}:${side}`);
+      const mb = bySide.get(`${ib}:${side}`);
+      if (!ma || !mb) continue;
+      // 坂（壁の上 → はし）と、はしから下の地面までの雪の壁
+      quad(at(A.p, side * ma.w, ma.top), at(B.p, side * mb.w, mb.top), at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end));
+      quad(at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), at(A.p, side * (ma.w + ma.reach), ma.base), at(B.p, side * (mb.w + mb.reach), mb.base));
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  // 立った雪の壁は、日の当たらない向きだと灰色の壁に見えるので、少し明るく（自分で光る分）
+  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: SNOW, emissive: 0x8a8e94, side: THREE.DoubleSide }));
+}
+
 // トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）
 export const TUNNEL_BLACK = 0.25; // 入るときのまっくらの秒数
 export const TUNNEL_FADE = 0.6; // 出るときに明るくなる秒数
@@ -89,6 +177,12 @@ export const TUNNEL_DIM = 0.35; // 中の明るさ（外を 1 として。2026-1
 // タブレット・スマホ（指で操作する端末）は画面が暗く見えるので明るめ（2026-10-19 のユーザー依頼「PC は問題ないが、アンドロイドタブレットだとまだ暗い」）
 const LOOK_PC = { dim: TUNNEL_DIM, vignette: 0.55, headlight: 120, fog: 0x07090c, fogNear: 8, fogFar: 70 };
 const LOOK_TOUCH = { dim: 0.7, vignette: 0.2, headlight: 200, fog: 0x3a424e, fogNear: 30, fogFar: 180 };
+// 指だけで操作する端末か（matchMedia を渡す）。タッチ画面つきの PC（マウス・タッチパッドもある）は PC とする
+// （2026-10-19 のユーザー依頼「PC 版のトンネルの暗さを前の暗さに戻して。今はかなり明るい」）
+export function touchOnly(matchMedia) {
+  if (!matchMedia) return false;
+  return matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+}
 export function tunnelLook(touch) {
   return touch ? LOOK_TOUCH : LOOK_PC;
 }
