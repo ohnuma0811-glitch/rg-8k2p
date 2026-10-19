@@ -20,8 +20,9 @@ export function startLoop({ update, render, step = STEP }) {
     const r = advance(acc, dt, step);
     acc = r.acc;
     for (let i = 0; i < r.steps; i++) update(step);
-    // 描くときに、前の計算から何割進んだか（0〜1）を渡す
-    render(acc / step);
+    // 描くときに、前の計算から何割進んだか（0〜1）と、前に描いてからの秒数を渡す
+    // （カメラも、車と同じ画面の書きかえの時刻で動かす。別の時計で測ると、車が小刻みにぶれて見えた。2026-10-19）
+    render(acc / step, dt);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

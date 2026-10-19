@@ -891,7 +891,6 @@ async function flow() {
 let frames = 0;
 let fpsTime = 0;
 let fps = 60;
-let last = performance.now();
 let orbit = 0;
 const overHead = new THREE.Vector3();
 
@@ -1047,10 +1046,8 @@ startLoop({
     controls.tick();
     if (game && !game.paused) stepGame(dt);
   },
-  render(alpha) {
-    const now = performance.now();
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
+  render(alpha, frameDt) {
+    const dt = Math.min(0.1, frameDt);
     frames++;
     fpsTime += dt;
     if (fpsTime >= 2) {

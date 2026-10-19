@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advance, STEP } from '../src/loop.js';
+import { advance, STEP, startLoop } from '../src/loop.js';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 
@@ -39,4 +39,18 @@ test('端数は次のフレームに持ち越す', () => {
   const r = advance(0, STEP * 1.5, STEP);
   assert.equal(r.steps, 1);
   close(r.acc, STEP * 0.5);
+});
+
+test('描くときに、画面の書きかえの時刻の差（秒）も渡す。カメラも車と同じ時刻で動かす（2026-10-19 のユーザー依頼「カートが小刻みに振動」）', () => {
+  const queue = [];
+  globalThis.requestAnimationFrame = (cb) => queue.push(cb);
+  const got = [];
+  const loop = startLoop({ update() {}, render: (alpha, dt) => got.push(dt) });
+  for (const t of [1000, 1020, 1033, 1050]) queue.shift()(t);
+  loop.stop();
+  delete globalThis.requestAnimationFrame;
+  close(got[0], 0);
+  close(got[1], 0.02);
+  close(got[2], 0.013);
+  close(got[3], 0.017);
 });
