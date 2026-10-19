@@ -1,44 +1,44 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=18a816c';
-import { startLoop } from './loop.js?v=18a816c';
-import { COURSES } from './data/tracks.js?v=18a816c';
-import { buildTrack, span, locate } from './game/track.js?v=18a816c';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=18a816c';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=18a816c';
-import { kartParams } from './game/stats.js?v=18a816c';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=18a816c';
-import { pushApart, newBumps } from './game/collide.js?v=18a816c';
+import * as THREE from '../vendor/three.module.min.js?v=3ba7342';
+import { startLoop } from './loop.js?v=3ba7342';
+import { COURSES } from './data/tracks.js?v=3ba7342';
+import { buildTrack, span, locate } from './game/track.js?v=3ba7342';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=3ba7342';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=3ba7342';
+import { kartParams } from './game/stats.js?v=3ba7342';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=3ba7342';
+import { pushApart, newBumps } from './game/collide.js?v=3ba7342';
 import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=18a816c';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=18a816c';
-import { tunnelLight, TUNNEL_DIM } from './render/snow/tunnel.js?v=18a816c';
-import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=18a816c';
-import { createMinimap } from './render/minimap.js?v=18a816c';
-import { grandstandSpot } from './render/trackMesh.js?v=18a816c';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js?v=18a816c';
-import { faceSvg } from './titleArt.js?v=18a816c';
-import { createEffects } from './render/effects.js?v=18a816c';
-import { nextQuality, pixelRatio } from './render/quality.js?v=18a816c';
-import { blendPose, poseOf } from './render/interp.js?v=18a816c';
-import { speedText } from './hud.js?v=18a816c';
-import { addRecent, cleanRecent } from './names.js?v=18a816c';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=18a816c';
-import { load, save } from './storage.js?v=18a816c';
-import * as screens from './screens.js?v=18a816c';
-import { SharedTimes, dateText } from './sharedTimes.js?v=18a816c';
-import { TIMES_URL } from './config.js?v=18a816c';
-import { createAudio } from './audio/audio.js?v=18a816c';
-import { createSfx } from './audio/sfx.js?v=18a816c';
-import { createVoices } from './audio/voice.js?v=18a816c';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=18a816c';
-import { createCrowd } from './audio/crowd.js?v=18a816c';
-import { crowdMix } from './audio/mix.js?v=18a816c';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=18a816c';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=18a816c';
+} from './game/race.js?v=3ba7342';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=3ba7342';
+import { tunnelLight, tunnelLook } from './render/snow/tunnel.js?v=3ba7342';
+import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=3ba7342';
+import { createMinimap } from './render/minimap.js?v=3ba7342';
+import { grandstandSpot } from './render/trackMesh.js?v=3ba7342';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js?v=3ba7342';
+import { faceSvg } from './titleArt.js?v=3ba7342';
+import { createEffects } from './render/effects.js?v=3ba7342';
+import { nextQuality, pixelRatio } from './render/quality.js?v=3ba7342';
+import { blendPose, poseOf } from './render/interp.js?v=3ba7342';
+import { speedText } from './hud.js?v=3ba7342';
+import { addRecent, cleanRecent } from './names.js?v=3ba7342';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=3ba7342';
+import { load, save } from './storage.js?v=3ba7342';
+import * as screens from './screens.js?v=3ba7342';
+import { SharedTimes, dateText } from './sharedTimes.js?v=3ba7342';
+import { TIMES_URL } from './config.js?v=3ba7342';
+import { createAudio } from './audio/audio.js?v=3ba7342';
+import { createSfx } from './audio/sfx.js?v=3ba7342';
+import { createVoices } from './audio/voice.js?v=3ba7342';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=3ba7342';
+import { createCrowd } from './audio/crowd.js?v=3ba7342';
+import { crowdMix } from './audio/mix.js?v=3ba7342';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=3ba7342';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=3ba7342';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '18a816c';
+const VERSION = '3ba7342';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -491,10 +491,12 @@ function placeBuses(time) {
 }
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
+// タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
+const TUNNEL_LOOK = tunnelLook(window.matchMedia?.('(pointer: coarse)').matches ?? false);
 function showTunnel({ dark, black }, kart = null, open = 0) {
-  setDarkness(scene, dark, TUNNEL_DIM, kart, open);
+  setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
   const v = $('vignette');
-  v.style.opacity = String(Math.max(black, 0.55 * dark)); // まわりの暗さは弱め（2026-10-18 のユーザー依頼「暗すぎる」で 0.85 から）
+  v.style.opacity = String(Math.max(black, TUNNEL_LOOK.vignette * dark)); // まわりの暗さ
   v.classList.toggle('black', black > 0);
 }
 

@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=18a816c';
-import { buildTrackMesh } from './trackMesh.js?v=18a816c';
+import * as THREE from '../../vendor/three.module.min.js?v=3ba7342';
+import { buildTrackMesh } from './trackMesh.js?v=3ba7342';
 
 const SKY = 0x8fd3ff;
 
@@ -52,20 +52,20 @@ export function setCourse(scene, track) {
   }
 }
 
-// トンネルの中の暗さ（Kyugo Mountain。0 ふつう 〜 1 トンネルの中）。dim は中の明るさ。kart があれば、その前にライト
-const TUNNEL_FOG = new THREE.Color(0x07090c);
+// トンネルの中の暗さ（Kyugo Mountain。0 ふつう 〜 1 トンネルの中）。look は中の見え方（src/render/snow/tunnel.js の tunnelLook）。kart があれば、その前にライト
 // open: 出口が近い（0〜1）。霧を晴らして、中から外の明るい景色が見えるように（2026-10-18 のユーザー依頼）
-export function setDarkness(scene, dark, dim, kart = null, open = 0) {
+const tunnelFog = new THREE.Color();
+export function setDarkness(scene, dark, look, kart = null, open = 0) {
   const L = scene.userData.light;
-  const lit = 1 - dark * (1 - dim);
+  const lit = 1 - dark * (1 - look.dim);
   L.hemi.intensity = L.hemiBase * lit;
   L.sun.intensity = L.sunBase * lit;
   const fog = dark * (1 - open);
-  scene.fog.color.copy(L.sky).lerp(TUNNEL_FOG, fog);
+  scene.fog.color.copy(L.sky).lerp(tunnelFog.setHex(look.fog), fog);
   scene.background.copy(scene.fog.color);
-  scene.fog.near = L.fogNear + (8 - L.fogNear) * fog;
-  scene.fog.far = L.fogFar + (70 - L.fogFar) * fog;
-  L.headlight.intensity = kart ? 120 * dark : 0; // 2026-10-18 のユーザー依頼「暗すぎる」で 60 から
+  scene.fog.near = L.fogNear + (look.fogNear - L.fogNear) * fog;
+  scene.fog.far = L.fogFar + (look.fogFar - L.fogFar) * fog;
+  L.headlight.intensity = kart ? look.headlight * dark : 0;
   if (kart && dark > 0) {
     const fx = Math.cos(kart.move);
     const fz = Math.sin(kart.move);
