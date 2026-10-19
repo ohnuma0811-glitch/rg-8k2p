@@ -8,7 +8,7 @@ import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGU
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides, bridgeSlab } from '../src/render/trackMesh.js';
-import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK } from '../src/render/snow/tunnel.js';
+import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK, tunnelLook } from '../src/render/snow/tunnel.js';
 import { terrainHeight, buildTerrain } from '../src/render/terrain.js';
 import { buildSnowScenery } from '../src/render/snow/kit.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
@@ -585,6 +585,18 @@ test('トンネルを出てすぐ（まだ少し暗い）にまた入っても�
   for (let f = 0; f < 10; f++) st = tunnelLight(st, false, 1 / 60);
   st = tunnelLight(st, true, 1 / 60);
   assert.equal(st.black, 0);
+});
+
+test('タブレット・スマホ（指で操作する端末）は、トンネルの中を PC より明るく（2026-10-19 のユーザー依頼）', () => {
+  const pc = tunnelLook(false);
+  const touch = tunnelLook(true);
+  assert.equal(pc.dim, 0.35); // PC はいまのまま
+  assert.ok(touch.dim >= 0.65, `${touch.dim}`);
+  assert.ok(touch.vignette <= 0.3, `${touch.vignette}`);
+  assert.ok(touch.headlight > pc.headlight);
+  assert.ok(touch.fogFar >= 2 * pc.fogFar, '奥まで見える');
+  const lum = (hex) => ((hex >> 16) & 255) + ((hex >> 8) & 255) + (hex & 255);
+  assert.ok(lum(touch.fog) > lum(pc.fog) * 3, '霧が黒すぎない');
 });
 
 // 形の三角の数

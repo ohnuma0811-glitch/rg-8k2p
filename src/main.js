@@ -12,7 +12,7 @@ import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
-import { tunnelLight, TUNNEL_DIM } from './render/snow/tunnel.js';
+import { tunnelLight, tunnelLook } from './render/snow/tunnel.js';
 import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
@@ -491,10 +491,12 @@ function placeBuses(time) {
 }
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
+// タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
+const TUNNEL_LOOK = tunnelLook(window.matchMedia?.('(pointer: coarse)').matches ?? false);
 function showTunnel({ dark, black }, kart = null, open = 0) {
-  setDarkness(scene, dark, TUNNEL_DIM, kart, open);
+  setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
   const v = $('vignette');
-  v.style.opacity = String(Math.max(black, 0.55 * dark)); // まわりの暗さは弱め（2026-10-18 のユーザー依頼「暗すぎる」で 0.85 から）
+  v.style.opacity = String(Math.max(black, TUNNEL_LOOK.vignette * dark)); // まわりの暗さ
   v.classList.toggle('black', black > 0);
 }
 

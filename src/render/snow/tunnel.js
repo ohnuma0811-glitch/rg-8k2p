@@ -85,6 +85,13 @@ export function buildTunnel(track) {
 export const TUNNEL_BLACK = 0.25; // 入るときのまっくらの秒数
 export const TUNNEL_FADE = 0.6; // 出るときに明るくなる秒数
 export const TUNNEL_DIM = 0.35; // 中の明るさ（外を 1 として。2026-10-18 のユーザー依頼「タブレットだと暗すぎる」で 0.15 から）
+// トンネルの中の見え方。dim 中の明るさ（外を 1 として）、vignette まわりの暗さ、headlight 車のライト、fog 霧の色と見える距離（m）
+// タブレット・スマホ（指で操作する端末）は画面が暗く見えるので明るめ（2026-10-19 のユーザー依頼「PC は問題ないが、アンドロイドタブレットだとまだ暗い」）
+const LOOK_PC = { dim: TUNNEL_DIM, vignette: 0.55, headlight: 120, fog: 0x07090c, fogNear: 8, fogFar: 70 };
+const LOOK_TOUCH = { dim: 0.7, vignette: 0.2, headlight: 200, fog: 0x3a424e, fogNear: 30, fogFar: 180 };
+export function tunnelLook(touch) {
+  return touch ? LOOK_TOUCH : LOOK_PC;
+}
 // state = { dark: 0〜1 の暗さ, black: 入るときのまっくら 0〜1 }。inside は自分の車がトンネルの中か
 export function tunnelLight(state, inside, dt) {
   let { dark, black } = state;
