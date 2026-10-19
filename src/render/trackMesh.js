@@ -1,19 +1,19 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=412c7a8';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=412c7a8';
-import { buildJungle } from './town/jungle.js?v=412c7a8';
-import { buildWater } from './town/water.js?v=412c7a8';
-import { buildBridge } from './forest/bridge.js?v=412c7a8';
-import { buildTunnel } from './snow/tunnel.js?v=412c7a8';
-import { buildSnowScenery } from './snow/kit.js?v=412c7a8';
-import { buildSigns } from './snow/signs.js?v=412c7a8';
-import * as forestKit from './forest/kit.js?v=412c7a8';
-import { createBuilder } from './town/builder.js?v=412c7a8';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=412c7a8';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=412c7a8';
-import { mergeMeshes } from './mergeMeshes.js?v=412c7a8';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=412c7a8';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=412c7a8';
+import * as THREE from '../../vendor/three.module.min.js?v=0e87b93';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0e87b93';
+import { buildJungle } from './town/jungle.js?v=0e87b93';
+import { buildWater } from './town/water.js?v=0e87b93';
+import { buildBridge } from './forest/bridge.js?v=0e87b93';
+import { buildTunnel } from './snow/tunnel.js?v=0e87b93';
+import { buildSnowScenery } from './snow/kit.js?v=0e87b93';
+import { buildSigns } from './snow/signs.js?v=0e87b93';
+import * as forestKit from './forest/kit.js?v=0e87b93';
+import { createBuilder } from './town/builder.js?v=0e87b93';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=0e87b93';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=0e87b93';
+import { mergeMeshes } from './mergeMeshes.js?v=0e87b93';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=0e87b93';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=0e87b93';
 
 const COLORS = {
   dirt: 0xb08850,

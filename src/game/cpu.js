@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=412c7a8';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=412c7a8';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=0e87b93';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=0e87b93';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -77,7 +77,12 @@ export function cpuControl(cpu, kart, track, t) {
   cpu.lastS = loc.s;
   // 先の点（分かれる所では、その周に選んだ道を進む）
   const choose = (i, paths) => routeChoice(cpu, i, paths, cpu.lap, track);
-  const at = (k) => samples[aheadOf(track, loc.i, k, choose)];
+  // 一度たどった先の点は覚えておく（毎回はじめから数え直すと重い。2026-10-19 のユーザー依頼「47fps くらいで重たい」）
+  const chain = [loc.i];
+  const at = (k) => {
+    for (let c = chain.length; c <= k; c++) chain.push(aheadOf(track, chain[c - 1], 1, choose));
+    return samples[chain[k]];
+  };
   const p = at(look);
   let lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
   // ロータリー: 島のまわりは、近い側（曲がる向きの内側。まっすぐなら自分の走る線の側）を、島から離れて回る

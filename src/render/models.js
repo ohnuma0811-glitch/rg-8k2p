@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=412c7a8';
-import { PHYS } from '../game/kart.js?v=412c7a8';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=412c7a8';
+import * as THREE from '../../vendor/three.module.min.js?v=0e87b93';
+import { PHYS } from '../game/kart.js?v=0e87b93';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=0e87b93';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -282,7 +282,6 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
   for (const z of [-0.62, 0.62]) g.add(box(1.0, 0.28, 0.22, body, -0.25, 0.42, z)); // 横のカバー
   g.add(box(0.25, 0.22, 1.6, DARK, -1.15, 0.45, 0)); // 後ろのバンパー
   g.add(box(0.7, 0.1, 0.9, DARK, -0.4, 0.5, 0)); // 座席
-  const wheels = [];
   const front = new THREE.CylinderGeometry(0.38, 0.38, 0.38, 12);
   front.rotateX(Math.PI / 2);
   const rear = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 12);
@@ -296,13 +295,12 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
     hub.rotation.x = Math.PI / 2;
     hub.position.set(x, geo === rear ? 0.45 : 0.38, z + Math.sign(z) * (geo === rear ? 0.26 : 0.2));
     g.add(hub);
-    wheels.push(w);
   }
   const d = driver(shirt === undefined ? CHARACTERS[character] : { ...CHARACTERS[character], shirt });
   d.scale.setScalar(DRIVER_SCALE);
   d.position.set(-0.45, 0.5, 0);
   g.add(d);
-  g.userData.wheels = wheels;
+  // タイヤは無地の黒なので、回しても見た目は変わらない。車体と1つの形にまとめる（描く回数を 1台 4回へらす。2026-10-19 のユーザー依頼「重たい」）
   const stars = dizzyStars();
   g.add(stars);
   g.userData.stars = stars;
@@ -333,7 +331,6 @@ export function syncKartModel(model, kart) {
   }
   // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
   model.visible = !kart.swallowed && (kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0); // 恐竜に食べられている間は見えない
-  for (const w of model.userData.wheels) w.rotation.z -= kart.speed * 0.05;
   // ハンドルを切る向きに、頭を少しかたむける
   model.userData.head.rotation.x = kart.drift.active ? kart.drift.dir * 0.25 : 0;
 }
