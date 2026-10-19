@@ -131,6 +131,22 @@ export function snowMound(track, tunnelInfo = null) {
         const h = top - ((top - floor) * Math.max(0, near)) / full; // その道の柵の手前での雪の高さ
         if (h > q.y - 1) reach = Math.min(reach, Math.max(0, near));
       }
+      // トンネルのほかの所（らせんの別の段の横・入口へ向かう所の横など）: 雪がトンネルの中を通らない
+      // （中から白い壁が見えた。2026-10-19 のユーザー依頼）
+      for (const q of pts) {
+        if (Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) < 60) continue;
+        const dx = q.x - p.x;
+        const dz = q.z - p.z;
+        if (Math.abs(dx) > it.w + full + 20 || Math.abs(dz) > it.w + full + 20) continue;
+        if (Math.abs(dx * Math.cos(p.h) + dz * Math.sin(p.h)) > q.wall + 4) continue;
+        if (dx * rx + dz * rz < it.w) continue; // 反対がわ・真下や真上の段（らせん）
+        const l = dx * rx + dz * rz - it.w - MOUND_GAP;
+        const qw = q.wall + 0.5 + MOUND_GAP + 1; // その所の雪の外まで
+        const near = l - qw;
+        const hNear = top - ((top - floor) * Math.max(0, near)) / full;
+        const hFar = top - ((top - floor) * Math.max(0, l + qw)) / full;
+        if (hFar < q.y + MOUND_ABOVE + 1 && hNear > q.y - 1) reach = Math.min(reach, Math.max(0, near));
+      }
       out.push({ i: track.samples.indexOf(p), side, w: it.w + MOUND_GAP, top, base: floor, reach, end: top - ((top - floor) * reach) / full });
     }
   }
@@ -141,7 +157,19 @@ function moundMesh(track, info) {
   const slopes = snowMound(track, info);
   const bySide = new Map(slopes.map((m) => [`${m.i}:${m.side}`, m]));
   const pos = [];
-  const quad = (a, b, c, d) => pos.push(...a, ...b, ...c, ...c, ...b, ...d);
+  // 三角は、表（反時計回り）が外（ref の向き）を向くように並べる。表だけを描くので、トンネルの中から
+  // 壁のすき間ごしに見ると裏になり、雪は見えない（2026-10-19 のユーザー依頼「トンネル内に白い壁がみえている」）
+  const tri = (a, b, c, ref) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const dot = (uy * vz - uz * vy) * ref[0] + (uz * vx - ux * vz) * ref[1] + (ux * vy - uy * vx) * ref[2];
+    if (dot >= 0) pos.push(...a, ...b, ...c);
+    else pos.push(...a, ...c, ...b);
+  };
+  const quad = (a, b, c, d, ref) => {
+    tri(a, b, c, ref);
+    tri(c, b, d, ref);
+  };
   const at = (p, lat, y) => [p.x - Math.sin(p.h) * lat, y, p.z + Math.cos(p.h) * lat];
   for (let k = 0; k + 1 < info.length; k++) {
     const A = info[k];
@@ -150,23 +178,24 @@ function moundMesh(track, info) {
     // 天井の上の雪
     const wa = A.w + MOUND_GAP;
     const wb = B.w + MOUND_GAP;
-    if (A.ceil && B.ceil) quad(at(A.p, -wa, A.p.y + MOUND_ABOVE), at(B.p, -wb, B.p.y + MOUND_ABOVE), at(A.p, wa, A.p.y + MOUND_ABOVE), at(B.p, wb, B.p.y + MOUND_ABOVE));
+    if (A.ceil && B.ceil) quad(at(A.p, -wa, A.p.y + MOUND_ABOVE), at(B.p, -wb, B.p.y + MOUND_ABOVE), at(A.p, wa, A.p.y + MOUND_ABOVE), at(B.p, wb, B.p.y + MOUND_ABOVE), [0, 1, 0]);
     const ia = track.samples.indexOf(A.p);
     const ib = track.samples.indexOf(B.p);
     for (const side of [-1, 1]) {
       const ma = bySide.get(`${ia}:${side}`);
       const mb = bySide.get(`${ib}:${side}`);
       if (!ma || !mb) continue;
-      // 坂（壁の上 → はし）と、はしから下の地面までの雪の壁
-      quad(at(A.p, side * ma.w, ma.top), at(B.p, side * mb.w, mb.top), at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end));
-      quad(at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), at(A.p, side * (ma.w + ma.reach), ma.base), at(B.p, side * (mb.w + mb.reach), mb.base));
+      // 坂（壁の上 → はし）と、はしから下の地面までの雪の壁。外は、道から横へ離れる向き
+      const out = [-Math.sin(A.p.h) * side, 0, Math.cos(A.p.h) * side];
+      quad(at(A.p, side * ma.w, ma.top), at(B.p, side * mb.w, mb.top), at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), [out[0], 1, out[2]]);
+      quad(at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), at(A.p, side * (ma.w + ma.reach), ma.base), at(B.p, side * (mb.w + mb.reach), mb.base), out);
     }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.computeVertexNormals();
   // 立った雪の壁は、日の当たらない向きだと灰色の壁に見えるので、少し明るく（自分で光る分）
-  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: SNOW, emissive: 0x8a8e94, side: THREE.DoubleSide }));
+  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: SNOW, emissive: 0x8a8e94 }));
 }
 
 // トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）

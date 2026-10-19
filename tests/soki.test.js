@@ -740,3 +740,12 @@ test('CPU は木をよける。ぶつかってもはまって動けなくなら�
   }
   assert.ok(spins <= 15, `${spins}`);
 });
+
+test('道の木は、上を別の道（橋）が通る所の近く（横 20m 以内）には置かない（木が橋の上に出て見えた。2026-10-19 のユーザー依頼）', () => {
+  for (const tr of t.trees) {
+    for (const q of t.samples) {
+      if (q.y === null || q.y <= tr.y + 1) continue;
+      assert.ok(Math.hypot(q.x - tr.x, q.z - tr.z) > 20, `木（点 ${tr.i}）の上に道（高さ ${q.y.toFixed(1)}）`);
+    }
+  }
+});

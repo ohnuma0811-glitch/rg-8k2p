@@ -77,7 +77,12 @@ export function cpuControl(cpu, kart, track, t) {
   cpu.lastS = loc.s;
   // 先の点（分かれる所では、その周に選んだ道を進む）
   const choose = (i, paths) => routeChoice(cpu, i, paths, cpu.lap, track);
-  const at = (k) => samples[aheadOf(track, loc.i, k, choose)];
+  // 一度たどった先の点は覚えておく（毎回はじめから数え直すと重い。2026-10-19 のユーザー依頼「47fps くらいで重たい」）
+  const chain = [loc.i];
+  const at = (k) => {
+    for (let c = chain.length; c <= k; c++) chain.push(aheadOf(track, chain[c - 1], 1, choose));
+    return samples[chain[k]];
+  };
   const p = at(look);
   let lane = cpu.lane + Math.sin(t * cpu.sway + cpu.phase) * 2;
   // ロータリー: 島のまわりは、近い側（曲がる向きの内側。まっすぐなら自分の走る線の側）を、島から離れて回る

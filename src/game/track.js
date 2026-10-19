@@ -537,6 +537,10 @@ function placeTrees(t, { count, seed = 1 }) {
       if (q.path === p.path || q.y === null) continue;
       if (Math.abs(q.x - p.x) < 40 && Math.abs(q.z - p.z) < 40 && Math.hypot(q.x - p.x, q.z - p.z) < p.wall + q.wall + 10 && Math.abs(q.y - p.y) < 4) return false;
     }
+    // 上を別の道（橋）が通る所の近く（木の葉が橋の上に出て見えた。2026-10-19 のユーザー依頼）
+    for (const q of samples) {
+      if (q.y !== null && q.y > p.y + 1 && Math.abs(q.x - p.x) < 20 && Math.abs(q.z - p.z) < 20 && Math.hypot(q.x - p.x, q.z - p.z) <= 20) return false;
+    }
     if ((t.muds ?? []).some((m) => Math.hypot(m.x - p.x, m.z - p.z) < m.r + 15)) return false;
     if (t.dino && p.path === 0 && nearMain(p, t.dino.s) < 70) return false;
     if ((t.boars ?? []).some((b) => p.path === 0 && nearMain(p, b.s) < 20)) return false;
@@ -863,6 +867,39 @@ function nearGrid(track) {
   return nearGrids.get(track);
 }
 
+// 点 i の前後 win 個に、分かれる所・合流する所がなく、ひと続きの道か（点ごとに覚えておく）
+const straightMemo = new WeakMap();
+function straightAround(track, i, win) {
+  let memo = straightMemo.get(track);
+  if (!memo || memo.win !== win) {
+    memo = { win, ok: new Uint8Array(track.samples.length) };
+    const { samples } = track;
+    const n = samples.length;
+    const special = (j) => (track.forks?.[j]?.length ?? 0) > 0 || (track.joins?.[j]?.length ?? 0) > 0;
+    for (let k = 0; k < n; k++) {
+      let ok = !special(k);
+      const seen = new Set([k]);
+      let a = k;
+      let b = k;
+      for (let d = 0; d < win && ok; d++) {
+        a = samples[a].next;
+        b = samples[b].prev;
+        // 輪が短くて、前と後ろが出会う・同じ点にもどる所は、ふつうのたどり方で
+        if (a === undefined || b === undefined || seen.has(a) || seen.has(b) || a === b) ok = false;
+        else {
+          seen.add(a);
+          seen.add(b);
+          // 分かれる所・合流する所の点そのものは見てよいが、その先へは、ふつうのたどり方で（最後の1個はその先へ行かない）
+          if (d < win - 1 && (special(a) || special(b))) ok = false;
+        }
+      }
+      memo.ok[k] = ok ? 1 : 0;
+    }
+    straightMemo.set(track, memo);
+  }
+  return memo.ok[i] === 1;
+}
+
 export function locate(track, x, z, hint = null, win = 40, y = null) {
   const { samples, length } = track;
   const n = samples.length;
@@ -879,8 +916,21 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
       best = i;
     }
   };
+  // 分かれる所・合流する所がない所は、前と後ろへまっすぐたどるだけ（下のたどり方と同じ点を、同じ順に見る。
+  // 毎回 Set や配列を作らないので速い。2026-10-19 のユーザー依頼「47fps くらいで重たい」）
+  const plain = hint !== null && straightAround(track, hint, win);
   if (hint === null) {
     for (let i = 0; i < n; i++) scan(i);
+  } else if (plain) {
+    scan(hint);
+    let a = hint;
+    let b = hint;
+    for (let d = 0; d < win; d++) {
+      a = samples[a].next;
+      b = samples[b].prev;
+      scan(a);
+      scan(b);
+    }
   } else {
     // hint から、点のつながり（前・次、分かれる所・合流する所）をたどって win 個まで
     const seen = new Set([hint]);
@@ -902,6 +952,8 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
       }
       front = nextFront;
     }
+  }
+  if (hint !== null) {
     // 分かれ道のあるコース: たどった道で道のはばの外なら、まわりの点（ほかの道も）からも探す。
     // 合流で横に並ぶ所・分かれる所・合流する所は、つながりをたどると遠いので（最終レビュー: 見えない壁）
     if (track.paths?.length > 1 && Math.sqrt(bestD) > samples[best].half) {
