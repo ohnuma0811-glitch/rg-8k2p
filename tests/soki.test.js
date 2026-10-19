@@ -540,28 +540,60 @@ test('橋の下（内の道の上）にも橋脚が並ぶ。すき間は車が�
   }
 });
 
-test('橋の下で橋脚にぶつかるとスピン。すぐあとは続けてスピンしないが、橋脚は通りぬけられない', async () => {
+test('橋の下の壁（橋脚）: 入り口のはしに正面からぶつかるとスピン。すぐあとは続けてスピンしないが、通りぬけられない（2026-10-19 のユーザー依頼）', async () => {
   const { pierContact } = await import('../src/game/hazards.js');
   const pier = t.bridgePiers[1];
+  const c = Math.cos(pier.h);
+  const sn = Math.sin(pier.h);
+  // 壁の長い向き（下の道の向き）にそって、壁のはしへ向かって走る
+  const put = (k, a, w, dirW) => {
+    k.x = pier.x + c * a - sn * w;
+    k.z = pier.z + sn * a + c * w;
+    k.y = 0;
+    k.move = Math.atan2(c * dirW, -sn * dirW);
+    k.heading = k.move;
+    k.speed = 15;
+  };
+  const wOf = (k) => -(k.x - pier.x) * sn + (k.z - pier.z) * c;
+  const aOf = (k) => (k.x - pier.x) * c + (k.z - pier.z) * sn;
   const kart = createKart(t, t.bridges[0].under, 0);
-  kart.x = pier.x + Math.cos(pier.h) * 0.5;
-  kart.z = pier.z + Math.sin(pier.h) * 0.5;
-  kart.y = 0;
-  kart.speed = 15;
+  put(kart, 0, -(pier.halfLen + 1.1 - 0.3), 1);
   assert.equal(pierContact(kart, t, 1, PHYS), 'spin');
   assert.ok(kart.spin > 0);
-  const a = (kart.x - pier.x) * Math.cos(pier.h) + (kart.z - pier.z) * Math.sin(pier.h);
-  assert.ok(Math.abs(a) >= pier.halfThick, '橋脚の中にいる');
+  assert.ok(Math.abs(wOf(kart)) >= pier.halfLen + 1.1 - 1e-6, '壁のはしの中にいる');
   kart.spin = 0;
-  kart.x = pier.x;
-  kart.z = pier.z;
+  put(kart, 0, -(pier.halfLen + 1.1 - 0.3), 1);
   assert.equal(pierContact(kart, t, 1.5, PHYS), null, '続けてスピン');
-  const a2 = (kart.x - pier.x) * Math.cos(pier.h) + (kart.z - pier.z) * Math.sin(pier.h);
-  assert.ok(Math.abs(a2) >= pier.halfThick, '押し出されない');
+  assert.ok(Math.abs(wOf(kart)) >= pier.halfLen + 1.1 - 1e-6, '押し出されない');
   // 橋の上を走る車は、橋脚にぶつからない
   const top = createKart(t, pier.i, 0);
   top.y = t.samples[pier.i].y;
   assert.equal(pierContact(top, t, 5, PHYS), null);
+});
+
+test('橋の下の壁（橋脚）の横をこすったときは、スピンせず、はね返されるだけ（2026-10-19 のユーザー依頼）', async () => {
+  const { pierContact } = await import('../src/game/hazards.js');
+  const pier = t.bridgePiers[1];
+  const c = Math.cos(pier.h);
+  const sn = Math.sin(pier.h);
+  const kart = createKart(t, t.bridges[0].under, 0);
+  const reach = pier.halfThick + 1.1;
+  // 壁の横（a がプラスの面）に少しめりこんで、壁の向きから 0.3 だけ壁の方へ向いて走る
+  kart.x = pier.x + c * (reach - 0.4);
+  kart.z = pier.z + sn * (reach - 0.4);
+  kart.y = 0;
+  // 壁の長い向き (-sn, c) から 0.3 だけ壁の方（-(c, sn)）へ
+  kart.move = Math.atan2(Math.cos(0.3) * c - Math.sin(0.3) * sn, Math.cos(0.3) * -sn - Math.sin(0.3) * c);
+  kart.heading = kart.move;
+  kart.speed = 20;
+  assert.equal(pierContact(kart, t, 10, PHYS), null);
+  assert.equal(kart.spin, 0);
+  const a = (kart.x - pier.x) * c + (kart.z - pier.z) * sn;
+  assert.ok(a >= reach - 1e-6, '壁の中にいる');
+  assert.ok(kart.speed > 15 && kart.speed < 20, `${kart.speed}`);
+  // 進む向きは壁にそう（壁へ向かう分がなくなる）
+  const into = -(Math.cos(kart.move) * c + Math.sin(kart.move) * sn);
+  assert.ok(into <= 1e-6, `${into}`);
 });
 
 test('近道を走る CPU は、橋脚のすき間を通りぬける（ほとんどぶつからない）', async () => {

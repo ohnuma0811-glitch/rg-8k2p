@@ -275,11 +275,14 @@ export function dinoContact(kart, track, time) {
   return 'eaten';
 }
 
-// 橋の下の橋脚（Soki Forest。2026-10-17）: 下の道の車が、橋のはばいっぱいの石の壁にぶつかるとスピン。壁は通りぬけられない
-// ぶつかったあと BOAR_PASS 秒は、続けてスピンしない（押し出すだけ）
+// 橋の下の橋脚（Soki Forest。2026-10-17）: 下の道の車が、橋のはばいっぱいの石の壁にぶつかる。壁は通りぬけられない
+// 入り口のはしに正面からぶつかったときだけスピン。壁の横をこすったときは、はね返されるだけ（柵と同じ。2026-10-19 のユーザー依頼）
+// スピンのあと BOAR_PASS 秒は、続けてスピンしない（押し出すだけ）
 const KART_PAD = 1.1; // 車の大きさ（半径 m）
+const PIER_SCRAPE_KEEP = 0.85; // 横をこすりはじめたときに残る速さの割合
 export function pierContact(kart, track, time, phys) {
   let hit = null;
+  let touching = false;
   for (const pier of track.bridgePiers ?? []) {
     if ((kart.y ?? 0) > pier.top - 1) continue; // 橋の上の車
     const dx = kart.x - pier.x;
@@ -287,13 +290,32 @@ export function pierContact(kart, track, time, phys) {
     const c = Math.cos(pier.h);
     const s = Math.sin(pier.h);
     const a = dx * c + dz * s; // 本線の向き（壁の厚さの向き）
-    const w = -dx * s + dz * c; // 橋のはばの向き
+    const w = -dx * s + dz * c; // 橋のはばの向き（壁の長い向き。下の道はこの向きに通る）
     const reach = pier.halfThick + KART_PAD;
-    if (Math.abs(a) >= reach || Math.abs(w) > pier.halfLen) continue;
-    // 近い方の面へ押し出す
-    const push = (Math.sign(a) || 1) * reach - a;
-    kart.x += c * push;
-    kart.z += s * push;
+    const reachW = pier.halfLen + KART_PAD;
+    if (Math.abs(a) >= reach || Math.abs(w) >= reachW) continue;
+    const side = reach - Math.abs(a); // 横の面からのめりこみ
+    const end = reachW - Math.abs(w); // はしの面からのめりこみ
+    if (side <= end) {
+      // 横をこすった: 近い方の横の面へ押し出し、壁にそう向きにそろえる（スピンしない）
+      const sa = Math.sign(a) || 1;
+      kart.x += c * sa * side;
+      kart.z += s * sa * side;
+      const into = -(Math.cos(kart.move) * c + Math.sin(kart.move) * s) * sa * Math.sign(kart.speed || 1);
+      if (into > 0 && !kart.airborne) {
+        if (!kart.pierTouch) kart.speed *= PIER_SCRAPE_KEEP;
+        const fwd = Math.cos(kart.move) * -s + Math.sin(kart.move) * c >= 0 ? 1 : -1;
+        const along = Math.atan2(c * fwd, -s * fwd);
+        kart.move = along;
+        kart.heading = along;
+      }
+      touching = true;
+      continue;
+    }
+    // 入り口のはしに正面から: はしの面へ押し出して、スピン
+    const sw = Math.sign(w) || 1;
+    kart.x += -s * sw * end;
+    kart.z += c * sw * end;
     if (time < (kart.pierPassUntil ?? -Infinity) || kart.airborne || kart.spin > 0) continue;
     kart.pierPassUntil = time + BOAR_PASS;
     kart.pierHits = (kart.pierHits || 0) + 1;
@@ -303,6 +325,8 @@ export function pierContact(kart, track, time, phys) {
     cancelDrift(kart);
     hit = 'spin';
   }
+  kart.pierTouch = touching;
+  if (touching) kart.onWall = true; // 柵と同じ、ぶつかる音
   return hit;
 }
 
