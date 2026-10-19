@@ -547,3 +547,30 @@ test('ロータリーの島は通り抜けられない。まっすぐ当たっ�
   const ahead = span(t, isl.s, t.samples[kart.seg].s);
   assert.ok(ahead > 20 && ahead < t.length / 2, `島の先へ進めなかった: ${ahead}`);
 });
+
+test('柵にぶつかると、車の端（中心ではなく）が柵の所で止まる。全コース（2026-10-19 のユーザー依頼「壁に食い込んでいる」）', async () => {
+  const { COURSES } = await import('../src/data/tracks.js');
+  const { wallReach } = await import('../src/game/kart.js');
+  const params = kartParams({ accel: 3, top: 3, handling: 3 });
+  // 道にそって走っているときは車の幅の半分。斜めのときは前の角の方が柵に近い
+  assert.ok(wallReach(0) > 1);
+  assert.ok(wallReach(Math.PI / 4) > wallReach(0));
+  for (const def of COURSES) {
+    const t = buildTrack(def);
+    for (const side of [-1, 1]) {
+      for (const angle of [0.3, 0.8]) {
+        const kart = createKart(t, (t.startIndex + 200) % t.length, 0);
+        kart.speed = 30;
+        kart.heading += side * angle;
+        kart.move = kart.heading;
+        for (let f = 0; f < 90; f++) {
+          stepKart(kart, { throttle: 1, brake: 0, steer: 0, drift: false }, t, params, 1 / 60);
+          const loc = locate(t, kart.x, kart.z, kart.seg, 40, kart.y);
+          if (kart.airborne || loc.ground === null) continue;
+          const rel = kart.heading - loc.heading;
+          assert.ok(Math.abs(loc.lateral) + wallReach(rel) <= loc.wall + 0.05, `${def.name} ${side} ${angle}: ${f}: 横 ${loc.lateral.toFixed(2)} 柵 ${loc.wall}`);
+        }
+      }
+    }
+  }
+});

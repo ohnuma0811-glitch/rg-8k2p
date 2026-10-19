@@ -124,6 +124,15 @@ function endDrift(kart, params, release) {
   if (release && lv === 2) startBoost(kart, params, PHYS.MT_BOOST, PHYS.MT_FACTOR);
 }
 
+// 車の大きさ（src/render/models.js の車の形。タイヤの外がわ・バンパーの先まで）。柵には、中心ではなく車の端が当たる
+// （2026-10-19 のユーザー依頼「壁にぶつかる時にカートが壁に食い込んでいる」）
+const KART_HALF_WIDTH = 1.15;
+const KART_HALF_LENGTH = 1.4;
+// 道の向きから rel だけ向きがずれた車の、中心から横（柵の方）へ、いちばん出ている所までの長さ（m）
+export function wallReach(rel) {
+  return KART_HALF_WIDTH * Math.abs(Math.cos(rel)) + KART_HALF_LENGTH * Math.abs(Math.sin(rel));
+}
+
 // ctl: { steer: -1〜1（右が正）, brake: bool, drift: bool }
 export function stepKart(kart, ctl, track, params, dt) {
   if (kart.respawn > 0) {
@@ -141,7 +150,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.seg = loc.i;
     if (!kart.airborne && loc.ground !== null) kart.y = loc.ground; // 坂でも地面の上（2026-10-19 のユーザー依頼「スピンすると地面に埋まる」）
     // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
-    const excess = Math.abs(loc.lateral) - loc.wall;
+    const excess = Math.abs(loc.lateral) - (loc.wall - wallReach(kart.heading - loc.heading));
     if (excess > 0) {
       const side = Math.sign(loc.lateral);
       kart.x -= -Math.sin(loc.heading) * side * excess;
@@ -354,11 +363,12 @@ export function stepKart(kart, ctl, track, params, dt) {
   // スピードを落とすのはぶつかった最初の1回だけで、角度が大きいほど落とす（こすっている間は柵ぞいに走れる）
   // 空中では押し戻すだけ（ジャンプ中にハンドルを切っても落ちないように）
   const a = Math.abs(loc.lateral);
+  const wall = loc.wall - wallReach(kart.heading - loc.heading); // 車の中心が行ける所まで
   let touching = false;
-  if (a > loc.wall) {
+  if (a > wall) {
     touching = true;
     const side = Math.sign(loc.lateral);
-    const excess = loc.lateral - side * loc.wall;
+    const excess = loc.lateral - side * wall;
     kart.x -= -Math.sin(loc.heading) * excess;
     kart.z -= Math.cos(loc.heading) * excess;
     const out = Math.sin(wrapAngle(kart.move - loc.heading)) * side * Math.sign(kart.speed);
