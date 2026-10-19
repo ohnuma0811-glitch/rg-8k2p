@@ -599,6 +599,33 @@ test('タブレット・スマホ（指で操作する端末）は、トンネ�
   assert.ok(lum(touch.fog) > lum(pc.fog) * 3, '霧が黒すぎない');
 });
 
+test('B の道に、半径 20m より急なカーブがない（前は 11m で、柵 13m より小さかった）（2026-10-19 のユーザー依頼「道路が切れて下におちる」）', () => {
+  for (let k = 5; k < B.count - 5; k++) {
+    const a = t.samples[B.start + k - 5];
+    const b = t.samples[B.start + k + 5];
+    const turn = Math.abs(Math.atan2(Math.sin(b.h - a.h), Math.cos(b.h - a.h)));
+    assert.ok(10 / turn > 20, `B ${(k / (B.count - 1)).toFixed(3)}: 半径 ${(10 / turn).toFixed(1)}m`);
+  }
+});
+
+test('B の道のはしを走っても、車の高さが急に落ちない', () => {
+  for (const target of [-11, 11]) {
+    const kart = createKart(t, B.start + 5, 0);
+    kart.speed = 35;
+    let lastY = kart.y;
+    for (let f = 0; f < 60 * 12 && t.samples[kart.seg].path === t.samples[B.start].path; f++) {
+      const p = t.samples[kart.seg];
+      const lat = (kart.x - p.x) * -Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h);
+      const want = p.h + Math.max(-0.5, Math.min(0.5, (target - lat) * 0.08));
+      const d = Math.atan2(Math.sin(want - kart.heading), Math.cos(want - kart.heading));
+      kart.boost = 1;
+      stepKart(kart, { ...full, steer: Math.max(-1, Math.min(1, d * 3)) }, t, params, 1 / 60);
+      assert.ok(kart.y > lastY - 1, `${target}: B ${((kart.seg - B.start) / (B.count - 1)).toFixed(3)} で ${(lastY - kart.y).toFixed(1)}m 落ちた`);
+      lastY = kart.y;
+    }
+  }
+});
+
 // 形の三角の数
 function triangles(g) {
   let n = 0;
