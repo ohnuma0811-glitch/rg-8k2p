@@ -7,8 +7,8 @@ import { pushApart } from '../src/game/collide.js';
 import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY, SNOWMAN_HEIGHT, SNOWMAN_HOP } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
-import { fenceSides, bridgeSlab } from '../src/render/trackMesh.js';
-import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK, tunnelLook } from '../src/render/snow/tunnel.js';
+import { fenceSides, bridgeSlab, landingEdges } from '../src/render/trackMesh.js';
+import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK, tunnelLook, touchOnly, snowMound, MOUND_ABOVE } from '../src/render/snow/tunnel.js';
 import { terrainHeight, buildTerrain } from '../src/render/terrain.js';
 import { buildSnowScenery } from '../src/render/snow/kit.js';
 import { createKart, stepKart, PHYS } from '../src/game/kart.js';
@@ -649,6 +649,68 @@ test('坂道でスピン・転がっても、車は地面にうまらない（Ky
       }
     }
   }
+});
+
+test('明るめのトンネルは、マウスやタッチパッドのない、指だけで操作する端末だけ（タッチ画面つきの PC は PC の暗さ。2026-10-19 のユーザー依頼）', () => {
+  const media = (on) => (q) => ({ matches: on.includes(q) });
+  assert.equal(touchOnly(media(['(pointer: coarse)'])), true); // タブレット・スマホ
+  assert.equal(touchOnly(media(['(pointer: coarse)', '(any-pointer: fine)'])), false); // タッチ画面つきの PC
+  assert.equal(touchOnly(media(['(pointer: fine)', '(any-pointer: fine)'])), false); // PC
+  assert.equal(touchOnly(undefined), false);
+});
+
+test('トンネルの外は雪の山でおおう: 天井の上と、壁の外の雪の坂。ほかの道の上にはかからない（2026-10-19 のユーザー依頼）', () => {
+  const slopes = snowMound(t);
+  const inTunnel = t.samples.slice(0, L).filter((p) => p.tunnel).length;
+  assert.ok(slopes.length > inTunnel, `${slopes.length}`); // 両がわ（らせんの下の段の外がわは、上の段の雪の下）
+  assert.ok(slopes.filter((m) => m.reach > 10).length > slopes.length * 0.6, '雪の坂が短すぎる');
+  assert.ok(MOUND_ABOVE > TUNNEL_HEIGHT && MOUND_ABOVE < TUNNEL_HEIGHT + 1);
+  for (const m of slopes) {
+    const p = t.samples[m.i];
+    const rx = -Math.sin(p.h) * m.side;
+    const rz = Math.cos(p.h) * m.side;
+    for (const q of t.samples) {
+      if (q.tunnel || q.y === null) continue;
+      const dx = q.x - p.x;
+      const dz = q.z - p.z;
+      if (Math.abs(dx * Math.cos(p.h) + dz * Math.sin(p.h)) > 2) continue;
+      const l = dx * rx + dz * rz - m.w;
+      if (!(l - q.wall < m.reach && l + q.wall > 0)) continue;
+      if (l - q.wall < 0 && q.y < p.y) {
+        // トンネルの真下を通る道: 雪はその道より 5m 以上上
+        assert.ok(m.base >= q.y + 5, `雪（点 ${m.i}）が下の道（点 ${t.samples.indexOf(q)}）に近い`);
+        continue;
+      }
+      const h = m.top - ((m.top - m.base) * Math.max(0, l - q.wall)) / ((m.top - m.base) * 1.2);
+      assert.ok(h < q.y - 1, `雪の坂（点 ${m.i}）が道（点 ${t.samples.indexOf(q)}）にかかる`);
+    }
+  }
+});
+
+test('ジャンプの着地の道のはし: 手前の地面は道より 3m 以上低い（崖）。逆走すると、車のうしろの端がはしの所で止まる（2026-10-19 のユーザー依頼）', () => {
+  const edges = landingEdges(t);
+  assert.equal(edges.length, 1);
+  const e = t.samples[edges[0]];
+  assert.ok(Math.abs(span(t, t.marks.XJ, e.s) - 26) < 2);
+  for (const back of [2, 6, 12]) {
+    for (const lat of [-8, 0, 8]) {
+      const p = t.samples[(edges[0] - back + L) % L];
+      const x = p.x - Math.sin(p.h) * lat;
+      const z = p.z + Math.cos(p.h) * lat;
+      // 下を通る道（X1）のふちから 4m までは、その道の高さ
+      let allow = e.y - 3;
+      for (const q of t.samples) if (q.y !== null && Math.abs(q.s - e.s) > 60 && Math.hypot(q.x - x, q.z - z) - q.wall <= 4) allow = Math.max(allow, q.y + 0.01);
+      assert.ok(terrainHeight(t, x, z) <= allow, `${back} ${lat}: ${terrainHeight(t, x, z).toFixed(1)}`);
+    }
+  }
+  const kart = createKart(t, (edges[0] + 12) % L, 0);
+  kart.heading += Math.PI;
+  kart.move = kart.heading;
+  kart.speed = 12;
+  for (let f = 0; f < 120; f++) stepKart(kart, full, t, params, 1 / 60);
+  assert.ok(!kart.airborne && !(kart.respawn > 0));
+  const s = (kart.x - e.x) * Math.cos(e.h) + (kart.z - e.z) * Math.sin(e.h); // はしから前へ（m）
+  assert.ok(s > 0.85 && s < 1.5, `はしから ${s.toFixed(2)}m`); // うしろの端（1.4m うしろ）が、壁の面（はしの 0.5m 先）の所
 });
 
 // 形の三角の数

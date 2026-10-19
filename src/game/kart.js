@@ -268,7 +268,16 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.x += Math.cos(kart.move) * kart.speed * dt;
   kart.z += Math.sin(kart.move) * kart.speed * dt;
   let loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
-  if (!kart.airborne && loc.ground === null && Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0) {
+  // 逆走・バックで地面のない所へ向かうときは、車の中心ではなく、進む向きの車の端（バンパー）で止める
+  // （着地の道のはしに壁を描いた。2026-10-19 のユーザー依頼）
+  const backward = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0;
+  const edgeGone = () => {
+    const dir = kart.speed < 0 ? -1 : 1;
+    const x = kart.x + Math.cos(kart.move) * dir * KART_HALF_LENGTH;
+    const z = kart.z + Math.sin(kart.move) * dir * KART_HALF_LENGTH;
+    return locate(track, x, z, loc.i, 40, kart.y ?? null).ground === null;
+  };
+  if (!kart.airborne && backward && (loc.ground === null || edgeGone())) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる
     // （2026-10-14 の実機確認で、逆走して飛び越えてしまった）
     kart.x = fromX;

@@ -10,7 +10,7 @@ import { buildSigns } from './snow/signs.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
-import { buildTerrain, terrainHeight } from './terrain.js';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js';
 import { mergeMeshes } from './mergeMeshes.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
 import { cornerUW, markS, GRIP_ICE } from '../game/track.js';
@@ -428,6 +428,34 @@ export function fenceSides(track, mouths = []) {
   });
 }
 
+// ジャンプの着地の道のはし（地面のない所のすぐ先の点）。本線だけ
+export function landingEdges(track) {
+  const out = [];
+  for (let i = 0; i < track.length; i++) {
+    const p = track.samples[i];
+    if (p.y !== null && !p.tunnel && track.samples[p.prev].y === null) out.push(i);
+  }
+  return out;
+}
+
+// 着地の道のはしの崖と壁（2026-10-19 のユーザー依頼「着地するところがわかりにくい。崖をしっかり描いて」
+// 「着地したところを逆走すると何もないのに進むことができない。壁をコースの切れ目に描いて」）
+export const LANDING_WALL = 0.7; // 壁の高さ（m）
+function landingCliffs(track) {
+  const b = createBuilder();
+  for (const i of landingEdges(track)) {
+    const p = track.samples[i];
+    const w = p.wall + 3;
+    b.push(p.x, p.y, p.z, Math.PI / 2 - p.h); // 前（z）が道の向き、x が横
+    b.box(2 * w, GAP_DROP + 4, 1, 0x7d756b, 0, -(GAP_DROP + 4) - 0.02, -0.5); // 岩の崖（道のはしから、下の地面まで）
+    const n = Math.round(p.wall); // しまの数（1m ずつ）
+    // 壁の面は、はしから 0.5m 先（地面のない所は、点と点のまん中から。逆走した車のうしろの端がここで止まる）
+    for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, -0.7);
+    b.pop();
+  }
+  return b.build();
+}
+
 // 柵の外の高い土手（マリオカート64 のように、道の両側を高く囲む）。ほかの道・交わる所・観客席の前には作らない
 export const BANK_FROM = 3; // 柵から土手のふもとまで（m）。間に看板を立てる
 export const BANK_WIDTH = 14; // 土手の幅（m）
@@ -687,6 +715,8 @@ export function buildTrackMesh(track) {
     group.add(fence(samples, side * track.roadHalf, (p) => Math.max(0, p.y - 4), (p) => p.y + 0.03, (p) => p.ramp, (p) => (Math.floor(p.s / 2) % 2 ? 0xffd000 : 0x222222)));
     group.add(fence(samples, side * track.roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
+  // ジャンプの着地の道のはし（Kyugo Mountain）: 岩の崖と、黄色と黒のしまの低い壁（逆走すると、ここで止まる）
+  if (snow) group.add(landingCliffs(track));
 
   // 分離帯（芝生）と、両はしの白黒の縁石
   const hasMedian = (p) => p.median > 0;

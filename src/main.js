@@ -12,7 +12,7 @@ import {
   LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
-import { tunnelLight, tunnelLook } from './render/snow/tunnel.js';
+import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
 import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
@@ -492,7 +492,7 @@ function placeBuses(time) {
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
 // タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
-const TUNNEL_LOOK = tunnelLook(window.matchMedia?.('(pointer: coarse)').matches ?? false);
+const TUNNEL_LOOK = tunnelLook(touchOnly(window.matchMedia?.bind(window)));
 function showTunnel({ dark, black }, kart = null, open = 0) {
   setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
   const v = $('vignette');
@@ -996,7 +996,7 @@ function renderGame(alpha, dt) {
     }
   }
   g.sound = now;
-  sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0, g.tunnel.dark);
+  sfx.engine.update(kart.speed, g.base.topSpeed, kart.boost > 0); // トンネルの中も外と同じ音（2026-10-19 のユーザー依頼）
   if (standSpot) crowd.update(crowdMix(mine, standSpot));
   return { mine, kart };
 }
