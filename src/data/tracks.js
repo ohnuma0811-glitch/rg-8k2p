@@ -263,7 +263,7 @@ export const COURSE4 = {
   // grip: 雪の道。asphalt: アスファルトの所（すべらない）。ices: A の凍った所（at の所から len m）
   grip: 0.4, // src/game/track.js の GRIP_SNOW
   asphalt: [{ from: ['TO', 'S', 0], to: ['GS', 'UB', 0.3] }, { from: 'TI', to: 'TO' }],
-  ices: [{ at: ['XJ', 'MG', 0.2], len: 25 }, { at: ['XJ', 'MG', 0.45], len: 25 }, { at: ['XJ', 'MG', 0.7], len: 25 }],
+  ices: [{ at: ['XJ', 'MG', 0.2], len: 40 }, { at: ['XJ', 'MG', 0.45], len: 40 }, { at: ['XJ', 'MG', 0.7], len: 40 }], // 2026-10-19 に 25m から 40m
   // 雪だるま（2026-10-18 のユーザー依頼「ジャンプしながら左右に動いている。コース全部で15体」）。
   // at は本線の場所（印 か [印, 印, 割合]）か ['B', 割合]。off は at からの m（観客席の前の小さなジャンプで飛び越える所）
   snowmen: [

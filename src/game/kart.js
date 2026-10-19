@@ -139,6 +139,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.z += Math.sin(kart.move) * kart.speed * dt;
     const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
     kart.seg = loc.i;
+    if (!kart.airborne && loc.ground !== null) kart.y = loc.ground; // 坂でも地面の上（2026-10-19 のユーザー依頼「スピンすると地面に埋まる」）
     // 柵の外へは滑り出ない（最終レビュー: 斜めに転がると柵の外まで滑っていた）
     const excess = Math.abs(loc.lateral) - loc.wall;
     if (excess > 0) {
@@ -161,7 +162,9 @@ export function stepKart(kart, ctl, track, params, dt) {
     kart.speed = Math.max(0, kart.speed - 20 * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;
     kart.z += Math.sin(kart.move) * kart.speed * dt;
-    kart.seg = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null).i;
+    const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
+    kart.seg = loc.i;
+    if (!kart.airborne && loc.ground !== null) kart.y = loc.ground; // 坂でも地面の上（2026-10-19 のユーザー依頼「スピンすると地面に埋まる」）
     if (kart.spin <= 0) {
       kart.spin = 0;
       kart.heading = kart.spinTo;

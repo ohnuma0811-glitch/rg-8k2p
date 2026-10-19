@@ -611,7 +611,7 @@ function applyJumps(t, def) {
 
 // すべりやすさ（Kyugo Mountain。2026-10-18）: 点の grip（1 ふつう、小さいほどすべる）
 export const GRIP_SNOW = 0.4; // 2026-10-18 のユーザー依頼「もう少し滑りやすく」で 0.6 から
-export const GRIP_ICE = 0.12; // 同じく 0.25 から
+export const GRIP_ICE = 0.05; // 同じく 0.25 から 0.12、2026-10-19 のユーザー依頼「凍結路面の滑り方があまり変化がない」で 0.05
 function applyGrip(t, def) {
   for (const p of t.samples) p.grip = def.grip ?? 1;
   for (const a of def.asphalt ?? []) {

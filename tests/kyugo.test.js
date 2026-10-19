@@ -242,7 +242,7 @@ test('らせんの段の上と下で、柵が消えない（ほかの段の道�
   for (let i = t.helix.from + 30; i < t.helix.to - 30; i++) assert.ok(f[i][-1] && f[i][1], `${i}`);
 });
 
-test('すべりやすさ: スタート〜観客席の先とトンネルはアスファルト（1）、雪の道は 0.6、A の凍った所（3か所、25m）は 0.25', () => {
+test('すべりやすさ: スタート〜観客席の先とトンネルはアスファルト（1）、雪の道は 0.6、A の凍った所（3か所、40m。2026-10-19 に 25m から）は 0.05', () => {
   assert.equal(t.samples[t.startIndex].grip, 1);
   assert.equal(at('GS').grip, 1);
   assert.equal(at(['TI', 'TO', 0.5]).grip, 1);
@@ -251,7 +251,7 @@ test('すべりやすさ: スタート〜観客席の先とトンネルはアス
   assert.equal(t.ices.length, 3);
   for (const ice of t.ices) {
     assert.ok(between(t, t.samples[ice.from].s, t.marks.XJ, t.marks.MG));
-    assert.ok(Math.abs(span(t, t.samples[ice.from].s, t.samples[ice.to].s) - 25) < 2);
+    assert.ok(Math.abs(span(t, t.samples[ice.from].s, t.samples[ice.to].s) - 40) < 2);
     assert.equal(t.samples[(ice.from + 10) % L].grip, GRIP_ICE);
   }
 });
@@ -266,11 +266,11 @@ test('すべる道では、同じハンドルでも外へふくらむ（進む�
     kart.speed = 30;
     const save = t.samples.map((p) => p.grip);
     t.samples.forEach((p) => { p.grip = grip; });
-    for (let f = 0; f < 30; f++) stepKart(kart, { throttle: 1, brake: 0, steer: 1, drift: false }, t, params, 1 / 60);
+    for (let f = 0; f < 60; f++) stepKart(kart, { throttle: 1, brake: 0, steer: 1, drift: false }, t, params, 1 / 60);
     t.samples.forEach((p, i) => { p.grip = save[i]; });
     return Math.abs(Math.atan2(Math.sin(kart.heading - kart.move), Math.cos(kart.heading - kart.move)));
   };
-  assert.ok(run(GRIP_ICE) > run(GRIP_SNOW) * 1.5);
+  assert.ok(run(GRIP_ICE) > run(GRIP_SNOW) * 3, '氷は雪よりずっとすべる（2026-10-19 のユーザー依頼「凍結路面の滑り方があまり変化がない」）');
   assert.ok(run(GRIP_SNOW) > run(1) * 1.2);
 });
 
@@ -450,7 +450,7 @@ test('CPU は雪だるまをよける（スピンするのは、ときどきだ�
       time += 1 / 60;
     }
   }
-  assert.ok(spins <= 12, `${spins}`); // よけないと 20回くらい
+  assert.ok(spins <= 14, `${spins}`); // よけないと 20回くらい（2026-10-19: 氷を長くして、CPU の走る筋が変わり 13回。氷の上ではスピンしていない）
 });
 
 test('コブゾーン: 合流のあと〜トンネルの手前 8m に、半径 1.5m のコブが10個。左右に散らす。トンネルの中にはない（2026-10-18 のユーザー依頼）', () => {
@@ -622,6 +622,31 @@ test('B の道のはしを走っても、車の高さが急に落ちない', () 
       stepKart(kart, { ...full, steer: Math.max(-1, Math.min(1, d * 3)) }, t, params, 1 / 60);
       assert.ok(kart.y > lastY - 1, `${target}: B ${((kart.seg - B.start) / (B.count - 1)).toFixed(3)} で ${(lastY - kart.y).toFixed(1)}m 落ちた`);
       lastY = kart.y;
+    }
+  }
+});
+
+test('坂道でスピン・転がっても、車は地面にうまらない（Kyugo Mountain と Soki Forest。2026-10-19 のユーザー依頼）', () => {
+  for (const def of [COURSE4, COURSES[2]]) {
+    const tr = buildTrack(def);
+    // いちばん急な上り坂の手前
+    let i0 = 0;
+    let steep = 0;
+    for (let i = 0; i < tr.length; i++) {
+      const p = tr.samples[i];
+      const q = tr.samples[(i + 10) % tr.length];
+      if (p.y === null || q.y === null || p.ramp || q.ramp || p.tunnel) continue;
+      if (q.y - p.y > steep) [steep, i0] = [q.y - p.y, i];
+    }
+    for (const hit of ['spin', 'tumble']) {
+      const kart = createKart(tr, i0, 0);
+      kart.speed = 35;
+      kart[hit] = hit === 'spin' ? PHYS.SPIN_TIME : 2;
+      for (let f = 0; f < 40; f++) {
+        stepKart(kart, full, tr, params, 1 / 60);
+        const ground = locate(tr, kart.x, kart.z, kart.seg, 40, kart.y).ground;
+        assert.ok(kart.y > ground - 0.1, `${def.name} ${hit}: ${f}: 車 ${kart.y.toFixed(2)} 地面 ${ground.toFixed(2)}`);
+      }
     }
   }
 });
