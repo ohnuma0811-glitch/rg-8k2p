@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=0e5d133';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=0e5d133';
+import { locate, respawnIndex, sampleAt } from './track.js?v=98f8b2f';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=98f8b2f';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -327,6 +327,12 @@ export function stepKart(kart, ctl, track, params, dt) {
   };
   const edgeGone = () => edgeLoc().ground === null;
   // 片道のコース（Global City）の「無い道」には、向きにかかわらず入らない（道のはしで止まる）
+  // ゴールのあとの周回（Global City）: 道の終わりの近くに来たら、同じ所のゴールの手前の点へつなぎかえる（位置はそのまま）
+  if (track.loopTo !== undefined && track.samples[loc.i].s > track.loopEnd - 30) {
+    const back = track.samples.findIndex((q) => q.s >= track.loopTo - 30);
+    loc = locate(track, kart.x, kart.z, back, 40, kart.y ?? null);
+    kart.seg = loc.i;
+  }
   const voidAhead = () => track.open && (track.samples[loc.i].void || track.samples[edgeLoc().i].void);
   if (!kart.airborne && ((backward && (loc.ground === null || edgeGone())) || voidAhead())) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる

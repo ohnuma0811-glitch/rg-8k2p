@@ -1,6 +1,6 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const CEIL_LATS = [-1, -0.5, 0, 0.5, 1];
@@ -8,7 +8,7 @@ const GLASS_ARC = 16; // ガラスの半円を何枚の板で作るか // 天井
 const WALL = 0x5a5f66;
 const CEIL = 0x4a4e55;
 // 見た目ごとの壁と天井の色（snow は Kyugo Mountain のトンネル）
-const LOOKS = { snow: [WALL, CEIL], rock: [0x6b625a, 0x5a524a], cave: [0x5a524a, 0x463f38], mosque: [0xe8b8c0, 0xf0d0d6], glass: [0x9fd0e8, 0xbfe8ff] };
+const LOOKS = { snow: [WALL, CEIL], rock: [0x6b625a, 0x5a524a], cave: [0x5a524a, 0x463f38], mosque: [0xe8b8c0, 0xf0d0d6], glass: [0x9fd0e8, 0xbfe8ff], concrete: [0xa8adb2, 0x9aa0a6] };
 const lookOf = (p) => LOOKS[p.tunnelLook ?? 'snow'] ?? LOOKS.snow;
 const ARCH = 0x9a958c;
 
@@ -128,6 +128,7 @@ export function buildTunnel(track) {
   // モスクの回廊（Global City）: ピンクの柱と、上がとがったアーチを 6m ごと
   // バトゥ洞窟（Global City）: 天井から下がる灰色の鍾乳石
   const deco = createBuilder();
+  const lamps = createBuilder({ glow: true });
   let cave = 0;
   info.forEach((it, k) => {
     const p = it.p;
@@ -140,6 +141,10 @@ export function buildTunnel(track) {
         deco.rod(p.x + rx * side * w, top - 2.5, p.z + rz * side * w, p.x, top - 0.2, p.z, 0.3, 0xffe6ea); // アーチ（とがった形）
       }
     }
+    // 海にもぐるコンクリートのトンネル（Global City）: 天井に明かりの列（2026-10-21）
+    if (p.tunnelLook === 'concrete' && k % 8 === 0) {
+      for (const side of [-1, 1]) lamps.box(0.6, 0.25, 3, 0xfff2c8, p.x + rx * side * w * 0.5, p.y + TUNNEL_HEIGHT - 0.2, p.z + rz * side * w * 0.5);
+    }
     if (p.tunnelLook === 'cave' && k % 3 === 0) {
       cave++;
       const lat = (((cave * 37) % 9) / 4 - 1) * w * 0.8;
@@ -147,7 +152,7 @@ export function buildTunnel(track) {
       deco.cyl(0.6 + (cave % 3) * 0.3, 0, h, 5, 0x8a8a86, p.x + rx * lat, p.y + TUNNEL_HEIGHT - h, p.z + rz * lat); // 鍾乳石
     }
   });
-  group.add(deco.build());
+  group.add(deco.build(), lamps.build());
   // 雪の山は、雪のトンネル（Kyugo Mountain）だけ
   const snowInfo = info.filter((it) => (it.p.tunnelLook ?? 'snow') === 'snow');
   if (snowInfo.length) group.add(moundMesh(track, snowInfo));

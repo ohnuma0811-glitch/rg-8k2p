@@ -1,6 +1,6 @@
 // Global City の部品（2026-10-20）: 箱・円柱・球・棒だけで作る。名所は src/render/world/<都市>.js
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { markS, sampleAt } from '../../game/track.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { markS, sampleAt } from '../../game/track.js?v=98f8b2f';
 
 // 名所の印（テストと確かめ用。見えない）
 export function landmark(group, name, x, y, z) {
@@ -111,4 +111,66 @@ export function petals(center, size, count = 260) {
   pts.userData.petals = true;
   pts.userData.keep = true; // まとめない（動かす）
   return pts;
+}
+
+// 新幹線の高架（2026-10-21 のユーザー依頼「カーブで線路がちぎれて見える」）: 道の横 off m の線を、10m ごとの点と点を結ぶ板でつなぐ（カーブでもすき間ができない）。
+// 柱は 25m ごと。from・to は道の s
+export function viaduct(b, track, from, to, off, y) {
+  const rail = (s) => beside(pointAt(track, s), off);
+  for (let s = from; s < to; s += 10) {
+    const a = rail(s);
+    const c = rail(Math.min(s + 10, to));
+    const len = Math.hypot(c.x - a.x, c.z - a.z);
+    if (len < 0.5) continue;
+    b.push((a.x + c.x) / 2, 0, (a.z + c.z) / 2, Math.atan2(c.x - a.x, c.z - a.z)); // z が線路の向き
+    b.box(13, 1.6, len + 0.6, 0xc8ccd2, 0, y, 0); // 橋げた
+    for (const x of [-3, 3]) b.box(0.3, 0.3, len + 0.6, 0x444a50, x, y + 1.6, 0); // レール
+    b.pop();
+  }
+  for (let s = from; s <= to; s += 25) {
+    const a = rail(s);
+    b.cyl(1.4, 1.6, y, 8, 0xb8bcc2, a.x, 0, a.z); // 柱
+  }
+}
+
+// 英語の看板（名所の名前。2026-10-21 のユーザー依頼「看板を立てるなりして」）: 道の s の所の横（side は 1 右、-1 左）に、走ってくる方へ向けて立てる
+export function roadSign(group, b, track, s, side, text, name, { bg = '#2a2a30', fg = '#f2ead2' } = {}) {
+  const p = pointAt(track, s);
+  const c = beside(p, side * (p.wall + 4));
+  landmark(group, name, c.x, p.y ?? 0, c.z);
+  b.push(c.x, p.y ?? 0, c.z, Math.atan2(Math.cos(p.h), Math.sin(p.h)) + Math.PI);
+  for (const x of [-4.5, 4.5]) b.box(0.4, 2.4, 0.4, 0x5a5048, x, 0, 0);
+  b.box(11, 2.8, 0.5, 0x3a3a40, 0, 2.2, 0);
+  b.label(textSign(text, { bg, fg, font: 'bold 64px serif' }), [768, 160], 0, 3.6, 0.3, 0, 10.4, 2.4);
+  b.pop();
+}
+
+// 香港のネオン看板の絵（2026-10-21 のユーザー依頼「中国語の看板に溢れているはず」）: 黒っぽい板に、光る漢字を縦に並べ、光るふちどり
+export function neonSign(text, color) {
+  const draw = (g, w, h) => {
+    g.fillStyle = '#120a18';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = color;
+    g.lineWidth = 10;
+    g.shadowColor = color;
+    g.shadowBlur = 24;
+    g.strokeRect(12, 12, w - 24, h - 24);
+    g.fillStyle = '#ffffff';
+    g.font = `bold ${Math.floor(w * 0.62)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const chars = [...text];
+    const step = (h - 40) / chars.length;
+    chars.forEach((ch, k) => {
+      g.shadowColor = color;
+      g.shadowBlur = 30;
+      g.fillStyle = color;
+      g.fillText(ch, w / 2, 20 + step * (k + 0.5));
+      g.shadowBlur = 0;
+      g.fillStyle = '#ffffffcc';
+      g.fillText(ch, w / 2, 20 + step * (k + 0.5));
+    });
+  };
+  draw.key = `neon:${text}:${color}`;
+  return draw;
 }

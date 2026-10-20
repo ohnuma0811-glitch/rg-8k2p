@@ -1,10 +1,10 @@
 // Global City の東京（2026-10-20）: 皇居の桜並木からスタート、丸の内・東京駅・東京タワー・新幹線・レインボーブリッジ・お台場
 // 方角は実際のとおり（北は -z）。名所の置き場所は src/data/global.js の GLOBAL_SCENERY.tokyo
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
-import { locate } from '../../game/track.js?v=0e5d133';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e5d133';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree } from './kit.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
+import { locate } from '../../game/track.js?v=98f8b2f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=98f8b2f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct } from './kit.js?v=98f8b2f';
 
 const STONE = 0xd8d2c4; // 皇居の白い石垣
 const ROOF_COPPER = 0x5f8f7a; // 銅の屋根（緑青）
@@ -111,18 +111,38 @@ export function buildTokyo(track) {
     b.box(w + 4, 1.2, 9, 0x3a3a40, 0, 16.2, 0);
     b.pop();
   }
-  const palace = worldAt(track, S.palace.at);
+  // 宮殿は、地図の点に近い道の横に、道にそって長く置く（地図の点のままだと建物が道の上に重なり、壁のように見えた。2026-10-21 のユーザー依頼）
+  const pw = worldAt(track, S.palace.at);
+  const pl = locate(track, pw.x, pw.z, null, 40);
+  const pp = pointAt(track, pl.s);
+  const pside = Math.sign(pl.lateral) || 1;
+  const palace = beside(pp, pside * (pp.wall + 34));
   landmark(city, 'palace', palace.x, 0, palace.z);
-  b.box(220, 0.05, 160, 0xe8e2d4, palace.x, 0.005, palace.z); // 白い砂利の広場
-  b.push(palace.x, 0, palace.z, 0);
+  const pry = ryAlong(pp.h) + Math.PI / 2; // x が道にそう向き
+  b.push(palace.x, 0, palace.z, pry);
+  b.box(220, 0.05, 90, 0xe8e2d4, 0, -0.09, 0); // 白い砂利の広場（道より下）
   b.box(120, 14, 40, 0xece8dc, 0, 0, 0); // 宮殿（低く横に長い）
-  for (let k = 0; k < 15; k++) b.box(2, 8, 0.5, 0x6a4a32, -56 + k * 8, 2, 20.3); // 柱
+  for (let k = 0; k < 15; k++) for (const z of [-20.3, 20.3]) b.box(2, 8, 0.5, 0x6a4a32, -56 + k * 8, 2, z); // 柱
   b.box(128, 1.6, 48, ROOF_COPPER, 0, 14, 0); // 大きな屋根（反りを段で）
   b.box(118, 1.6, 40, ROOF_COPPER, 0, 15.6, 0);
   b.box(104, 1.6, 30, ROOF_COPPER, 0, 17.2, 0);
   b.box(80, 1.2, 18, ROOF_COPPER, 0, 18.8, 0);
   b.pop();
-  for (const [dx, dz] of [[-90, -60], [-70, 70], [80, -70], [95, 60], [-110, 10], [110, -5]]) coneTree(b, palace.x + dx, 0, palace.z + dz, 1.3, 0x2f5d3a);
+  for (const [dx, dz] of [[-90, -60], [-70, 70], [80, -70], [95, 60], [-110, 10], [110, -5]]) {
+    const x = palace.x + dx;
+    const z = palace.z + dz;
+    if (clearOfRoads(track, x, z, 4)) coneTree(b, x, 0, z, 1.3, 0x2f5d3a);
+  }
+  // 英語の看板「IMPERIAL PALACE」（道の横、走ってくる方に向けて。2026-10-21 のユーザー依頼）
+  const sp = pointAt(track, pl.s - 40);
+  const sc = beside(sp, pside * (sp.wall + 4));
+  landmark(city, 'palaceSign', sc.x, 0, sc.z);
+  b.push(sc.x, 0, sc.z, ryAlong(sp.h) + Math.PI);
+  b.box(0.4, 2.2, 0.4, 0x5a5048, -4, 0, 0);
+  b.box(0.4, 2.2, 0.4, 0x5a5048, 4, 0, 0);
+  b.box(10, 2.6, 0.5, 0x3a3a40, 0, 2.2, 0);
+  b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 160], 0, 3.5, 0.3, 0, 9.4, 2.2);
+  b.pop();
 
   // ---- 丸の内（新丸ビルと高層ビル）と、東京駅 ----
   const shin = worldAt(track, S.shinmaru.at);
@@ -143,6 +163,8 @@ export function buildTokyo(track) {
   for (let k = 0; k < 40; k++) b.box(22.6, 4, 2.2, 0xe8e4da, 0, 10, -156 + k * 8); // 窓の白いふち
   b.box(28, 30, 40, BRICK, 0, 0, 0); // 真ん中
   b.box(28.4, 2, 40.4, 0x4a5058, 0, 30, 0);
+  // 英語の看板「TOKYO STATION」（正面の西がわ。2026-10-21 のユーザー依頼）
+  b.label(textSign('TOKYO STATION', { bg: '#f4f0e6', fg: '#6a2a1f', font: 'bold 72px serif' }), [768, 128], -14.3, 24, 0, -Math.PI / 2, 26, 4.4);
   for (const zz of [-150, 150]) {
     b.cyl(17, 17, 32, 8, BRICK, 0, 0, zz); // 南北のドーム
     b.cyl(17.4, 17.4, 1.6, 8, WHITE, 0, 18, zz);
@@ -150,6 +172,7 @@ export function buildTokyo(track) {
     b.cyl(0.5, 0.5, 4, 6, 0x5a6168, 0, 44, zz);
   }
   b.pop();
+  landmark(city, 'stationSign', st.x - 14.3, 26, st.z);
   cityBlocks(b, track, 'MRN', 'TT', { avoid: [{ ...st, r: 190 }, { ...shin, r: 60 }] });
 
   // ---- 東京タワー（赤と白のしま、高さ 333m）----
@@ -191,15 +214,7 @@ export function buildTokyo(track) {
   const line = S.shinkansenLine;
   const ls = sOf(track, line.from);
   const le = sOf(track, line.to);
-  for (let s = ls; s <= le; s += 25) {
-    const p = pointAt(track, s);
-    const c = beside(p, line.off);
-    b.push(c.x, 0, c.z, ryAlong(p.h));
-    b.box(3, line.y, 2.5, 0xb8bcc2, 0, 0, 0); // 柱
-    b.box(13, 1.6, 26, 0xc8ccd2, 0, line.y, 0); // 橋げた
-    for (const x of [-3, 3]) b.box(0.3, 0.3, 26, 0x444a50, x, line.y + 1.6, 0); // レール
-    b.pop();
-  }
+  viaduct(b, track, ls, le, line.off, line.y);
   const lm = pointAt(track, (ls + le) / 2);
   const lc = beside(lm, line.off);
   landmark(city, 'shinkansenLine', lc.x, line.y, lc.z);
@@ -242,9 +257,10 @@ export function buildTokyo(track) {
     for (let k = 0; k + 1 < pts.length; k++) bb.rod(pts[k].x, pts[k].y, pts[k].z, pts[k + 1].x, pts[k + 1].y, pts[k + 1].z, 0.5, WHITE);
     for (const q of pts) if (q.y - q.dy > 3) bb.rod(q.x, q.dy + 1, q.z, q.x, q.y, q.z, 0.15, 0xe8e8e8);
   }
-  along(track, 'RB', 'RBE', 10, (p) => {
+  // 白い橋げた: 2.5m ごとの短い板（10m の平らな板だと、坂で階段のように見えた。2026-10-21 のユーザー依頼）
+  along(track, 'RB', 'RBE', 2.5, (p) => {
     bb.push(p.x, p.y - 3.2, p.z, ryAlong(p.h));
-    bb.box(2 * p.wall + 4, 3, 10.5, 0xeef0f2, 0, 0, 0); // 白い橋げた
+    bb.box(2 * p.wall + 4, 3, 2.9, 0xeef0f2, 0, 0, 0);
     bb.pop();
   });
   for (const s of [rbs, rbe]) {
@@ -253,9 +269,19 @@ export function buildTokyo(track) {
   }
   const rbm = pointAt(track, (rbs + rbe) / 2);
   landmark(bay, 'rainbowBridge', rbm.x, rbm.y, rbm.z);
-  // 東京湾の水（橋の下）
-  const bayW = worldAt(track, [980, 720]);
-  bb.box(760, 0.06, 420, 0x2f6f9a, bayW.x, -0.06, bayW.z);
+  // 東京湾の水は、橋の下（芝浦とお台場の間）と、お台場の西（大ジャンプで飛ぶ下）だけ。お台場の島はアスファルト
+  // （水の板がお台場ごとおおって、全部が海に見えた。2026-10-21 のユーザー依頼「ここは下もアスファルト」）
+  const rect = (x0, z0, x1, z1, color, y, h, water) => {
+    const a = worldAt(track, [x0, z0]);
+    const c = worldAt(track, [x1, z1]);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(c.x - a.x), h, Math.abs(c.z - a.z)), new THREE.MeshLambertMaterial({ color }));
+    m.position.set((a.x + c.x) / 2, y + h / 2, (a.z + c.z) / 2);
+    m.userData.water = water;
+    bay.add(m);
+  };
+  rect(690, 430, 1120, 900, 0x2f6f9a, -0.095, 0.04, true); // 橋の下の海
+  rect(200, 860, 930, 1200, 0x2f6f9a, -0.095, 0.04, true); // お台場の西の海
+  rect(950, 760, 1420, 1060, 0x4a4d52, -0.09, 0.06, false); // お台場の島（アスファルト）
 
   // ---- お台場: フジテレビ（格子の建物と球体）----
   const ftv = worldAt(track, S.fujiTV.at);

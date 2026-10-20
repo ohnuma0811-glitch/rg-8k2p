@@ -1,11 +1,11 @@
 // Global City のニューヨーク（2026-10-20）: 碁盤の目の街を直角に曲がって北へ。タイムズスクエア、マディソン街の Jefferies 本社とユニクロ、
 // 五番街のティファニー、セントラルパークの中を通って、ジョージ・ワシントン・ブリッジでハドソン川をわたる。NY育英学園の門をくぐると輪っか
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
-import { locate } from '../../game/track.js?v=0e5d133';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e5d133';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree } from './kit.js?v=0e5d133';
-import { cityBlocks } from './tokyo.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
+import { locate } from '../../game/track.js?v=98f8b2f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=98f8b2f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree } from './kit.js?v=98f8b2f';
+import { cityBlocks } from './tokyo.js?v=98f8b2f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const BOARD = [0xff2d3a, 0x2d7dff, 0xffd21a, 0x2de07a, 0xff7a1a, 0xffffff];
@@ -43,8 +43,20 @@ export function buildNewYork(track) {
   const glow = createBuilder({ glow: true });
 
   // 名所の建物の場所（まわりには、ふつうのビルを建てない。重なって隠れた）
-  const jf = spot(track, S.jefferies.at, 22);
-  const uq = spot(track, S.jefferies.at, 16, jf.side, 46); // Jefferies のすぐ横（先）。手前は角の前の通りになった
+  // Jefferies とユニクロは、直角の角の正面（走ってくる車から真正面に見える所）に、大きく（2026-10-21 のユーザー依頼「存在感が無い。視認性も悪い」）
+  const cornerSpot = (mark, half) => {
+    const s0 = sOf(track, mark);
+    const pin = pointAt(track, s0 - 30);
+    const c = pointAt(track, s0);
+    for (let d = c.wall + half + 6; d < c.wall + half + 80; d += 4) {
+      const x = c.x + Math.cos(pin.h) * d;
+      const z = c.z + Math.sin(pin.h) * d;
+      if (clear(track, x, z, half * 1.42 + 2)) return { x, z, ry: Math.atan2(-Math.cos(pin.h), -Math.sin(pin.h)), r: half * 1.5 + 12 };
+    }
+    return null;
+  };
+  const jf = cornerSpot('MAD', 23) ?? spot(track, S.jefferies.at, 22);
+  const uq = cornerSpot('Z5', 17) ?? spot(track, S.jefferies.at, 16, jf.side, 46);
   const tf = spot(track, S.tiffany.at, 16);
   // 高層ビルの街（道ぞい）。セントラルパークの中は建てない
   cityBlocks(b, track, 'NY', 'CP', { avoid: [jf, uq, tf], step: 40, back: 20, hMin: 60, hMax: 220, colors: [0x9aa4ae, 0xb8b0a0, 0x7f8a96, 0xc8c2b4, 0x6a7480] });
@@ -54,7 +66,7 @@ export function buildNewYork(track) {
   }
 
   // 直角の角の正面（まっすぐ行った先）にもビル（空き地に見えた）
-  for (const mark of ['NY1', 'MAD']) {
+  for (const mark of ['NY1']) {
     const s0 = sOf(track, mark);
     const pin = pointAt(track, s0 - 30);
     const c = pointAt(track, s0);
@@ -93,20 +105,33 @@ export function buildNewYork(track) {
     }
   }
 
-  // マディソン街の Jefferies 本社（高さ 150m のガラスのビル、白地に紺の名前）
+  // マディソン街の Jefferies 本社（高さ 210m のガラスのビル。正面に大きな光る看板、てっぺんの4面にも）
   landmark(g, 'jefferies', jf.x, 0, jf.z);
   b.push(jf.x, 0, jf.z, jf.ry);
-  b.box(40, 150, 40, 0x4a6a8e, 0, 0, 0);
-  for (let y = 3; y < 148; y += 4) b.box(40.3, 0.5, 40.3, 0x9ab8d4, 0, y, 0); // ガラスの横すじ
-  b.box(42, 8, 42, 0x2a3a4e, 0, 0, 0); // 入り口の階
-  signs(b, textSign('Jefferies', { bg: '#ffffff', fg: '#13294b', font: 'bold 80px serif' }), [512, 128], 42.2, 11, 24, 6);
+  glow.push(jf.x, 0, jf.z, jf.ry);
+  b.box(46, 210, 46, 0x3f5f86, 0, 0, 0);
+  for (let y = 3; y < 208; y += 4) b.box(46.3, 0.5, 46.3, 0x9ab8d4, 0, y, 0); // ガラスの横すじ
+  b.box(48, 10, 48, 0x1f2f45, 0, 0, 0); // 入り口の階
+  for (const x of [-23.2, 23.2]) for (const z of [-23.2, 23.2]) glow.box(0.5, 210, 0.5, 0xeaf2ff, x, 0, z); // 光るかど
+  glow.box(40, 11, 0.4, 0x13294b, 0, 16, 23.3); // 正面の大きな看板（紺）
+  b.label(textSign('Jefferies', { bg: '#13294b', fg: '#ffffff', font: 'bold 96px serif' }), [768, 192], 0, 21.5, 23.6, 0, 38, 9.5);
+  signs(b, textSign('Jefferies', { bg: '#ffffff', fg: '#13294b', font: 'bold 96px serif' }), [768, 192], 46.4, 196, 40, 10); // てっぺんの4面
+  glow.pop();
   b.pop();
-  // その横のユニクロ（低いビル、赤い看板に白い字）
+  // ユニクロ（白い箱の建物に、赤い大きな看板「UNIQLO」。正面と横）
   landmark(g, 'uniqlo', uq.x, 0, uq.z);
   b.push(uq.x, 0, uq.z, uq.ry);
-  b.box(30, 28, 30, 0xe8e8e8, 0, 0, 0);
-  b.box(30.4, 1, 30.4, 0xcc1f2a, 0, 28, 0);
-  signs(b, textSign('UNIQLO', { bg: '#e60012', fg: '#ffffff', font: 'bold 96px sans-serif' }), [256, 256], 30, 18, 9, 9);
+  glow.push(uq.x, 0, uq.z, uq.ry);
+  b.box(34, 34, 34, 0xf4f4f4, 0, 0, 0);
+  glow.box(26, 26, 0.4, 0xe60012, 0, 5, 17.2); // 正面の赤い大きな看板
+  b.label(textSign('UNIQLO', { bg: '#e60012', fg: '#ffffff', font: 'bold 120px sans-serif' }), [512, 512], 0, 18, 17.5, 0, 25, 25);
+  for (const sd of [-1, 1]) {
+    glow.push(sd * 17.2, 0, 0, (sd * Math.PI) / 2);
+    glow.box(18, 18, 0.4, 0xe60012, 0, 12, 0);
+    glow.pop();
+    b.label(textSign('UNIQLO', { bg: '#e60012', fg: '#ffffff', font: 'bold 120px sans-serif' }), [512, 512], sd * 17.5, 21, 0, (sd * Math.PI) / 2, 17, 17);
+  }
+  glow.pop();
   b.pop();
 
   // 五番街のティファニー（石のビル、ティファニーブルーの看板に白い字。入り口に時計を持つ像の代わりに金の時計）
@@ -220,7 +245,7 @@ export function buildNewYork(track) {
     const p = pointAt(track, sOf(track, mark));
     landmark(g, `ring${j + 1}`, p.x, p.y, p.z);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 1.3, 10, 48), new THREE.MeshBasicMaterial({ color: j === 2 ? 0xff9adf : 0x9fe8ff }));
-    ring.position.set(p.x, p.y + 11, p.z);
+    ring.position.set(p.x, p.y + 5, p.z); // 輪は道より大きく、道の外で地面に入る（道の上に輪の下が出ないように）
     ring.rotation.y = ryAlong(p.h);
     ring.userData.keep = true;
     ring.userData.ring = j;

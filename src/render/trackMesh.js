@@ -1,28 +1,29 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=0e5d133';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0e5d133';
-import { buildJungle } from './town/jungle.js?v=0e5d133';
-import { buildWater } from './town/water.js?v=0e5d133';
-import { buildBridge } from './forest/bridge.js?v=0e5d133';
-import { buildTunnel } from './snow/tunnel.js?v=0e5d133';
-import { buildSnowScenery } from './snow/kit.js?v=0e5d133';
-import { buildSigns } from './snow/signs.js?v=0e5d133';
-import { buildTokyo } from './world/tokyo.js?v=0e5d133';
-import { buildFuji } from './world/fuji.js?v=0e5d133';
-import { buildKyoto } from './world/kyoto.js?v=0e5d133';
-import { buildSpace, buildLaunchRail } from './world/space.js?v=0e5d133';
-import { buildHongKong } from './world/hongkong.js?v=0e5d133';
-import { buildSea } from './world/sea.js?v=0e5d133';
-import { buildNewYork } from './world/newyork.js?v=0e5d133';
-import { buildWarp } from './world/warp.js?v=0e5d133';
-import { buildKL } from './world/kl.js?v=0e5d133';
-import * as forestKit from './forest/kit.js?v=0e5d133';
-import { createBuilder } from './town/builder.js?v=0e5d133';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=0e5d133';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=0e5d133';
-import { mergeMeshes } from './mergeMeshes.js?v=0e5d133';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=0e5d133';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=0e5d133';
+import * as THREE from '../../vendor/three.module.min.js?v=98f8b2f';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=98f8b2f';
+import { buildJungle } from './town/jungle.js?v=98f8b2f';
+import { buildWater } from './town/water.js?v=98f8b2f';
+import { buildBridge } from './forest/bridge.js?v=98f8b2f';
+import { buildTunnel } from './snow/tunnel.js?v=98f8b2f';
+import { buildSnowScenery } from './snow/kit.js?v=98f8b2f';
+import { buildSigns } from './snow/signs.js?v=98f8b2f';
+import { buildTokyo } from './world/tokyo.js?v=98f8b2f';
+import { buildFuji } from './world/fuji.js?v=98f8b2f';
+import { buildKyoto } from './world/kyoto.js?v=98f8b2f';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=98f8b2f';
+import { buildHongKong } from './world/hongkong.js?v=98f8b2f';
+import { buildSea } from './world/sea.js?v=98f8b2f';
+import { buildNewYork } from './world/newyork.js?v=98f8b2f';
+import { buildWarp } from './world/warp.js?v=98f8b2f';
+import { buildKL } from './world/kl.js?v=98f8b2f';
+import { buildClouds } from './world/clouds.js?v=98f8b2f';
+import * as forestKit from './forest/kit.js?v=98f8b2f';
+import { createBuilder } from './town/builder.js?v=98f8b2f';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=98f8b2f';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=98f8b2f';
+import { mergeMeshes } from './mergeMeshes.js?v=98f8b2f';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=98f8b2f';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=98f8b2f';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -631,7 +632,7 @@ function roadside(track, sides) {
 // 道を描く点か: 無い道・自動の区間（Global City）の空の道すじは描かない。
 // 自動の区間でも、地面の高さの所（輪っかの間 R1〜R3）は描く（道が消えて見えた。最後のレビュー）
 export function roadDrawn(p) {
-  return p.y !== null && !p.void && !(p.auto && p.y > 0.5);
+  return p.y !== null && !p.void && !p.ghost && !(p.auto && p.y > 0.5);
 }
 
 export function hasTunnels(track) {
@@ -973,7 +974,7 @@ export function buildTrackMesh(track) {
   if (hasTunnels(track)) group.add(buildTunnel(track));
   // Global City の景色（ステージごとの群れ）
   if (world) {
-    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL]) {
+    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL, buildClouds]) {
       for (const g of build(track).children.slice()) group.userData.addStage(g, g.userData.stages);
     }
   }

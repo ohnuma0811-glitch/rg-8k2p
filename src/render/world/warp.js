@@ -1,10 +1,11 @@
 // Global City のワープ（2026-10-20）: 3つ目の輪っかを過ぎると、光のトンネル。星が線になって、前から後ろへ速く流れる
 // カメラについていく（userData.followCamera）。見えるのはワープの間だけ（userData.stages = ['warp']）
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { landmark } from './kit.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { landmark } from './kit.js?v=98f8b2f';
 
 const STREAKS = 400;
 const DEPTH = 700; // 線が流れてくる奥行き（m）
+const RINGS = 8; // 光の輪の数
 
 export function buildWarp() {
   const root = new THREE.Group();
@@ -44,19 +45,49 @@ export function buildWarp() {
   tube.frustumCulled = false;
   tube.userData.keep = true;
   g.add(tube);
+  g.userData.tube = tube;
+  // 前から飛んでくる光の輪
+  g.userData.rings = [];
+  for (let k = 0; k < RINGS; k++) {
+    const r = new THREE.Mesh(new THREE.TorusGeometry(30, 0.8, 6, 40), new THREE.MeshBasicMaterial({ color: 0x9fd0ff, fog: false, transparent: true, opacity: 0.8 }));
+    r.frustumCulled = false;
+    r.userData.keep = true;
+    g.add(r);
+    g.userData.rings.push(r);
+  }
   landmark(g, 'warpTunnel', 0, 0, -DEPTH / 2);
   return root;
 }
 
-// 毎フレーム: カメラの位置と向きについていき、線を前から後ろへ流す
-export function updateWarp(group, camera, time) {
+// ワープの見た目（p はワープの進み 0〜1。2026-10-21 のユーザー依頼「10秒くらいかけてもっと壮大に」）:
+// だんだん速く、色は青 → むらさき → ピンク、最後に白く光ってクアラルンプールに着く
+export function warpLook(p) {
+  return { speed: 300 + 2600 * p * p, hue: 0.62 - 0.5 * p, flash: p > 0.88 ? Math.min(1, (p - 0.88) / 0.1) : 0 };
+}
+
+// 毎フレーム: カメラの位置と向きについていき、線を前から後ろへ流す。光の輪が前から飛んでくる
+export function updateWarp(group, camera, time, p = 0) {
   group.position.copy(camera.position);
   group.quaternion.copy(camera.quaternion);
+  const look = warpLook(p);
   const lines = group.userData.lines;
   const pos = lines.geometry.attributes.position;
+  const a = pos.array;
+  const run = (group.userData.run = (group.userData.run ?? 0) + (time - (group.userData.last ?? time)) * look.speed);
+  group.userData.last = time;
   lines.userData.lanes.forEach((l, k) => {
-    const z = -DEPTH + ((l.z0 + time * 900) % DEPTH); // 奥（-DEPTH）から手前（0）へ
-    pos.array.set([l.x, l.y, z, l.x, l.y, z - l.len], k * 6);
+    const z = -DEPTH + ((l.z0 + run) % DEPTH); // 奥（-DEPTH）から手前（0）へ
+    const len = l.len * (1 + p * 4); // 速いほど長い線
+    const i = k * 6;
+    a[i] = l.x; a[i + 1] = l.y; a[i + 2] = z;
+    a[i + 3] = l.x; a[i + 4] = l.y; a[i + 5] = z - len;
   });
   pos.needsUpdate = true;
+  const tube = group.userData.tube;
+  tube.material.color.setHSL(look.hue, 0.85, 0.5 + 0.45 * look.flash);
+  tube.material.opacity = 0.28 + 0.6 * look.flash;
+  group.userData.rings.forEach((r, k) => {
+    r.position.z = -DEPTH + ((k * (DEPTH / RINGS) + run * 0.6) % DEPTH);
+    r.material.color.setHSL((look.hue + k * 0.08) % 1, 0.9, 0.6);
+  });
 }

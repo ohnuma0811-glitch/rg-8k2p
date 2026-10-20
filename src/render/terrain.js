@@ -1,7 +1,7 @@
 // 道の高さに合わせた地面（Soki Forest。2026-10-16 のユーザー依頼「道が上下に波打つ」）。
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
-import * as THREE from '../../vendor/three.module.min.js?v=0e5d133';
-import { TUNNEL_HEIGHT } from './snow/tunnel.js?v=0e5d133';
+import * as THREE from '../../vendor/three.module.min.js?v=98f8b2f';
+import { TUNNEL_HEIGHT } from './snow/tunnel.js?v=98f8b2f';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）
@@ -240,7 +240,8 @@ export function buildTerrain(track) {
       col[k + 2] = c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })));
+    // Global City の富士山の地面は霧をかけない（お台場から遠くの富士山が霧で見えなかった。2026-10-21 のユーザー依頼「正面にドーンと」）
+    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, fog: false })));
   } else group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
   group.add(buildShoulders(track));
   return group;

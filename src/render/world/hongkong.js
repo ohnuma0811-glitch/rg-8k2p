@@ -1,10 +1,10 @@
 // Global City の香港（2026-10-20）: 夜。香港島の中環（セントラル）の高層ビル群の間を抜ける。ネオンの看板がギラギラ光る。北がわがビクトリア湾
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
-import { locate } from '../../game/track.js?v=0e5d133';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e5d133';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower } from './kit.js?v=0e5d133';
-import { cityBlocks } from './tokyo.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
+import { locate } from '../../game/track.js?v=98f8b2f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=98f8b2f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign } from './kit.js?v=98f8b2f';
+import { cityBlocks } from './tokyo.js?v=98f8b2f';
 
 const NEON = [0xff2d6f, 0x2de0ff, 0xffe12d, 0x7dff3a, 0xff7a1a, 0xc23aff];
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -54,20 +54,38 @@ export function buildHongKong(track) {
   b.box(1600, 0.1, 360, 0x0a1428, hb.x, -0.05, hb.z);
   for (let k = 0; k < 40; k++) glow.box(4, 0.06, 60 + (k % 4) * 30, NEON[k % NEON.length], hb.x - 780 + k * 40, 0.02, hb.z + 120);
 
-  // ネオンの看板（道の両がわのビルの下の方に、色の板と枠。文字は描かない）
+  // 中国語のネオン看板（2026-10-21 のユーザー依頼「中国語の看板に溢れているはず。看板を多数配置して」）:
+  // 道の両がわのビルから、道の上へ突き出す縦の看板（漢字を縦に）。走ってくる方から読めるよう、板は道を横切る向き
+  const WORDS = ['金龍酒家', '茶餐廳', '大押', '藥房', '海鮮酒家', '麻雀館', '珠寶金行', '時裝', '找換店', '涼茶', '燒臘', '雲吞麵', '大酒樓', '旅館', '電器', '眼鏡', '鐘錶', '夜市', '鴻運', '百貨'];
+  const COLORS = ['#ff2d6f', '#2de0ff', '#ffe12d', '#7dff3a', '#ff7a1a', '#c23aff', '#ff4040'];
   let n = 0;
-  along(track, S.neon.from, S.neon.to, S.neon.every, (p) => {
+  along(track, S.neon.from, S.neon.to, 12, (p) => {
     for (const side of [-1, 1]) {
       n++;
-      const c = beside(p, side * (p.wall + 8));
-      const loc = locate(track, c.x, c.z, p.i, 40);
-      if (Math.abs(loc.lateral) < loc.wall + 4) continue;
-      const col = NEON[n % NEON.length];
-      glow.push(c.x, 0, c.z, ryAlong(p.h));
-      if (n % 2) glow.box(1, 10 + (n % 3) * 4, 3, col, 0, 5 + (n % 4), 0); // 縦長の看板
-      else glow.box(1, 3, 9, col, 0, 7 + (n % 3) * 3, 0); // 横長の看板
-      glow.box(1.2, 0.4, n % 2 ? 3.4 : 9.4, 0xffffff, 0, n % 2 ? 4.8 : 6.8, 0); // 白い枠
+      const base = beside(p, side * (p.wall + 3));
+      const lb = locate(track, base.x, base.z, p.i, 40);
+      if (Math.abs(lb.lateral) < lb.wall + 1) continue; // ほかの道の上には立てない
+      const w = (n * 7) % WORDS.length;
+      const text = WORDS[w];
+      const color = COLORS[w % COLORS.length]; // 言葉ごとに色を決める（同じ絵の看板は、まとめて描ける）
+      const len = [...text].length;
+      const h = 3 + len * 2.4; // 字の数で高さ
+      const out = 4 + (n % 3) * 1.5; // 道の上へ突き出す長さ
+      const y = 6 + (n % 4) * 2.5;
+      const mid = beside(p, side * (p.wall + 3 - out / 2));
+      const sg = new THREE.Object3D();
+      sg.position.set(mid.x, y + h / 2, mid.z);
+      sg.userData.landmark = 'hkSign';
+      sg.userData.text = text;
+      g.add(sg);
+      glow.push(mid.x, y, mid.z, ryAlong(p.h));
+      glow.box(out + 0.4, h + 0.4, 0.3, 0x120a18, 0, 0, 0); // 板
+      glow.label(neonSign(text, color), [128, 128 * len], 0, h / 2, 0.2, 0, out, h); // 前（走ってくる方）
+      glow.label(neonSign(text, color), [128, 128 * len], 0, h / 2, -0.2, Math.PI, out, h); // 後ろ
       glow.pop();
+      b.push(base.x, y + h, base.z, ryAlong(p.h));
+      b.box(0.2, 0.2, 0.2, 0x333333, 0, 0, 0);
+      b.pop();
     }
   });
   const mid = pointAt(track, (sOf(track, 'HL') + sOf(track, 'SD')) / 2);

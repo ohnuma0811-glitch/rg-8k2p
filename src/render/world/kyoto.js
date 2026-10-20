@@ -1,10 +1,10 @@
 // Global City の京都（2026-10-20）: 外国の人が見ても京都だと分かるように、日本らしさ・京都らしさを前に出す
 // 東から入るので、実際の位置のとおり時計回り: 伏見稲荷 → 清水寺（舞台からジャンプ）→ 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
-import { locate } from '../../game/track.js?v=0e5d133';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e5d133';
-import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf } from './kit.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
+import { locate } from '../../game/track.js?v=98f8b2f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=98f8b2f';
+import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign } from './kit.js?v=98f8b2f';
 
 const VERMILION = 0xe0441c; // 朱色
 const DARK_WOOD = 0x3a2a22;
@@ -58,6 +58,12 @@ function torii(b, p, half) {
   b.pop();
 }
 
+// 道の点 p のどちらの横が、ほかの道から遠いか（谷の木などを置く側）
+function p0Side(track, p) {
+  const r = beside(p, 80);
+  return Math.abs(locate(track, r.x, r.z, null, 40).lateral) > 60 ? 1 : -1;
+}
+
 // 町家（2階建て、黒っぽい木、格子、瓦屋根）
 function machiya(b, x, z, ry, w = 8, d = 12) {
   b.push(x, 0, z, ry);
@@ -94,25 +100,58 @@ export function buildKyoto(track) {
     b.box(2 * p.wall + 2, 0.5, 4.2, 0x8a6240, 0, p.y - 1.4, 0); // 舞台の板（坂の上ではみ出さないよう、道の少し下）
     b.pop();
   }
-  const kz = worldAt(track, S.kiyomizu.at);
-  landmark(g, 'kiyomizu', kz.x, 0, kz.z);
-  b.push(kz.x, 0, kz.z, ryOf(S.kiyomizu.ry));
-  b.box(46, 14, 30, 0xe8e0cc, 0, 0, 0); // 本堂
-  for (let k = -5; k <= 5; k++) b.box(0.9, 14, 0.9, VERMILION, k * 4.4, 0, 15);
-  b.box(54, 1.2, 40, 0x6a4a32, 0, 14, 0); // 檜皮ぶきの大きな屋根（茶色、反り）
-  b.box(48, 1.6, 32, 0x6a4a32, 0, 15.2, 0);
-  b.box(36, 2.2, 20, 0x6a4a32, 0, 16.8, 0);
-  b.box(22, 2, 6, 0x6a4a32, 0, 19, 0);
-  b.pop();
-  // 仁王門（朱色）と三重塔
-  const nio = { x: kz.x - 40, z: kz.z + 50 };
-  b.push(nio.x, 0, nio.z, 0);
-  b.box(18, 9, 9, VERMILION, 0, 0, 0);
-  roof(b, 18, 9, 9);
-  b.pop();
-  pagoda(b, kz.x - 60, kz.z - 30, 3, 9, 31);
+  // 巨大な本堂（2026-10-21 のユーザー依頼「清水寺を巨大にして寺のなかを走りたい」）: 道は本堂の中を通りぬけて、舞台へ出る。
+  // 道にそって 4m ごとに、両がわの壁と朱色の柱、高い天井、檜皮ぶきの大きな屋根。中にはちょうちん
+  const h0 = km - 64;
+  const h1 = km - 24;
+  for (let s = h0; s <= h1; s += 4) {
+    const p = pointAt(track, s);
+    const w = p.wall + 0.5;
+    b.push(p.x, p.y, p.z, ryAlong(p.h));
+    glow.push(p.x, p.y, p.z, ryAlong(p.h));
+    for (const side of [-1, 1]) {
+      b.box(6, 13, 4.4, 0xf0ece0, side * (w + 3.2), 0, 0); // 白い壁
+      b.box(1, 13, 1, VERMILION, side * (w + 0.4), 0, 0); // 朱色の柱
+      b.box(6.4, 1.2, 4.6, WOOD, side * (w + 3.2), 3, 0); // 腰の木
+    }
+    b.box(2 * w + 14, 1, 4.6, WOOD, 0, 13, 0); // 天井
+    // 檜皮ぶきの大きな屋根（反りを段で）
+    b.box(2 * w + 34, 1.4, 4.6, 0x6a4a32, 0, 14, 0);
+    b.box(2 * w + 26, 2, 4.6, 0x6a4a32, 0, 15.4, 0);
+    b.box(2 * w + 16, 2.6, 4.6, 0x6a4a32, 0, 17.4, 0);
+    b.box(2 * w + 4, 3, 4.6, 0x6a4a32, 0, 20, 0);
+    b.box(6, 1.6, 4.6, 0x4a3422, 0, 23, 0); // 棟
+    if (Math.round(s - h0) % 8 === 0) glow.sphere(0.9, 0xffb04a, 0, 10.5, 0, 8); // ちょうちん
+    glow.pop();
+    b.pop();
+  }
+  const hm = pointAt(track, (h0 + h1) / 2);
+  landmark(g, 'kiyomizuHall', hm.x, hm.y, hm.z);
+  landmark(g, 'kiyomizu', hm.x, 0, hm.z);
+  // 仁王門（朱色の2階の門）: 鳥居のトンネルを出たあと、道をまたぐ。くぐる
+  {
+    const p = pointAt(track, km - 82);
+    const w = p.wall + 0.5;
+    landmark(g, 'nioGate', p.x, p.y, p.z);
+    b.push(p.x, p.y, p.z, ryAlong(p.h));
+    for (const side of [-1, 1]) b.box(6, 9, 8, VERMILION, side * (w + 3), 0, 0);
+    b.box(2 * w + 12, 4, 8, VERMILION, 0, 9, 0);
+    roof(b, 2 * w + 12, 8, 13);
+    b.pop();
+  }
+  // 三重塔（道からはなして）
+  {
+    const p = pointAt(track, km - 40);
+    const c = beside(p, -(p.wall + 40));
+    if (clear(track, c.x, c.z, 12)) pagoda(b, c.x, c.z, 3, 9, 31);
+  }
+  const kz = beside(hm, p0Side(track, hm) * 80);
   // 谷の木々
-  for (let k = 0; k < 24; k++) roundTree(b, kz.x + 30 + (k % 6) * 12, 0, kz.z - 60 + Math.floor(k / 6) * 14, 1.3, k % 3 ? 0x4f8a3a : 0xd8644a);
+  for (let k = 0; k < 24; k++) {
+    const x = kz.x + (k % 6) * 12 - 30;
+    const z = kz.z + Math.floor(k / 6) * 14 - 20;
+    if (clear(track, x, z, 4)) roundTree(b, x, 0, z, 1.3, k % 3 ? 0x4f8a3a : 0xd8644a);
+  }
 
   // ---- 八坂の五重塔と祇園の町なみ（町家・ちょうちん・桜）----
   const yp = worldAt(track, S.yasakaPagoda.at);
@@ -153,32 +192,40 @@ export function buildKyoto(track) {
   b.pop();
 
   // ---- 金閣寺（3階建て、2・3階が金色、池に映る）----
-  const kk = worldAt(track, S.kinkaku.at);
+  // 道からはなして、池を道の方に向ける。大きく（1.8倍）して分かりやすく（2026-10-21 のユーザー依頼「金閣寺も良くわからない」）
+  const kw = worldAt(track, S.kinkaku.at);
+  const kl = locate(track, kw.x, kw.z, null, 40);
+  const kp = pointAt(track, kl.s);
+  const kside = Math.sign(kl.lateral) || 1;
+  const kk = beside(kp, kside * (kp.wall + 70));
   landmark(g, 'kinkaku', kk.x, 0, kk.z);
+  const kry = Math.atan2(kp.x - kk.x, kp.z - kk.z); // +z が道の方
   const GOLD = 0xd4a62a;
-  const kinkaku = (bb, sign, scale) => {
-    bb.push(kk.x, 0, kk.z, ryOf(S.kinkaku.ry));
-    const y0 = 0.4;
-    bb.box(16, 4 * sign, 13, 0xe8e0cc, 0, y0, 0); // 1階（白い壁と木）
-    bb.box(17.5, 0.8 * sign, 14.5, TILE, 0, y0 + 4 * sign, 0);
-    bb.box(14, 4 * sign, 11, GOLD, 0, y0 + 4.8 * sign, 0); // 2階（金）
-    bb.box(16, 0.8 * sign, 13, TILE, 0, y0 + 8.8 * sign, 0);
-    bb.box(9, 3.6 * sign, 8, GOLD, 0, y0 + 9.6 * sign, 0); // 3階（金）
-    bb.box(12, 0.8 * sign, 11, TILE, 0, y0 + 13.2 * sign, 0);
-    bb.box(7, 1.2 * sign, 6, TILE, 0, y0 + 14 * sign, 0);
-    bb.cyl(0.3, 0.6, 1.8 * scale, 6, GOLD, 0, y0 + 15.2 * sign, 0); // 鳳凰
-    bb.pop();
-  };
-  kinkaku(glow, 1, 1); // 金色が光って見えるように（光る builder）
-  b.push(kk.x, 0, kk.z, ryOf(S.kinkaku.ry));
-  b.box(70, 0.12, 46, 0x3a6f6a, 0, 0.02, 24); // 池（金閣の前）
-  b.pop();
-  // 池に映る金閣（上下さかさ、うすい色）
-  b.push(kk.x, 0, kk.z, ryOf(S.kinkaku.ry));
-  b.box(9, 0.05, 3, 0x9a8a50, 0, 0.16, 16);
-  b.box(14, 0.05, 4, 0x8a7a48, 0, 0.16, 20);
-  b.pop();
-  for (const [dx, dz] of [[-40, -20], [40, -18], [-46, 30], [46, 32], [0, -40]]) coneTree(b, kk.x + dx, 0, kk.z + dz, 1.6, 0x2f5d3a);
+  const KS = 1.8;
+  const kg = createBuilder({ glow: true });
+  const kb = createBuilder();
+  kg.box(16, 4, 13, 0xe8e0cc, 0, 0.4, 0); // 1階（白い壁と木）
+  kb.box(17.5, 0.8, 14.5, TILE, 0, 4.4, 0);
+  kg.box(14, 4, 11, GOLD, 0, 5.2, 0); // 2階（金）
+  kb.box(16, 0.8, 13, TILE, 0, 9.2, 0);
+  kg.box(9, 3.6, 8, GOLD, 0, 10, 0); // 3階（金）
+  kb.box(12, 0.8, 11, TILE, 0, 13.6, 0);
+  kb.box(7, 1.2, 6, TILE, 0, 14.4, 0);
+  kg.cyl(0.3, 0.6, 1.8, 6, GOLD, 0, 15.6, 0); // 鳳凰
+  kb.box(44, 0.06, 26, 0x3a6f6a, 0, -0.04, 22); // 池（金閣の前、道の方）
+  kb.box(14, 0.03, 4, 0x9a8a50, 0, 0.03, 12); // 池に映る金閣
+  kb.box(9, 0.03, 3, 0x9a8a50, 0, 0.03, 16);
+  const kgroup = new THREE.Group();
+  kgroup.add(kg.build(), kb.build());
+  kgroup.position.set(kk.x, 0, kk.z);
+  kgroup.rotation.y = kry;
+  kgroup.scale.setScalar(KS);
+  g.add(kgroup);
+  for (const [dx, dz] of [[-60, -30], [60, -28], [-70, 20], [70, 22], [0, -60]]) {
+    const x = kk.x + dx;
+    const z = kk.z + dz;
+    if (clear(track, x, z, 6)) coneTree(b, x, 0, z, 1.6, 0x2f5d3a);
+  }
 
   // ---- 嵐山の竹林（背の高い竹を道の両がわにびっしり、竹の枝の茶色の垣根）----
   let n = 0;
@@ -203,6 +250,47 @@ export function buildKyoto(track) {
   const ar = pointAt(track, sOf(track, 'AR') + 20);
   landmark(g, 'bamboo', ar.x, 0, ar.z);
 
+  // 銀閣寺 → 金閣寺 → 嵐山の間の町なみ（町家・紅葉と桜）と、遠くの山なみ（2026-10-21 のユーザー依頼「周りも殺風景」）
+  {
+    let n = 0;
+    const avoid = [kk, gk].map((c) => ({ x: c.x, z: c.z, r: 90 }));
+    along(track, 'GK', 'AR', 14, (p) => {
+      for (const side of [-1, 1]) {
+        n++;
+        const c = beside(p, side * (p.wall + 9));
+        if (!clear(track, c.x, c.z, 6) || avoid.some((a) => Math.hypot(a.x - c.x, a.z - c.z) < a.r)) continue;
+        if (n % 5 === 0) roundTree(b, c.x, 0, c.z, 1.2, n % 2 ? 0xd8644a : 0xe89ab0); // 紅葉・桜
+        else {
+          machiya(b, c.x, c.z, ryAlong(p.h) + (side > 0 ? -Math.PI / 2 : Math.PI / 2));
+          landmark(g, 'kyotoTown', c.x, 0, c.z);
+        }
+      }
+    });
+    // 遠くの山なみ（緑の低い山）
+    along(track, 'FI', 'LP', 120, (p) => {
+      for (const side of [-1, 1]) {
+        const c = beside(p, side * 300);
+        if (!clear(track, c.x, c.z, 150)) continue;
+        b.cyl(0, 110, 70, 9, 0x3f6f3a, c.x, 0, c.z);
+      }
+    });
+  }
+
+  // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
+  const sign = (s, text, name) => {
+    for (const side of [-1, 1]) {
+      const p = pointAt(track, s);
+      const c = beside(p, side * (p.wall + 4));
+      if (!clear(track, c.x, c.z, 2)) continue;
+      roadSign(g, b, track, s, side, text, name, { bg: '#7a1a10', fg: '#fff2d8' });
+      return;
+    }
+  };
+  sign(sOf(track, 'FI') - 30, 'FUSHIMI INARI', 'signFushimi');
+  sign(km - 100, 'KIYOMIZU-DERA', 'signKiyomizu');
+  sign(sOf(track, 'GK') - 40, 'GINKAKU-JI', 'signGinkaku');
+  sign(sOf(track, 'KK') - 40, 'KINKAKU-JI', 'signKinkaku');
+  sign(sOf(track, 'AR') - 30, 'ARASHIYAMA', 'signArashiyama');
   g.add(b.build(), glow.build());
   return root;
 }

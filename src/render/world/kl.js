@@ -1,11 +1,11 @@
 // Global City のクアラルンプール（2026-10-20）: 夕方から夜。南のプトラジャヤのピンクモスクの中の回廊を通り、
 // 北西のバトゥ洞窟（金色の像・虹色の階段）の中を通って、ペトロナスツインタワーの前でゴール
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
-import { locate } from '../../game/track.js?v=0e5d133';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e5d133';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=0e5d133';
-import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
+import { locate } from '../../game/track.js?v=98f8b2f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=98f8b2f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=98f8b2f';
+import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=98f8b2f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const PINK = 0xd9a0a8;
@@ -13,6 +13,11 @@ const PINK_LIGHT = 0xf0d0d6;
 const ROCK = 0x8a8478;
 const GOLD = 0xd4a62a;
 const SILVER = 0xc8ccd2;
+
+const clear = (track, x, z, gap) => {
+  const loc = locate(track, x, z, null, 40);
+  return Math.abs(loc.lateral) > loc.wall + gap;
+};
 
 // 道から need m 以上はなれた所（近ければ、道の横へ押し出す）
 function away(track, x, z, need) {
@@ -128,13 +133,14 @@ export function buildKL(track) {
   b.pop();
 
   // ---- ペトロナスツインタワー: 8角を段々に細く、銀色に光る窓のしま。2本の間に空中の橋。ゴールはその前 ----
-  const pc0 = worldAt(track, S.petronas.at);
+  // ゴールはツインタワーの2本の間（2026-10-21 のユーザー依頼）: ゴールの道の両がわに1本ずつ。空中の橋の下をくぐってゴール
   const fin = pointAt(track, sOf(track, 'FIN'));
-  const ax = Math.atan2(pc0.z - fin.z, pc0.x - fin.x) + Math.PI / 2; // ゴールから見て横に2本並ぶ向き
-  const pc = away(track, pc0.x, pc0.z, 70);
-  landmark(g, 'petronas', pc.x, 0, pc.z);
   const H = 380;
-  const twin = [-1, 1].map((sd) => ({ x: pc.x + Math.cos(ax) * sd * 34, z: pc.z + Math.sin(ax) * sd * 34 }));
+  const pc = { x: fin.x, z: fin.z };
+  landmark(g, 'petronas', pc.x, 0, pc.z);
+  const twin = [-1, 1].map((sd) => beside(fin, sd * (fin.wall + 35)));
+  landmark(g, 'petronasA', twin[0].x, 0, twin[0].z);
+  landmark(g, 'petronasB', twin[1].x, 0, twin[1].z);
   for (const c of twin) {
     const levels = [[0, 0.55, 20], [0.55, 0.7, 17], [0.7, 0.8, 14], [0.8, 0.87, 11], [0.87, 0.92, 8]];
     for (const [a0, a1, r] of levels) {
@@ -158,6 +164,21 @@ export function buildKL(track) {
     tower(b, p.x, p.z, 0, 30, 30, 120 + ((Math.abs(at[0]) * 3) % 90), 0x3a3448, { glow, win: WIN });
   }
 
+  // クアラルンプールの街の高層ビル（道ぞいに、夜の窓。2026-10-21 のユーザー依頼「殺風景」）
+  {
+    let n = 0;
+    along(track, ['BC', 'FIN', 0.3], 'END', 45, (p) => {
+      if (p.ghost) return;
+      for (const side of [-1, 1]) {
+        n++;
+        const c = beside(p, side * (p.wall + 26));
+        if (!clear(track, c.x, c.z, 20) || twin.some((t2) => Math.hypot(t2.x - c.x, t2.z - c.z) < 60)) continue;
+        tower(b, c.x, c.z, ryAlong(p.h), 26, 26, 90 + ((n * 37) % 140), [0x3a3448, 0x2e3a4a, 0x48405a][n % 3], { glow, win: n % 2 ? WIN : 0xbfe6ff });
+        landmark(g, 'klTower', c.x, 0, c.z);
+      }
+    });
+  }
+
   // ゴールの門（2本の柱と「FINISH」の文字）
   b.push(fin.x, fin.y, fin.z, ryAlong(fin.h));
   const gx = fin.half + 2;
@@ -172,6 +193,8 @@ export function buildKL(track) {
     if (p.tunnel || p.tunnelLook) return;
     for (const side of [-1, 1]) {
       const c = beside(p, side * (p.wall + 1.5));
+      const lc = locate(track, c.x, c.z, null, 40);
+      if (Math.abs(lc.lateral) < lc.wall + 1) continue; // ほかの道（ゴールのあとの周回の道）の上には立てない
       b.cyl(0.2, 0.25, 7, 6, 0x4a4a52, c.x, p.y, c.z);
       glow.sphere(0.7, 0xffe6a8, c.x, p.y + 7.2, c.z, 6);
     }

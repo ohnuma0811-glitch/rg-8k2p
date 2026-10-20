@@ -1,10 +1,10 @@
 // Global City の富士山のふもとと、新幹線と並走する道（2026-10-20）。富士山の山は地面（src/render/terrain.js の peaks）
-import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
-import { createBuilder } from '../town/builder.js?v=0e5d133';
-import { locate } from '../../game/track.js?v=0e5d133';
-import { terrainHeight } from '../terrain.js?v=0e5d133';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e5d133';
-import { landmark, worldAt, sOf, along, beside, pointAt, coneTree } from './kit.js?v=0e5d133';
+import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
+import { createBuilder } from '../town/builder.js?v=98f8b2f';
+import { locate } from '../../game/track.js?v=98f8b2f';
+import { terrainHeight } from '../terrain.js?v=98f8b2f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=98f8b2f';
+import { landmark, worldAt, sOf, along, beside, pointAt, coneTree, viaduct } from './kit.js?v=98f8b2f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const clear = (track, x, z, gap) => {
@@ -35,14 +35,7 @@ export function buildFuji(track) {
 
   // 新幹線の高架（並走の道の北がわ）
   const sh = S.shinkansen;
-  along(track, sh.from, sh.to, 25, (p) => {
-    const c = beside(p, sh.off);
-    b.push(c.x, 0, c.z, ryAlong(p.h));
-    b.box(3, sh.y, 2.5, 0xb8bcc2, 0, 0, 0);
-    b.box(13, 1.6, 26, 0xc8ccd2, 0, sh.y, 0);
-    for (const x of [-3, 3]) b.box(0.3, 0.3, 26, 0x444a50, x, sh.y + 1.6, 0);
-    b.pop();
-  });
+  viaduct(b, track, sOf(track, sh.from), sOf(track, sh.to), sh.off, sh.y);
   const mid = pointAt(track, (sOf(track, sh.from) + sOf(track, sh.to)) / 2);
   const mc = beside(mid, sh.off);
   landmark(g, 'shinkansenParallel', mc.x, sh.y, mc.z);
