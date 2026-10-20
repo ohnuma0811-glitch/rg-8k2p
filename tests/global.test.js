@@ -344,7 +344,7 @@ test('高さのある地面（土手もふくむ）は、空の道すじにそ�
 
 import { busPose } from '../src/game/hazards.js';
 import { buildHongKong } from '../src/render/world/hongkong.js';
-import { buildSpace } from '../src/render/world/space.js';
+import { buildSpace, buildLaunchRail } from '../src/render/world/space.js';
 
 test('乗り物は、その範囲の中だけを走る（香港の路面電車は香港、NY のタクシーは NY）', () => {
   const trams = t.buses.filter((b) => b.kind === 'tram');
@@ -1312,4 +1312,30 @@ test('清水の舞台は一目で舞台と分かる: 板張りの床と、飛び
   let railAtJump = false;
   g.traverse((o) => { if (o.userData.landmark === 'kiyomizuRailPost' && Math.abs(o.userData.s - t.marks.KM) < 4) railAtJump = true; });
   assert.ok(!railAtJump);
+});
+
+test('宇宙へ行く発射台: 急に上る路面に、超加速の光る矢印。手前にアーチと「LAUNCH PAD」（2026-10-21 のユーザー依頼）', () => {
+  const g = buildLaunchRail(t);
+  const m = landmarks(g);
+  assert.ok(m.has('launchArch'), 'アーチ');
+  const banners = [];
+  g.traverse((o) => { if (o.userData.banner) banners.push(o.userData.banner); });
+  assert.ok(banners.includes('LAUNCH PAD'));
+  let chevrons = 0;
+  g.traverse((o) => { if (o.userData.landmark === 'launchChevron') chevrons++; });
+  assert.ok(chevrons >= 10, `${chevrons}`);
+  // アーチは、坂の手前（LP の前）
+  const a = m.get('launchArch');
+  const loc = locate(t, a.x, a.z, null, 40);
+  assert.ok(loc.s < t.marks.LP && loc.s > t.marks.LP - 60);
+});
+
+test('地球に近づいても、地球の中（大気もふくむ）に入らない。突きぬける前に白くフェードアウト（2026-10-21 のユーザー依頼「地球を貫通してまた宇宙に出ている」）', async () => {
+  const { earthPlace } = await import('../src/render/world/space.js');
+  for (let p = 0; p <= 1.0001; p += 0.02) {
+    const e = earthPlace(p);
+    const dist = Math.hypot(e.ahead[0], e.ahead[1], e.ahead[2]);
+    assert.ok(530 * e.scale < dist * 0.98, `p ${p.toFixed(2)}: 半径 ${Math.round(530 * e.scale)} / 距離 ${Math.round(dist)}`);
+  }
+  assert.ok(spaceLook(0.9).flash > 0.9, 'いちばん近づく前に白く');
 });

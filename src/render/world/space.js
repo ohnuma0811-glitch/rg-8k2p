@@ -2,7 +2,7 @@
 // 宇宙の景色はカメラについていく（userData.followCamera）。見えるのは宇宙の自動の区間の間だけ（userData.stages = ['space']）
 import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
-import { landmark, sOf, pointAt } from './kit.js';
+import { landmark, sOf, pointAt, beside, roadBanner } from './kit.js';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 
@@ -85,7 +85,17 @@ export function buildSpace() {
 // はじめは宇宙（地球は小さく遠く）→ 地球がどんどん大きくなり、画面いっぱいに → 白く光って画面を切りかえ、香港に着く。地図はなし
 export function spaceLook(p) {
   const zoom = Math.min(1, Math.max(0, (p - 0.2) / 0.65)); // 0.2〜0.85 で地球へ突っこむ
-  return { earth: 0.25 + 6 * zoom * zoom * zoom, zoom, flash: Math.min(1, Math.max(0, (p - 0.82) / 0.1)) };
+  return { earth: earthPlace(p).scale, zoom, flash: Math.min(1, Math.max(0, (p - 0.76) / 0.12)) };
+}
+
+// 地球の大きさと、カメラから見た場所（前・上・横の m）。いちばん近づいても、地球（大気の半径 530m × 大きさ）の中には入らない
+// （大きくしすぎて、カメラが地球の中に入り、突きぬけて見えた。2026-10-21 のユーザー依頼）
+export function earthPlace(p) {
+  const zoom = Math.min(1, Math.max(0, (p - 0.2) / 0.65));
+  const ahead = [0, -900 + 900 * zoom, 1100 + 900 * zoom];
+  const dist = Math.hypot(ahead[1], ahead[2]);
+  const scale = Math.min(0.25 + 3.4 * zoom * zoom * zoom, (dist * 0.95) / 530);
+  return { scale, ahead };
 }
 
 // 宇宙の景色を毎フレーム動かす（カメラについていく。いん石を流す。地球を回す）
@@ -94,8 +104,9 @@ export function updateSpace(group, camera, time, p = 0) {
   const look = spaceLook(p);
   const earth = group.userData.earth;
   if (earth) {
-    earth.scale.setScalar(look.earth);
-    earth.userData.ahead = [0, -900 + 900 * look.zoom, 1100 + 700 * look.zoom]; // 突っこむほど、正面に大きく
+    const e = earthPlace(p);
+    earth.scale.setScalar(e.scale);
+    earth.userData.ahead = e.ahead; // 突っこむほど、正面に大きく（地球の中には入らない）
   }
   group.position.copy(camera.position);
   // 地球と月は、カメラの向き（水平の前）に合わせて置く（どちらへ飛んでも前に見える）
@@ -149,6 +160,52 @@ export function buildLaunchRail(track) {
       for (const side of [-1, 1]) glow.box(7, 0.08, 1.4, 0xff9a00, side * 2.6, 0, 0, side * 0.7); // オレンジの矢印
       glow.pop();
     }
+  }
+  // 急に上る路面（2026-10-21 のユーザー依頼「コンクリートだけでなく、超加速するようなサインを急上昇する路面に」）:
+  // 坂の面（紺色の金属の板）と、その上に、上へ向かう光る「＞」の矢印をずらっと
+  {
+    const pos = [];
+    const step = 1.5;
+    for (let s = s0; s < s0 + 66; s += step) {
+      const p = pointAt(track, s);
+      const q = pointAt(track, s + step);
+      const l1 = beside(p, -(p.half + 1));
+      const r1 = beside(p, p.half + 1);
+      const l2 = beside(q, -(q.half + 1));
+      const r2 = beside(q, q.half + 1);
+      pos.push(l1.x, p.y + 0.05, l1.z, r1.x, p.y + 0.05, r1.z, l2.x, q.y + 0.05, l2.z, r1.x, p.y + 0.05, r1.z, r2.x, q.y + 0.05, r2.z, l2.x, q.y + 0.05, l2.z);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+    g.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x1a2a4a, side: THREE.DoubleSide })));
+    for (let s = s0 + 2, k = 0; s < s0 + 62; s += 4, k++) {
+      const p = pointAt(track, s);
+      const q = pointAt(track, s + 3);
+      const tip = { x: q.x, z: q.z };
+      const color = k % 2 ? 0x2de0ff : 0xffe12d;
+      for (const side of [-1, 1]) {
+        const back = beside(p, side * 6);
+        glow.rod(back.x, p.y + 0.25, back.z, tip.x, q.y + 0.25, tip.z, 0.35, color, 4);
+      }
+      landmark(g, 'launchChevron', q.x, q.y, q.z);
+    }
+  }
+  // 手前のアーチと「LAUNCH PAD」（2026-10-21 のユーザー依頼「直前にアーチと『発射台』という英語表記」）
+  {
+    const sa = s0 - 25;
+    const p = pointAt(track, sa);
+    const w = p.wall + 1.5;
+    landmark(g, 'launchArch', p.x, p.y, p.z);
+    glow.push(p.x, p.y, p.z, ryAlong(p.h));
+    for (const side of [-1, 1]) glow.box(1.2, 11, 1.2, 0x2de0ff, side * w, 0, 0); // 光る柱
+    for (let k = 0; k < 12; k++) { // 上のアーチ（半円）
+      const a0 = (Math.PI * k) / 12;
+      const a1 = (Math.PI * (k + 1)) / 12;
+      glow.rod(-Math.cos(a0) * w, 11 + Math.sin(a0) * 5, 0, -Math.cos(a1) * w, 11 + Math.sin(a1) * 5, 0, 0.5, 0xff7a1a, 4);
+    }
+    glow.pop();
+    roadBanner(g, b, track, sa + 1, 'LAUNCH PAD', 'launchPadBanner', { bg: '#0a1a3a', fg: '#7fe8ff' });
   }
   // 雲（打ち上がると、雲を突きぬける）: 空の道すじの高さ 150〜320m のまわりに、白いかたまり
   const clouds = createBuilder({ glow: true });
