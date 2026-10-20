@@ -60,6 +60,7 @@ export function pushInside(kart, track) {
 // 車と牛の当たり。最初に当たったときだけ 'spin'（メーター100以上）か 'bounce'（それより遅い。壁と同じ）を返す
 // phys は src/game/kart.js の PHYS（kart.js がこのファイルを読むので、ここからは読まない）
 export function cowContact(kart, track, time, phys) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   let hit = null;
   let touching = false;
   for (const cow of track.cows ?? []) {
@@ -118,6 +119,7 @@ export function boarPose(track, boar, time) {
 // 車とイノシシの当たり（牛と同じ）。最初に当たったときだけ 'spin'（メーター150以上）か 'bounce' を返す。ドリフトは解除
 export const BOAR_PASS = 1.5; // ぶつかったあと、イノシシに押されずに通りぬけられる秒数（2026-10-16: 押し戻され続けて動けなくなった）
 export function boarContact(kart, track, time, phys) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   let hit = null;
   let touching = false;
   if (time < (kart.boarPassUntil ?? -Infinity)) return null;
@@ -191,6 +193,7 @@ export function stepNuts(nuts, track, karts, time) {
 // 落ちた木の実の当たり（速さに関係なくスピン。ドリフトは解除）。落ちた時刻をすぎた木の実は、当たっても外れても消す
 // keep: true のときは消さない（全部の車で見てから dropFallen で消す）
 export function nutContact(kart, nuts, time, phys, { keep = false } = {}) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   let hit = null;
   for (const n of nuts.list) {
     if (time - n.t0 < NUT_FALL) continue;
@@ -253,6 +256,7 @@ function insideDino(u, w, v) {
 // 車が恐竜に食べられるか: 恐竜の顔（形か、開いた口の中）に、車が本当にぶつかったときだけ 'eaten'
 // （2026-10-16 のユーザー依頼「画面上で明らかに衝突したとわかる時のみ」。前は、恐竜が出ていて川の上を飛んでいれば食べていた）
 export function dinoContact(kart, track, time) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   const d = track.dino;
   if (!d || kart.respawn > 0) return null;
   if (dinoPose(track, time).rise <= 0) return null;
@@ -281,6 +285,7 @@ export function dinoContact(kart, track, time) {
 const KART_PAD = 1.1; // 車の大きさ（半径 m）
 const PIER_SCRAPE_KEEP = 0.85; // 横をこすりはじめたときに残る速さの割合
 export function pierContact(kart, track, time, phys) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   let hit = null;
   let touching = false;
   for (const pier of track.bridgePiers ?? []) {
@@ -347,6 +352,7 @@ export function snowmanPose(track, sm, time) {
 
 // 車と雪だるまの当たり（牛と同じ。2026-10-18 のユーザー依頼）。ぶつかったあと BOAR_PASS 秒は通りぬけられる
 export function snowmanContact(kart, track, time, phys) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   if (time < (kart.snowmanPassUntil ?? -Infinity) || kart.airborne || kart.tumble > 0) return null;
   for (const sm of track.snowmen ?? []) {
     const c = snowmanPose(track, sm, time);
@@ -380,6 +386,7 @@ export const MOGUL_FRONT = (35 * Math.PI) / 180;
 export const MOGUL_SIDE_PUSH = 2.5;
 export const MOGUL_SIDE_KEEP = 0.85;
 export function mogulContact(kart, track) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   if (kart.airborne || !track.moguls?.length) return null;
   for (const m of track.moguls) {
     const dx = m.x - kart.x;
@@ -410,6 +417,7 @@ export function mogulContact(kart, track) {
 // ドリフト解除、ぶつかったあと BOAR_PASS 秒は通りぬけられる）
 export const TREE_RADIUS = 0.9; // 幹の大きさ（半径 m）
 export function treeContact(kart, track, time, phys) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   if (!track.trees?.length || time < (kart.treePassUntil ?? -Infinity) || kart.airborne || kart.tumble > 0) return null;
   for (const tr of track.trees) {
     if (Math.abs((kart.y ?? 0) - tr.y) > 4) continue;
@@ -440,6 +448,7 @@ export function treeContact(kart, track, time, phys) {
 export const SLOW_PULL = 18; // m/s²
 export const SLOW_MIN = 8; // これより遅くはしない（m/s）
 export function slowContact(kart, track, dt) {
+  if (kart.auto) return; // 自動の区間（Global City）の車は当たらない
   if (kart.airborne || !track.slows?.length) return false;
   const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
   if (track.samples[loc.i].path !== 0) return false;
@@ -454,6 +463,7 @@ export function slowContact(kart, track, dt) {
 
 export const MUD_TIME = 4;
 export function mudContact(kart, track, dt) {
+  if (kart.auto) return; // 自動の区間（Global City）の車は当たらない
   if (kart.muddy > 0) kart.muddy = Math.max(0, kart.muddy - dt);
   const inside = !kart.airborne && !(kart.respawn > 0) && (track.muds ?? []).some((m) => Math.hypot(kart.x - m.x, kart.z - m.z) < m.r);
   if (inside && !kart.onMud) {
@@ -512,6 +522,7 @@ export function busPose(track, bus, time) {
 
 // 車とバスの当たり（バスは長い四角）。触れた最初だけ 'spin' を返し、横へ押し出す
 export function busContact(kart, track, time, phys) {
+  if (kart.auto) return null; // 自動の区間（Global City）の車は当たらない
   let hit = null;
   let touching = false;
   for (const bus of track.buses ?? []) {

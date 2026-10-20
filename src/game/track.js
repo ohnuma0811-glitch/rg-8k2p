@@ -480,6 +480,12 @@ export function buildTrack(def) {
   }
   // ステージ（Global City）: 印の所から、その名前のステージ
   t.stages = (def.stages ?? []).map((st) => ({ name: st.name, s: refS(t, st.at) })).sort((a, b) => a.s - b.s);
+  // 自動の区間（Global City）: from から legs の最後の to までの本線の点に p.auto
+  t.autos = (def.autos ?? []).map((a) => ({ id: a.id, from: refS(t, a.from), legs: a.legs.map((l) => ({ to: refS(t, l.to), time: l.time })) }));
+  for (const a of t.autos) {
+    const to = a.legs[a.legs.length - 1].to;
+    for (let i = 0; i < t.length; i++) if (between(t, t.samples[i].s, a.from, to)) t.samples[i].auto = a.id;
+  }
   // トンネル（Kyugo Mountain）: TI〜TO の本線の点
   if (def.tunnel) {
     const from = refS(t, def.tunnel.from);

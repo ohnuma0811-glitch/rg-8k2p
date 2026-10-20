@@ -157,6 +157,16 @@ html, body {
   color: #7dffb0;
   text-shadow: 0 0 10px rgba(125, 255, 176, 0.8);
 }
+/* ワープの最後の区間（Global City）: スピードメーターが ERROR で赤く点滅 */
+#speedo.error .num {
+  color: #ff3b3b;
+  animation: speedo-error 0.4s steps(1) infinite;
+}
+@keyframes speedo-error {
+  50% {
+    opacity: 0.15;
+  }
+}
 #speedo.boost .num {
   color: #ffd84a;
   text-shadow: 0 0 12px rgba(255, 216, 74, 0.9);

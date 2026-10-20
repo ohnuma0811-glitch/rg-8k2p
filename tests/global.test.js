@@ -77,3 +77,77 @@ test('7つのステージ: TOKYO・MT. FUJI・KYOTO・HONG KONG・UNDER THE SEA�
   assert.equal(stageAt(t, t.marks.FIN), 6);
   assert.equal(stageText(t, 3), 'STAGE 4/7 HONG KONG');
 });
+
+import { createKart, stepKart } from '../src/game/kart.js';
+import { kartParams } from '../src/game/stats.js';
+import { pushApart } from '../src/game/collide.js';
+
+const params = kartParams({ accel: 3, top: 3, handling: 3 });
+const full = { throttle: 1, brake: 0, steer: 0, drift: false };
+// 自動の区間の前から、ハンドルをいっぱいに切ったまま走らせる（自動の間は操作が効かない）
+function through(id, seconds) {
+  const a = t.autos.find((x) => x.id === id);
+  const kart = createKart(t, Math.round(a.from - 30), 0);
+  kart.speed = 30;
+  const log = [];
+  for (let f = 0; f < seconds * 60; f++) {
+    stepKart(kart, { ...full, steer: f < 60 ? 0 : 1 }, t, params, 1 / 60);
+    log.push({ auto: kart.auto?.id ?? null, s: t.samples[kart.seg].s, err: !!kart.autoError, speed: kart.speed, air: kart.airborne });
+  }
+  return { kart, log };
+}
+
+test('自動の区間は3つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 3秒）', () => {
+  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp']);
+  const time = (id) => t.autos.find((a) => a.id === id).legs.reduce((x, l) => x + l.time, 0);
+  assert.equal(time('jump'), 4);
+  assert.equal(time('space'), 8);
+  assert.ok(Math.abs(time('warp') - 4.2) < 1e-9);
+});
+
+for (const [id, to, secs] of [['jump', 'FL', 4], ['space', 'HL', 8], ['warp', 'KL', 4.2]]) {
+  test(`${id}: 操作は効かず、決まった時間で ${to} に出る。出たら地面の上で、入る前の速さ`, () => {
+    const { log } = through(id, secs + 3);
+    const inAuto = log.filter((x) => x.auto === id).length / 60;
+    assert.ok(Math.abs(inAuto - secs) < 0.1, `${inAuto}`);
+    const first = log.findIndex((x) => x.auto === id);
+    const out = log.findIndex((x, k) => k > 0 && log[k - 1].auto === id && x.auto === null);
+    assert.ok(out > 0);
+    assert.ok(Math.abs(log[out].s - t.marks[to]) < 3, `${log[out].s}`);
+    assert.ok(!log[out].air, '浮いている');
+    assert.ok(Math.abs(log[out].speed - log[first - 1].speed) < 3);
+    for (let k = first + 1; k < out; k++) assert.ok(log[k].s >= log[k - 1].s - 0.01, '自動の区間で戻った');
+  });
+}
+
+test('ワープ: 1つ目の輪っかから自動。3つ目の輪っかのあとは「ERROR」（2026-10-20 のユーザー依頼）', () => {
+  const { log } = through('warp', 6);
+  const first = log.findIndex((x) => x.auto === 'warp');
+  assert.ok(Math.abs(log[first].s - t.marks.R1) < 3);
+  const err = log.find((x) => x.err);
+  assert.ok(err && err.s >= t.marks.R3 - 1);
+});
+
+test('自動の区間の間は、ほかの車に当たらない（押し合わない）', () => {
+  const i = Math.round(t.marks.HL) - 400;
+  const a = createKart(t, i, 0);
+  const b = createKart(t, i, 1);
+  a.auto = { id: 'space', leg: 0, t: 1, from: 0, speedIn: 30 };
+  const before = [{ ...a }, { ...b }];
+  pushApart([a, b], before);
+  assert.equal(a.x, before[0].x);
+  assert.equal(b.x, before[1].x);
+});
+
+test('自動の区間の前後で、2台の差（s）は変わらない（同じ時間で進むので順位はそのまま）', () => {
+  const a = t.autos.find((x) => x.id === 'space');
+  const k1 = createKart(t, Math.round(a.from - 40), 0);
+  const k2 = createKart(t, Math.round(a.from - 80), 0);
+  k1.speed = k2.speed = 30;
+  for (let f = 0; f < 60 * 14; f++) {
+    stepKart(k1, full, t, params, 1 / 60);
+    stepKart(k2, full, t, params, 1 / 60);
+  }
+  const gap = t.samples[k1.seg].s - t.samples[k2.seg].s;
+  assert.ok(gap > 20 && gap < 70, `${gap}`);
+});

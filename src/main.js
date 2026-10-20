@@ -924,10 +924,13 @@ function renderGame(alpha, dt) {
     return { ...kart, ...(jumped ? cur : blendPose(prev, cur, alpha)) };
   });
   views.forEach((v, k) => syncKartModel(g.models[k], v));
+  // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）の間は、自分の車だけを映す（2026-10-20 のユーザーの判断）
+  const meAuto = !!g.karts[g.me].auto;
+  if (meAuto) g.models.forEach((m, k) => { if (k !== g.me) m.visible = false; });
   // 浮いている車の下の影（全部のコースで。2026-10-17 のユーザー依頼）: 地面に。高いほど小さく、うすく
   views.forEach((v, k) => {
     const sh = g.shadows[k];
-    sh.visible = !!v.airborne && !v.swallowed && !(v.respawn > 0);
+    sh.visible = !!v.airborne && !v.swallowed && !(v.respawn > 0) && !(meAuto && k !== g.me);
     if (!sh.visible) return;
     const loc = locate(track, v.x, v.z, v.seg, 40, v.y);
     // 地面のない所（ジャンプ台の先）: 森は川の水面、ほかのコースは下の地面（高さ 0。Kenta Circuit は下を通る道）
@@ -959,7 +962,7 @@ function renderGame(alpha, dt) {
   showChomp(g.chompE ?? null);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
-    if (tag) tag.visible = Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
+    if (tag) tag.visible = !meAuto && Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
   });
   const mine = views[g.me];
   const kart = g.karts[g.me];
@@ -973,8 +976,9 @@ function renderGame(alpha, dt) {
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 表示
-  setText(speedNum, speedText(kart.speed));
+  setText(speedNum, kart.autoError ? 'ERR' : speedText(kart.speed));
   speedo.classList.toggle('boost', kart.boost > 0);
+  speedo.classList.toggle('error', !!kart.autoError); // ワープの最後の区間はスピードメーターが ERROR（Global City）
   // Global City: 周回のかわりにステージ（STAGE 4/7 HONG KONG）。ステージが変わったら、場所を大きく出す（2026-10-20 のユーザー依頼）
   const stageNow = track.stages.length ? stageAt(track, progress(race, g.me, track)) : 0;
   if (track.stages.length) {

@@ -1,7 +1,7 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js';
+import { locate, respawnIndex, sampleAt } from './track.js';
 import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js';
 
 export const PHYS = {
@@ -118,6 +118,49 @@ function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
   kart.speed = Math.max(kart.speed, params.topSpeed * factor);
 }
 
+// 自動の区間に入る（本線の点 p.auto の所に来た）
+function startAuto(kart, track, params, id) {
+  const a = track.autos.find((x) => x.id === id);
+  kart.auto = { id, leg: 0, t: 0, from: a.from, speedIn: kart.speed };
+  kart.autoError = false;
+  kart.airborne = false;
+  kart.vy = 0;
+  kart.hop = 0;
+  kart.spin = 0;
+  kart.tumble = 0;
+  if (kart.drift.active) endDrift(kart, params, false);
+}
+
+function stepAuto(kart, track, dt) {
+  const a = track.autos.find((x) => x.id === kart.auto.id);
+  const st = kart.auto;
+  st.t += dt;
+  let leg = a.legs[st.leg];
+  while (st.t >= leg.time && st.leg < a.legs.length - 1) {
+    st.t -= leg.time;
+    st.from = leg.to;
+    st.leg += 1;
+    leg = a.legs[st.leg];
+  }
+  const done = st.t >= leg.time;
+  const s = done ? leg.to : st.from + ((leg.to - st.from) * st.t) / leg.time;
+  const p = sampleAt(track, s);
+  kart.x = p.x;
+  kart.z = p.z;
+  kart.y = p.y;
+  kart.seg = p.i;
+  kart.heading = p.h;
+  kart.move = p.h;
+  kart.autoError = a.id === 'warp' && st.leg === a.legs.length - 1;
+  kart.speed = (leg.to - st.from) / leg.time; // スピードメーターには進む速さ（ワープは大きな数字）
+  if (done) {
+    kart.speed = st.speedIn;
+    kart.auto = null;
+    kart.autoError = false;
+    kart.autoDone = a.id; // 出た所の点がまだ自動の区間の点でも、入りなおさないように
+  }
+}
+
 function endDrift(kart, params, release) {
   const lv = driftLevel(kart);
   kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
@@ -138,6 +181,11 @@ export function stepKart(kart, ctl, track, params, dt) {
   if (kart.respawn > 0) {
     kart.respawn -= dt;
     if (kart.respawn <= 0) placeAt(kart, track, kart.respawnAt);
+    return;
+  }
+  // 自動の区間（Global City。2026-10-20）: 操作は効かず、決まった時間で道すじを進む
+  if (kart.auto) {
+    stepAuto(kart, track, dt);
     return;
   }
   // バンプで転がっている間: 操作は効かず、すぐに止まる（その場で転がる）。終わったら、止まった状態からコースの向きで走り出す
@@ -311,6 +359,14 @@ export function stepKart(kart, ctl, track, params, dt) {
   }
   kart.seg = loc.i;
   kart.surface = loc.surface;
+  // 自動の区間の始まりに来たら入る（出たばかりの区間には入りなおさない）
+  const autoHere = track.samples[kart.seg].auto;
+  if (autoHere && kart.autoDone !== autoHere && track.autos) {
+    startAuto(kart, track, params, autoHere);
+    stepAuto(kart, track, 0);
+    return;
+  }
+  if (!autoHere) kart.autoDone = null;
 
   if (kicked) {
     // 決まった速さで小さく飛ぶ（ジャンプ台なので「イヤッホー」と着地の音あり）

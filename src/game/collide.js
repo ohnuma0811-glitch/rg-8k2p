@@ -10,6 +10,7 @@ export function pushApart(karts, prev = new Set()) {
   const min = KART_RADIUS * 2;
   for (let a = 0; a < karts.length; a++) {
     for (let b = a + 1; b < karts.length; b++) {
+      if (karts[a].auto || karts[b].auto) continue; // 自動の区間（Global City）の車は押し合わない
       const A = karts[a];
       const B = karts[b];
       if (A.respawn > 0 || B.respawn > 0 || A.tumble > 0 || B.tumble > 0 || Math.abs(A.y - B.y) > 1.5) continue;
