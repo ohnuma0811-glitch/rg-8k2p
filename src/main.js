@@ -1077,6 +1077,7 @@ function renderGame(alpha, dt) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
+    else if (name === 'bigJump') { sfx.play('bigJump'); voices.play(g.voice); } // お台場の大ジャンプ: 音とキャラの声
     else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
     else if (name === 'dinoRoar') voices.play('roar', dinoVolume(kart)); // 恐竜の咆哮（遠いほど小さく）
     else if (name === 'startDash') voices.has('rocket') ? voices.play('rocket') : sfx.play('boost'); // スタートダッシュ（ユーザーが用意した音）

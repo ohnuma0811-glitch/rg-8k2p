@@ -188,3 +188,8 @@ test('Kyugo Mountain の曲: 鈴（ジングル）の音、明るくはずむ（
   // ほかの曲には鈴はない
   for (const [name, song] of Object.entries(SONGS)) if (name !== 'snow') assert.equal(songEvents(song).filter((e) => e.inst === 'jingle').length, 0, name);
 });
+
+test('Global City の曲 city: 近未来的でスピード感（E マイナー、160 BPM）', () => {
+  assert.ok(SONGS.city);
+  assert.equal(SONGS.city.bpm, 160);
+});

@@ -215,3 +215,17 @@ test('コブに当たったら boing（ぼよん。Kyugo Mountain）', () => {
 test('道の上の木にぶつかったら bump（ドン。Soki Forest）', () => {
   assert.deepEqual(soundEvents(st({}, { treeHits: 0 }), st({}, { treeHits: 1 }), 3), ['bump']);
 });
+
+test('Global City: 宇宙に入ると launch、大ジャンプは bigJump、輪っかごとに ring、3つ目で error と warp', () => {
+  const base = st();
+  const a = (k) => st({}, k);
+  assert.ok(soundEvents(base, a({ auto: { id: 'space', leg: 0 } }), 1).includes('launch'));
+  assert.ok(soundEvents(base, a({ auto: { id: 'jump', leg: 0 } }), 1).includes('bigJump'));
+  const w0 = a({ auto: { id: 'warp', leg: 0 } });
+  assert.ok(soundEvents(base, w0, 1).includes('ring'));
+  const w1 = a({ auto: { id: 'warp', leg: 1 } });
+  assert.ok(soundEvents(w0, w1, 1).includes('ring'));
+  assert.deepEqual(soundEvents(w1, w1, 1), [], '同じ区間の間は鳴らさない');
+  const ev = soundEvents(w1, a({ auto: { id: 'warp', leg: 2 }, autoError: true }), 1);
+  assert.ok(ev.includes('error') && ev.includes('warp') && !ev.includes('ring'));
+});
