@@ -87,7 +87,19 @@ function riverDistance(river, x, z) {
 }
 
 // (x, z) の地面の高さ（m）
+// 高さのある地面を作る四角（Global City の terrainBox。地図の座標 → m）。ないコースは null
+function terrainBoxOf(track) {
+  const b = track.def.terrainBox;
+  if (!b || !track.toWorld) return null;
+  const a = track.toWorld(b[0], b[1]);
+  const c = track.toWorld(b[2], b[3]);
+  return { x0: Math.min(a.x, c.x), z0: Math.min(a.z, c.z), x1: Math.max(a.x, c.x), z1: Math.max(a.z, c.z) };
+}
+
 export function terrainHeight(track, x, z) {
+  // Global City: 四角（terrainBox）の外は平らな地面
+  const box = terrainBoxOf(track);
+  if (box && (x < box.x0 || x > box.x1 || z < box.z0 || z > box.z1)) return 0;
   const { grid, river, tunnel, stand, gaps, reach } = prep(track);
   const span = Math.ceil(reach / CELL);
   const cx = Math.floor(x / CELL);
@@ -173,10 +185,12 @@ export function buildTerrain(track) {
   const { samples } = track;
   const xs = samples.map((p) => p.x);
   const zs = samples.map((p) => p.z);
-  const x0 = Math.min(...xs) - MARGIN;
-  const z0 = Math.min(...zs) - MARGIN;
-  const nx = Math.ceil((Math.max(...xs) + MARGIN - x0) / GRID);
-  const nz = Math.ceil((Math.max(...zs) + MARGIN - z0) / GRID);
+  // Global City は四角（terrainBox）の中だけ
+  const box = terrainBoxOf(track);
+  const x0 = box ? box.x0 : Math.min(...xs) - MARGIN;
+  const z0 = box ? box.z0 : Math.min(...zs) - MARGIN;
+  const nx = Math.ceil(((box ? box.x1 : Math.max(...xs) + MARGIN) - x0) / GRID);
+  const nz = Math.ceil(((box ? box.z1 : Math.max(...zs) + MARGIN) - z0) / GRID);
   const meshY = meshHeightOf(track);
   const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
   for (let j = 0; j <= nz; j++) {

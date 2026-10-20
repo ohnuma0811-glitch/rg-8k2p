@@ -13,7 +13,9 @@ import {
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
-import { createRenderer, createWorld, setCourse, setDarkness, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
+import { applyStageVisibility } from './render/world/stages.js';
+import { skyFor } from './render/world/sky.js';
+import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js';
@@ -503,6 +505,7 @@ function showTunnel({ dark, black }, kart = null, open = 0) {
 function removeGame() {
   if (!game) return;
   stageBanner.classList.remove('show');
+  resetSky(scene); // Global City の空を、ふつうの空に戻す
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();
   crowd.stop();
@@ -951,6 +954,12 @@ function renderGame(alpha, dt) {
   // 出口の 120m 手前から、霧を晴らす（外の景色が見える）
   const me = g.karts[g.me];
   const toExit = track.samples[me.seg]?.tunnel && track.marks.TO !== undefined ? span(track, track.samples[me.seg].s, track.marks.TO) : Infinity;
+  // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
+  if (track.def.theme === 'world') {
+    const cur = stageAt(track, progress(g.race, g.me, track));
+    applyStageVisibility(track.mesh, cur, me.auto?.id ?? null);
+    setSky(scene, skyFor(track, cur, me));
+  }
   showTunnel(g.tunnel, views[g.me], Math.max(0, Math.min(1, 1 - toExit / 120)));
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）
   for (const tx of track.slowTextures ?? []) tx.offset.y = (tx.offset.y + dt * 1.5) % 1;

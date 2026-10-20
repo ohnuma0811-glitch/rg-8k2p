@@ -171,3 +171,32 @@ test('コースマップ: 無い道と自動の区間は道としては描かな
   for (const ps of minimapPaths(t)) for (const p of ps) assert.ok(!p.void && !p.auto);
   assert.equal(minimapDashes(t).length, 3);
 });
+
+import { stageVisible } from '../src/game/world.js';
+import { skyFor } from '../src/render/world/sky.js';
+import { terrainHeight } from '../src/render/terrain.js';
+
+test('ステージの景色は、今のステージとその前後だけ見える。宇宙・ワープの間は、その景色だけ', () => {
+  assert.equal(stageVisible([3], 3, null), true);
+  assert.equal(stageVisible([3], 4, null), true);
+  assert.equal(stageVisible([3], 5, null), false);
+  assert.equal(stageVisible([0, 1, 2], 2, null), true); // 富士山の山は東京〜京都
+  assert.equal(stageVisible([2], 2, 'space'), false);
+  assert.equal(stageVisible(['space'], 2, 'space'), true);
+  assert.equal(stageVisible(['space'], 2, null), false);
+});
+
+test('空: 東京は春の青空、香港は夜、海の底は青い水、宇宙は黒（高さ 150 より上）、ワープは光のトンネル', () => {
+  assert.equal(skyFor(t, 0, { y: 0, auto: null }).mode, 'normal');
+  assert.ok(skyFor(t, 3, { y: 0, auto: null }).sky < 0x202040);
+  assert.equal(skyFor(t, 4, { y: -30, auto: null }).mode, 'sea');
+  assert.equal(skyFor(t, 2, { y: 400, auto: { id: 'space' } }).mode, 'space');
+  assert.equal(skyFor(t, 5, { y: 100, auto: { id: 'warp' } }).mode, 'warp');
+});
+
+test('地面: 富士山のまわりだけ高さがある（富士山の頂上は 500m 以上）。ほかは平ら', () => {
+  const fuji = t.toWorld(-900, 600);
+  assert.ok(terrainHeight(t, fuji.x, fuji.z) > 500);
+  const ny = t.toWorld(500, 2200);
+  assert.equal(terrainHeight(t, ny.x, ny.z), 0);
+});

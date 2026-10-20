@@ -47,9 +47,33 @@ export function setCourse(scene, track) {
   const ground = scene.userData.ground;
   if (ground) {
     const shaped = track.def.theme === 'forest' || track.def.theme === 'snow';
-    ground.position.y = shaped ? -2.5 : 0;
-    ground.material.color.setHex(track.def.theme === 'snow' ? 0xf2f6fb : 0x5fae4b);
+    const world = track.def.theme === 'world';
+    ground.position.y = shaped ? -2.5 : world ? -0.1 : 0;
+    ground.material.color.setHex(track.def.theme === 'snow' ? 0xf2f6fb : world ? 0x8a8f87 : 0x5fae4b);
+    // Global City は世界が広いので、平らな地面も広く（9000m 四方）
+    ground.scale.setScalar(world ? 9000 / 4000 : 1);
   }
+}
+
+// 空・霧・光を変える（Global City のステージ）。look = skyFor(...) の答え。レースのあとは resetSky
+// トンネルの暗さ（setDarkness）が基準にする値（空の色・霧・光の強さ）を変えるので、トンネルの暗さもそのステージの空の上から
+const ORIG = { sky: SKY, fogNear: 250, fogFar: 1100, hemi: 1.6, sun: 1.4 };
+export function setSky(scene, look) {
+  const L = scene.userData.light;
+  L.sky.setHex(look.sky);
+  L.fogNear = look.fog[0];
+  L.fogFar = look.fog[1];
+  L.hemiBase = look.hemi;
+  L.sunBase = look.sun;
+  scene.background.copy(L.sky);
+  scene.fog.color.copy(L.sky);
+  scene.fog.near = L.fogNear;
+  scene.fog.far = L.fogFar;
+  L.hemi.intensity = L.hemiBase;
+  L.sun.intensity = L.sunBase;
+}
+export function resetSky(scene) {
+  setSky(scene, { sky: ORIG.sky, fog: [ORIG.fogNear, ORIG.fogFar], hemi: ORIG.hemi, sun: ORIG.sun });
 }
 
 // トンネルの中の暗さ（Kyugo Mountain。0 ふつう 〜 1 トンネルの中）。look は中の見え方（src/render/snow/tunnel.js の tunnelLook）。kart があれば、その前にライト

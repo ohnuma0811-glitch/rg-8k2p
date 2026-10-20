@@ -837,6 +837,21 @@ export function buildTrackMesh(track) {
     group.add(buildSigns(track)); // トンネルのカーブの矢印、分かれ道と合流の横断幕
     group.add(mergeArrows(track)); // 合流の手前の、進む向きの白い矢印
   }
+  // Global City（2026-10-20）: 景色はステージごとの群れ（userData.stages）。富士山のまわりだけ高さのある地面
+  if (track.def.theme === 'world') {
+    group.userData.stageGroups = [];
+    const addStage = (g, stages) => {
+      g.userData.stages = stages;
+      group.userData.stageGroups.push(g);
+      group.add(g);
+    };
+    group.userData.addStage = addStage;
+    if (track.def.terrainBox) {
+      const land = new THREE.Group();
+      land.add(buildTerrain(track));
+      addStage(land, [0, 1, 2]);
+    }
+  }
   // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
   if (forest) {
     group.add(buildBridge(track));
