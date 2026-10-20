@@ -492,7 +492,7 @@ function placeBuses(time) {
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
 // タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
-const TUNNEL_LOOK = tunnelLook(touchOnly(window.matchMedia?.bind(window)));
+const TUNNEL_LOOK = tunnelLook(touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0));
 function showTunnel({ dark, black }, kart = null, open = 0) {
   setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
   const v = $('vignette');

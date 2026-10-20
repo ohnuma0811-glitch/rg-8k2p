@@ -658,6 +658,13 @@ test('明るめのトンネルは、マウスやタッチパッドのない、�
   assert.equal(touchOnly(media(['(pointer: coarse)', '(any-pointer: fine)'])), false); // タッチ画面つきの PC
   assert.equal(touchOnly(media(['(pointer: fine)', '(any-pointer: fine)'])), false); // PC
   assert.equal(touchOnly(undefined), false);
+  // ペンやキーボードカバーで「細かく指せるもの」があると答えるタブレットも、端末の名前で明るく（2026-10-20 のユーザー依頼「タブレットだと非常に暗い」）
+  const pen = media(['(pointer: coarse)', '(any-pointer: fine)']);
+  assert.equal(touchOnly(pen, 'Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 Chrome/130 Safari/537.36'), true);
+  assert.equal(touchOnly(media(['(pointer: fine)', '(any-pointer: fine)']), 'Mozilla/5.0 (Linux; Android 14) Chrome/130'), true); // マウスをつないだ Android
+  assert.equal(touchOnly(pen, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605', 5), true); // iPad（Mac と名乗る）
+  assert.equal(touchOnly(media(['(pointer: fine)', '(any-pointer: fine)']), 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130', 10), false); // タッチ画面つきの Windows PC
+  assert.equal(touchOnly(media(['(pointer: fine)', '(any-pointer: fine)']), 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605', 0), false); // Mac
 });
 
 test('トンネルの外は雪の山でおおう: 天井の上と、壁の外の雪の坂。ほかの道の上にはかからない（2026-10-19 のユーザー依頼）', () => {

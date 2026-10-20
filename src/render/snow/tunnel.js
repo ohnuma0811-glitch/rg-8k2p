@@ -367,7 +367,12 @@ const LOOK_PC = { dim: TUNNEL_DIM, vignette: 0.55, headlight: 120, fog: 0x07090c
 const LOOK_TOUCH = { dim: 0.7, vignette: 0.2, headlight: 200, fog: 0x3a424e, fogNear: 30, fogFar: 180 };
 // 指だけで操作する端末か（matchMedia を渡す）。タッチ画面つきの PC（マウス・タッチパッドもある）は PC とする
 // （2026-10-19 のユーザー依頼「PC 版のトンネルの暗さを前の暗さに戻して。今はかなり明るい」）
-export function touchOnly(matchMedia) {
+// 端末の名前（userAgent）が Android・iPhone・iPad のときも、指で操作する端末とする（ペンやキーボードカバーで「細かく指せるもの」が
+// あると答えるタブレットが、PC の暗さになっていた。2026-10-20 のユーザー依頼「タブレットだと非常に暗い」）。
+// iPad は Mac と名乗るので、触れる点が2つ以上の Mac も iPad とする
+export function touchOnly(matchMedia, userAgent = '', maxTouchPoints = 0) {
+  if (/Android|iPhone|iPad|iPod/i.test(userAgent)) return true;
+  if (/Macintosh/i.test(userAgent) && maxTouchPoints > 1) return true;
   if (!matchMedia) return false;
   return matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
 }
