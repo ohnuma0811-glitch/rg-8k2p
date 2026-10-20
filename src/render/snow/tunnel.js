@@ -6,12 +6,16 @@ export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const CEIL_LATS = [-1, -0.5, 0, 0.5, 1]; // 天井の高さを決める横の位置（壁の位置を ±1 として）
 const WALL = 0x5a5f66;
 const CEIL = 0x4a4e55;
+// 見た目ごとの壁と天井の色（snow は Kyugo Mountain のトンネル）
+const LOOKS = { snow: [WALL, CEIL], rock: [0x6b625a, 0x5a524a], cave: [0x5a524a, 0x463f38], mosque: [0xe8b8c0, 0xf0d0d6], glass: [0x9fd0e8, 0xbfe8ff] };
+const lookOf = (p) => LOOKS[p.tunnelLook ?? 'snow'] ?? LOOKS.snow;
 const ARCH = 0x9a958c;
 
 export function buildTunnel(track) {
   const group = new THREE.Group();
   const b = createBuilder();
-  const pts = track.samples.slice(0, track.length).filter((p) => p.tunnel);
+  // 暗いトンネル（p.tunnel）と、見た目だけのトンネル（p.tunnelLook。Global City の山のトンネル・海の底・モスク・洞窟）
+  const pts = track.samples.slice(0, track.length).filter((p) => (p.tunnel || p.tunnelLook) && !p.auto);
   if (!pts.length) return b.build();
   const ryOf = (p) => Math.PI / 2 - p.h;
   // 上に別の道が重なる所（らせんの段、らせんに入る道の横）: 壁はその道の下まで、天井は作らない（上の道の裏が天井）
@@ -65,13 +69,13 @@ export function buildTunnel(track) {
       // 壁は天井の高さまで（壁の上と天井の間に 0.3m のすき間があり、外の雪が白く見えた。2026-10-20 のユーザー依頼）
       const ha = A.wall[side] >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : A.wall[side];
       const hb = B.wall[side] >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : B.wall[side];
-      if (ha > 0.3 && hb > 0.3) quad(at(A.p, side * A.w, A.p.y), at(B.p, side * B.w, B.p.y), at(A.p, side * A.w, A.p.y + ha), at(B.p, side * B.w, B.p.y + hb), WALL);
+      if (ha > 0.3 && hb > 0.3) quad(at(A.p, side * A.w, A.p.y), at(B.p, side * B.w, B.p.y), at(A.p, side * A.w, A.p.y + ha), at(B.p, side * B.w, B.p.y + hb), lookOf(A.p)[0]);
     }
     for (let k2 = 0; k2 + 1 < CEIL_LATS.length; k2++) {
       const [u0, u1] = [CEIL_LATS[k2], CEIL_LATS[k2 + 1]];
       const h = [A.ceilH[k2], A.ceilH[k2 + 1], B.ceilH[k2], B.ceilH[k2 + 1]];
       if (Math.min(...h) < 3.5) continue; // 車が通れない低さの天井は作らない（上の道の裏が天井）
-      quad(at(A.p, A.w * u0, A.p.y + h[0]), at(B.p, B.w * u0, B.p.y + h[2]), at(A.p, A.w * u1, A.p.y + h[1]), at(B.p, B.w * u1, B.p.y + h[3]), CEIL);
+      quad(at(A.p, A.w * u0, A.p.y + h[0]), at(B.p, B.w * u0, B.p.y + h[2]), at(A.p, A.w * u1, A.p.y + h[1]), at(B.p, B.w * u1, B.p.y + h[3]), lookOf(A.p)[1]);
     }
     // 道の裏（下の段から見たときの天井。道の絵が透けて見えないように。2026-10-18 のユーザー依頼「上部に道路が映っている」）
     quad(at(A.p, -A.w, A.p.y - 0.3), at(B.p, -B.w, B.p.y - 0.3), at(A.p, A.w, A.p.y - 0.3), at(B.p, B.w, B.p.y - 0.3), CEIL);
@@ -81,9 +85,12 @@ export function buildTunnel(track) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
   group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  group.add(moundMesh(track, info));
-  // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）
-  for (const p of [pts[0], pts[pts.length - 1]]) {
+  // 雪の山は、雪のトンネル（Kyugo Mountain）だけ
+  const snowInfo = info.filter((it) => (it.p.tunnelLook ?? 'snow') === 'snow');
+  if (snowInfo.length) group.add(moundMesh(track, snowInfo));
+  // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）。トンネルが いくつもあるときは、それぞれのはし
+  const ends = pts.filter((p) => !pts.includes(track.samples[p.prev]) || !pts.includes(track.samples[p.next]));
+  for (const p of ends) {
     const w = p.wall + 1.5;
     b.push(p.x, p.y, p.z, ryOf(p));
     b.box(2.5, TUNNEL_HEIGHT + 3, 2, ARCH, -w, 0, 0);

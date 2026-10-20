@@ -195,7 +195,7 @@ test('空: 東京は春の青空、香港は夜、海の底は青い水、宇宙
 });
 
 test('地面: 富士山のまわりだけ高さがある（富士山の頂上は 500m 以上）。ほかは平ら', () => {
-  const fuji = t.toWorld(-900, 600);
+  const fuji = t.toWorld(-900, 300);
   assert.ok(terrainHeight(t, fuji.x, fuji.z) > 500);
   const ny = t.toWorld(500, 2200);
   assert.equal(terrainHeight(t, ny.x, ny.z), 0);
@@ -206,8 +206,10 @@ import { buildTokyo } from '../src/render/world/tokyo.js';
 // 名所の印（userData.landmark）の位置
 const landmarks = (g) => { const m = new Map(); g.updateMatrixWorld(true); g.traverse((o) => { if (o.userData.landmark) m.set(o.userData.landmark, o.getWorldPosition(o.position.clone())); }); return m; };
 
-test('東京の景色の形に、数でない座標（NaN）がない（あると、その形がまるごと描かれない）', () => {
-  buildTokyo(t).traverse((o) => {
+test('景色の形に、数でない座標（NaN）がない（あると、その形がまるごと描かれない）', async () => {
+  const { buildFuji } = await import('../src/render/world/fuji.js');
+  const { buildKyoto } = await import('../src/render/world/kyoto.js');
+  for (const build of [buildTokyo, buildFuji, buildKyoto]) build(t).traverse((o) => {
     if (!o.isMesh) return;
     const a = o.geometry.attributes.position.array;
     for (let i = 0; i < a.length; i++) assert.ok(Number.isFinite(a[i]), `${o.parent.userData.stages}`);
@@ -231,7 +233,7 @@ test('方角: 東京駅は丸の内の東、東京タワーは皇居の南、フ
   const p = at('FTV');
   assert.ok(Math.cos(p.h) < -0.95, 'お台場の道は西向き');
   assert.ok(m.get('fujiTV').z < p.z, 'フジテレビは北（右）');
-  assert.ok(t.toWorld(-900, 600).x < p.x, '富士山は西');
+  assert.ok(t.toWorld(-900, 300).x < p.x, '富士山は西');
 });
 
 test('大ジャンプ・宇宙・ワープの空の道すじは、地面を引き上げない（富士山の地面の上に、細長い山ができない）', () => {
@@ -253,4 +255,76 @@ test('高さのある地面の四角（terrainBox）のはしでは、地面は�
       assert.ok(terrainHeight(t, w.x - 1, w.z - 1) < 3, `${x.toFixed(0)},${z.toFixed(0)}: ${terrainHeight(t, w.x - 1, w.z - 1).toFixed(1)}`);
     }
   }
+});
+
+import { buildKyoto } from '../src/render/world/kyoto.js';
+import { SHINKANSEN_FACTOR } from '../src/game/world.js';
+
+test('新幹線と並走: 加速板が並ぶ。加速板に乗れば新幹線より速く、乗らなければ遅い（2026-10-20 のユーザー依頼）', () => {
+  const pads = t.samples.slice(0, L).filter((p) => p.boost && p.s > t.marks.SK && p.s < t.marks.KT);
+  assert.ok(pads.length >= 30, `${pads.length}`);
+  assert.ok(1.3 > SHINKANSEN_FACTOR && SHINKANSEN_FACTOR > 1);
+});
+
+test('清水の舞台: 舞台のはしからジャンプして、必ず谷の道に着地する（落ちない）', () => {
+  const k = createKart(t, Math.round(t.marks.KM) - 60, 0);
+  k.speed = 20;
+  let air = false;
+  for (let f = 0; f < 60 * 6; f++) {
+    stepKart(k, full, t, params, 1 / 60);
+    if (k.airborne) air = true;
+    assert.ok(!(k.respawn > 0), '落ちた');
+  }
+  assert.ok(air, '飛んでいない');
+  assert.ok(t.samples[k.seg].s > t.marks.KM + 20);
+});
+
+test('京都の名所（東から時計回り）: 伏見稲荷の鳥居 → 清水寺 → 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林', () => {
+  const m = landmarks(buildKyoto(t));
+  for (const name of ['toriiTunnel', 'kiyomizu', 'yasakaPagoda', 'gion', 'ginkaku', 'kinkaku', 'bamboo']) assert.ok(m.has(name), name);
+  assert.ok(m.get('kinkaku').x < m.get('ginkaku').x, '金閣寺は銀閣寺の西');
+  assert.ok(m.get('toriiTunnel').z > m.get('ginkaku').z, '伏見稲荷は銀閣寺の南');
+  assert.ok(m.get('bamboo').x < m.get('kinkaku').x, '嵐山は金閣寺の西');
+});
+
+test('トンネル: Kyugo Mountain のトンネルは今のまま暗い。京都へ抜ける山のトンネルは暗くしない', () => {
+  const k4 = buildTrack(COURSES[3]);
+  assert.ok(k4.samples.some((p) => p.tunnel));
+  assert.ok(!t.samples.slice(0, L).some((p) => p.tunnel && p.s > t.marks.SK && p.s < t.marks.KY));
+});
+
+test('景色の木・竹・桜は、道の上に立たない（道の真ん中から、柵より内がわに幹がない）', async () => {
+  const { buildKyoto } = await import('../src/render/world/kyoto.js');
+  const { buildFuji } = await import('../src/render/world/fuji.js');
+  for (const build of [buildTokyo, buildFuji, buildKyoto]) {
+    build(t).traverse((o) => {
+      if (!o.isMesh) return;
+      const a = o.geometry.attributes.position.array;
+      const c = o.geometry.attributes.color?.array;
+      if (!c) return;
+      // 竹（緑の細い幹）の根もと: 高さ 0 の緑の点
+      const seen = new Set();
+      for (let i = 0; i < a.length; i += 3) {
+        if (Math.abs(a[i + 1]) > 0.01 || !(c[i + 1] > c[i] * 1.3 && c[i + 1] > c[i + 2] * 1.3 && c[i + 1] > 0.15)) continue;
+        const key = `${Math.round(a[i])},${Math.round(a[i + 2])}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const loc = locate(t, a[i], a[i + 2], null, 40);
+        assert.ok(Math.abs(loc.lateral) > loc.half, `${build.name}: ${a[i].toFixed(0)},${a[i + 2].toFixed(0)}`);
+      }
+    });
+  }
+});
+
+test('高さのある地面（土手もふくむ）は、空の道すじにそって空へのびない（150m より上は富士山のまわりだけ）', async () => {
+  const { buildTerrain } = await import('../src/render/terrain.js');
+  const fuji = t.toWorld(-900, 300);
+  buildTerrain(t).traverse((o) => {
+    if (!o.isMesh) return;
+    const a = o.geometry.attributes.position.array;
+    for (let i = 0; i < a.length; i += 3) {
+      if (a[i + 1] < 150) continue;
+      assert.ok(Math.hypot(a[i] - fuji.x, a[i + 2] - fuji.z) < 600, `${a[i].toFixed(0)},${a[i + 1].toFixed(0)},${a[i + 2].toFixed(0)}`);
+    }
+  });
 });

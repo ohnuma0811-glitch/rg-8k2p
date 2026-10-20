@@ -138,7 +138,11 @@ export function terrainHeight(track, x, z) {
     let peak = 0;
     for (const pk of track.peaks) {
       const d = Math.hypot(pk.x - x, pk.z - z);
-      if (d < pk.r) peak = Math.max(peak, pk.h * (1 - (d / pk.r) ** 2) ** 2);
+      if (d >= pk.r) continue;
+      // cone: 富士山（すそ野が広く、上へ急にとがる。頂上は火口で少し平ら。Global City）
+      const u = d / pk.r;
+      const hh = pk.shape === 'cone' ? pk.h * Math.min(0.97, (1 - u) ** 1.7 * 1.02) : pk.h * (1 - u ** 2) ** 2;
+      peak = Math.max(peak, hh);
     }
     y = Math.max(y, Math.min(y + peak, y + peak * smooth(GRID, GRID + PEAK_CLEAR, bestE)));
   }
@@ -216,7 +220,26 @@ export function buildTerrain(track) {
   geo.setIndex(index);
   geo.computeVertexNormals();
   const group = new THREE.Group();
-  group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
+  if (track.def.theme === 'world') {
+    // 富士山（Global City）: 上の方は雪、中ほどは火山の茶色、下は緑（高さで色を変える。2026-10-20 のユーザー依頼「巨大で立体感」）
+    const col = new Float32Array(pos.length);
+    const c = new THREE.Color();
+    const snow = new THREE.Color(0xf4f7fb);
+    const rock = new THREE.Color(0x7d6e62);
+    const green = new THREE.Color(0x5f8f5a);
+    for (let k = 0; k < pos.length; k += 3) {
+      const y = pos[k + 1];
+      if (y > 430) c.copy(snow);
+      else if (y > 380) c.copy(rock).lerp(snow, (y - 380) / 50);
+      else if (y > 160) c.copy(green).lerp(rock, Math.min(1, (y - 160) / 120));
+      else c.copy(green);
+      col[k] = c.r;
+      col[k + 1] = c.g;
+      col[k + 2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })));
+  } else group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
   group.add(buildShoulders(track));
   return group;
 }
@@ -299,7 +322,10 @@ function buildShoulders(track) {
     }
     return false;
   };
-  const ok = (p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel;
+  // 自動の区間（空の道すじ）・無い道・高さのある地面の四角（terrainBox）の外には、土手を作らない（Global City。空へのびる緑の柱になった）
+  const box = terrainBoxOf(track);
+  const inBox = (p) => !box || (p.x >= box.x0 && p.x <= box.x1 && p.z >= box.z0 && p.z <= box.z1);
+  const ok = (p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel && !p.auto && !p.void && inBox(p);
   const pos = [];
   for (const side of [-1, 1]) {
     const edge = samples.map((p) => {

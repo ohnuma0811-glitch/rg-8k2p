@@ -8,6 +8,8 @@ import { buildTunnel } from './snow/tunnel.js';
 import { buildSnowScenery } from './snow/kit.js';
 import { buildSigns } from './snow/signs.js';
 import { buildTokyo } from './world/tokyo.js';
+import { buildFuji } from './world/fuji.js';
+import { buildKyoto } from './world/kyoto.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
@@ -954,7 +956,9 @@ export function buildTrackMesh(track) {
   }
   // Global City の景色（ステージごとの群れ）
   if (world) {
-    for (const g of buildTokyo(track).children.slice()) group.userData.addStage(g, g.userData.stages);
+    for (const build of [buildTokyo, buildFuji, buildKyoto]) {
+      for (const g of build(track).children.slice()) group.userData.addStage(g, g.userData.stages);
+    }
   }
   // 動かない形は、同じ材質ごと・区画ごとに1つにまとめる（タブレットで描く回数を減らす。2026-10-16）
   // Global City のステージごとの群れは、見えたり消えたりするので、群れの中だけでまとめる
