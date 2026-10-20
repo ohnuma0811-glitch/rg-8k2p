@@ -1100,6 +1100,7 @@ function renderGame(alpha, dt) {
     else if (name === 'eaten') voices.has('scream') ? voices.play('scream') : sfx.play('eaten'); // 「ぎゃーーー」
     else if (name === 'dinoRoar') voices.play('roar', dinoVolume(kart)); // 恐竜の咆哮（遠いほど小さく）
     else if (name === 'startDash') voices.has('rocket') ? voices.play('rocket') : sfx.play('boost'); // スタートダッシュ（ユーザーが用意した音）
+    else if (name === 'warp') voices.has('warp') ? voices.play('warp') : sfx.play('warp'); // ワープの音（ユーザーが用意した音）
     else if (name === 'busPass') voices.has('horn') ? voices.play('horn') : sfx.play('busPass'); // バスのクラクション（ユーザーが用意した音）
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
