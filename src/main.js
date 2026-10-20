@@ -17,11 +17,13 @@ import { applyStageVisibility } from './render/world/stages.js';
 import { skyFor } from './render/world/sky.js';
 import { updateSpace } from './render/world/space.js';
 import { updateSea } from './render/world/sea.js';
+import { updateWarp } from './render/world/warp.js';
+import { showcaseCamera } from './render/showcase.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenPose } from './game/world.js';
+import { shinkansenPose, autoViewOf } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -935,6 +937,28 @@ let fps = 60;
 let orbit = 0;
 const overHead = new THREE.Vector3();
 
+// コースの一部だけを見せるコース（Global City はクアラルンプールだけ。2026-10-20 のユーザーの判断）
+let showcasing = false;
+function idleCamera(dt) {
+  const c = scene.userData.course;
+  if (c?.def.showcase) {
+    orbit += dt * 0.08;
+    showcaseCamera(camera, c, orbit / 0.08);
+    if (!showcasing) {
+      // ステージ 7 として見せると、まわりはクアラルンプール（6）だけ（6 だと、となりのニューヨークも見える）
+      applyStageVisibility(c.mesh, 7, null);
+      setSky(scene, skyFor(c, 6, { y: 0, auto: null }));
+      showcasing = true;
+    }
+    return;
+  }
+  if (showcasing) {
+    resetSky(scene);
+    showcasing = false;
+  }
+  orbitCamera(dt);
+}
+
 // タイトルなどの画面のうしろでは、コースの上をゆっくり回って見せる
 function orbitCamera(dt) {
   orbit += dt * 0.08;
@@ -946,6 +970,10 @@ function orbitCamera(dt) {
 
 function renderGame(alpha, dt) {
   const g = game;
+  if (showcasing) {
+    resetSky(scene); // コース選びのクアラルンプールの空を戻す（Global City は、このあとステージの空に）
+    showcasing = false;
+  }
   const views = g.karts.map((kart, k) => {
     const cur = poseOf(kart);
     const prev = g.prev[k];
@@ -984,8 +1012,8 @@ function renderGame(alpha, dt) {
   // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
   if (track.def.theme === 'world') {
     const cur = stageAt(track, progress(g.race, g.me, track));
-    // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）
-    const autoView = me.auto?.id === 'space' && me.y < 150 ? null : me.auto?.id ?? null;
+    // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）。ワープは3つ目の輪っかから
+    const autoView = autoViewOf(me);
     applyStageVisibility(track.mesh, cur, autoView);
     const look = skyFor(track, cur, me);
     setSky(scene, look);
@@ -1016,7 +1044,7 @@ function renderGame(alpha, dt) {
   else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
-  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) updateSpace(sg, camera, race.t);
+  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t);
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 表示
@@ -1142,7 +1170,7 @@ startLoop({
       wrong = r.kart.wrongWay;
       warn = game.bumpWarn;
     } else {
-      orbitCamera(dt);
+      idleCamera(dt);
     }
     renderer.render(scene, camera);
     // 逆走の警告: キャラの頭の上の画面の位置に出す

@@ -191,7 +191,7 @@ test('空: 東京は春の青空、香港は夜、海の底は青い水、宇宙
   assert.ok(skyFor(t, 3, { y: 0, auto: null }).sky < 0x202040);
   assert.equal(skyFor(t, 4, { y: -30, auto: null }).mode, 'sea');
   assert.equal(skyFor(t, 2, { y: 400, auto: { id: 'space' } }).mode, 'space');
-  assert.equal(skyFor(t, 5, { y: 100, auto: { id: 'warp' } }).mode, 'warp');
+  assert.equal(skyFor(t, 5, { y: 100, auto: { id: 'warp', leg: 2 } }).mode, 'warp');
 });
 
 test('地面: 富士山のまわりだけ高さがある（富士山の頂上は 500m 以上）。ほかは平ら', () => {
@@ -213,7 +213,8 @@ test('景色の形に、数でない座標（NaN）がない（あると、そ�
   const { buildHongKong } = await import('../src/render/world/hongkong.js');
   const { buildSea } = await import('../src/render/world/sea.js');
   const { buildNewYork } = await import('../src/render/world/newyork.js');
-  for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork]) build(t).traverse((o) => {
+  const { buildKL } = await import('../src/render/world/kl.js');
+  for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildKL]) build(t).traverse((o) => {
     if (!o.isMesh) return;
     const a = o.geometry.attributes.position.array;
     for (let i = 0; i < a.length; i++) assert.ok(Number.isFinite(a[i]), `${o.parent.userData.stages}`);
@@ -406,4 +407,49 @@ test('海の底のガラスのトンネルは半円（2026-10-20 のユーザー
   let top = -Infinity;
   for (let k = 0; k < a.count; k++) if (Math.hypot(a.getX(k) - p.x, a.getZ(k) - p.z) < p.wall + 3) top = Math.max(top, a.getY(k));
   assert.ok(top > p.y + p.wall - 1, `${top - p.y}`);
+});
+
+import { buildKL } from '../src/render/world/kl.js';
+import { buildWarp } from '../src/render/world/warp.js';
+import { showcaseCamera } from '../src/render/showcase.js';
+
+test('クアラルンプール: ピンクモスクの中を通る → バトゥ洞窟の中を通る（暗い）→ ペトロナスの前でゴール。方角のとおり', () => {
+  const m = landmarks(buildKL(t));
+  for (const name of ['pinkMosque', 'batuCaves', 'muruganStatue', 'rainbowStairs', 'petronas']) assert.ok(m.has(name), name);
+  assert.ok(m.get('pinkMosque').z > m.get('petronas').z, 'モスクは南');
+  assert.ok(m.get('batuCaves').x < m.get('petronas').x && m.get('batuCaves').z < m.get('petronas').z, '洞窟は北西');
+  assert.ok(at('BC').tunnel, 'バトゥ洞窟の中は暗い');
+  assert.equal(at('PM').tunnelLook, 'mosque');
+  assert.ok(!at('PM').tunnel, 'モスクの中は暗くしない');
+});
+
+test('ワープの景色は、ワープの間だけ・カメラについていく', () => {
+  const w = buildWarp(t).children[0];
+  assert.deepEqual(w.userData.stages, ['warp']);
+  assert.equal(w.userData.followCamera, true);
+});
+
+test('コースの外観は、クアラルンプールだけ。ペトロナスのまわりを回る', async () => {
+  assert.deepEqual(COURSE5.showcase, { at: 'FIN', r: 260, h: 140 });
+  const THREE = await import('../vendor/three.module.min.js');
+  const cam = new THREE.PerspectiveCamera();
+  const f = t.samples[t.marks.FIN];
+  for (const time of [0, 3, 10]) {
+    showcaseCamera(cam, t, time);
+    assert.ok(Math.abs(Math.hypot(cam.position.x - f.x, cam.position.z - f.z) - 260) < 1);
+    assert.ok(Math.abs(cam.position.y - (f.y + 140)) < 1);
+  }
+});
+
+import { autoViewOf } from '../src/game/world.js';
+
+test('ワープの景色は3つ目の輪っか（R3）を過ぎてから。輪っかの間はニューヨークと輪っかが見える', () => {
+  assert.equal(autoViewOf({ auto: { id: 'warp', leg: 0 }, y: 0 }), null);
+  assert.equal(autoViewOf({ auto: { id: 'warp', leg: 1 }, y: 0 }), null);
+  assert.equal(autoViewOf({ auto: { id: 'warp', leg: 2 }, y: 0 }), 'warp');
+  assert.equal(autoViewOf({ auto: { id: 'space', leg: 0 }, y: 100 }), null);
+  assert.equal(autoViewOf({ auto: { id: 'space', leg: 0 }, y: 200 }), 'space');
+  assert.equal(autoViewOf({ auto: null, y: 0 }), null);
+  assert.equal(skyFor(t, 5, { auto: { id: 'warp', leg: 0 }, y: 0 }).mode, 'normal');
+  assert.equal(skyFor(t, 5, { auto: { id: 'warp', leg: 2 }, y: 0 }).mode, 'warp');
 });

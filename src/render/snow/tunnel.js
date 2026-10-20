@@ -125,6 +125,29 @@ export function buildTunnel(track) {
     }
     group.add(ribs.build());
   }
+  // モスクの回廊（Global City）: ピンクの柱と、上がとがったアーチを 6m ごと
+  // バトゥ洞窟（Global City）: 天井から下がる灰色の鍾乳石
+  const deco = createBuilder();
+  let cave = 0;
+  info.forEach((it, k) => {
+    const p = it.p;
+    const [rx, rz] = rightOf(p);
+    const w = it.w - 0.6;
+    if (p.tunnelLook === 'mosque' && k % 6 === 0) {
+      const top = p.y + TUNNEL_HEIGHT;
+      for (const side of [-1, 1]) {
+        deco.cyl(0.5, 0.6, TUNNEL_HEIGHT - 2.5, 8, 0xe8b8c0, p.x + rx * side * w, p.y, p.z + rz * side * w); // 柱
+        deco.rod(p.x + rx * side * w, top - 2.5, p.z + rz * side * w, p.x, top - 0.2, p.z, 0.3, 0xffe6ea); // アーチ（とがった形）
+      }
+    }
+    if (p.tunnelLook === 'cave' && k % 3 === 0) {
+      cave++;
+      const lat = (((cave * 37) % 9) / 4 - 1) * w * 0.8;
+      const h = 1.5 + (cave % 4) * 0.8;
+      deco.cyl(0.6 + (cave % 3) * 0.3, 0, h, 5, 0x8a8a86, p.x + rx * lat, p.y + TUNNEL_HEIGHT - h, p.z + rz * lat); // 鍾乳石
+    }
+  });
+  group.add(deco.build());
   // 雪の山は、雪のトンネル（Kyugo Mountain）だけ
   const snowInfo = info.filter((it) => (it.p.tunnelLook ?? 'snow') === 'snow');
   if (snowInfo.length) group.add(moundMesh(track, snowInfo));

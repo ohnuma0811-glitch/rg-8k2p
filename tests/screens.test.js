@@ -98,3 +98,9 @@ test('TIME TRIAL の上位10位の表の上に、英語の項目名', async () =
   const { TT_HEADINGS } = await import('../src/screens.js');
   assert.deepEqual(TT_HEADINGS, ['RANK', 'DATE', 'PLAYER', 'CHARACTER', 'TIME']);
 });
+
+test('コース選びのボタンは5つ: 2列にならべ、最後の1つは真ん中（大きさはそろえる）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /#menu \.choices\.courses button:last-child:nth-child\(odd\)\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*justify-self:\s*center/);
+});

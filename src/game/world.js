@@ -7,6 +7,15 @@ export function stageVisible(groupStages, cur, autoId) {
   return groupStages.some((k) => typeof k === 'number' && Math.abs(k - cur) <= 1);
 }
 
+// 自動の区間の景色（Global City）: 宇宙は高さ 150m より上だけ、ワープは3つ目の輪っかを過ぎてから（leg 2）。ほかは null（ふつうのステージの景色）
+export function autoViewOf(kart) {
+  const a = kart.auto;
+  if (!a) return null;
+  if (a.id === 'space') return kart.y >= 150 ? 'space' : null;
+  if (a.id === 'warp') return a.leg >= 2 ? 'warp' : null;
+  return a.id;
+}
+
 // 新幹線（2026-10-20）: 万能タイプの最高速の SHINKANSEN_FACTOR 倍で、線路（道の横 off m、高さ y）を走る。
 // 並走の道の加速板（最高速の 1.3倍）なら追いぬける（2026-10-20 のユーザー依頼）
 export const SHINKANSEN_FACTOR = 1.12;
