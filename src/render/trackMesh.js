@@ -10,6 +10,8 @@ import { buildSigns } from './snow/signs.js';
 import { buildTokyo } from './world/tokyo.js';
 import { buildFuji } from './world/fuji.js';
 import { buildKyoto } from './world/kyoto.js';
+import { buildSpace, buildLaunchRail } from './world/space.js';
+import { buildHongKong } from './world/hongkong.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
@@ -740,7 +742,7 @@ export function buildTrackMesh(track) {
       // 場所ごとの柵（def.fenceStyles。あとに書いた範囲が勝つ）: guard 白いガードレール、bamboo 竹、curb 歩道のふち、rail 橋の手すり、none なし
       const styleOf = fenceStyleOf(track);
       for (const [style, h, color] of [['guard', 0.8, 0xe8eaec], ['bamboo', 1.0, 0x8aa05a], ['curb', 0.3, 0xb8b4ac], ['rail', 1.2, 0xd8dce0]]) {
-        group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + h, (p) => fenceOk(p) && !p.tunnel && styleOf(p) === style, () => color));
+        group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + h, (p) => fenceOk(p) && !p.tunnel && !p.auto && !p.void && styleOf(p) === style, () => color));
       }
     }
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
@@ -956,7 +958,7 @@ export function buildTrackMesh(track) {
   }
   // Global City の景色（ステージごとの群れ）
   if (world) {
-    for (const build of [buildTokyo, buildFuji, buildKyoto]) {
+    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong]) {
       for (const g of build(track).children.slice()) group.userData.addStage(g, g.userData.stages);
     }
   }

@@ -436,6 +436,12 @@ export function buildTrack(def) {
     const to = t.length - BUS_HIDE_BACK - BUS_HIDE_MOVE;
     for (let k = 0; k < def.buses; k++) t.buses.push({ s0: from + ((to - from) * k) / Math.max(1, def.buses - 1) });
   }
+  // 場所ごとの乗り物（Global City。2026-10-20）: from〜to の中を、等しい間で並べる。動き・当たりはバスと同じ
+  for (const v of def.vehicles ?? []) {
+    const from = refS(t, v.from);
+    const to = refS(t, v.to);
+    for (let k = 0; k < v.count; k++) t.buses.push({ s0: from + ((to - from) * (k + 0.5)) / v.count, from, to, kind: v.kind });
+  }
   applyHeights(t, def);
   applyJumps(t, def);
   applyKicks(t, def);

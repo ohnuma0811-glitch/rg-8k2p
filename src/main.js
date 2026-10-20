@@ -15,10 +15,11 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
 import { applyStageVisibility } from './render/world/stages.js';
 import { skyFor } from './render/world/sky.js';
+import { updateSpace } from './render/world/space.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, mergeStatic } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
 import { shinkansenPose } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
@@ -483,7 +484,7 @@ function placeMonkeys(time, nuts) {
 function placeBuses(time) {
   if (!track.buses.length) return;
   if (!track.busModels) {
-    track.busModels = track.buses.map(() => mergeStatic(createBusModel()));
+    track.busModels = track.buses.map((bus) => (bus.kind === 'tram' ? createTramModel() : bus.kind === 'taxi' ? createTaxiModel() : mergeStatic(createBusModel())));
     track.busModels.forEach((m) => track.mesh.add(m));
   }
   track.buses.forEach((bus, k) => {
@@ -529,6 +530,7 @@ function removeGame() {
   if (!game) return;
   stageBanner.classList.remove('show');
   resetSky(scene); // Global City の空を、ふつうの空に戻す
+  if (scene.userData.ground) scene.userData.ground.visible = true;
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();
   crowd.stop();
@@ -981,8 +983,13 @@ function renderGame(alpha, dt) {
   // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
   if (track.def.theme === 'world') {
     const cur = stageAt(track, progress(g.race, g.me, track));
-    applyStageVisibility(track.mesh, cur, me.auto?.id ?? null);
-    setSky(scene, skyFor(track, cur, me));
+    // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）
+    const autoView = me.auto?.id === 'space' && me.y < 150 ? null : me.auto?.id ?? null;
+    applyStageVisibility(track.mesh, cur, autoView);
+    const look = skyFor(track, cur, me);
+    setSky(scene, look);
+    // 宇宙・ワープの間は、平らな地面を消す（宇宙から灰色の地面が見えた）
+    if (scene.userData.ground) scene.userData.ground.visible = look.mode !== 'space' && look.mode !== 'warp';
   }
   showTunnel(g.tunnel, views[g.me], Math.max(0, Math.min(1, 1 - toExit / 120)));
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）
@@ -1007,6 +1014,8 @@ function renderGame(alpha, dt) {
   else if (flying) updateStartCamera(camera, mine, g.flyT);
   else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
+  // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
+  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) updateSpace(sg, camera, race.t);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 表示
   setText(speedNum, kart.autoError ? 'ERR' : speedText(kart.speed));

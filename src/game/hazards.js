@@ -503,7 +503,9 @@ export const BUS_NEAR = 20; // すれちがいの音を鳴らす近さ（m）
 export function busPose(track, bus, time) {
   const L = track.length;
   const n = track.length; // バスは本線だけを走る（分かれ道の点は本線の点のあとにある）
-  const s = ((((bus.s0 - BUS_SPEED * time) % L) + L) % L);
+  // 範囲のある乗り物（Global City の路面電車・タクシー）は、その範囲の中でくり返す
+  const len = bus.from !== undefined ? bus.to - bus.from : 0;
+  const s = len ? bus.from + ((((bus.s0 - BUS_SPEED * time - bus.from) % len) + len) % len) : ((((bus.s0 - BUS_SPEED * time) % L) + L) % L);
   const i = Math.floor(s) % n;
   const p = track.samples[i];
   const q = track.samples[(i + 1) % n];

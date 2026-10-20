@@ -209,7 +209,9 @@ const landmarks = (g) => { const m = new Map(); g.updateMatrixWorld(true); g.tra
 test('景色の形に、数でない座標（NaN）がない（あると、その形がまるごと描かれない）', async () => {
   const { buildFuji } = await import('../src/render/world/fuji.js');
   const { buildKyoto } = await import('../src/render/world/kyoto.js');
-  for (const build of [buildTokyo, buildFuji, buildKyoto]) build(t).traverse((o) => {
+  const { buildLaunchRail } = await import('../src/render/world/space.js');
+  const { buildHongKong } = await import('../src/render/world/hongkong.js');
+  for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong]) build(t).traverse((o) => {
     if (!o.isMesh) return;
     const a = o.geometry.attributes.position.array;
     for (let i = 0; i < a.length; i++) assert.ok(Number.isFinite(a[i]), `${o.parent.userData.stages}`);
@@ -327,4 +329,39 @@ test('高さのある地面（土手もふくむ）は、空の道すじにそ�
       assert.ok(Math.hypot(a[i] - fuji.x, a[i + 2] - fuji.z) < 600, `${a[i].toFixed(0)},${a[i + 1].toFixed(0)},${a[i + 2].toFixed(0)}`);
     }
   });
+});
+
+import { busPose } from '../src/game/hazards.js';
+import { buildHongKong } from '../src/render/world/hongkong.js';
+import { buildSpace } from '../src/render/world/space.js';
+
+test('乗り物は、その範囲の中だけを走る（香港の路面電車は香港、NY のタクシーは NY）', () => {
+  const trams = t.buses.filter((b) => b.kind === 'tram');
+  const taxis = t.buses.filter((b) => b.kind === 'taxi');
+  assert.equal(trams.length, 3);
+  assert.equal(taxis.length, 5);
+  for (let time = 0; time < 120; time += 0.7) {
+    for (const b of trams) {
+      const s = busPose(t, b, time).s;
+      assert.ok(s >= t.marks.HL && s <= t.marks.SD, `${s}`);
+    }
+  }
+});
+
+test('宇宙: 星・地球・月・いん石がある。発射台のレールは、最後は約70度の上り', () => {
+  const m = landmarks(buildSpace(t));
+  for (const name of ['stars', 'earth', 'moon', 'meteors']) assert.ok(m.has(name), name);
+  let steep = 0;
+  for (let i = Math.round(t.marks.LP); i < Math.round(t.marks.LP) + 70; i++) {
+    const a = t.samples[i];
+    const b = t.samples[i + 1];
+    steep = Math.max(steep, (b.y - a.y) / Math.hypot(b.x - a.x, b.z - a.z));
+  }
+  assert.ok(steep > 2, `${steep}`); // tan 70度 ≒ 2.7
+});
+
+test('香港の名所: 中環の高層ビル・中国銀行タワー・IFC・ネオンの看板・ビクトリア湾（北がわ）', () => {
+  const m = landmarks(buildHongKong(t));
+  for (const name of ['central', 'bocTower', 'ifc', 'neon', 'harbour']) assert.ok(m.has(name), name);
+  assert.ok(m.get('harbour').z < at('CEN').z, '湾は北');
 });
