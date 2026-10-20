@@ -360,7 +360,7 @@ function moundMesh(track, info) {
 // トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）
 export const TUNNEL_BLACK = 0.25; // 入るときのまっくらの秒数
 export const TUNNEL_FADE = 0.6; // 出るときに明るくなる秒数
-export const TUNNEL_DIM = 0.35; // 中の明るさ（外を 1 として。2026-10-18 のユーザー依頼「タブレットだと暗すぎる」で 0.15 から）
+export const TUNNEL_DIM = 0.25; // PC の中の明るさ（外を 1 として。2026-10-18 に 0.15 から 0.35、2026-10-20 のユーザー依頼「PC用も少し暗くして」で 0.25）
 // トンネルの中の見え方。dim 中の明るさ（外を 1 として）、vignette まわりの暗さ、headlight 車のライト、fog 霧の色と見える距離（m）
 // タブレット・スマホ（指で操作する端末）は画面が暗く見えるので明るめ（2026-10-19 のユーザー依頼「PC は問題ないが、アンドロイドタブレットだとまだ暗い」）
 const LOOK_PC = { dim: TUNNEL_DIM, vignette: 0.55, headlight: 120, fog: 0x07090c, fogNear: 8, fogFar: 70 };

@@ -591,7 +591,7 @@ test('トンネルを出てすぐ（まだ少し暗い）にまた入っても�
 test('タブレット・スマホ（指で操作する端末）は、トンネルの中を PC より明るく（2026-10-19 のユーザー依頼）', () => {
   const pc = tunnelLook(false);
   const touch = tunnelLook(true);
-  assert.equal(pc.dim, 0.35); // PC はいまのまま
+  assert.equal(pc.dim, 0.25); // PC は少し暗く（2026-10-20 のユーザー依頼「PC用も少し暗くして」で 0.35 から）
   assert.ok(touch.dim >= 0.65, `${touch.dim}`);
   assert.ok(touch.vignette <= 0.3, `${touch.vignette}`);
   assert.ok(touch.headlight > pc.headlight);
