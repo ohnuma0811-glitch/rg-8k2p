@@ -13,6 +13,8 @@ export function skyFor(track, cur, kart) {
   const view = autoViewOf(kart);
   if (view === 'space') return { sky: 0x000000, fog: [3000, 6000], hemi: 1.0, sun: 1.2, mode: 'space' };
   if (view === 'warp') return { sky: 0x050818, fog: [3000, 6000], hemi: 1.0, sun: 0.8, mode: 'warp' };
-  const s = SKIES[cur] ?? SKIES[0];
-  return { ...s, mode: cur === 4 && (kart.y ?? 0) < -2 ? 'sea' : 'normal' };
+  // 海の底のステージでも、水の上（自由の女神の足もとからニューヨークまで）は、ふつうの空（青い空間に見えた。2026-10-21 のユーザー依頼）
+  const under = cur === 4 && (kart.y ?? 0) < -2;
+  const s = cur === 4 && !under ? SKIES[5] : SKIES[cur] ?? SKIES[0];
+  return { ...s, mode: under ? 'sea' : 'normal' };
 }

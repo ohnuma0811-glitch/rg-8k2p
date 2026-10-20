@@ -41,17 +41,7 @@ export function buildSea(track) {
   const cx = (a.x + z.x) / 2;
   const cz = (a.z + z.z) / 2;
   const len = Math.hypot(z.x - a.x, z.z - a.z) + 300;
-  // 海の水面（上から見ると青い海、下から見ると明るい水色）と、砂の海底
-  const top = new THREE.Mesh(new THREE.PlaneGeometry(len, 600), new THREE.MeshLambertMaterial({ color: 0x1f5f8f }));
-  top.rotation.x = -Math.PI / 2;
-  top.rotation.z = -Math.atan2(z.z - a.z, z.x - a.x);
-  top.position.set(cx, -0.05, cz); // 地面（-0.1）より上、道（0）より下
-  top.userData.keep = true;
-  const under = new THREE.Mesh(new THREE.PlaneGeometry(len, 600), new THREE.MeshBasicMaterial({ color: 0x3f9fd0, side: THREE.BackSide }));
-  under.rotation.copy(top.rotation);
-  under.position.set(cx, -0.3, cz);
-  under.userData.keep = true;
-  g.add(top, under);
+  // 海の水面はなし（トンネルの中は水で満たされていないので。2026-10-21 のユーザー依頼「水面は不要」）。砂の海底
   b.push(cx, -45, cz, Math.atan2(z.x - a.x, z.z - a.z) + Math.PI / 2);
   b.box(len, 0.5, 600, 0xc8b98a, 0, 0, 0);
   b.pop();

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, locate, sampleAt } from '../src/game/track.js';
+import { buildTrack, locate, sampleAt, markS } from '../src/game/track.js';
 import { createRace, updateProgress, progress, ranking, raceLaps, raceDistance, LAPS } from '../src/game/race.js';
 import { COURSE5, COURSES } from '../src/data/tracks.js';
 
@@ -453,7 +453,8 @@ test('ワープの景色は3つ目の輪っか（R3）を過ぎてから。輪�
   assert.equal(autoViewOf({ auto: { id: 'warp', leg: 0 }, y: 0 }), null);
   assert.equal(autoViewOf({ auto: { id: 'warp', leg: 1 }, y: 0 }), null);
   assert.equal(autoViewOf({ auto: { id: 'warp', leg: 2 }, y: 0 }), 'warp');
-  assert.equal(autoViewOf({ auto: { id: 'space', leg: 0 }, y: 100 }), null);
+  assert.equal(autoViewOf({ auto: { id: 'space', leg: 0, t: 0.5 }, y: 100 }), null); // 発射台のレールを上っている所
+  assert.equal(autoViewOf({ auto: { id: 'space', leg: 0, t: 6 }, y: 100 }), 'space'); // 宇宙を出るまで、宇宙だけ（香港の道が見えない。2026-10-21 のユーザー依頼）
   assert.equal(autoViewOf({ auto: { id: 'space', leg: 0 }, y: 200 }), 'space');
   assert.equal(autoViewOf({ auto: null, y: 0 }), null);
   assert.equal(skyFor(t, 5, { auto: { id: 'warp', leg: 0 }, y: 0 }).mode, 'normal');
@@ -583,9 +584,11 @@ test('皇居と東京駅には英語の看板（2026-10-21 のユーザー依頼
   const m = landmarks(buildTokyo(t));
   assert.ok(m.has('palaceSign'), 'IMPERIAL PALACE');
   assert.ok(m.has('stationSign'), 'TOKYO STATION');
+  // 皇居の看板は、最初の門（櫓門）の正面の上（道ばたに立てると、石垣に埋まった。2026-10-21 のユーザー依頼）
   const s = m.get('palaceSign');
-  const loc = locate(t, s.x, s.z, null, 40);
-  assert.ok(Math.abs(loc.lateral) > t.samples[loc.i].wall, '看板は道の外');
+  const gate = t.samples.findIndex((p) => p.s >= markS(t, ['NJ', 'MRN', 0.08]));
+  assert.ok(Math.hypot(s.x - t.samples[gate].x, s.z - t.samples[gate].z) < 8, '門のところ');
+  assert.ok(s.y >= 10, '道の上の高い所');
 });
 
 import { shinkansenCars, SHINKANSEN_CAR } from '../src/game/world.js';
@@ -732,7 +735,19 @@ test('新幹線は、自分が近づいてから走り出し、線路の終わ�
   assert.ok(shinkansenCars(t, { ...line, t0: null }, 50, 30, 16).every((c) => !c.visible));
 });
 
-// 景色が道の上（車の高さ 5m まで）に出ていないか。数えるのは道の点の近く（from〜to の s）
+// 景色が道の上（車の高さ 5m まで）に出ていないか。数えるのは道の点の近く（from〜to の s）。
+// 道の点を 20m のます目に分けて、近くの点だけ見る（全部の点を探すと遅かった）。道の点ごとの高さで見る（下を通る道・上を通る道もそれぞれ）
+const roadGrid = (() => {
+  const grid = new Map();
+  for (let i = 0; i < t.samples.length; i++) {
+    const p = t.samples[i];
+    if (p.y === null || p.void || p.ghost) continue;
+    const key = `${Math.floor(p.x / 20)},${Math.floor(p.z / 20)}`;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(p);
+  }
+  return grid;
+})();
 function intrusions(g, from, to) {
   g.updateMatrixWorld(true);
   let bad = 0;
@@ -740,16 +755,23 @@ function intrusions(g, from, to) {
     if (!o.isMesh) return;
     const a = o.geometry.attributes.position;
     const e = o.matrixWorld.elements;
-    for (let k = 0; k < a.count; k += 5) {
+    for (let k = 0; k < a.count; k += 3) {
       const x = a.getX(k), y = a.getY(k), z = a.getZ(k);
       const wx = e[0] * x + e[4] * y + e[8] * z + e[12];
       const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
       const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
-      const loc = locate(t, wx, wz, null, 40);
-      if (loc.s < from || loc.s > to) continue;
-      const p = t.samples[loc.i];
-      if (p.y === null) continue;
-      if (Math.abs(loc.lateral) < p.half - 0.5 && wy > p.y + 0.05 && wy < p.y + 5) bad++;
+      const cx = Math.floor(wx / 20);
+      const cz = Math.floor(wz / 20);
+      let hit = false;
+      for (let gx = cx - 1; gx <= cx + 1 && !hit; gx++) for (let gz = cz - 1; gz <= cz + 1 && !hit; gz++) {
+        for (const p of roadGrid.get(`${gx},${gz}`) ?? []) {
+          if (p.s < from || p.s > to) continue;
+          const lat = -(wx - p.x) * Math.sin(p.h) + (wz - p.z) * Math.cos(p.h);
+          const fwd = (wx - p.x) * Math.cos(p.h) + (wz - p.z) * Math.sin(p.h);
+          if (Math.abs(fwd) < 1.2 && Math.abs(lat) < p.half - 0.5 && wy > p.y + 0.05 && wy < p.y + 5) { hit = true; break; }
+        }
+      }
+      if (hit) bad++;
     }
   });
   return bad;
@@ -858,11 +880,21 @@ test('クアラルンプールへのワープは約10秒で壮大に: 色が変�
   assert.ok(c.flash > 0.5 && a.flash === 0, '最後に白く光る');
 });
 
-test('宇宙から香港へ: 宇宙 → 地球が見える → 地球へズーム → 香港の地図 → コース（2026-10-21 のユーザー依頼）', () => {
-  const p = [0.1, 0.35, 0.6, 0.8, 0.95].map(spaceLook);
-  assert.ok(p[0].earth < p[1].earth && p[1].earth < p[2].earth, '地球が大きくなる');
-  assert.equal(p[0].map, 0);
-  assert.ok(p[3].map > 0.5 && p[4].map >= p[3].map, '香港の地図が見える');
+test('宇宙から香港へ: 宇宙に飛び出す → 地球が見える → 地球に突っこむ → 画面を切りかえて香港に着地（地図はなし。2026-10-21 のユーザー依頼）', () => {
+  const p = [0.1, 0.35, 0.6, 0.8, 0.97].map(spaceLook);
+  assert.ok(p[0].earth < p[1].earth && p[1].earth < p[2].earth && p[2].earth < p[3].earth, '地球が大きくなる');
+  assert.equal(p[0].flash, 0);
+  assert.ok(p[4].flash > 0.8, '最後に画面を切りかえる');
+  assert.ok(!('map' in p[0]), '地図はなし');
+});
+
+test('海の底へ行くトンネルに水面はない。自由の女神の足もとから先は、ふつうの空（青い空間を通らない。2026-10-21 のユーザー依頼）', () => {
+  let surface = 0;
+  buildSea(t).traverse((o) => { if (o.userData.surface) surface++; });
+  assert.equal(surface, 0);
+  const above = skyFor(t, 4, { y: 0, auto: null });
+  assert.equal(above.sky, skyFor(t, 5, { y: 0, auto: null }).sky);
+  assert.equal(skyFor(t, 4, { y: -30, auto: null }).mode, 'sea');
 });
 
 import { autoProgress } from '../src/game/world.js';
@@ -943,4 +975,8 @@ test('スタートの桜並木の道の上に、お堀の水が出ない（2026-
     }
   }
   assert.equal(bad, 0, `道の下にお堀 ${bad}`);
+});
+
+test('東京の景色（レインボーブリッジの柱など）は、道の上に出ない（2026-10-21 のユーザー依頼「支柱がコース上にある」）', () => {
+  assert.equal(intrusions(buildTokyo(t), t.marks.SHIN, t.marks.JP - 5), 0); // 巨大ジャンプ台（JP〜AJ）の上の矢印は、わざと道の上に描く
 });

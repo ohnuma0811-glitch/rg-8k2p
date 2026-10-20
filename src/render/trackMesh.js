@@ -735,6 +735,13 @@ export function buildTrackMesh(track) {
     const edge = (p) => (p.tunnel ? 0x4a4e55 : snow ? 0xf4f7fb : 0x6aa84f);
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { colorOf: edge }));
     group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { colorOf: edge }));
+  } else if (world) {
+    // Global City: 道のはし（縁石の外から柵まで）を、道と同じ高さで描く（高い所の道で、すき間から下が見えた。2026-10-21 のユーザー依頼）。
+    // 高い所の道は、横に側面の板（下から見上げたときと、横から見たときに、うすい紙のように見えないように）
+    const edgeOk = (side) => (p) => hasGround(p) && !p.tunnel && !onOtherRoad(track, p, side * (p.half + 1.5));
+    group.add(ribbon(samples, (p) => -p.wall, (p) => -p.half - 1, (p) => p.y + 0.03, edgeOk(-1), { color: 0x8a8d90 }));
+    group.add(ribbon(samples, (p) => p.half + 1, (p) => p.wall, (p) => p.y + 0.03, edgeOk(1), { color: 0x8a8d90 }));
+    for (const side of [-1, 1]) group.add(fence(samples, (p) => side * p.wall, (p) => p.y - 1.2, (p) => p.y + 0.03, (p) => edgeOk(side)(p) && p.y > 1.5, () => 0xb8bcc2));
   } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));

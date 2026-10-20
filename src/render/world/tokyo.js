@@ -126,7 +126,12 @@ export function buildTokyo(track) {
     b.box(w + 6, 3, 8, WHITE, 0, 12, 0); // 櫓の白い壁
     b.box(w + 10, 1.2, 11, 0x3a3a40, 0, 15, 0); // 瓦の屋根
     b.box(w + 4, 1.2, 9, 0x3a3a40, 0, 16.2, 0);
+    // 英語の看板「IMPERIAL PALACE」は、門の正面の上（くぐる前に正面から見える。道ばたに立てると石垣に埋まった。2026-10-21 のユーザー依頼）
+    b.box(24, 3.2, 0.4, 0x2a2a30, 0, 11.6, -4.3);
+    b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 128], 0, 13.2, -4.6, Math.PI, 22.8, 2.8);
+    b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 128], 0, 13.2, 4.3, 0, 22.8, 2.8);
     b.pop();
+    landmark(city, 'palaceSign', p.x, 13.2, p.z);
   }
   // 宮殿は、地図の点に近い道の横に、道にそって長く置く（地図の点のままだと建物が道の上に重なり、壁のように見えた。2026-10-21 のユーザー依頼）
   const pw = worldAt(track, S.palace.at);
@@ -150,16 +155,6 @@ export function buildTokyo(track) {
     const z = palace.z + dz;
     if (clearOfRoads(track, x, z, 4)) coneTree(b, x, 0, z, 1.3, 0x2f5d3a);
   }
-  // 英語の看板「IMPERIAL PALACE」（道の横、走ってくる方に向けて。2026-10-21 のユーザー依頼）
-  const sp = pointAt(track, pl.s - 40);
-  const sc = beside(sp, pside * (sp.wall + 4));
-  landmark(city, 'palaceSign', sc.x, 0, sc.z);
-  b.push(sc.x, 0, sc.z, ryAlong(sp.h) + Math.PI);
-  b.box(0.4, 2.2, 0.4, 0x5a5048, -4, 0, 0);
-  b.box(0.4, 2.2, 0.4, 0x5a5048, 4, 0, 0);
-  b.box(10, 2.6, 0.5, 0x3a3a40, 0, 2.2, 0);
-  b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 160], 0, 3.5, 0.3, 0, 9.4, 2.2);
-  b.pop();
 
   // ---- 丸の内（新丸ビルと高層ビル）と、東京駅 ----
   const shin = worldAt(track, S.shinmaru.at);
@@ -280,9 +275,13 @@ export function buildTokyo(track) {
     bb.box(2 * p.wall + 4, 3, 2.9, 0xeef0f2, 0, 0, 0);
     bb.pop();
   });
+  // 橋のたもとの柱は、道の両がわに（道の真ん中に立てると、下を通る芝浦のループの道の上に立っていた。2026-10-21 のユーザー依頼）
   for (const s of [rbs, rbe]) {
     const p = pointAt(track, s);
-    bb.cyl(4, 4, Math.max(1, p.y - 3), 8, 0xc8ccd2, p.x, 0, p.z);
+    for (const side of [-1, 1]) {
+      const c = beside(p, side * (p.wall + 6));
+      if (clearOfRoads(track, c.x, c.z, 2)) bb.cyl(3, 3, Math.max(1, p.y - 3), 8, 0xc8ccd2, c.x, 0, c.z);
+    }
   }
   const rbm = pointAt(track, (rbs + rbe) / 2);
   landmark(bay, 'rainbowBridge', rbm.x, rbm.y, rbm.z);

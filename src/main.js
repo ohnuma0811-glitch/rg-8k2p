@@ -15,9 +15,9 @@ import { Controls, attachControls, computeButtonLayout, hasTouch } from './input
 import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
 import { applyStageVisibility } from './render/world/stages.js';
 import { skyFor } from './render/world/sky.js';
-import { updateSpace } from './render/world/space.js';
+import { updateSpace, spaceLook } from './render/world/space.js';
 import { updateSea } from './render/world/sea.js';
-import { updateWarp } from './render/world/warp.js';
+import { updateWarp, warpLook } from './render/world/warp.js';
 import { showcaseCamera } from './render/showcase.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
@@ -84,6 +84,8 @@ const canvas = $('game');
 const hud = $('hud');
 const rotate = $('rotate');
 const speedLines = $('speed-lines');
+const spaceFlash = $('space-flash');
+let flashLevel = 0; // 宇宙・ワープの終わりの白い光（着いたあと、だんだん消す）
 const speedo = $('speedo');
 const speedNum = speedo.querySelector('.num');
 const wrongWayEl = $('wrongway');
@@ -541,6 +543,9 @@ function removeGame() {
   resetSky(scene); // Global City の空を、ふつうの空に戻す
   if (track) track.trains = null; // 新幹線は、次のレースでまた自分が近づいてから走り出す
   if (scene.userData.ground) scene.userData.ground.visible = true;
+  flashLevel = 0;
+  spaceFlash.style.opacity = '0';
+  if (track?.mesh) for (const c of track.mesh.children) c.visible = true; // 宇宙・ワープの途中でやめても、コースを見せる
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();
   crowd.stop();
@@ -1026,6 +1031,15 @@ function renderGame(alpha, dt) {
     // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）。ワープは3つ目の輪っかから
     const autoView = autoViewOf(me);
     applyStageVisibility(track.mesh, cur, autoView, win);
+    // 宇宙・ワープの間は、コースの道や柵も見せない（宇宙から香港の道が見えた。2026-10-21 のユーザー依頼「宇宙とコースを完全に分離」）
+    const away = autoView === 'space' || autoView === 'warp';
+    const stageSet = new Set(track.mesh.userData.stageGroups ?? []);
+    for (const c of track.mesh.children) if (!stageSet.has(c) && c.visible === away) c.visible = !away;
+    // 終わりの白い光（宇宙は地球に突っこむところ、ワープは最後）。着いたら、だんだん消す
+    const ap0 = autoProgress(track, me);
+    const target = me.auto?.id === 'space' ? spaceLook(ap0).flash : me.auto?.id === 'warp' ? warpLook(ap0).flash : 0;
+    flashLevel = Math.max(target, flashLevel - dt * 1.5);
+    spaceFlash.style.opacity = String(flashLevel);
     const look = skyFor(track, cur, me);
     setSky(scene, look);
     // 宇宙・ワープの間は、平らな地面を消す（宇宙から灰色の地面が見えた）

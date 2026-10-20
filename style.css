@@ -31,6 +31,15 @@ html, body {
   -webkit-mask-image: radial-gradient(ellipse at 50% 45%, transparent 45%, #000 85%);
   mask-image: radial-gradient(ellipse at 50% 45%, transparent 45%, #000 85%);
 }
+/* 宇宙から香港・ワープからクアラルンプールへ、画面を白く光らせて切りかえる（2026-10-21） */
+#space-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: #ffffff;
+}
 /* 京都へ向かう加速板（2026-10-21）: 光の線を濃く、回しながら、画面のまわりを白く光らせる */
 #speed-lines.rush {
   background:

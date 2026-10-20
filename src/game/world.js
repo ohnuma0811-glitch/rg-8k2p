@@ -24,7 +24,8 @@ export function stageWindow(track, rel) {
 export function autoViewOf(kart) {
   const a = kart.auto;
   if (!a) return null;
-  if (a.id === 'space') return kart.y >= 150 ? 'space' : null;
+  // 宇宙: 高さ 150m より上に出たら、宇宙の区間を出るまでずっと宇宙だけ（下りてくる所で香港の道が見えた。2026-10-21 のユーザー依頼「宇宙とコースを完全に分離」）
+  if (a.id === 'space') return kart.y >= 150 || a.t > 2 ? 'space' : null;
   if (a.id === 'warp') return a.leg >= 2 ? 'warp' : null;
   return a.id;
 }
