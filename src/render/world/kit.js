@@ -144,3 +144,33 @@ export function roadSign(group, b, track, s, side, text, name, { bg = '#2a2a30',
   b.label(textSign(text, { bg, fg, font: 'bold 64px serif' }), [768, 160], 0, 3.6, 0.3, 0, 10.4, 2.4);
   b.pop();
 }
+
+// 香港のネオン看板の絵（2026-10-21 のユーザー依頼「中国語の看板に溢れているはず」）: 黒っぽい板に、光る漢字を縦に並べ、光るふちどり
+export function neonSign(text, color) {
+  const draw = (g, w, h) => {
+    g.fillStyle = '#120a18';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = color;
+    g.lineWidth = 10;
+    g.shadowColor = color;
+    g.shadowBlur = 24;
+    g.strokeRect(12, 12, w - 24, h - 24);
+    g.fillStyle = '#ffffff';
+    g.font = `bold ${Math.floor(w * 0.62)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const chars = [...text];
+    const step = (h - 40) / chars.length;
+    chars.forEach((ch, k) => {
+      g.shadowColor = color;
+      g.shadowBlur = 30;
+      g.fillStyle = color;
+      g.fillText(ch, w / 2, 20 + step * (k + 0.5));
+      g.shadowBlur = 0;
+      g.fillStyle = '#ffffffcc';
+      g.fillText(ch, w / 2, 20 + step * (k + 0.5));
+    });
+  };
+  draw.key = `neon:${text}:${color}`;
+  return draw;
+}

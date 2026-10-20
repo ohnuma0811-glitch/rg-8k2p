@@ -327,6 +327,12 @@ export function stepKart(kart, ctl, track, params, dt) {
   };
   const edgeGone = () => edgeLoc().ground === null;
   // 片道のコース（Global City）の「無い道」には、向きにかかわらず入らない（道のはしで止まる）
+  // ゴールのあとの周回（Global City）: 道の終わりの近くに来たら、同じ所のゴールの手前の点へつなぎかえる（位置はそのまま）
+  if (track.loopTo !== undefined && track.samples[loc.i].s > track.loopEnd - 30) {
+    const back = track.samples.findIndex((q) => q.s >= track.loopTo - 30);
+    loc = locate(track, kart.x, kart.z, back, 40, kart.y ?? null);
+    kart.seg = loc.i;
+  }
   const voidAhead = () => track.open && (track.samples[loc.i].void || track.samples[edgeLoc().i].void);
   if (!kart.airborne && ((backward && (loc.ground === null || edgeGone())) || voidAhead())) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる

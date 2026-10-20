@@ -18,7 +18,8 @@ test('点は m（全体を scale 倍）: 全長は点から自動。走る道は
   const m = t.marks;
   const autos = (m.FL - m.AJ) + (m.HL - m.LP) + (m.KL - m.R1); // 大ジャンプ・宇宙・ワープ（自動の区間）
   const drive = t.finish - autos;
-  assert.ok(drive > 10000 && drive < 12000, `${drive}`);
+  // カーブを増やしたので 12.5km まで（2026-10-21 のユーザー依頼「直線で戦略性が無い」。最後のコースなので多少長くても良い）
+  assert.ok(drive > 10000 && drive < 12500, `${drive}`);
   const a = at('TS');
   const b = at('TT');
   const k = COURSE5.scale ?? 1;
@@ -385,8 +386,8 @@ test('海の底: ガラスのトンネル（暗くしない）。クジラ・サ
   assert.equal(p.tunnelLook, 'glass');
 });
 
-test('ニューヨーク: 曲がる角はすべて直角（4つ）。名所は南から北へ。ジョージ・ワシントン・ブリッジは西（ハドソン川）', () => {
-  assert.equal(t.corners.length, 4);
+test('ニューヨーク: 曲がる角はすべて直角（16）。名所は南から北へ。ジョージ・ワシントン・ブリッジは西（ハドソン川）', () => {
+  assert.equal(t.corners.length, 16); // ビルの間を右に左に（2026-10-21 のユーザー依頼）
   const m = landmarks(buildNewYork(t));
   for (const name of ['timesSquare', 'jefferies', 'uniqlo', 'tiffany', 'centralPark', 'gwb', 'ikueiGate', 'ring1', 'ring2', 'ring3']) assert.ok(m.has(name), name);
   assert.ok(m.get('timesSquare').z > m.get('centralPark').z, 'タイムズスクエアはセントラルパークの南');
@@ -612,7 +613,7 @@ test('新幹線は1両ずつ線路にそって曲がる（2026-10-21 のユー�
 
 test('道は、上と下に重なる所で 6m 以上はなれる（2026-10-21 のユーザー依頼「上のコースに頭が突き出ている」）', () => {
   const S = t.samples;
-  const ok = (p) => p.y !== null && !p.void && !p.auto;
+  const ok = (p) => p.y !== null && !p.void && !p.auto && !p.ghost;
   let worst = null;
   for (let i = 0; i < t.length; i += 3) {
     if (!ok(S[i])) continue;
@@ -620,6 +621,7 @@ test('道は、上と下に重なる所で 6m 以上はなれる（2026-10-21 �
       if (!ok(S[j]) || t.length - (j - i) < 80) continue; // スタートの後ろは、同じ道のつづき
       if (Math.hypot(S[i].x - S[j].x, S[i].z - S[j].z) >= S[i].wall + S[j].wall) continue;
       const dy = Math.abs(S[i].y - S[j].y);
+      if (S[j].s > t.finish && dy < 1) continue; // ゴールのあとの周回の道が、同じ高さでゴールへ向かう道に合流する所
       if (!worst || dy < worst.dy) worst = { dy, i, j };
     }
   }
@@ -777,4 +779,61 @@ test('ほかの都市は遠くから見えない: 次のステージは入る 40
   w = stageWindow(t, ny + 100);
   assert.ok(stageVisible([4], w.cur, null, w), '出たすぐあとは、前のステージも見える');
   assert.ok(stageVisible([6], 5, null), '窓がないときは今までどおり');
+});
+
+test('クアラルンプールはゴールのあと周回できる: 道の終わりに着くとゴールの手前へ（2026-10-21 のユーザー依頼「コースの端にぶつかっている」）', () => {
+  const kart = createKart(t, Math.round(t.marks.FIN) + 5, 0);
+  const cpu = createCpu(1, 0);
+  let passes = 0;
+  let prev = t.samples[kart.seg].s;
+  let time = 0;
+  for (let f = 0; f < 60 * 150 && passes < 2; f++) {
+    stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(params, 1), 1 / 60);
+    time += 1 / 60;
+    const s = t.samples[kart.seg].s;
+    if (prev > t.marks.FIN + 100 && s <= t.marks.FIN + 2) passes++;
+    prev = s;
+    assert.ok(!t.samples[kart.seg].void, '無い道に入った');
+  }
+  assert.ok(passes >= 2, `周回 ${passes}`);
+  // 合流で元の道と重なる所は描かない
+  assert.ok(t.samples.some((p) => p.ghost), '重なる所');
+  assert.ok(t.samples.filter((p) => p.ghost).every((p) => !roadDrawn(p)));
+});
+
+test('ゴールはペトロナスツインタワーの2本の間（2026-10-21 のユーザー依頼）', () => {
+  const g = buildKL(t);
+  const m = landmarks(g);
+  const f = t.samples[Math.round(t.marks.FIN)];
+  assert.ok(m.has('petronasA') && m.has('petronasB'));
+  const a = m.get('petronasA');
+  const b = m.get('petronasB');
+  // ゴールの点から見た前後（fwd）と横（lat）
+  const rel = (o) => ({ fwd: (o.x - f.x) * Math.cos(f.h) + (o.z - f.z) * Math.sin(f.h), lat: -(o.x - f.x) * Math.sin(f.h) + (o.z - f.z) * Math.cos(f.h) });
+  const ra = rel(a);
+  const rb = rel(b);
+  assert.ok(Math.sign(ra.lat) !== Math.sign(rb.lat), '道の両がわ');
+  assert.ok(Math.abs(ra.fwd) < 15 && Math.abs(rb.fwd) < 15, 'ゴールの横');
+  assert.ok(Math.abs(ra.lat) > f.wall + 15 && Math.abs(rb.lat) > f.wall + 15, '道にかからない');
+  // ほかの道（ゴールのあとの周回の道）にもかからない（タワーの半径 20m）
+  for (const o of [a, b]) for (const q of t.samples) if (q.y !== null && !q.void) assert.ok(Math.hypot(q.x - o.x, q.z - o.z) > q.wall + 20, `タワーが道 s ${Math.round(q.s)} にかかる`);
+});
+
+test('香港・海の底・ニューヨーク・クアラルンプールの景色も、道の上に出ない（コースを右に左に曲げたあと。2026-10-21）', () => {
+  const r = {
+    hk: intrusions(buildHongKong(t), t.marks.HL, t.marks.SD),
+    sea: intrusions(buildSea(t), t.marks.SD, t.marks.LIB),
+    ny: intrusions(buildNewYork(t), t.marks.NY, t.marks.R3),
+    kl: intrusions(buildKL(t), t.marks.KL, t.marks.END),
+  };
+  assert.deepEqual(r, { hk: 0, sea: 0, ny: 0, kl: 0 });
+});
+
+test('香港は中国語のネオン看板であふれる（道の上へ突き出す縦の看板。2026-10-21 のユーザー依頼）', () => {
+  const g = buildHongKong(t);
+  const signs = [];
+  g.traverse((o) => { if (o.userData.landmark === 'hkSign') signs.push(o.userData.text); });
+  assert.ok(signs.length >= 50, `看板 ${signs.length}`);
+  assert.ok(signs.every((s) => /[一-鿿]/.test(s)), '漢字');
+  assert.ok(new Set(signs).size >= 12, `種類 ${new Set(signs).size}`);
 });

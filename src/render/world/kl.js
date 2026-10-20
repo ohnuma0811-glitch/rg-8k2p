@@ -128,13 +128,14 @@ export function buildKL(track) {
   b.pop();
 
   // ---- ペトロナスツインタワー: 8角を段々に細く、銀色に光る窓のしま。2本の間に空中の橋。ゴールはその前 ----
-  const pc0 = worldAt(track, S.petronas.at);
+  // ゴールはツインタワーの2本の間（2026-10-21 のユーザー依頼）: ゴールの道の両がわに1本ずつ。空中の橋の下をくぐってゴール
   const fin = pointAt(track, sOf(track, 'FIN'));
-  const ax = Math.atan2(pc0.z - fin.z, pc0.x - fin.x) + Math.PI / 2; // ゴールから見て横に2本並ぶ向き
-  const pc = away(track, pc0.x, pc0.z, 70);
-  landmark(g, 'petronas', pc.x, 0, pc.z);
   const H = 380;
-  const twin = [-1, 1].map((sd) => ({ x: pc.x + Math.cos(ax) * sd * 34, z: pc.z + Math.sin(ax) * sd * 34 }));
+  const pc = { x: fin.x, z: fin.z };
+  landmark(g, 'petronas', pc.x, 0, pc.z);
+  const twin = [-1, 1].map((sd) => beside(fin, sd * (fin.wall + 35)));
+  landmark(g, 'petronasA', twin[0].x, 0, twin[0].z);
+  landmark(g, 'petronasB', twin[1].x, 0, twin[1].z);
   for (const c of twin) {
     const levels = [[0, 0.55, 20], [0.55, 0.7, 17], [0.7, 0.8, 14], [0.8, 0.87, 11], [0.87, 0.92, 8]];
     for (const [a0, a1, r] of levels) {
@@ -172,6 +173,8 @@ export function buildKL(track) {
     if (p.tunnel || p.tunnelLook) return;
     for (const side of [-1, 1]) {
       const c = beside(p, side * (p.wall + 1.5));
+      const lc = locate(track, c.x, c.z, null, 40);
+      if (Math.abs(lc.lateral) < lc.wall + 1) continue; // ほかの道（ゴールのあとの周回の道）の上には立てない
       b.cyl(0.2, 0.25, 7, 6, 0x4a4a52, c.x, p.y, c.z);
       glow.sphere(0.7, 0xffe6a8, c.x, p.y + 7.2, c.z, 6);
     }

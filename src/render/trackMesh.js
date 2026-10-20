@@ -631,7 +631,7 @@ function roadside(track, sides) {
 // 道を描く点か: 無い道・自動の区間（Global City）の空の道すじは描かない。
 // 自動の区間でも、地面の高さの所（輪っかの間 R1〜R3）は描く（道が消えて見えた。最後のレビュー）
 export function roadDrawn(p) {
-  return p.y !== null && !p.void && !(p.auto && p.y > 0.5);
+  return p.y !== null && !p.void && !p.ghost && !(p.auto && p.y > 0.5);
 }
 
 export function hasTunnels(track) {

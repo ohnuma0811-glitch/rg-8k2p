@@ -220,7 +220,7 @@ export function buildNewYork(track) {
     const p = pointAt(track, sOf(track, mark));
     landmark(g, `ring${j + 1}`, p.x, p.y, p.z);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 1.3, 10, 48), new THREE.MeshBasicMaterial({ color: j === 2 ? 0xff9adf : 0x9fe8ff }));
-    ring.position.set(p.x, p.y + 11, p.z);
+    ring.position.set(p.x, p.y + 5, p.z); // 輪は道より大きく、道の外で地面に入る（道の上に輪の下が出ないように）
     ring.rotation.y = ryAlong(p.h);
     ring.userData.keep = true;
     ring.userData.ring = j;

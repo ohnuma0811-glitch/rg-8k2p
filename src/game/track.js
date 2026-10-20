@@ -483,6 +483,15 @@ export function buildTrack(def) {
   // 片道のコース（Global City。2026-10-20）: END から GB までは「無い道」（描かない・通れない）。ゴールは finish の印
   if (def.open) {
     t.open = true;
+    if (def.open.loop) {
+      // ゴールのあとの周回（Global City のクアラルンプール。2026-10-21 のユーザー依頼）: 道の終わり（END）はゴールと同じ所。
+      // 印は、同じ所の点のうち、道のいちばん手前（ゴール）にする
+      const pt = def.points[def.marks[def.open.finish]];
+      const fx = (pt[0] - fit.cx) * fit.k;
+      const fz = (pt[1] - fit.cz) * fit.k;
+      const near = samples.filter((q) => Math.hypot(q.x - fx, q.z - fz) < 3);
+      if (near.length) t.marks[def.open.finish] = Math.min(...near.map((q) => q.s));
+    }
     t.finish = refS(t, def.open.finish);
     const from = refS(t, def.open.end);
     const to = refS(t, def.open.back);
@@ -492,6 +501,16 @@ export function buildTrack(def) {
       p.void = true;
       p.y = null;
       p.wall = p.half;
+    }
+    if (def.open.loop) {
+      // 周回の道が、ゴールへ向かう道に合流してからは重なるので、描かない（ghost。走れる）。道の終わりに着いたら t.loopTo（ゴール）へ
+      t.loopTo = t.finish;
+      t.loopEnd = from;
+      const incoming = t.samples.filter((q) => q.s > t.finish - 700 && q.s <= t.finish);
+      for (const p of t.samples) {
+        if (p.void || p.s < t.finish + 100 || p.s > from) continue;
+        if (incoming.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < q.half)) p.ghost = true;
+      }
     }
   }
   // ステージ（Global City）: 印の所から、その名前のステージ
