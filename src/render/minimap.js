@@ -19,14 +19,33 @@ export function mapFit(samples, w, h, pad) {
   return (x, z) => ({ x: ox + x * scale, y: oy + z * scale });
 }
 
-// 地図に描く道ごとの点の並び: 本線（閉じる）と、分かれ道ごとに「分かれる所＋道の点＋合流する所」
+// 地図に描く道ごとの点の並び: 本線（閉じる）と、分かれ道ごとに「分かれる所＋道の点＋合流する所」。
+// 片道のコース（Global City）は、無い道・自動の区間をぬく（その切れ目で道が分かれる）
 export function minimapPaths(track) {
   const { samples } = track;
   const paths = track.paths ?? [{ start: 0, count: track.length }];
-  return paths.map((p, k) => {
-    if (k === 0) return samples.slice(0, track.length);
-    return [samples[p.fork], ...samples.slice(p.start, p.start + p.count), samples[p.join]];
+  const out = [];
+  paths.forEach((p, k) => {
+    const list = k === 0 ? samples.slice(0, track.length) : [samples[p.fork], ...samples.slice(p.start, p.start + p.count), samples[p.join]];
+    if (!list.some((q) => q.void || q.auto)) {
+      out.push(list);
+      return;
+    }
+    let run = [];
+    for (const q of list) {
+      if (q.void || q.auto) {
+        if (run.length > 1) out.push(run);
+        run = [];
+      } else run.push(q);
+    }
+    if (run.length > 1) out.push(run);
   });
+  return out;
+}
+
+// 自動の区間（点線で描く）
+export function minimapDashes(track) {
+  return (track.autos ?? []).map((a) => track.samples.slice(0, track.length).filter((q) => q.auto === a.id));
 }
 
 // 地図を作る。draw(dots) で毎回、車の点を描く。dots = [{ x, z, color, me }]（me は自分の車。大きく、白いふち）
@@ -62,7 +81,7 @@ export function createMinimap(canvas, track) {
         if (i === 0) road.moveTo(q.x, q.y);
         else road.lineTo(q.x, q.y);
       });
-      if (k === 0) road.closePath();
+      if (k === 0 && !track.open) road.closePath();
     });
     rc.lineJoin = 'round';
     rc.strokeStyle = 'rgba(255,255,255,0.9)';
@@ -71,6 +90,20 @@ export function createMinimap(canvas, track) {
     rc.strokeStyle = '#555c66';
     rc.lineWidth = 4;
     rc.stroke(road);
+    // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）は、細い点線
+    const dash = new Path2D();
+    for (const ps of minimapDashes(track)) {
+      ps.forEach((p, i) => {
+        const q = fit(p.x, p.z);
+        if (i === 0) dash.moveTo(q.x, q.y);
+        else dash.lineTo(q.x, q.y);
+      });
+    }
+    rc.setLineDash([4, 4]);
+    rc.strokeStyle = 'rgba(255,255,255,0.8)';
+    rc.lineWidth = 2;
+    rc.stroke(dash);
+    rc.setLineDash([]);
     const s = track.samples[track.startIndex];
     const q = fit(s.x, s.z);
     rc.fillStyle = '#fff';

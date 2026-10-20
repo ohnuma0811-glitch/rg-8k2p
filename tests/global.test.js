@@ -151,3 +151,23 @@ test('自動の区間の前後で、2台の差（s）は変わらない（同じ
   const gap = t.samples[k1.seg].s - t.samples[k2.seg].s;
   assert.ok(gap > 20 && gap < 70, `${gap}`);
 });
+
+import { minimapPaths, minimapDashes } from '../src/render/minimap.js';
+
+test('道のはしでは、前にもうしろにも、それより先へ行けない（無い道に入らない）', () => {
+  const end = createKart(t, Math.round(t.marks.END) - 20, 0);
+  end.speed = 40;
+  for (let f = 0; f < 120; f++) stepKart(end, full, t, params, 1 / 60);
+  assert.ok(!t.samples[end.seg].void && !(end.respawn > 0), '道の終わりの先');
+  const back = createKart(t, (L - 40) % L, 0);
+  back.heading += Math.PI;
+  back.move = back.heading;
+  back.speed = 15;
+  for (let f = 0; f < 240; f++) stepKart(back, full, t, params, 1 / 60);
+  assert.ok(!t.samples[back.seg].void && !(back.respawn > 0), 'スタートの後ろの先');
+});
+
+test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（3本）', () => {
+  for (const ps of minimapPaths(t)) for (const p of ps) assert.ok(!p.void && !p.auto);
+  assert.equal(minimapDashes(t).length, 3);
+});

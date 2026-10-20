@@ -80,7 +80,11 @@ export function cpuControl(cpu, kart, track, t) {
   // 一度たどった先の点は覚えておく（毎回はじめから数え直すと重い。2026-10-19 のユーザー依頼「47fps くらいで重たい」）
   const chain = [loc.i];
   const at = (k) => {
-    for (let c = chain.length; c <= k; c++) chain.push(aheadOf(track, chain[c - 1], 1, choose));
+    for (let c = chain.length; c <= k; c++) {
+      const next = aheadOf(track, chain[c - 1], 1, choose);
+      // 片道のコース（Global City）: 無い道の点は目指さない（道の終わりの手前の点のまま）
+      chain.push(samples[next].void ? chain[c - 1] : next);
+    }
     return samples[chain[k]];
   };
   const p = at(look);

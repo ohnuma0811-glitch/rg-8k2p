@@ -453,6 +453,15 @@ function landingCliffs(track) {
     for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, -0.7);
     b.pop();
   }
+  // 片道のコース（Global City）の道の終わり（すぐ先が無い道）: 前向きの、しまの低い壁
+  for (let i = 0; i < track.length; i++) {
+    const p = track.samples[i];
+    if (p.y === null || p.void || !track.samples[p.next].void) continue;
+    b.push(p.x, p.y, p.z, Math.PI / 2 - p.h);
+    const n = Math.round(p.wall);
+    for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, 0.7);
+    b.pop();
+  }
   return b.build();
 }
 
@@ -606,7 +615,7 @@ export function buildTrackMesh(track) {
   const snow = track.def.theme === 'snow';
   const natural = forest || snow;
   const group = new THREE.Group();
-  const hasGround = (p) => p.y !== null;
+  const hasGround = (p) => p.y !== null && !p.void && !p.auto; // 無い道・自動の区間（Global City）は道を描かない
   const flat = (p) => p.y === 0 && !p.ramp;
   const stripes = (len) => (p) => (Math.floor(p.s / len) % 2 ? COLORS.white : COLORS.red);
   // 街の縁石は白黒のしま
@@ -716,7 +725,7 @@ export function buildTrackMesh(track) {
     group.add(fence(samples, side * track.roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
   // ジャンプの着地の道のはし（Kyugo Mountain）: 岩の崖と、黄色と黒のしまの低い壁（逆走すると、ここで止まる）
-  if (snow) group.add(landingCliffs(track));
+  if (snow || track.def.theme === 'world') group.add(landingCliffs(track));
 
   // 分離帯（芝生）と、両はしの白黒の縁石
   const hasMedian = (p) => p.median > 0;

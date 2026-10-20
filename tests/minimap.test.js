@@ -32,3 +32,11 @@ test('コースマップ: コース全体が、地図の枠（余白の内側）
   const c = fit(0, 100);
   assert.ok(Math.abs(Math.hypot(b.x - a.x, b.y - a.y) - Math.hypot(c.x - a.x, c.y - a.y)) < 1e-9);
 });
+
+test('今の4コースのコースマップの線は、Global City の直し（2026-10-20）のあとも同じ本数・同じ点の数', async () => {
+  const { buildTrack } = await import('../src/game/track.js');
+  const { COURSES } = await import('../src/data/tracks.js');
+  const { minimapPaths } = await import('../src/render/minimap.js');
+  const want = [[1300], [2500], [2500, 523, 559], [2800, 1002]];
+  COURSES.slice(0, 4).forEach((c, k) => assert.deepEqual(minimapPaths(buildTrack(c)).map((p) => p.length), want[k], c.name));
+});
