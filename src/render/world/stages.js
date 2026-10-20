@@ -1,4 +1,4 @@
-import { stageVisible } from '../../game/world.js?v=d553df2';
+import { stageVisible } from '../../game/world.js?v=cd7c3b4';
 // root.userData.stageGroups の群れの見え方を決める（毎フレーム。変わったときだけ visible を書く）
 export function applyStageVisibility(root, cur, autoId, win = null) {
   for (const g of root.userData.stageGroups ?? []) {

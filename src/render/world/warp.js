@@ -1,7 +1,7 @@
 // Global City のワープ（2026-10-20）: 3つ目の輪っかを過ぎると、光のトンネル。星が線になって、前から後ろへ速く流れる
 // カメラについていく（userData.followCamera）。見えるのはワープの間だけ（userData.stages = ['warp']）
-import * as THREE from '../../../vendor/three.module.min.js?v=d553df2';
-import { landmark } from './kit.js?v=d553df2';
+import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
+import { landmark } from './kit.js?v=cd7c3b4';
 
 const STREAKS = 400;
 const DEPTH = 700; // 線が流れてくる奥行き（m）

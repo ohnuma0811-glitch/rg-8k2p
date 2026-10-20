@@ -1,7 +1,7 @@
 // 石のアーチ橋（Soki Forest。2026-10-16 のユーザー依頼「下の道の上に大きな橋を」）。
 // 本線の橋の点（p.bridge）に沿って、石の板（道の下）・石の手すり・橋脚と、橋脚の間のアーチを作る。
 // 下の道（ほかの道）の上は、橋脚を置かず、大きなアーチにする
-import { createBuilder } from '../town/builder.js?v=d553df2';
+import { createBuilder } from '../town/builder.js?v=cd7c3b4';
 
 const STONE = 0x9a958c; // 橋の石
 const STONE_DARK = 0x8a857c; // アーチの内側（少し暗く）

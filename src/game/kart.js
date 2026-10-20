@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=d553df2';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=d553df2';
+import { locate, respawnIndex, sampleAt } from './track.js?v=cd7c3b4';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=cd7c3b4';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -328,7 +328,10 @@ export function stepKart(kart, ctl, track, params, dt) {
   const edgeGone = () => edgeLoc().ground === null;
   // 片道のコース（Global City）の「無い道」には、向きにかかわらず入らない（道のはしで止まる）
   // ゴールのあとの周回（Global City）: 道の終わりの近くに来たら、同じ所のゴールの手前の点へつなぎかえる（位置はそのまま）
-  if (track.loopTo !== undefined && track.samples[loc.i].s > track.loopEnd - 30) {
+  // 道の終わりの手前 30m だけ（スタートの後ろの点は、点の並びでは道の終わりより後ろにあるので、含めない。
+  // 含めると、スタート直後にクアラルンプールへ飛んだ。2026-10-21 のユーザー依頼）
+  const ls = track.samples[loc.i].s;
+  if (track.loopTo !== undefined && ls > track.loopEnd - 30 && ls <= track.loopEnd) {
     const back = track.samples.findIndex((q) => q.s >= track.loopTo - 30);
     loc = locate(track, kart.x, kart.z, back, 40, kart.y ?? null);
     kart.seg = loc.i;
