@@ -61,3 +61,19 @@ test('ほかのコースは今のまま（3周、無い道なし）', () => {
     assert.ok(!tr.samples.some((p) => p.void), c.name);
   }
 });
+
+import { stageAt } from '../src/game/track.js';
+import { stageText } from '../src/screens.js';
+
+test('7つのステージ: TOKYO・MT. FUJI・KYOTO・HONG KONG・UNDER THE SEA・NEW YORK・KUALA LUMPUR（2026-10-20 のユーザー依頼）', () => {
+  assert.deepEqual(t.stages.map((st) => st.name), ['TOKYO', 'MT. FUJI', 'KYOTO', 'HONG KONG', 'UNDER THE SEA', 'NEW YORK', 'KUALA LUMPUR']);
+  assert.equal(stageAt(t, -30), 0);
+  assert.equal(stageAt(t, t.marks.TT), 0);
+  assert.equal(stageAt(t, t.marks.FL + 1), 1);
+  assert.equal(stageAt(t, t.marks.KM), 2);
+  assert.equal(stageAt(t, t.marks.CEN), 3);
+  assert.equal(stageAt(t, t.marks.SD + 50), 4);
+  assert.equal(stageAt(t, t.marks.TSQ), 5);
+  assert.equal(stageAt(t, t.marks.FIN), 6);
+  assert.equal(stageText(t, 3), 'STAGE 4/7 HONG KONG');
+});

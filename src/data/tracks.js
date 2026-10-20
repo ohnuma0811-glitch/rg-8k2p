@@ -359,6 +359,11 @@ export const COURSE5 = {
     KL: 86, PM: 87, BC: 90, FIN: 93, END: 94, GB: 95,
   },
   open: { finish: 'FIN', end: 'END', back: 'GB' },
+  // ステージ（2026-10-20 のユーザー依頼「ステージの切り替えごとに、現在の場所を大きく表示」）
+  stages: [
+    { name: 'TOKYO', at: 'S' }, { name: 'MT. FUJI', at: 'FL' }, { name: 'KYOTO', at: 'KY' }, { name: 'HONG KONG', at: 'HL' },
+    { name: 'UNDER THE SEA', at: 'SD' }, { name: 'NEW YORK', at: 'NY' }, { name: 'KUALA LUMPUR', at: 'KL' },
+  ],
   roadHalf: 11,
   dirt: 2,
 };

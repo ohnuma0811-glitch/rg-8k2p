@@ -478,6 +478,8 @@ export function buildTrack(def) {
       p.wall = p.half;
     }
   }
+  // ステージ（Global City）: 印の所から、その名前のステージ
+  t.stages = (def.stages ?? []).map((st) => ({ name: st.name, s: refS(t, st.at) })).sort((a, b) => a.s - b.s);
   // トンネル（Kyugo Mountain）: TI〜TO の本線の点
   if (def.tunnel) {
     const from = refS(t, def.tunnel.from);
@@ -1076,4 +1078,11 @@ export function sampleAt(track, s) {
   const py = p.y ?? 0;
   const qy = q.y ?? py;
   return { x: p.x + (q.x - p.x) * f, y: py + (qy - py) * f, z: p.z + (q.z - p.z) * f, h: p.h, i };
+}
+
+// rel（スタートからの m）が、どのステージか（0 から）。ステージのないコースは 0
+export function stageAt(track, rel) {
+  let k = 0;
+  (track.stages ?? []).forEach((st, i) => { if (rel >= st.s) k = i; });
+  return k;
 }

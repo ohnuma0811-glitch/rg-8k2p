@@ -696,6 +696,28 @@ html, body {
   text-shadow: 3px 0 0 #1c3c88, -3px 0 0 #1c3c88, 0 3px 0 #1c3c88, 0 -3px 0 #1c3c88, 2px 2px 0 #1c3c88, -2px 2px 0 #1c3c88, 2px -2px 0 #1c3c88, -2px -2px 0 #1c3c88, 0 7px 0 #1c3c88;
   pointer-events: none;
 }
+/* Global City のステージが変わったときの、場所の大きな表示（2026-10-20 のユーザー依頼） */
+#stage-banner {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  font: italic 900 28px / 1.1 system-ui, sans-serif;
+  text-shadow: 3px 0 0 #1c3c88, -3px 0 0 #1c3c88, 0 3px 0 #1c3c88, 0 -3px 0 #1c3c88, 2px 2px 0 #1c3c88, -2px 2px 0 #1c3c88, 2px -2px 0 #1c3c88, -2px -2px 0 #1c3c88;
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+#stage-banner .name {
+  font-size: clamp(36px, 9vh, 64px);
+}
+#stage-banner.show {
+  opacity: 1;
+}
 #time-left {
   position: fixed;
   top: calc(env(safe-area-inset-top) + 10px);

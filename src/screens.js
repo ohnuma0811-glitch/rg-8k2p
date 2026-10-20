@@ -389,3 +389,8 @@ export function revealOrder(n) {
 function wait(sec) {
   return new Promise((r) => setTimeout(r, sec * 1000));
 }
+
+// 周回の所の文字（片道のコースはステージ。2026-10-20 のユーザー依頼「STAGE 2/5 HONG KONG」の形）
+export function stageText(track, k) {
+  return `STAGE ${k + 1}/${track.stages.length} ${track.stages[k].name}`;
+}

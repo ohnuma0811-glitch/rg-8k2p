@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
-import { buildTrack, span, locate } from './game/track.js';
+import { buildTrack, span, locate, stageAt } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
 import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
@@ -502,6 +502,7 @@ function showTunnel({ dark, black }, kart = null, open = 0) {
 
 function removeGame() {
   if (!game) return;
+  stageBanner.classList.remove('show');
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();
   crowd.stop();
@@ -887,6 +888,17 @@ async function flow() {
   }
 }
 
+// ステージの大きな表示（2秒出して、だんだん消す）
+const stageBanner = $('stage-banner');
+let stageBannerTimer = null;
+function showStageBanner(k) {
+  stageBanner.querySelector('.no').textContent = `STAGE ${k + 1}`;
+  stageBanner.querySelector('.name').textContent = track.stages[k].name;
+  stageBanner.classList.add('show');
+  clearTimeout(stageBannerTimer);
+  stageBannerTimer = setTimeout(() => stageBanner.classList.remove('show'), 2000);
+}
+
 // ---- 描く ----
 let frames = 0;
 let fpsTime = 0;
@@ -963,7 +975,16 @@ function renderGame(alpha, dt) {
   // 表示
   setText(speedNum, speedText(kart.speed));
   speedo.classList.toggle('boost', kart.boost > 0);
-  setText(lapEl, `LAP ${Math.min(raceLaps(track), e.lap + 1)}/${raceLaps(track)}`);
+  // Global City: 周回のかわりにステージ（STAGE 4/7 HONG KONG）。ステージが変わったら、場所を大きく出す（2026-10-20 のユーザー依頼）
+  const stageNow = track.stages.length ? stageAt(track, progress(race, g.me, track)) : 0;
+  if (track.stages.length) {
+    setText(lapEl, screens.stageText(track, stageNow));
+    // 1/7 は GO! の 1秒後。そのあとはステージが変わったとき
+    if (g.stageShown !== stageNow && !flying && race.t > 1 && !e.finished) {
+      g.stageShown = stageNow;
+      showStageBanner(stageNow);
+    }
+  } else setText(lapEl, `LAP ${Math.min(raceLaps(track), e.lap + 1)}/${raceLaps(track)}`);
   setText(timeEl, timeText(Math.max(0, e.finished ? e.time : race.t)));
   const order = ranking(race, track);
   setText(rankEl, ordinal(order.indexOf(g.me) + 1));
@@ -974,9 +995,9 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), snowmanHop: g.snowmanHops });
+  const now = soundState({ count: countEl.textContent, lap: track.stages.length ? stageNow : e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), snowmanHop: g.snowmanHops });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
-  for (const name of soundEvents(g.sound, now, raceLaps(track))) {
+  for (const name of soundEvents(g.sound, now, track.stages.length || raceLaps(track))) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ
