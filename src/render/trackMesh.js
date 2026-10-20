@@ -12,6 +12,8 @@ import { buildFuji } from './world/fuji.js';
 import { buildKyoto } from './world/kyoto.js';
 import { buildSpace, buildLaunchRail } from './world/space.js';
 import { buildHongKong } from './world/hongkong.js';
+import { buildSea } from './world/sea.js';
+import { buildNewYork } from './world/newyork.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
@@ -623,6 +625,11 @@ function roadside(track, sides) {
   return group;
 }
 
+// トンネルのあるコース（Kyugo Mountain の雪のトンネル、Global City の山の岩・海の底のガラス。2026-10-20）
+export function hasTunnels(track) {
+  return track.samples.some((p) => p.tunnel || p.tunnelLook);
+}
+
 export function buildTrackMesh(track) {
   const { samples } = track;
   const dirt = track.def.dirt;
@@ -857,7 +864,6 @@ export function buildTrackMesh(track) {
     group.add(buildBridge(track, { snow: true }));
     group.add(bridgeSlab(track));
     group.add(buildTerrain(track));
-    group.add(buildTunnel(track));
     group.add(buildRiver(track));
     group.add(grandstand(track));
     group.add(buildSnowScenery(track));
@@ -956,9 +962,10 @@ export function buildTrackMesh(track) {
     group.add(bank(track, sides, -1), bank(track, sides, 1));
     group.add(roadside(track, sides));
   }
+  if (hasTunnels(track)) group.add(buildTunnel(track));
   // Global City の景色（ステージごとの群れ）
   if (world) {
-    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong]) {
+    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork]) {
       for (const g of build(track).children.slice()) group.userData.addStage(g, g.userData.stages);
     }
   }

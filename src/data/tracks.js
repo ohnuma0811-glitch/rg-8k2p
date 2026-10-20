@@ -359,14 +359,16 @@ export const COURSE5 = {
     KL: 86, PM: 87, BC: 90, FIN: 93, END: 94, GB: 95,
   },
   open: { finish: 'FIN', end: 'END', back: 'GB' },
+  squareCorners: ['NY1', 'TSQ', 'MAD', 'CPN'].map((m) => [m, m, 0]), // ニューヨークは碁盤の目（2026-10-20 のユーザー依頼「カーブは直角で」）
   vehicles: [{ kind: 'tram', from: 'HL', to: 'SD', count: 3 }, { kind: 'taxi', from: 'NY1', to: 'GWB', count: 5 }], // 香港の路面電車、ニューヨークのタクシー（ぶつかるとスピン）
-  fenceStyles: [{ from: 'RB', to: 'RBE', style: 'rail' }, { from: 'AR', to: 'LP', style: 'bamboo' }], // 場所ごとの柵（あとの Task で足していく）
+  fenceStyles: [{ from: 'RB', to: 'RBE', style: 'rail' }, { from: 'AR', to: 'LP', style: 'bamboo' }, { from: 'NY', to: 'R1', style: 'curb' }, { from: ['CPN', 'GWB', 0.4], to: ['GWB', 'IG', 0.6], style: 'rail' }], // 場所ごとの柵（あとの Task で足していく）
   // 新幹線と並走する道の加速板（2026-10-20 のユーザー依頼「加速板を置いて、新幹線の速度よりも早く」）
   pads: Array.from({ length: 5 }, (_, k) => ({ at: ['SK', 'KT', 0.1 + k * 0.17], len: 8, time: 1.2 })),
   // 清水の舞台（2026-10-20 のユーザー依頼「清水の舞台からジャンプしたい」）: 舞台のはしから、下の谷の道へ
   jumps: [{ at: 'KM', boost: [-46, -40], ramp: [-14, -2, 1.5], gap: [-2, 24] }],
   tunnels: [
     { from: ['SK', 'KT', 0.85], to: ['KT', 'KY', 0.9], look: 'rock', dark: false }, // 京都へ抜ける山のトンネル
+    { from: ['SD', 'LIB', 0.12], to: ['SD', 'LIB', 0.9], look: 'glass', dark: false }, // 海の底のガラスのトンネル
   ],
   terrainBox: [-2000, -800, 200, 1400], // 富士山のまわりだけ高さのある地面（富士山の半径 800m がすっぽり入る大きさ。はしで崖にならない）
   peaks: [{ at: [-900, 300], h: 600, r: 800, shape: 'cone' }], // 富士山（大きく、立体感のある円すい形。ふもとの道から北に遠く大きく見える。上の方は雪）

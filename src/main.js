@@ -16,6 +16,7 @@ import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
 import { applyStageVisibility } from './render/world/stages.js';
 import { skyFor } from './render/world/sky.js';
 import { updateSpace } from './render/world/space.js';
+import { updateSea } from './render/world/sea.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
@@ -1016,6 +1017,7 @@ function renderGame(alpha, dt) {
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) updateSpace(sg, camera, race.t);
+  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 表示
   setText(speedNum, kart.autoError ? 'ERR' : speedText(kart.speed));

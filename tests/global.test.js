@@ -211,7 +211,9 @@ test('景色の形に、数でない座標（NaN）がない（あると、そ�
   const { buildKyoto } = await import('../src/render/world/kyoto.js');
   const { buildLaunchRail } = await import('../src/render/world/space.js');
   const { buildHongKong } = await import('../src/render/world/hongkong.js');
-  for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong]) build(t).traverse((o) => {
+  const { buildSea } = await import('../src/render/world/sea.js');
+  const { buildNewYork } = await import('../src/render/world/newyork.js');
+  for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork]) build(t).traverse((o) => {
     if (!o.isMesh) return;
     const a = o.geometry.attributes.position.array;
     for (let i = 0; i < a.length; i++) assert.ok(Number.isFinite(a[i]), `${o.parent.userData.stages}`);
@@ -364,4 +366,44 @@ test('香港の名所: 中環の高層ビル・中国銀行タワー・IFC・ネ
   const m = landmarks(buildHongKong(t));
   for (const name of ['central', 'bocTower', 'ifc', 'neon', 'harbour']) assert.ok(m.has(name), name);
   assert.ok(m.get('harbour').z < at('CEN').z, '湾は北');
+});
+
+import { buildSea } from '../src/render/world/sea.js';
+import { buildNewYork } from '../src/render/world/newyork.js';
+
+test('海の底: ガラスのトンネル（暗くしない）。クジラ・サメ・魚の群れ・しずんだ船。自由の女神の足もとに出る', () => {
+  const m = landmarks(buildSea(t));
+  for (const name of ['whale', 'shark', 'fish', 'wreck', 'liberty']) assert.ok(m.has(name), name);
+  const p = t.samples[Math.round((t.marks.SD + t.marks.LIB) / 2)];
+  assert.ok(p.y < -20);
+  assert.ok(!p.tunnel, '海の底は暗くしない');
+  assert.equal(p.tunnelLook, 'glass');
+});
+
+test('ニューヨーク: 曲がる角はすべて直角（4つ）。名所は南から北へ。ジョージ・ワシントン・ブリッジは西（ハドソン川）', () => {
+  assert.equal(t.corners.length, 4);
+  const m = landmarks(buildNewYork(t));
+  for (const name of ['timesSquare', 'jefferies', 'uniqlo', 'tiffany', 'centralPark', 'gwb', 'ikueiGate', 'ring1', 'ring2', 'ring3']) assert.ok(m.has(name), name);
+  assert.ok(m.get('timesSquare').z > m.get('centralPark').z, 'タイムズスクエアはセントラルパークの南');
+  assert.ok(m.get('gwb').x < m.get('centralPark').x, 'ジョージ・ワシントン・ブリッジは西');
+  assert.ok(Math.hypot(m.get('ring1').x - at('R1').x, m.get('ring1').z - at('R1').z) < 3, '1つ目の輪っかは R1');
+});
+
+import { hasTunnels } from '../src/render/trackMesh.js';
+
+test('トンネルの形は、雪山だけでなく、トンネルのあるコース（Global City の山の岩・海の底のガラス）にも作る', () => {
+  assert.equal(hasTunnels(t), true);
+  assert.equal(hasTunnels(buildTrack(COURSES[0])), false);
+});
+
+import { buildTunnel } from '../src/render/snow/tunnel.js';
+
+test('海の底のガラスのトンネルは半円（2026-10-20 のユーザー依頼）: てっぺんは道から道の半分のはばくらいの高さ', () => {
+  let glass = null;
+  buildTunnel(t).traverse((o) => { if (o.isMesh && o.material?.transparent && o.material.opacity < 0.5) glass = o; });
+  const p = t.samples[Math.round((t.marks.SD + t.marks.LIB) / 2)];
+  const a = glass.geometry.attributes.position;
+  let top = -Infinity;
+  for (let k = 0; k < a.count; k++) if (Math.hypot(a.getX(k) - p.x, a.getZ(k) - p.z) < p.wall + 3) top = Math.max(top, a.getY(k));
+  assert.ok(top > p.y + p.wall - 1, `${top - p.y}`);
 });
