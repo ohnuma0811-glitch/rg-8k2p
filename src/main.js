@@ -23,7 +23,7 @@ import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, 
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenCars, autoViewOf, viewStage } from './game/world.js';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -1018,10 +1018,14 @@ function renderGame(alpha, dt) {
   const toExit = track.samples[me.seg]?.tunnel && track.marks.TO !== undefined ? span(track, track.samples[me.seg].s, track.marks.TO) : Infinity;
   // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
   if (track.def.theme === 'world') {
-    const cur = viewStage(track, me, stageAt(track, progress(g.race, g.me, track))); // 宇宙から下りてくる後半は香港
+    const rel = progress(g.race, g.me, track);
+    const cur = viewStage(track, me, stageAt(track, rel)); // 宇宙から下りてくる後半は香港
+    // 前後のステージは、さかいめの近くだけ見せる（遠くの都市が見えた。2026-10-21 のユーザー依頼）
+    const w = stageWindow(track, rel);
+    const win = w.cur === cur ? w : { cur, next: false, prev: false };
     // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）。ワープは3つ目の輪っかから
     const autoView = autoViewOf(me);
-    applyStageVisibility(track.mesh, cur, autoView);
+    applyStageVisibility(track.mesh, cur, autoView, win);
     const look = skyFor(track, cur, me);
     setSky(scene, look);
     // 宇宙・ワープの間は、平らな地面を消す（宇宙から灰色の地面が見えた）

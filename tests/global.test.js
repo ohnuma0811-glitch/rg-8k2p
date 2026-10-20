@@ -724,3 +724,57 @@ test('新幹線は、自分が近づいてから走り出し、線路の終わ�
   // 走り出す前は見えない
   assert.ok(shinkansenCars(t, { ...line, t0: null }, 50, 30, 16).every((c) => !c.visible));
 });
+
+// 景色が道の上（車の高さ 5m まで）に出ていないか。数えるのは道の点の近く（from〜to の s）
+function intrusions(g, from, to) {
+  g.updateMatrixWorld(true);
+  let bad = 0;
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    const a = o.geometry.attributes.position;
+    const e = o.matrixWorld.elements;
+    for (let k = 0; k < a.count; k += 5) {
+      const x = a.getX(k), y = a.getY(k), z = a.getZ(k);
+      const wx = e[0] * x + e[4] * y + e[8] * z + e[12];
+      const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
+      const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
+      const loc = locate(t, wx, wz, null, 40);
+      if (loc.s < from || loc.s > to) continue;
+      const p = t.samples[loc.i];
+      if (p.y === null) continue;
+      if (Math.abs(loc.lateral) < p.half - 0.5 && wy > p.y + 0.05 && wy < p.y + 5) bad++;
+    }
+  });
+  return bad;
+}
+
+test('京都の景色は道の上に出ない（2026-10-21 のユーザー依頼「鳥居の出口に何か埋まっている」）', () => {
+  assert.equal(intrusions(buildKyoto(t), t.marks.FI, t.marks.LP), 0);
+});
+
+test('清水寺は巨大で、道は本堂の中を通りぬける。仁王門もくぐる。京都の名所には英語の看板（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildKyoto(t));
+  for (const name of ['kiyomizuHall', 'nioGate', 'signKiyomizu', 'signKinkaku', 'signFushimi', 'signGinkaku', 'signArashiyama']) assert.ok(m.has(name), name);
+  const h = m.get('kiyomizuHall');
+  const loc = locate(t, h.x, h.z, null, 40);
+  assert.ok(Math.abs(loc.lateral) < 2, '本堂は道の上にまたがる');
+});
+
+import { stageWindow } from '../src/game/world.js';
+
+test('ほかの都市は遠くから見えない: 次のステージは入る 400m 手前から、前のステージは出て 250m まで（2026-10-21 のユーザー依頼）', () => {
+  const st = t.stages;
+  const ny = st[5].s;
+  const kl = st[6].s;
+  const mid = (ny + kl) / 2;
+  let w = stageWindow(t, mid);
+  assert.equal(w.cur, 5);
+  assert.ok(!stageVisible([6], w.cur, null, w), 'ニューヨークの真ん中からクアラルンプールは見えない');
+  assert.ok(!stageVisible([4], w.cur, null, w), 'ニューヨークの真ん中から海の底は見えない');
+  assert.ok(stageVisible([4, 5], w.cur, null, w), '自由の女神（4・5）は見える');
+  w = stageWindow(t, kl - 200);
+  assert.ok(stageVisible([6], w.cur, null, w), '入る少し手前から次の都市が見える');
+  w = stageWindow(t, ny + 100);
+  assert.ok(stageVisible([4], w.cur, null, w), '出たすぐあとは、前のステージも見える');
+  assert.ok(stageVisible([6], 5, null), '窓がないときは今までどおり');
+});

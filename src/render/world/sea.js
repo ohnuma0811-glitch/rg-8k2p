@@ -63,17 +63,7 @@ export function buildSea(track) {
     if (k % 3) b.cyl(0.2, 0.4, 6 + (k % 4) * 2, 4, 0x3f8a4a, x, -44.5, zz, true);
     else b.sphere(3 + (k % 3), 0x6a6a72, x, -44, zz, 5);
   }
-  // 光の筋（上からななめに。光る半透明の細い板）
-  const rays = new THREE.Group();
-  for (let k = 0; k < 20; k++) {
-    const t = (k + 0.5) / 20;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(4, 60), new THREE.MeshBasicMaterial({ color: 0xbfefff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
-    m.position.set(a.x + (z.x - a.x) * t + ((k * 37) % 60) - 30, -22, a.z + (z.z - a.z) * t + ((k * 53) % 80) - 40);
-    m.rotation.set(0.3, k, 0.2);
-    m.userData.keep = true;
-    rays.add(m);
-  }
-  g.add(rays);
+  // 光の筋は消した（2026-10-21 のユーザー依頼「上から光のようなものが斜めに差し込んでいるが不要」）
 
   // クジラ（青灰色、長さ 25m）
   const wc = nearRoad(track, S.whale.at, 0); // トンネルの真上

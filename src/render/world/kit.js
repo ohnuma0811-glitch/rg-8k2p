@@ -132,3 +132,15 @@ export function viaduct(b, track, from, to, off, y) {
     b.cyl(1.4, 1.6, y, 8, 0xb8bcc2, a.x, 0, a.z); // 柱
   }
 }
+
+// 英語の看板（名所の名前。2026-10-21 のユーザー依頼「看板を立てるなりして」）: 道の s の所の横（side は 1 右、-1 左）に、走ってくる方へ向けて立てる
+export function roadSign(group, b, track, s, side, text, name, { bg = '#2a2a30', fg = '#f2ead2' } = {}) {
+  const p = pointAt(track, s);
+  const c = beside(p, side * (p.wall + 4));
+  landmark(group, name, c.x, p.y ?? 0, c.z);
+  b.push(c.x, p.y ?? 0, c.z, Math.atan2(Math.cos(p.h), Math.sin(p.h)) + Math.PI);
+  for (const x of [-4.5, 4.5]) b.box(0.4, 2.4, 0.4, 0x5a5048, x, 0, 0);
+  b.box(11, 2.8, 0.5, 0x3a3a40, 0, 2.2, 0);
+  b.label(textSign(text, { bg, fg, font: 'bold 64px serif' }), [768, 160], 0, 3.6, 0.3, 0, 10.4, 2.4);
+  b.pop();
+}

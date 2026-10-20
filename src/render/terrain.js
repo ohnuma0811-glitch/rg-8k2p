@@ -240,7 +240,8 @@ export function buildTerrain(track) {
       col[k + 2] = c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })));
+    // Global City の富士山の地面は霧をかけない（お台場から遠くの富士山が霧で見えなかった。2026-10-21 のユーザー依頼「正面にドーンと」）
+    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, fog: false })));
   } else group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
   group.add(buildShoulders(track));
   return group;

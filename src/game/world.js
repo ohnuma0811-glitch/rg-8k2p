@@ -2,9 +2,22 @@ import { sampleAt, stageAt } from './track.js';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ
-export function stageVisible(groupStages, cur, autoId) {
+// win（stageWindow）があれば、前後のステージは、さかいめの近くだけ（遠くの都市が見えた。2026-10-21 のユーザー依頼）
+export function stageVisible(groupStages, cur, autoId, win = null) {
   if (autoId === 'space' || autoId === 'warp') return groupStages.includes(autoId);
-  return groupStages.some((k) => typeof k === 'number' && Math.abs(k - cur) <= 1);
+  if (!win) return groupStages.some((k) => typeof k === 'number' && Math.abs(k - cur) <= 1);
+  return groupStages.some((k) => k === cur || (k === cur + 1 && win.next) || (k === cur - 1 && win.prev));
+}
+
+// 今のステージと、次のステージに入る 400m 手前か（next）、前のステージを出て 250m までか（prev）
+export const STAGE_AHEAD = 400;
+export const STAGE_BEHIND = 250;
+export function stageWindow(track, rel) {
+  const st = track.stages ?? [];
+  const cur = stageAt(track, rel);
+  const next = st[cur + 1] ? rel > st[cur + 1].s - STAGE_AHEAD : false;
+  const prev = cur > 0 ? rel < st[cur].s + STAGE_BEHIND : false;
+  return { cur, next, prev };
 }
 
 // 自動の区間の景色（Global City）: 宇宙は高さ 150m より上だけ、ワープは3つ目の輪っかを過ぎてから（leg 2）。ほかは null（ふつうのステージの景色）
