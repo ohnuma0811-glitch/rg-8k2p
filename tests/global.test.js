@@ -200,3 +200,57 @@ test('地面: 富士山のまわりだけ高さがある（富士山の頂上は
   const ny = t.toWorld(500, 2200);
   assert.equal(terrainHeight(t, ny.x, ny.z), 0);
 });
+
+import { buildTokyo } from '../src/render/world/tokyo.js';
+
+// 名所の印（userData.landmark）の位置
+const landmarks = (g) => { const m = new Map(); g.updateMatrixWorld(true); g.traverse((o) => { if (o.userData.landmark) m.set(o.userData.landmark, o.getWorldPosition(o.position.clone())); }); return m; };
+
+test('東京の景色の形に、数でない座標（NaN）がない（あると、その形がまるごと描かれない）', () => {
+  buildTokyo(t).traverse((o) => {
+    if (!o.isMesh) return;
+    const a = o.geometry.attributes.position.array;
+    for (let i = 0; i < a.length; i++) assert.ok(Number.isFinite(a[i]), `${o.parent.userData.stages}`);
+  });
+});
+
+test('東京の名所: 皇居・二重橋・桜並木・新丸ビル・東京駅・東京タワー・新幹線の線路・レインボーブリッジ・フジテレビ・巨大ジャンプ台', () => {
+  const m = landmarks(buildTokyo(t));
+  for (const name of ['palace', 'nijubashi', 'sakura', 'shinmaru', 'tokyoStation', 'tokyoTower', 'shinkansenLine', 'rainbowBridge', 'fujiTV', 'bigJump']) assert.ok(m.has(name), name);
+  for (const name of ['palace', 'shinmaru', 'tokyoStation', 'tokyoTower', 'fujiTV']) {
+    const p = m.get(name);
+    const loc = locate(t, p.x, p.z, null, 40);
+    assert.ok(Math.abs(loc.lateral) > loc.wall + 2, `${name} が道の上`);
+  }
+});
+
+test('方角: 東京駅は丸の内の東、東京タワーは皇居の南、フジテレビはお台場の道の右（北）、富士山はお台場の道の正面（西）', () => {
+  const m = landmarks(buildTokyo(t));
+  assert.ok(m.get('tokyoStation').x > m.get('shinmaru').x);
+  assert.ok(m.get('tokyoTower').z > m.get('palace').z);
+  const p = at('FTV');
+  assert.ok(Math.cos(p.h) < -0.95, 'お台場の道は西向き');
+  assert.ok(m.get('fujiTV').z < p.z, 'フジテレビは北（右）');
+  assert.ok(t.toWorld(-900, 600).x < p.x, '富士山は西');
+});
+
+test('大ジャンプ・宇宙・ワープの空の道すじは、地面を引き上げない（富士山の地面の上に、細長い山ができない）', () => {
+  for (let s = t.marks.AJ + 50; s < t.marks.FL - 50; s += 25) {
+    const p = t.samples[Math.round(s)];
+    if (p.y < 60) continue;
+    assert.ok(terrainHeight(t, p.x, p.z) < p.y - 40, `${Math.round(s)}: 地面 ${terrainHeight(t, p.x, p.z).toFixed(0)} 空の道 ${p.y.toFixed(0)}`);
+  }
+});
+
+test('高さのある地面の四角（terrainBox）のはしでは、地面は平ら（富士山のすそ野が切れて崖にならない）', () => {
+  const [x0, z0, x1, z1] = COURSE5.terrainBox;
+  for (let k = 0; k <= 40; k++) {
+    const u = k / 40;
+    for (const [x, z] of [[x0 + (x1 - x0) * u, z0], [x0 + (x1 - x0) * u, z1], [x0, z0 + (z1 - z0) * u], [x1, z0 + (z1 - z0) * u]]) {
+      const w = t.toWorld(x, z);
+      const loc = locate(t, w.x, w.z, null, 40);
+      if (Math.abs(loc.lateral) < loc.wall + 60) continue; // 道の近くは道の高さ
+      assert.ok(terrainHeight(t, w.x - 1, w.z - 1) < 3, `${x.toFixed(0)},${z.toFixed(0)}: ${terrainHeight(t, w.x - 1, w.z - 1).toFixed(1)}`);
+    }
+  }
+});

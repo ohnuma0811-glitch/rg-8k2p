@@ -31,7 +31,8 @@ function prep(track) {
   const grid = new Map();
   // 橋の上の点、ジャンプ台、地面のない所（川の上）は、地面を引っぱらない（ジャンプ台の下も川が見えるように）
   // トンネルの中の道（Kyugo Mountain）も、地面を引っぱらない（上を山でおおう）
-  const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel);
+  // 自動の区間（Global City の大ジャンプ・宇宙・ワープの空の道すじ）と無い道も、地面を引っぱらない
+  const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel && !p.auto && !p.void);
   for (const p of pts) {
     const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
     if (!grid.has(key)) grid.set(key, []);

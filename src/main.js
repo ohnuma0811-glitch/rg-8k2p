@@ -18,7 +18,9 @@ import { skyFor } from './render/world/sky.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, mergeStatic } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, mergeStatic } from './render/models.js';
+import { shinkansenPose } from './game/world.js';
+import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
@@ -492,6 +494,27 @@ function placeBuses(time) {
   });
 }
 
+// 新幹線（Global City。2026-10-20）: 東京は道の北がわの線路（見るだけ）。速さは万能タイプの最高速の SHINKANSEN_FACTOR 倍
+function trainsOf(t) {
+  if (t.def.theme !== 'world') return [];
+  const ref = (r) => (typeof r === 'string' ? t.marks[r] : null);
+  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), s0: ref(tr.from), off: tr.off, y: tr.y }));
+}
+function placeTrains(time, topSpeed) {
+  if (!track.trains) track.trains = trainsOf(track);
+  if (!track.trains.length) return;
+  if (!track.trainModels) {
+    track.trainModels = track.trains.map(() => createShinkansenModel());
+    track.trainModels.forEach((m) => track.mesh.add(m));
+  }
+  track.trains.forEach((tr, k) => {
+    const p = shinkansenPose(track, tr, Math.max(0, time), topSpeed);
+    const m = track.trainModels[k];
+    m.position.set(p.x, p.y + 1.6, p.z);
+    m.rotation.y = -p.heading;
+  });
+}
+
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
 // タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
 const TUNNEL_LOOK = tunnelLook(touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0));
@@ -945,6 +968,7 @@ function renderGame(alpha, dt) {
   });
   placeCows(g.race.t);
   placeBuses(g.race.t);
+  placeTrains(g.race.t, g.base.topSpeed);
   placeBoars(g.race.t);
   placeMonkeys(g.race.t, g.nuts);
   placeDino(g.race.t);

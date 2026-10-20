@@ -7,6 +7,7 @@ import { buildBridge } from './forest/bridge.js';
 import { buildTunnel } from './snow/tunnel.js';
 import { buildSnowScenery } from './snow/kit.js';
 import { buildSigns } from './snow/signs.js';
+import { buildTokyo } from './world/tokyo.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
@@ -465,6 +466,19 @@ function landingCliffs(track) {
   return b.build();
 }
 
+// 点 p の柵の見た目（Global City の def.fenceStyles。範囲のない所は guard。あとに書いた範囲が勝つ）
+function fenceStyleOf(track) {
+  const ranges = (track.def.fenceStyles ?? []).map((f) => ({ from: refOf(track, f.from), to: refOf(track, f.to), style: f.style }));
+  return (p) => {
+    let style = 'guard';
+    for (const r of ranges) if (p.path === 0 && p.s >= r.from && p.s <= r.to) style = r.style;
+    return style;
+  };
+}
+function refOf(track, ref) {
+  return typeof ref === 'string' ? track.marks[ref] : markS(track, ref);
+}
+
 // 柵の外の高い土手（マリオカート64 のように、道の両側を高く囲む）。ほかの道・交わる所・観客席の前には作らない
 export const BANK_FROM = 3; // 柵から土手のふもとまで（m）。間に看板を立てる
 export const BANK_WIDTH = 14; // 土手の幅（m）
@@ -608,7 +622,9 @@ function roadside(track, sides) {
 export function buildTrackMesh(track) {
   const { samples } = track;
   const dirt = track.def.dirt;
-  const town = ['town', 'world'].includes(track.def.theme);
+  const town = track.def.theme === 'town';
+  // 世界の都市（Global City。2026-10-20）: アスファルトの道（白線）、柵は場所ごと（fenceStyles）、景色はステージごとの群れ
+  const world = track.def.theme === 'world';
   // 森（Soki Forest。2026-10-16）: 茶色い土の道（線なし）、縁石なし、道の外は草、柵は丸太の色の低い柵
   const forest = track.def.theme === 'forest';
   // 雪山（Kyugo Mountain。2026-10-18）: 雪のつもった道（線なし）、縁石なし、道の外は雪、柵は低い木の柵
@@ -619,7 +635,7 @@ export function buildTrackMesh(track) {
   const flat = (p) => p.y === 0 && !p.ramp;
   const stripes = (len) => (p) => (Math.floor(p.s / len) % 2 ? COLORS.white : COLORS.red);
   // 街の縁石は白黒のしま
-  const curb = town ? (p) => (Math.floor(p.s / 2) % 2 ? 0xf2f2f2 : 0x222222) : stripes(2);
+  const curb = town || world ? (p) => (Math.floor(p.s / 2) % 2 ? 0xf2f2f2 : 0x222222) : stripes(2);
   const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
@@ -718,6 +734,13 @@ export function buildTrackMesh(track) {
     if (snow) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 0.8, (p) => fenceOk(p) && !p.bridge && !p.tunnel, () => 0x8a6a4a)); // 低い木の柵（高さ0.8m。トンネルの中は壁）
     else if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
     else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
+    else if (world) {
+      // 場所ごとの柵（def.fenceStyles。あとに書いた範囲が勝つ）: guard 白いガードレール、bamboo 竹、curb 歩道のふち、rail 橋の手すり、none なし
+      const styleOf = fenceStyleOf(track);
+      for (const [style, h, color] of [['guard', 0.8, 0xe8eaec], ['bamboo', 1.0, 0x8aa05a], ['curb', 0.3, 0xb8b4ac], ['rail', 1.2, 0xd8dce0]]) {
+        group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + h, (p) => fenceOk(p) && !p.tunnel && styleOf(p) === style, () => color));
+      }
+    }
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
     // 下は、台の高さの分だけ（高い所のジャンプ台が、地面までの大きな壁にならないように。Kyugo Mountain）
@@ -929,8 +952,19 @@ export function buildTrackMesh(track) {
     group.add(bank(track, sides, -1), bank(track, sides, 1));
     group.add(roadside(track, sides));
   }
+  // Global City の景色（ステージごとの群れ）
+  if (world) {
+    for (const g of buildTokyo(track).children.slice()) group.userData.addStage(g, g.userData.stages);
+  }
   // 動かない形は、同じ材質ごと・区画ごとに1つにまとめる（タブレットで描く回数を減らす。2026-10-16）
+  // Global City のステージごとの群れは、見えたり消えたりするので、群れの中だけでまとめる
+  const stageGroups = group.userData.stageGroups ?? [];
+  for (const g of stageGroups) group.remove(g);
   group.userData.merged = mergeMeshes(group);
+  for (const g of stageGroups) {
+    mergeMeshes(g);
+    group.add(g);
+  }
   return group;
 }
 
