@@ -30,6 +30,11 @@ export function autoViewOf(kart) {
   return a.id;
 }
 
+// 夜のステージ（Global City の香港・クアラルンプール）。カートのライトを点ける（2026-10-21 のユーザー依頼）
+export function nightStage(track, cur) {
+  return track.def.theme === 'world' && (cur === 3 || cur === 6);
+}
+
 // 京都へ向かう加速板（新幹線と並走、SK〜KT）で加速しているか（2026-10-21 のユーザー依頼「あっという間に京都についたような演出」）
 export function padRush(track, kart) {
   if (!(kart.boost > 0) || track.marks.SK === undefined) return false;

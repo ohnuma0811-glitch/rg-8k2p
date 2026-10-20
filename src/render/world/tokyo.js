@@ -228,6 +228,19 @@ export function buildTokyo(track) {
   const ls = sOf(track, line.from);
   const le = sOf(track, line.to);
   viaduct(b, track, ls, le, line.off, line.y);
+  // 線路の終わりは、新幹線が入っていくトンネルの入口（急に消えて見えないように。2026-10-21 のユーザー依頼）
+  {
+    const pe = pointAt(track, le);
+    const pq = pointAt(track, le - 10);
+    const a = beside(pe, line.off);
+    const c = beside(pq, line.off);
+    b.push(a.x, 0, a.z, Math.atan2(a.x - c.x, a.z - c.z)); // z が線路の向き
+    for (const sx of [-1, 1]) b.box(5, line.y + 9, 14, 0x8a8f96, sx * 7.5, 0, 7);
+    b.box(20, 4, 14, 0x8a8f96, 0, line.y + 6, 7);
+    b.box(10, 6, 0.4, 0x111111, 0, line.y + 0.2, 0.1); // 暗い入口
+    b.box(24, 1.2, 16, 0x5a6168, 0, line.y + 10, 7);
+    b.pop();
+  }
   const lm = pointAt(track, (ls + le) / 2);
   const lc = beside(lm, line.off);
   landmark(city, 'shinkansenLine', lc.x, line.y, lc.z);

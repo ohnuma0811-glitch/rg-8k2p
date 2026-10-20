@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, locate, sampleAt, markS } from '../src/game/track.js';
 import { readFileSync } from 'node:fs';
+import { GLOBAL_SCENERY } from '../src/data/global.js';
 import { createRace, updateProgress, progress, ranking, raceLaps, raceDistance, LAPS } from '../src/game/race.js';
 import { COURSE5, COURSES } from '../src/data/tracks.js';
 
@@ -17,7 +18,7 @@ test('Global City は5つ目・最後のコース。大会は5レース（2026-1
 
 test('点は m（全体を scale 倍）: 全長は点から自動。走る道は 12km まで（2026-10-20 のユーザー依頼「目安 12km・5〜6分まで」）。東京駅と東京タワーの間の距離が地図のとおり', () => {
   const m = t.marks;
-  const autos = (m.FL - m.AJ) + (m.HL - m.LP) + (m.KL - m.R1); // 大ジャンプ・宇宙・ワープ（自動の区間）
+  const autos = (m.FL - m.AJ) + (m.HL - m.LP) + (m.KL - m.R1) + (t.finish - m.GJ); // 大ジャンプ・宇宙・ワープ・最後の大ジャンプ（ゴールまで）（自動の区間）
   const drive = t.finish - autos;
   // カーブを増やしたので 12.5km まで（2026-10-21 のユーザー依頼「直線で戦略性が無い」。最後のコースなので多少長くても良い）
   assert.ok(drive > 10000 && drive < 12500, `${drive}`);
@@ -99,8 +100,8 @@ function through(id, seconds) {
   return { kart, log };
 }
 
-test('自動の区間は3つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）', () => {
-  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp']);
+test('自動の区間は4つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）、最後の大ジャンプ', () => {
+  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp', 'goalJump']);
   const time = (id) => t.autos.find((a) => a.id === id).legs.reduce((x, l) => x + l.time, 0);
   assert.equal(time('jump'), 4);
   assert.equal(time('space'), 8);
@@ -174,9 +175,9 @@ test('道のはしでは、前にもうしろにも、それより先へ行け�
   assert.ok(!t.samples[back.seg].void && !(back.respawn > 0), 'スタートの後ろの先');
 });
 
-test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（3本）', () => {
+test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（4本）', () => {
   for (const ps of minimapPaths(t)) for (const p of ps) assert.ok(!p.void && !p.auto);
-  assert.equal(minimapDashes(t).length, 3);
+  assert.equal(minimapDashes(t).length, 4);
 });
 
 import { stageVisible } from '../src/game/world.js';
@@ -348,8 +349,8 @@ import { buildSpace } from '../src/render/world/space.js';
 test('乗り物は、その範囲の中だけを走る（香港の路面電車は香港、NY のタクシーは NY）', () => {
   const trams = t.buses.filter((b) => b.kind === 'tram');
   const taxis = t.buses.filter((b) => b.kind === 'taxi');
-  assert.equal(trams.length, 3);
-  assert.equal(taxis.length, 5);
+  assert.equal(trams.length, 5); // 向かってくる 3台 ＋ 同じ向き 2台（2026-10-21）
+  assert.equal(taxis.length, 9); // 向かってくる 5台 ＋ 同じ向き 4台
   for (let time = 0; time < 120; time += 0.7) {
     for (const b of trams) {
       const s = busPose(t, b, time).s;
@@ -852,7 +853,7 @@ test('香港・海の底・ニューヨーク・クアラルンプールの景�
     hk: intrusions(buildHongKong(t), t.marks.HL, t.marks.SD),
     sea: intrusions(buildSea(t), t.marks.SD, t.marks.LIB),
     ny: intrusions(buildNewYork(t), t.marks.NY, t.marks.R3),
-    kl: intrusions(buildKL(t), t.marks.KL, t.marks.END),
+    kl: intrusions(buildKL(t), t.marks.KL, t.marks.R0 - 5) + intrusions(buildKL(t), t.marks.LND, t.marks.END), // 最後のジャンプ台の矢印は、わざと道の上に描く
   };
   assert.deepEqual(r, { hk: 0, sea: 0, ny: 0, kl: 0 });
 });
@@ -1020,4 +1021,191 @@ test('フジテレビは、レインボーブリッジの出口の正面に見�
   assert.ok(fwd > 100 && fwd < 300 && Math.abs(lat) < 80, `前 ${Math.round(fwd)} 横 ${Math.round(lat)}`);
   // 道にかからない（建物の半分のはば 45m）
   for (const q of t.samples) if (q.y !== null && !q.void && !q.auto) assert.ok(Math.hypot(q.x - f.x, q.z - f.z) > q.wall + 45, `道 s ${Math.round(q.s)}`);
+});
+
+test('コースを作る時間は短い（ならせない急なカーブがない。名前・コース選びの画面が重かった。2026-10-21 のユーザー依頼）', () => {
+  const t0 = performance.now();
+  buildTrack(COURSE5);
+  // ひとつで約 1.2秒（前は 10秒をこえた）。テストを全部いっしょに流すとパソコンが混むので、2.5秒まで
+  assert.ok(performance.now() - t0 < 2500, `${Math.round(performance.now() - t0)}ms`);
+});
+
+test('クアラルンプールの最後は大ジャンプで自動ゴール（ツインタワーの間を飛ぶ）。ジャンプ台の手前に加速板の代わりの坂、着いた順がそのまま順位（2026-10-21 のユーザー依頼）', () => {
+  const gj = t.autos.find((a) => a.id === 'goalJump');
+  assert.ok(gj, '自動の区間 goalJump');
+  assert.ok(gj.from < t.finish && gj.legs[gj.legs.length - 1].to > t.finish, 'ゴールをジャンプで越える');
+  const mid = t.samples[Math.round(t.finish)];
+  assert.ok(mid.auto === 'goalJump' && mid.y > 40, 'ゴールの上を高く飛ぶ');
+});
+
+test('ワープの輪っかの間隔は前の2倍。レインボーブリッジの上に加速板1枚（2026-10-21 のユーザー依頼）', () => {
+  assert.ok(t.marks.R2 - t.marks.R1 > 220 && t.marks.R3 - t.marks.R2 > 220, `${Math.round(t.marks.R2 - t.marks.R1)} ${Math.round(t.marks.R3 - t.marks.R2)}`);
+  let runs = 0;
+  for (let i = Math.round(t.marks.RB); i < Math.round(t.marks.RBE); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) runs++;
+  assert.equal(runs, 1);
+});
+
+test('locate（ヒントなし）は、点を全部調べたときと同じ点を返す（速くしたあとも）', () => {
+  const brute = (x, z, y = null) => {
+    let best = 0;
+    let bd = Infinity;
+    t.samples.forEach((p, i) => {
+      const dy = y !== null && p.y !== null ? 3 * (p.y - y) : 0;
+      const d = (x - p.x) ** 2 + (z - p.z) ** 2 + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  };
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const xs = t.samples.map((p) => p.x);
+  const zs = t.samples.map((p) => p.z);
+  const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  for (let k = 0; k < 300; k++) {
+    const x = x0 - 200 + rnd() * (x1 - x0 + 400);
+    const z = z0 - 200 + rnd() * (z1 - z0 + 400);
+    const y = k % 3 ? null : rnd() * 60;
+    assert.equal(locate(t, x, z, null, 40, y).i, brute(x, z, y), `${x},${z},${y}`);
+  }
+  const t0 = performance.now();
+  for (let k = 0; k < 2000; k++) locate(t, x0 + rnd() * (x1 - x0), z0 + rnd() * (z1 - z0), null, 40);
+  assert.ok(performance.now() - t0 < 400, `2000回で ${Math.round(performance.now() - t0)}ms`);
+});
+
+test('コース選びの背景（クアラルンプールだけ）は軽く作れる（名前・コース選びの画面が重かった。2026-10-21 のユーザー依頼）', async () => {
+  const { buildShowcase } = await import('../src/render/trackMesh.js');
+  const t0 = performance.now();
+  const g = buildShowcase(t);
+  assert.ok(performance.now() - t0 < 1500, `${Math.round(performance.now() - t0)}ms`);
+  const m = landmarks(g);
+  assert.ok(m.has('petronas') && m.has('pinkMosque'));
+});
+
+test('地球は本物らしく: でこぼこのかたまりではなく、なめらかな球に陸と海の絵、雲と大気（2026-10-21 のユーザー依頼「凹凸がありすぎる」）', () => {
+  const g = buildSpace(t).children[0];
+  const earth = g.userData.earth;
+  const spheres = [];
+  earth.traverse((o) => { if (o.isMesh) spheres.push(o); });
+  assert.ok(spheres.length <= 3, `形の数 ${spheres.length}（地面・雲・大気）`);
+  for (const m of spheres) assert.ok(m.geometry.parameters.widthSegments >= 48, 'なめらか');
+});
+
+test('海の底の怪獣は泳がず、トンネルの横で、通るカートの方を向いて口を開け閉めする（2026-10-21 のユーザー依頼「食べたそうに見ている」）', async () => {
+  const { updateSea } = await import('../src/render/world/sea.js');
+  const THREE = await import('../vendor/three.module.min.js');
+  const g = buildSea(t);
+  let mon = null;
+  g.traverse((o) => { if (o.userData.watch) mon = o; });
+  assert.ok(mon && !mon.userData.swim, '泳がない');
+  const before = mon.position.clone();
+  const cam = new THREE.PerspectiveCamera();
+  cam.position.set(mon.position.x + 50, -25, mon.position.z);
+  updateSea(g.children[0], 1, cam);
+  assert.ok(mon.position.distanceTo(before) < 1e-6, '動かない');
+  // 前（+z）がカメラの方を向く
+  const f = new THREE.Vector3(0, 0, 1).applyQuaternion(mon.quaternion);
+  assert.ok(f.x > 0.9, `向き ${f.x.toFixed(2)}`);
+});
+
+import { createKartModel, createTramModel, createTaxiModel } from '../src/render/models.js';
+import { nightStage } from '../src/game/world.js';
+
+test('夜の香港とクアラルンプールでは、カートとバス・タクシーのライトがつく（2026-10-21 のユーザー依頼）', () => {
+  for (const m of [createKartModel(), createTramModel(), createTaxiModel()]) assert.ok(m.userData.lights, 'ライト');
+  assert.equal(nightStage(t, 3), true);
+  assert.equal(nightStage(t, 6), true);
+  assert.equal(nightStage(t, 0), false);
+  assert.equal(nightStage(t, 5), false);
+});
+
+test('富士山へ飛ぶジャンプ台（と最後の大ジャンプ）は、乗った所から加速し、飛び出したあとも少しずつ速くなる（2026-10-21 のユーザー依頼「飛び出す瞬間に急に加速」）', () => {
+  // ジャンプ台の上は加速板
+  let boost = 0;
+  let n = 0;
+  for (let i = Math.round(t.marks.JP) + 2; i < Math.round(t.marks.AJ) - 2; i++) { n++; if (t.samples[i].boost) boost++; }
+  assert.ok(boost / n > 0.8, `加速板 ${boost}/${n}`);
+  // 飛び出した直後の速さは、入る前の速さに近い（いきなり何倍にもならない）
+  const kart = createKart(t, Math.round(t.marks.AJ) - 30, 0);
+  kart.speed = 40;
+  let first = null;
+  for (let f = 0; f < 120 && first === null; f++) {
+    stepKart(kart, full, t, params, 1 / 60);
+    if (kart.auto) first = kart.speed;
+  }
+  assert.ok(first !== null && first < 90, `飛び出した直後 ${first}`);
+});
+
+test('乗り物の走る側: ニューヨーク（右側通行）は向かってくるタクシーが左、同じ向きのタクシーは右。香港（左側通行）は向かってくる電車が右、同じ向きは左（2026-10-21 のユーザー依頼）', () => {
+  const kinds = (kind, dir) => t.buses.filter((b) => b.kind === kind && (b.dir ?? -1) === dir);
+  assert.ok(kinds('taxi', -1).length > 0 && kinds('taxi', 1).length > 0, 'タクシーは両方の向き');
+  assert.ok(kinds('tram', -1).length > 0 && kinds('tram', 1).length > 0, '電車は両方の向き');
+  const pose = (b) => busPose(t, b, 3);
+  for (const b of kinds('taxi', -1)) assert.ok(pose(b).lateral < 0, 'NY 向かってくる車は左');
+  for (const b of kinds('taxi', 1)) assert.ok(pose(b).lateral > 0, 'NY 同じ向きは右');
+  for (const b of kinds('tram', -1)) assert.ok(pose(b).lateral > 0, '香港 向かってくる車は右');
+  for (const b of kinds('tram', 1)) assert.ok(pose(b).lateral < 0, '香港 同じ向きは左');
+  const same = kinds('taxi', 1)[0];
+  const p = pose(same);
+  const q = t.samples[Math.floor(p.s)];
+  assert.ok(Math.cos(p.heading - q.h) > 0.9, '同じ向き');
+  // タクシーはジョージ・ワシントン・ブリッジの上で消えない（範囲は NY育英学園の門の手前まで）
+  assert.ok(kinds('taxi', -1)[0].to > t.marks.GWB + 50);
+});
+
+test('信号機: ニューヨークは直角の角の右側、香港は左側（青と赤。2026-10-21 のユーザー依頼）', () => {
+  const lights = (g) => { const r = []; g.traverse((o) => { if (o.userData.landmark === 'trafficLight') r.push(o); }); return r; };
+  const side = (o) => { const loc = locate(t, o.position.x, o.position.z, null, 40); return Math.sign(loc.lateral); };
+  const ny = lights(buildNewYork(t));
+  const hk = lights(buildHongKong(t));
+  assert.ok(ny.length >= 8 && hk.length >= 6, `${ny.length} ${hk.length}`);
+  assert.ok(ny.every((o) => side(o) > 0), 'NY は右');
+  assert.ok(hk.every((o) => side(o) < 0), '香港は左');
+  assert.ok(new Set([...ny, ...hk].map((o) => o.userData.color)).size === 2, '青と赤');
+});
+
+test('東京の新幹線は東京駅から走り出す（線路は東京駅の横から。2026-10-21 のユーザー依頼「途中から湧き出てきている」）', () => {
+  const line = GLOBAL_SCENERY.tokyo.shinkansenLine;
+  assert.equal(line.from, 'TS');
+  assert.ok(line.lead >= 16 * 25.5, '走り出すとき、全部の両が線路の上');
+  const tr = { from: t.marks[line.from], to: t.marks[line.to], off: line.off, y: line.y, t0: 0, lead: line.lead };
+  const cars = shinkansenCars(t, tr, 0.01, 30, 16);
+  assert.ok(cars.every((c) => c.visible), '走り出すときに全部見える');
+  // いちばん後ろの両は、東京駅の横
+  const st = t.samples[Math.round(t.marks.TS)];
+  const last = cars[15];
+  assert.ok(Math.hypot(last.x - st.x, last.z - st.z) < 80, `${Math.round(Math.hypot(last.x - st.x, last.z - st.z))}m`);
+});
+
+test('ジョージ・ワシントン・ブリッジへは、左回りで1回転のらせんで上る（2026-10-21 のユーザー依頼）', () => {
+  assert.ok(t.marks.GX0 !== undefined && t.marks.GX1 !== undefined, 'らせんの印');
+  assert.ok(t.marks.CPN < t.marks.GX0 && t.marks.GX1 < t.marks.GWB);
+  // 左回り: 向きがだんだん左（マイナス）へ。1周で約 -360度
+  let turn = 0;
+  for (let i = Math.round(t.marks.GX0); i < Math.round(t.marks.GX1); i += 4) {
+    let d = t.samples[i + 4].h - t.samples[i].h;
+    turn += Math.atan2(Math.sin(d), Math.cos(d));
+  }
+  assert.ok(turn < -5.5, `${Math.round((turn * 180) / Math.PI)}度`);
+  assert.ok(t.samples[Math.round(t.marks.GX1)].y - t.samples[Math.round(t.marks.GX0)].y > 12, '上る');
+});
+
+test('富士山のふもとに着地したら、そのまま富士山の中のトンネルへ（右に左に曲がる、長いトンネル。上は山）（2026-10-21 のユーザー依頼）', () => {
+  const a = Math.round(t.marks.FL);
+  const b = Math.round(t.marks.SK);
+  let run = 0;
+  let best = 0;
+  let mid = null;
+  for (let i = a; i < b; i++) {
+    if (t.samples[i].tunnel && t.samples[i].tunnelLook === 'rock') { run++; if (run > best) { best = run; mid = i - Math.floor(run / 2); } } else run = 0;
+  }
+  assert.ok(best > 400, `トンネル ${best}m`);
+  const p = t.samples[mid];
+  assert.ok(terrainHeight(t, p.x, p.z) > p.y + 8, '上は山');
+});
+
+test('富士山のコースの左側にも木（殺風景だった。2026-10-21 のユーザー依頼）', async () => {
+  const { buildFuji } = await import('../src/render/world/fuji.js');
+  let left = 0;
+  buildFuji(t).traverse((o) => { if (o.userData.landmark === 'fujiTree') left++; });
+  assert.ok(left >= 30, `${left}`);
 });

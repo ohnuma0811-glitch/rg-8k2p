@@ -274,6 +274,26 @@ function driver(look) {
 // マリオカート64 のような、低くて細いゴーカート。太いタイヤが目立ち、キャラは車に対して大きい（頭が車の幅くらい）
 const DRIVER_SCALE = 1.6;
 // shirt を渡すと、シャツの色だけ変える（CPU の見分けに使う）
+// ライト（2026-10-21 のユーザー依頼「夜なのにライトが付いていない」）: 前（+x）の2つの明るいライトと、前を照らすうすい光の筋。
+// model.userData.lights（グループ）の見える・見えないで、点けたり消したりする
+export function addHeadlights(model, front, half, y, beam = 14) {
+  const lights = new THREE.Group();
+  const lamp = new THREE.MeshBasicMaterial({ color: 0xfff4c8 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0xfff0b0, transparent: true, opacity: 0.16, depthWrite: false });
+  for (const z of [-half, half]) {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.3), lamp);
+    l.position.set(front, y, z);
+    lights.add(l);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(Math.min(1.1, beam * 0.08), beam, 12, 1, true), glow);
+    cone.rotation.z = Math.PI / 2; // 先が後ろ、広がりが前
+    cone.position.set(front + beam / 2, y - 0.2, z);
+    lights.add(cone);
+  }
+  model.add(lights);
+  model.userData.lights = lights;
+  return lights;
+}
+
 export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } = {}) {
   const g = new THREE.Group();
   g.add(box(2.1, 0.18, 1.1, DARK, 0, 0.32, 0)); // 骨組み（低くて細い）
@@ -306,6 +326,7 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
   g.userData.stars = stars;
   g.rotation.order = 'YXZ'; // 向き（y）のあとに、車の前後の軸（x）で転がる
   g.userData.head = d.userData.head;
+  addHeadlights(g, 1.5, 0.5, 0.45, 12).visible = false; // 夜のステージだけ点ける（main.js）
   return g;
 }
 
@@ -585,6 +606,7 @@ export function createBusModel() {
     if (side < 0) plate.rotation.y = Math.PI;
     g.add(plate);
   }
+  addHeadlights(g, 3.6, 0.9, 0.9, 16);
   return g;
 }
 
@@ -655,6 +677,7 @@ export function createTramModel() {
     w.position.set(x, 0.4, z * 1.2);
     g.add(w);
   }
+  addHeadlights(g, 6.1, 0.9, 1.0, 18);
   return mergeStatic(g);
 }
 
@@ -678,6 +701,7 @@ export function createTaxiModel() {
     w.position.set(x, 0.38, z * 0.95);
     g.add(w);
   }
+  addHeadlights(g, 2.55, 0.7, 0.75, 14);
   g.scale.setScalar(1.8); // 大きく（2026-10-21 のユーザー依頼「タクシーが小さい」）
   return mergeStatic(g);
 }

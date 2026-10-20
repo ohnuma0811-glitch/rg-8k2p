@@ -191,3 +191,24 @@ export function roadBanner(group, b, track, s, text, name, { bg = '#b01a10', fg 
   b.label(draw, [1024, 160], 0, 8.2, 0.15, 0, 2 * w - 1.4, 3.2);
   b.pop();
 }
+
+// 信号機（2026-10-21 のユーザー依頼「青信号や赤信号を設置」）: 道の s の所の横（side 1 右、-1 左）に、走ってくる方へ向けて。
+// 柱と、3つの灯（青・黄・赤）の箱。点いている灯（green / red）だけ光る
+export function trafficLight(group, b, glow, track, s, side, color) {
+  const p = pointAt(track, s);
+  const c = beside(p, side * (p.wall + 1.2));
+  const o = landmark(group, 'trafficLight', c.x, p.y ?? 0, c.z);
+  o.userData.color = color;
+  const ry = Math.atan2(Math.cos(p.h), Math.sin(p.h)) + Math.PI; // 走ってくる方
+  const y = p.y ?? 0;
+  b.cyl(0.18, 0.22, 7, 6, 0x3a3e44, c.x, y, c.z); // 柱
+  b.push(c.x, y, c.z, ry);
+  b.box(3.4, 0.2, 0.2, 0x3a3e44, side * -1.6, 6.8, 0); // 道の上へのびる腕
+  b.box(2.6, 0.9, 0.6, 0x2a2e34, side * -2.6, 6.2, 0); // 灯の箱（横に3つ）
+  b.pop();
+  // 灯（左から青・黄・赤）。点いている灯は明るく、ほかは暗い色
+  const colors = [color === 'green' ? 0x2de07a : 0x123a22, 0x3a3a14, color === 'red' ? 0xff3a2a : 0x3a1414];
+  glow.push(c.x, y, c.z, ry);
+  [-0.8, 0, 0.8].forEach((dx, k) => glow.sphere(0.3, colors[k], side * -2.6 - dx * side, 6.2, -0.35, 8));
+  glow.pop();
+}

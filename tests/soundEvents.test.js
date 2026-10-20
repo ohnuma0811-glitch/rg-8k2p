@@ -239,3 +239,7 @@ test('ワープが終わって着くと「ドーン」の着地の音。輪っ�
   const w2 = a({ auto: { id: 'warp', leg: 2 }, autoError: true });
   assert.ok(soundEvents(w2, a({ auto: null }), 1).includes('land'), 'ワープの着地');
 });
+
+test('最後の大ジャンプ（goalJump）でも大ジャンプの音（2026-10-21）', () => {
+  assert.ok(soundEvents(st(), st({}, { auto: { id: 'goalJump', leg: 0 } }), 1).includes('bigJump'));
+});

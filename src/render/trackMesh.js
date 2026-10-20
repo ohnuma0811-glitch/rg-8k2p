@@ -467,6 +467,7 @@ function landingCliffs(track) {
   for (let i = 0; i < track.length; i++) {
     const p = track.samples[i];
     if (p.y === null || p.void || !track.samples[p.next].void) continue;
+    if (track.loopTo !== undefined) continue; // ゴールのあと周回するコースは、道の終わりに壁を置かない（ストッパーに見えた。2026-10-21 のユーザー依頼）
     b.push(p.x, p.y, p.z, Math.PI / 2 - p.h);
     const n = Math.round(p.wall);
     for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, 0.7);
@@ -674,6 +675,27 @@ export function chunkStages(track, x0, x1, z0, z1, pad = 20) {
     st.add(stageAt(track, p.s));
   }
   return [...st].sort((a, b) => a - b);
+}
+
+// コース選び・紹介の背景だけの、軽い形（Global City はクアラルンプールだけ）。全部の景色を作ると、とても時間がかかった
+// （名前・コース選びの画面が重かった。2026-10-21 のユーザー依頼）。レースのときは buildTrackMesh で全部を作る
+export function buildShowcase(track) {
+  const group = new THREE.Group();
+  group.userData.stageGroups = [];
+  group.userData.showcase = true;
+  const road = new THREE.MeshLambertMaterial({ color: 0x55585c });
+  // 道（最後の大ジャンプの空の道すじは描かない）
+  const gj = track.marks.GJ ?? track.marks.END;
+  const lnd = track.marks.LND ?? track.marks.END;
+  const onRoad = (p) => (p.y ?? 0) + 0.02;
+  group.add(strip(track, markS(track, 'KL'), gj, onRoad, road));
+  if (lnd < (track.loopEnd ?? 0)) group.add(strip(track, lnd, track.loopEnd, onRoad, road));
+  for (const g of buildKL(track).children) {
+    g.visible = true;
+    group.add(g);
+  }
+  mergeMeshes(group);
+  return group;
 }
 
 export function hasTunnels(track) {

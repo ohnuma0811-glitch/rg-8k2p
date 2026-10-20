@@ -143,7 +143,12 @@ function stepAuto(kart, track, dt) {
     leg = a.legs[st.leg];
   }
   const done = st.t >= leg.time;
-  const s = done ? leg.to : st.from + ((leg.to - st.from) * st.t) / leg.time;
+  // ジャンプ（jump・goalJump）の最初の区間は、入ったときの速さから少しずつ速くなる（急に速くなって見えた。2026-10-21 のユーザー依頼）
+  // 進む割合 f(u) = a・u + (1 − a)・u²（はじめの速さが入ったときの速さ）
+  const D = leg.to - st.from;
+  const u = Math.min(1, st.t / leg.time);
+  const ease = (a.id === 'jump' || a.id === 'goalJump') && st.leg === 0 ? Math.min(1, Math.max(0.15, (st.speedIn * leg.time) / D)) : 1;
+  const s = done ? leg.to : st.from + D * (ease * u + (1 - ease) * u * u);
   const p = sampleAt(track, s);
   kart.x = p.x;
   kart.z = p.z;
@@ -152,7 +157,7 @@ function stepAuto(kart, track, dt) {
   kart.heading = p.h;
   kart.move = p.h;
   kart.autoError = a.id === 'warp' && st.leg === a.legs.length - 1;
-  kart.speed = (leg.to - st.from) / leg.time; // スピードメーターには進む速さ（ワープは大きな数字）
+  kart.speed = (D / leg.time) * (ease + 2 * (1 - ease) * u); // スピードメーターには進む速さ（ワープは大きな数字）
   if (done) {
     kart.speed = st.speedIn;
     kart.auto = null;
@@ -332,7 +337,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   // 含めると、スタート直後にクアラルンプールへ飛んだ。2026-10-21 のユーザー依頼）
   const ls = track.samples[loc.i].s;
   if (track.loopTo !== undefined && ls > track.loopEnd - 30 && ls <= track.loopEnd) {
-    const back = track.samples.findIndex((q) => q.s >= track.loopTo - 30);
+    const back = track.samples.findIndex((q) => q.s >= track.loopTo - (track.loopEnd - ls));
     loc = locate(track, kart.x, kart.z, back, 40, kart.y ?? null);
     kart.seg = loc.i;
   }

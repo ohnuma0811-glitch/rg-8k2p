@@ -27,23 +27,22 @@ export function buildSpace() {
   stars.userData.keep = true;
   g.add(stars);
   landmark(g, 'stars', 0, 0, 0);
-  // 地球（下前方。青い海に、緑の陸と白い雲のまだら）
+  // 地球（2026-10-21 のユーザー依頼「本物ぽくない。凹凸がありすぎる」）: なめらかな球に、陸と海の絵（緑・茶色の大陸、白い北極と南極）。
+  // その上に、白い雲の層と、青くうっすら光る大気
   const earth = new THREE.Group();
   earth.position.set(0, -900, -1100); // updateSpace でカメラの向きに合わせる
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(500, 40, 28), new THREE.MeshLambertMaterial({ color: 0x2f6fd0, fog: false }));
-  earth.add(ball);
-  const b = createBuilder();
-  for (let k = 0; k < 40; k++) {
-    const a = k * 2.399963;
-    const y = 1 - (2 * (k + 0.5)) / 40;
-    const r = Math.sqrt(1 - y * y);
-    const x = Math.cos(a) * r;
-    const z = Math.sin(a) * r;
-    b.sphere(70 + (k % 4) * 25, k % 3 ? 0x4f9a4a : 0xf4f6f8, x * 470, y * 470, z * 470, 8);
+  const surface = new THREE.MeshLambertMaterial({ color: 0x2f6fd0, fog: false });
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0, fog: false, depthWrite: false });
+  const maps = earthMaps();
+  if (maps) {
+    surface.color.setHex(0xffffff);
+    surface.map = maps.ground;
+    cloudMat.alphaMap = maps.clouds;
+    cloudMat.opacity = 0.9;
   }
-  const land = b.build();
-  land.traverse((o) => { if (o.material) o.material = o.material.clone(); if (o.material) o.material.fog = false; });
-  earth.add(land);
+  earth.add(new THREE.Mesh(new THREE.SphereGeometry(500, 64, 48), surface));
+  earth.add(new THREE.Mesh(new THREE.SphereGeometry(507, 64, 48), cloudMat));
+  earth.add(new THREE.Mesh(new THREE.SphereGeometry(530, 64, 48), new THREE.MeshBasicMaterial({ color: 0x6fb6ff, transparent: true, opacity: 0.18, side: THREE.BackSide, fog: false, depthWrite: false })));
   earth.userData.spin = 0.02;
   earth.userData.ahead = [0, -900, 1100]; // カメラの前（向き）・上・横の m
   g.add(earth);
@@ -168,4 +167,49 @@ export function buildLaunchRail(track) {
   landmark(g, 'launchRail', p.x, p.y, p.z);
   g.add(b.build(), glow.build());
   return root;
+}
+
+// 地球の絵（緯度・経度の長方形の絵）: なめらかなまだらの値（いくつかの大きさの波を重ねる）で、陸と海、雲を描く。node のテストでは作らない
+function earthMaps() {
+  if (typeof document === 'undefined') return null;
+  const W = 512;
+  const H = 256;
+  // 決まった種からの、なめらかなまだら
+  const field = (seed) => {
+    const waves = Array.from({ length: 7 }, (_, k) => ({ fx: (k + 1) * 1.7 + seed, fy: (k + 2) * 1.3 + seed * 0.7, ph: k * 2.1 + seed * 3, a: 1 / (k + 1) }));
+    return (u, v) => {
+      let n = 0;
+      for (const w of waves) n += w.a * Math.sin(u * w.fx * Math.PI * 2 + Math.sin(v * w.fy * 3 + w.ph)) * Math.cos(v * w.fy * Math.PI + w.ph);
+      return n;
+    };
+  };
+  const landN = field(1.3);
+  const cloudN = field(4.7);
+  const make = (paint) => {
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const g = cv.getContext('2d');
+    const img = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) paint(x / W, y / H, img.data, (y * W + x) * 4);
+    g.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  };
+  const ground = make((u, v, d, o) => {
+    const lat = Math.abs(v - 0.5) * 2; // 0 赤道、1 極
+    const n = landN(u, v);
+    let c;
+    if (lat > 0.86) c = [240, 244, 248]; // 極の氷
+    else if (n > 0.35) c = lat < 0.3 && n < 0.6 ? [196, 170, 110] : n > 0.9 ? [120, 110, 90] : [70, 130, 60]; // 砂漠・山・森
+    else c = [20 + n * 20, 60 + n * 30, 140 + n * 40]; // 海（深いほど暗い）
+    d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+  });
+  const clouds = make((u, v, d, o) => {
+    const n = cloudN(u * 1.3, v);
+    const a = n > 0.45 ? Math.min(255, (n - 0.45) * 500) : 0;
+    d[o] = d[o + 1] = d[o + 2] = a; d[o + 3] = 255;
+  });
+  return { ground, clouds };
 }

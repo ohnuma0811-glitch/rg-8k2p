@@ -4,7 +4,7 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 import { locate } from '../../game/track.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner } from './kit.js';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner, trafficLight } from './kit.js';
 import { cityBlocks } from './tokyo.js';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -265,6 +265,9 @@ export function buildNewYork(track) {
       b.rod(c.x, p.y + 4, c.z, p.x - Math.sin(p.h) * side * 14, p.y + 6, p.z + Math.cos(p.h) * side * 14, 0.25, 0x2a2e34, 3); // 配線
     }
   });
+
+  // 信号機（直角の角の手前の右側。ニューヨークは右側通行。2026-10-21 のユーザー依頼）
+  (track.def.squareCorners ?? []).forEach(([m], k) => trafficLight(g, b, glow, track, sOf(track, m) - 14, 1, k % 2 ? 'red' : 'green'));
 
   g.add(b.build(), glow.build());
   return root;

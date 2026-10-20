@@ -23,7 +23,7 @@ import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, 
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush } from './game/world.js';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -120,10 +120,11 @@ let track = trackOf(course);
 let standSpot = null; // 観客席の真ん中（歓声の大きさと左右）。観客席のないコースでは null
 let minimap = null;
 // 走るコースを決める（形・マップ・歓声）
-function useCourse(def) {
+// lite: コース選びの背景だけ（Global City は軽い形。全部はレースのときに作る）
+function useCourse(def, { lite = false } = {}) {
   course = def;
   track = trackOf(def);
-  setCourse(scene, track);
+  setCourse(scene, track, { lite });
   minimap = createMinimap($('minimap'), track);
   minimap.resize();
   standSpot = def.theme === 'circuit' || def.grandstand ? grandstandSpot(track) : null; // Kyugo Mountain も観客席の前で歓声（2026-10-18 のユーザー依頼）
@@ -504,8 +505,8 @@ function placeBuses(time) {
 function trainsOf(t) {
   if (t.def.theme !== 'world') return [];
   const ref = (r) => (typeof r === 'string' ? t.marks[r] : null);
-  // 自分が線路の始まりの 300m 手前に来たら走り出す（t0）。そのとき先頭は始まりの 100m 手前（見えないところ）から
-  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: -100 }));
+  // 自分が線路の始まりの near m 手前に来たら走り出す（t0）。lead: 走り出すときの先頭の位置（東京は全部の両が線路の上、富士山は始まりの手前から出てくる）
+  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: tr.lead ?? -100, near: tr.near ?? 300 }));
 }
 function placeTrains(time, topSpeed) {
   if (!track.trains) track.trains = trainsOf(track);
@@ -517,7 +518,7 @@ function placeTrains(time, topSpeed) {
   // 1両ずつ線路にそって置く（カーブで真っすぐのまま突き出ていた。2026-10-21 のユーザー依頼）
   const mine = progress(game.race, game.me, track);
   track.trains.forEach((tr, k) => {
-    if (tr.t0 === null && mine > tr.from - 300) tr.t0 = time;
+    if (tr.t0 === null && mine > tr.from - tr.near) tr.t0 = time; // 自分が線路の始まりに近づいたら走り出す
     const cars = track.trainModels[k].userData.cars;
     shinkansenCars(track, tr, Math.max(0, time), topSpeed, cars.length).forEach((p, j) => {
       cars[j].visible = p.visible;
@@ -873,7 +874,7 @@ async function flow() {
         // コースを押すと、そのコースを背景に映す（タイトルと同じカメラ）。もう一度押すと決まる
         const pick = await screens.chooseCourse(menu, COURSES, courseNo, {
           onSelect: (k, sound) => {
-            useCourse(COURSES[k]);
+            useCourse(COURSES[k], { lite: true });
             if (sound) sfx.play('select');
           },
           records: () => sharedTimes.view(),
@@ -958,7 +959,7 @@ function idleCamera(dt) {
     showcaseCamera(camera, c, orbit / 0.08);
     if (!showcasing) {
       // ステージ 7 として見せると、まわりはクアラルンプール（6）だけ（6 だと、となりのニューヨークも見える）
-      applyStageVisibility(c.mesh, 7, null);
+      applyStageVisibility(scene.userData.courseMesh, 7, null);
       setSky(scene, skyFor(c, 6, { y: 0, auto: null }));
       showcasing = true;
     }
@@ -1031,6 +1032,9 @@ function renderGame(alpha, dt) {
     // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）。ワープは3つ目の輪っかから
     const autoView = autoViewOf(me);
     applyStageVisibility(track.mesh, cur, autoView, win);
+    // 夜のステージでは、カートのライトを点ける
+    const night = nightStage(track, cur);
+    for (const m of g.models) if (m.userData.lights) m.userData.lights.visible = night;
     // 宇宙・ワープの間は、コースの道や柵も見せない（宇宙から香港の道が見えた。2026-10-21 のユーザー依頼「宇宙とコースを完全に分離」）
     const away = autoView === 'space' || autoView === 'warp';
     const stageSet = new Set(track.mesh.userData.stageGroups ?? []);
@@ -1071,7 +1075,7 @@ function renderGame(alpha, dt) {
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
   const ap = autoProgress(track, g.karts[g.me]); // 宇宙・ワープの演出の進み
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t, ap);
-  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t);
+  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t, camera);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 京都へ向かう加速板では、光の線を濃く速く回し、画面のまわりを白く光らせ、広い角度で（あっという間に京都へ。2026-10-21 のユーザー依頼）
   const rush = padRush(track, kart);

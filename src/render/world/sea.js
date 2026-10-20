@@ -181,7 +181,14 @@ export function buildSea(track) {
     mon.add(head, body.build());
     mon.scale.setScalar(0.8);
     mon.userData.jaw = head.userData.upper;
-    g.add(swimmer(mon, c, 90, 0.09, 0.5, -24));
+    // 泳がず、トンネルの横の海底にいて、通るカートの方を向き、食べたそうに口を開け閉めする（2026-10-21 のユーザー依頼）
+    mon.position.set(c.x, -30, c.z);
+    mon.userData.watch = true;
+    mon.traverse((o) => {
+      o.userData.keep = true;
+      if (o.material) { o.material = o.material.clone(); o.material.fog = false; }
+    });
+    g.add(mon);
     landmark(g, 'monster', c.x, -24, c.z);
   }
 
@@ -250,9 +257,14 @@ export function buildSea(track) {
   return root;
 }
 
-// 泳ぐ生き物を動かす（毎フレーム）
-export function updateSea(group, time) {
+// 泳ぐ生き物を動かす（毎フレーム）。怪獣（watch）はカメラの方を向いて、口を開け閉め
+export function updateSea(group, time, camera = null) {
   group.traverse((o) => {
+    if (o.userData.watch) {
+      if (camera) o.rotation.y = Math.atan2(camera.position.x - o.position.x, camera.position.z - o.position.z);
+      if (o.userData.jaw) o.userData.jaw.rotation.z = 0.55 + Math.sin(time * 1.6) * 0.3;
+      return;
+    }
     const s = o.userData.swim;
     if (!s) return;
     const an = time * s.speed + s.phase;

@@ -3,7 +3,7 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 import { locate } from '../../game/track.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign } from './kit.js';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js';
 import { cityBlocks } from './tokyo.js';
 
 const NEON = [0xff2d6f, 0x2de0ff, 0xffe12d, 0x7dff3a, 0xff7a1a, 0xc23aff];
@@ -88,6 +88,11 @@ export function buildHongKong(track) {
       b.pop();
     }
   });
+  // 信号機（左側。香港は左側通行。2026-10-21 のユーザー依頼）: 道にそって 130m ごと
+  {
+    let k = 0;
+    for (let s = sOf(track, 'HL') + 60; s < sOf(track, 'SD') - 40; s += 130) trafficLight(g, b, glow, track, s, -1, k++ % 2 ? 'red' : 'green');
+  }
   const mid = pointAt(track, (sOf(track, 'HL') + sOf(track, 'SD')) / 2);
   landmark(g, 'neon', mid.x, 0, mid.z);
   g.add(b.build(), glow.build());
