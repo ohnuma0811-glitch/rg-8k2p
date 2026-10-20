@@ -112,3 +112,23 @@ export function petals(center, size, count = 260) {
   pts.userData.keep = true; // まとめない（動かす）
   return pts;
 }
+
+// 新幹線の高架（2026-10-21 のユーザー依頼「カーブで線路がちぎれて見える」）: 道の横 off m の線を、10m ごとの点と点を結ぶ板でつなぐ（カーブでもすき間ができない）。
+// 柱は 25m ごと。from・to は道の s
+export function viaduct(b, track, from, to, off, y) {
+  const rail = (s) => beside(pointAt(track, s), off);
+  for (let s = from; s < to; s += 10) {
+    const a = rail(s);
+    const c = rail(Math.min(s + 10, to));
+    const len = Math.hypot(c.x - a.x, c.z - a.z);
+    if (len < 0.5) continue;
+    b.push((a.x + c.x) / 2, 0, (a.z + c.z) / 2, Math.atan2(c.x - a.x, c.z - a.z)); // z が線路の向き
+    b.box(13, 1.6, len + 0.6, 0xc8ccd2, 0, y, 0); // 橋げた
+    for (const x of [-3, 3]) b.box(0.3, 0.3, len + 0.6, 0x444a50, x, y + 1.6, 0); // レール
+    b.pop();
+  }
+  for (let s = from; s <= to; s += 25) {
+    const a = rail(s);
+    b.cyl(1.4, 1.6, y, 8, 0xb8bcc2, a.x, 0, a.z); // 柱
+  }
+}

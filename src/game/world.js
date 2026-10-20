@@ -28,6 +28,26 @@ export function viewStage(track, kart, cur) {
 // 新幹線（2026-10-20）: 万能タイプの最高速の SHINKANSEN_FACTOR 倍で、線路（道の横 off m、高さ y）を走る。
 // 並走の道の加速板（最高速の 1.3倍）なら追いぬける（2026-10-20 のユーザー依頼）
 export const SHINKANSEN_FACTOR = 1.12;
+// 新幹線の1両ずつ（2026-10-21 のユーザー依頼「真っすぐなままカーブして、レールの外に突き出ている」）:
+// 両の前と後ろのはしを線路の上に置き、その真ん中に、前と後ろを結ぶ向きで置く。線路の始まりより後ろの両は見せない（トンネルから出てくる）
+export const SHINKANSEN_CAR = 25; // 1両の長さ（m）
+export const SHINKANSEN_GAP = 25.5; // 両と両の間かく（m）
+export function shinkansenCars(track, train, time, topSpeed, cars = 16) {
+  const len = train.to - train.from;
+  const head = train.from + ((((train.s0 + topSpeed * SHINKANSEN_FACTOR * time - train.from) % len) + len) % len);
+  const rail = (s) => {
+    const p = sampleAt(track, s);
+    return { x: p.x - Math.sin(p.h) * train.off, z: p.z + Math.cos(p.h) * train.off };
+  };
+  return Array.from({ length: cars }, (_, k) => {
+    const sf = head - k * SHINKANSEN_GAP;
+    const sb = sf - SHINKANSEN_CAR;
+    const f = rail(sf);
+    const b = rail(sb);
+    return { x: (f.x + b.x) / 2, y: train.y, z: (f.z + b.z) / 2, heading: Math.atan2(f.z - b.z, f.x - b.x), visible: sb >= train.from };
+  });
+}
+
 export function shinkansenPose(track, train, time, topSpeed) {
   const len = train.to - train.from;
   const s = train.from + ((((train.s0 + topSpeed * SHINKANSEN_FACTOR * time - train.from) % len) + len) % len);

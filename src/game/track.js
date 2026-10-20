@@ -352,6 +352,16 @@ export function buildTrack(def) {
   const t = { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross, marks: {} };
   for (const [name, i] of Object.entries(def.marks ?? {})) t.marks[name] = pointS(samples, fit, def.points[i]);
   if (def.helix) {
+    // らせんの始まり（HX0）は、地図の点にいちばん近い点ではなく、近い点（3m 以内）のうち道のいちばん手前。
+    // 1周回り終えた所も同じ場所なので、そちらを選ぶと、らせんの高さがずれた（Global City の芝浦のループ。2026-10-21 のユーザー依頼）
+    const pt = def.points[def.marks.HX0];
+    const hx = (pt[0] - fit.cx) * fit.k;
+    const hz = (pt[1] - fit.cz) * fit.k;
+    const near = samples.filter((p) => Math.hypot(p.x - hx, p.z - hz) < 3);
+    if (near.length) {
+      const first = Math.min(...near.map((p) => p.s));
+      for (const [name, i] of Object.entries(def.marks)) if (i === def.marks.HX0) t.marks[name] = first;
+    }
     // らせんの段は上から見て同じ場所なので、印 HX1〜 は、前の段から道にそって1周（約 2πr）先の、いちばん近い点
     const turn = 2 * Math.PI * def.helix.r;
     for (let k = 1; k <= def.helix.turns; k++) {

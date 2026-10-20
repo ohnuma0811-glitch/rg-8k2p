@@ -544,3 +544,103 @@ test('最後のレビュー: ピンクモスクの建物は、道の回廊には
   });
   assert.equal(bad, 0, `はみ出した点 ${bad}`);
 });
+
+test('皇居の宮殿・砂利の広場・松は、道の上に出ない（2026-10-21 のユーザー依頼「コース上に壁のようになっていて先が見えない」）', () => {
+  const g = buildTokyo(t);
+  g.updateMatrixWorld(true);
+  const m = landmarks(g);
+  const pal = m.get('palace');
+  let bad = 0;
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    const a = o.geometry.attributes.position;
+    const e = o.matrixWorld.elements;
+    for (let k = 0; k < a.count; k += 3) {
+      const x = a.getX(k), y = a.getY(k), z = a.getZ(k);
+      const wx = e[0] * x + e[4] * y + e[8] * z + e[12];
+      const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
+      const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
+      if (Math.hypot(wx - pal.x, wz - pal.z) > 130) continue;
+      const loc = locate(t, wx, wz, null, 40);
+      const p = t.samples[loc.i];
+      if (Math.abs(loc.lateral) < p.half && wy > (p.y ?? 0) + 0.05 && wy < (p.y ?? 0) + 7.5) bad++;
+    }
+  });
+  assert.equal(bad, 0, `道の上に出た点 ${bad}`);
+});
+
+test('皇居と東京駅には英語の看板（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildTokyo(t));
+  assert.ok(m.has('palaceSign'), 'IMPERIAL PALACE');
+  assert.ok(m.has('stationSign'), 'TOKYO STATION');
+  const s = m.get('palaceSign');
+  const loc = locate(t, s.x, s.z, null, 40);
+  assert.ok(Math.abs(loc.lateral) > t.samples[loc.i].wall, '看板は道の外');
+});
+
+import { shinkansenCars, SHINKANSEN_CAR } from '../src/game/world.js';
+
+test('新幹線は1両ずつ線路にそって曲がる（2026-10-21 のユーザー依頼「真っすぐなままカーブして、レールの外に突き出ている」）', () => {
+  const line = { from: t.marks.SK, to: t.marks.KT, s0: t.marks.SK, off: 40, y: 10 };
+  for (const time of [3, 7, 11, 20]) {
+    const cars = shinkansenCars(t, line, time, 30, 16);
+    assert.equal(cars.length, 16);
+    for (const c of cars.filter((c) => c.visible)) {
+      // 両の前と後ろのはしが、線路（道の横 off m の線）から 1.5m 以内
+      for (const end of [-1, 1]) {
+        const ex = c.x + Math.cos(c.heading) * end * SHINKANSEN_CAR / 2;
+        const ez = c.z + Math.sin(c.heading) * end * SHINKANSEN_CAR / 2;
+        const loc = locate(t, ex, ez, null, 40);
+        const p = sampleAt(t, loc.s);
+        const rx = p.x - Math.sin(p.h) * line.off;
+        const rz = p.z + Math.cos(p.h) * line.off;
+        let best = Infinity;
+        for (let ds = -40; ds <= 40; ds += 0.5) {
+          const q = sampleAt(t, loc.s + ds);
+          best = Math.min(best, Math.hypot(q.x - Math.sin(q.h) * line.off - ex, q.z + Math.cos(q.h) * line.off - ez));
+        }
+        assert.ok(best < 1.5, `time ${time}: ${best.toFixed(2)}m はみ出し`);
+      }
+    }
+  }
+});
+
+test('道は、上と下に重なる所で 6m 以上はなれる（2026-10-21 のユーザー依頼「上のコースに頭が突き出ている」）', () => {
+  const S = t.samples;
+  const ok = (p) => p.y !== null && !p.void && !p.auto;
+  let worst = null;
+  for (let i = 0; i < t.length; i += 3) {
+    if (!ok(S[i])) continue;
+    for (let j = i + 80; j < t.length; j += 3) {
+      if (!ok(S[j]) || t.length - (j - i) < 80) continue; // スタートの後ろは、同じ道のつづき
+      if (Math.hypot(S[i].x - S[j].x, S[i].z - S[j].z) >= S[i].wall + S[j].wall) continue;
+      const dy = Math.abs(S[i].y - S[j].y);
+      if (!worst || dy < worst.dy) worst = { dy, i, j };
+    }
+  }
+  assert.ok(!worst || worst.dy >= 6, JSON.stringify(worst));
+});
+
+test('芝浦のループは、右に回りながらゆるやかに上る。橋からお台場へもゆるやかに下る（坂は 12% まで）。HX0 はループの始まり', () => {
+  const a = Math.round(t.marks.SHIN);
+  const b = Math.round(t.marks.ODA);
+  let steep = 0;
+  for (let i = a; i < b; i++) steep = Math.max(steep, Math.abs(t.samples[i + 1].y - t.samples[i].y) / (t.samples[i + 1].s - t.samples[i].s));
+  assert.ok(steep <= 0.12, `坂 ${(steep * 100).toFixed(1)}%`);
+  assert.ok(t.marks.HX0 < t.marks.HX1 && t.marks.HX1 < t.marks.RB, `${t.marks.HX0} ${t.marks.HX1} ${t.marks.RB}`);
+});
+
+test('お台場の道の下は海ではない（2026-10-21 のユーザー依頼「下もアスファルト」）', async () => {
+  const THREE = await import('../vendor/three.module.min.js');
+  const g = buildTokyo(t);
+  g.updateMatrixWorld(true);
+  const water = [];
+  g.traverse((o) => { if (o.userData.water) water.push(new THREE.Box3().setFromObject(o)); });
+  assert.ok(water.length > 0, '水の板に userData.water');
+  let under = 0;
+  for (let s = t.marks.RBE + 30; s < t.marks.AJ; s += 5) {
+    const p = t.samples[Math.round(s)];
+    if (water.some((b) => p.x > b.min.x - p.wall && p.x < b.max.x + p.wall && p.z > b.min.z - p.wall && p.z < b.max.z + p.wall)) under++;
+  }
+  assert.equal(under, 0, `お台場の道の下に海 ${under}`);
+});

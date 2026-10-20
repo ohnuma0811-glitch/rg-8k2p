@@ -590,25 +590,31 @@ export function createBusModel() {
 
 // 新幹線（Global City。2026-10-20）: 白い車体に青い帯、cars 両（1両 25m）。先頭はくさび形。+x が前
 export function createShinkansenModel(cars = 16) {
+  // 1両ずつのグループ（+x が前、真ん中が原点）。カーブでは1両ずつ線路にそって置く（2026-10-21 のユーザー依頼）
   const g = new THREE.Group();
   const body = new THREE.MeshLambertMaterial({ color: 0xf4f6f8 });
   const band = new THREE.MeshLambertMaterial({ color: 0x1f4aa8 });
   const win = new THREE.MeshLambertMaterial({ color: 0x2a3440 });
+  g.userData.cars = [];
   for (let k = 0; k < cars; k++) {
-    const x = -k * 25.5;
-    const car = new THREE.Mesh(new THREE.BoxGeometry(25, 3.6, 3.4), body);
-    car.position.set(x, 2.2, 0);
+    const car = new THREE.Group();
+    const box = new THREE.Mesh(new THREE.BoxGeometry(25, 3.6, 3.4), body);
+    box.position.set(0, 2.2, 0);
     const b1 = new THREE.Mesh(new THREE.BoxGeometry(25.1, 0.5, 3.5), band);
-    b1.position.set(x, 1.4, 0);
+    b1.position.set(0, 1.4, 0);
     const w1 = new THREE.Mesh(new THREE.BoxGeometry(22, 0.7, 3.45), win);
-    w1.position.set(x, 2.9, 0);
-    g.add(car, b1, w1);
+    w1.position.set(0, 2.9, 0);
+    car.add(box, b1, w1);
+    if (k === 0) {
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(1.9, 9, 4), body);
+      nose.rotation.z = -Math.PI / 2;
+      nose.rotation.x = Math.PI / 4;
+      nose.position.set(17, 2, 0);
+      car.add(nose);
+    }
+    g.add(car);
+    g.userData.cars.push(car);
   }
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.9, 9, 4), body);
-  nose.rotation.z = -Math.PI / 2;
-  nose.rotation.x = Math.PI / 4;
-  nose.position.set(17, 2, 0);
-  g.add(nose);
   return mergeStatic(g);
 }
 

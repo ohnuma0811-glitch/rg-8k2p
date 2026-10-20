@@ -23,7 +23,7 @@ import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, 
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenPose, autoViewOf, viewStage } from './game/world.js';
+import { shinkansenCars, autoViewOf, viewStage } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -511,11 +511,14 @@ function placeTrains(time, topSpeed) {
     track.trainModels = track.trains.map(() => createShinkansenModel());
     track.trainModels.forEach((m) => track.mesh.add(m));
   }
+  // 1両ずつ線路にそって置く（カーブで真っすぐのまま突き出ていた。2026-10-21 のユーザー依頼）
   track.trains.forEach((tr, k) => {
-    const p = shinkansenPose(track, tr, Math.max(0, time), topSpeed);
-    const m = track.trainModels[k];
-    m.position.set(p.x, p.y + 1.6, p.z);
-    m.rotation.y = -p.heading;
+    const cars = track.trainModels[k].userData.cars;
+    shinkansenCars(track, tr, Math.max(0, time), topSpeed, cars.length).forEach((p, j) => {
+      cars[j].visible = p.visible;
+      cars[j].position.set(p.x, p.y + 1.6, p.z);
+      cars[j].rotation.y = -p.heading;
+    });
   });
 }
 
