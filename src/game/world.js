@@ -1,4 +1,4 @@
-import { sampleAt } from './track.js';
+import { sampleAt, stageAt } from './track.js';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ
@@ -14,6 +14,15 @@ export function autoViewOf(kart) {
   if (a.id === 'space') return kart.y >= 150 ? 'space' : null;
   if (a.id === 'warp') return a.leg >= 2 ? 'warp' : null;
   return a.id;
+}
+
+// 見せるステージ（Global City）: ふつうは今のステージ。宇宙から下りてくる後半は、着く所（香港）のステージ
+// （京都の青空が一瞬出てから香港の夜になった。最後のレビュー）
+export function viewStage(track, kart, cur) {
+  const st = kart.auto;
+  if (st?.id !== 'space') return cur;
+  const leg = track.autos.find((a) => a.id === st.id)?.legs[st.leg];
+  return leg && st.t > leg.time / 2 ? stageAt(track, leg.to) : cur;
 }
 
 // 新幹線（2026-10-20）: 万能タイプの最高速の SHINKANSEN_FACTOR 倍で、線路（道の横 off m、高さ y）を走る。

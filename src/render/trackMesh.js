@@ -628,6 +628,12 @@ function roadside(track, sides) {
 }
 
 // トンネルのあるコース（Kyugo Mountain の雪のトンネル、Global City の山の岩・海の底のガラス。2026-10-20）
+// 道を描く点か: 無い道・自動の区間（Global City）の空の道すじは描かない。
+// 自動の区間でも、地面の高さの所（輪っかの間 R1〜R3）は描く（道が消えて見えた。最後のレビュー）
+export function roadDrawn(p) {
+  return p.y !== null && !p.void && !(p.auto && p.y > 0.5);
+}
+
 export function hasTunnels(track) {
   return track.samples.some((p) => p.tunnel || p.tunnelLook);
 }
@@ -644,7 +650,7 @@ export function buildTrackMesh(track) {
   const snow = track.def.theme === 'snow';
   const natural = forest || snow;
   const group = new THREE.Group();
-  const hasGround = (p) => p.y !== null && !p.void && !p.auto; // 無い道・自動の区間（Global City）は道を描かない
+  const hasGround = roadDrawn;
   const flat = (p) => p.y === 0 && !p.ramp;
   const stripes = (len) => (p) => (Math.floor(p.s / len) % 2 ? COLORS.white : COLORS.red);
   // 街の縁石は白黒のしま

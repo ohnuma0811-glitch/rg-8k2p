@@ -23,7 +23,7 @@ import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, 
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenPose, autoViewOf } from './game/world.js';
+import { shinkansenPose, autoViewOf, viewStage } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -1011,7 +1011,7 @@ function renderGame(alpha, dt) {
   const toExit = track.samples[me.seg]?.tunnel && track.marks.TO !== undefined ? span(track, track.samples[me.seg].s, track.marks.TO) : Infinity;
   // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
   if (track.def.theme === 'world') {
-    const cur = stageAt(track, progress(g.race, g.me, track));
+    const cur = viewStage(track, me, stageAt(track, progress(g.race, g.me, track))); // 宇宙から下りてくる後半は香港
     // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）。ワープは3つ目の輪っかから
     const autoView = autoViewOf(me);
     applyStageVisibility(track.mesh, cur, autoView);

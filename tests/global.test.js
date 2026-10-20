@@ -491,3 +491,56 @@ test('軽さ: ステージごとに見える景色（そのステージと前後
     assert.ok(n <= 170000, `ステージ ${cur}: ${n}`);
   }
 });
+
+// ---- 最後のレビュー（2026-10-20）----
+import { mergeMeshes } from '../src/render/mergeMeshes.js';
+import { roadDrawn } from '../src/render/trackMesh.js';
+import { viewStage } from '../src/game/world.js';
+
+test('最後のレビュー: 宇宙のいん石と月のクレーターは、まとめられても動かせる（景色にくっついたまま）', () => {
+  const g = buildSpace(t).children[0];
+  mergeMeshes(g);
+  const meteors = g.userData.meteors;
+  assert.ok(meteors.every((m) => { let o = m; while (o && o !== g) o = o.parent; return o === g; }), 'いん石がはずれた');
+  let craters = 0;
+  g.traverse((o) => { if (o.userData.ahead && o.children.length) craters = Math.max(craters, o.children.length); });
+  assert.ok(craters >= 9, `月 ${craters}`);
+});
+
+test('最後のレビュー: 香港へ下りてくる後半は、香港の空と景色（京都の青空が一瞬出ない）', () => {
+  const sp = t.autos.find((a) => a.id === 'space');
+  const late = { auto: { id: 'space', leg: 0, t: sp.legs[0].time * 0.95 }, y: 60 };
+  assert.equal(viewStage(t, late, 2), 3);
+  assert.equal(viewStage(t, { auto: { id: 'space', leg: 0, t: 0.2 }, y: 60 }, 2), 2);
+  assert.equal(viewStage(t, { auto: null, y: 0 }, 4), 4);
+});
+
+test('最後のレビュー: 輪っかの間（R1〜R3、地面の高さ）の道は描く。空の道すじは描かない', () => {
+  assert.ok(roadDrawn(at('R2')), 'R2');
+  assert.ok(!roadDrawn(t.samples[Math.round((t.marks.AJ + t.marks.FL) / 2)]), '大ジャンプの弧');
+  assert.ok(!roadDrawn(t.samples[Math.round((t.marks.R3 + t.marks.KL) / 2)]), 'ワープの弧');
+});
+
+test('最後のレビュー: ピンクモスクの建物は、道の回廊にはみ出さない', () => {
+  const g = buildKL(t);
+  g.updateMatrixWorld(true);
+  const s0 = t.marks.PM - 8;
+  const s1 = t.marks.PM + (t.marks.BC - t.marks.PM) * 0.08 + 8;
+  let bad = 0;
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    const a = o.geometry.attributes.position;
+    for (let k = 0; k < a.count; k += 3) {
+      const x = a.getX(k), y = a.getY(k), z = a.getZ(k);
+      const e = o.matrixWorld.elements;
+      const wx = e[0] * x + e[4] * y + e[8] * z + e[12];
+      const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
+      const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
+      const loc = locate(t, wx, wz, null, 40);
+      if (loc.s < s0 || loc.s > s1) continue;
+      const p = t.samples[loc.i ?? Math.round(loc.s)];
+      if (Math.abs(loc.lateral) < p.wall + 0.3 && wy > (p.y ?? 0) + 0.05 && wy < (p.y ?? 0) + 7.5) bad++; // 道より下の湖の水は数えない
+    }
+  });
+  assert.equal(bad, 0, `はみ出した点 ${bad}`);
+});

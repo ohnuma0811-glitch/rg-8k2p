@@ -38,17 +38,25 @@ export function buildKL(track) {
   const mc = pointAt(track, (m0 + m1) / 2);
   landmark(g, 'pinkMosque', mc.x, 0, mc.z);
   const len = m1 - m0 + 12;
+  // 両がわの建物と回廊の屋根は、道にそって 5m ごとに（道が曲がっているので、1つの箱だと回廊にはみ出した。最後のレビュー）
+  for (let s = m0 - 6; s <= m1 + 6; s += 5) {
+    const p = pointAt(track, s);
+    const w = p.wall + 0.5;
+    b.push(p.x, p.y, p.z, ryAlong(p.h));
+    for (const side of [-1, 1]) b.box(16, TUNNEL_HEIGHT + 4, 5.4, PINK_LIGHT, side * (w + 8.2), 0, 0);
+    b.box(2 * w + 33, 3, 5.4, PINK_LIGHT, 0, TUNNEL_HEIGHT + 0.6, 0);
+    b.pop();
+  }
   b.push(mc.x, mc.y, mc.z, ryAlong(mc.h));
   const hall = mc.wall + 0.5;
-  for (const side of [-1, 1]) b.box(16, TUNNEL_HEIGHT + 4, len, PINK_LIGHT, side * (hall + 8), 0, 0); // 両がわの建物
-  b.box(2 * hall + 32, 3, len, PINK_LIGHT, 0, TUNNEL_HEIGHT + 0.6, 0); // 回廊の屋根
-  b.cyl(22, 24, 12, 24, PINK_LIGHT, 0, TUNNEL_HEIGHT + 3.6, 0); // ドームの台
+  // ドームの台（高く。球の下半分が台の中に入り、回廊の天井から下に出ないように。最後のレビュー）
+  b.cyl(22, 24, 24, 24, PINK_LIGHT, 0, TUNNEL_HEIGHT + 3.6, 0);
   for (let k = 0; k < 24; k++) {
     const a = (k / 24) * Math.PI * 2;
-    b.box(1.6, 6, 0.6, 0xb87a86, Math.sin(a) * 24.1, TUNNEL_HEIGHT + 6, Math.cos(a) * 24.1, a); // 台の窓
+    b.box(1.6, 8, 0.6, 0xb87a86, Math.sin(a) * 23.3, TUNNEL_HEIGHT + 14, Math.cos(a) * 23.3, a); // 台の窓
   }
-  b.sphere(22, PINK, 0, TUNNEL_HEIGHT + 15.6, 0, 20); // 大きなピンクのドーム
-  b.cyl(0.4, 1, 6, 6, GOLD, 0, TUNNEL_HEIGHT + 37, 0); // てっぺんの飾り
+  b.sphere(22, PINK, 0, TUNNEL_HEIGHT + 27.6, 0, 20); // 大きなピンクのドーム
+  b.cyl(0.4, 1, 6, 6, GOLD, 0, TUNNEL_HEIGHT + 49, 0); // てっぺんの飾り
   for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { // 四すみの小さなドーム
     b.cyl(5, 5, 4, 12, PINK_LIGHT, x * (hall + 8), TUNNEL_HEIGHT + 4, z * (len / 2 - 6));
     b.sphere(5, PINK, x * (hall + 8), TUNNEL_HEIGHT + 8, z * (len / 2 - 6), 12);

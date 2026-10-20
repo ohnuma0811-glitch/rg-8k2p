@@ -76,6 +76,8 @@ export function buildSpace() {
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
   sun.position.set(800, 400, 300);
   g.add(sun);
+  // 動かす形（地球・月・いん石）は、まとめない（まとめると動かせず、カメラの前に灰色の玉が残った。最後のレビュー）
+  g.traverse((o) => { o.userData.keep = true; });
   return root;
 }
 
