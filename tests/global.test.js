@@ -908,3 +908,39 @@ test('宇宙へ行く発射台の手前に、加速板が3つ（2026-10-21 の�
   for (let i = Math.round(t.marks.AR); i < Math.round(t.marks.LP); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) runs++;
   assert.equal(runs, 3);
 });
+
+test('スタートの後ろ（車が並ぶ所）から走り出しても、クアラルンプールへ飛ばない（2026-10-21 のユーザー依頼「スタート直後にKLに飛ぶ」）', () => {
+  for (const back of [5, 20, 40]) {
+    const kart = createKart(t, (L - back) % L, 0);
+    for (let f = 0; f < 120; f++) {
+      stepKart(kart, full, t, params, 1 / 60);
+      const s = t.samples[kart.seg].s;
+      assert.ok(s < 300 || s > t.marks.END, `後ろ ${back}m: s ${Math.round(s)} へ飛んだ`);
+    }
+  }
+});
+
+test('スタートの桜並木の道の上に、お堀の水が出ない（2026-10-21 のユーザー依頼「海のように青い床が出ている」）', async () => {
+  const THREE = await import('../vendor/three.module.min.js');
+  const g = buildTokyo(t);
+  g.updateMatrixWorld(true);
+  const moats = [];
+  g.traverse((o) => { if (o.userData.moat) moats.push(o); });
+  assert.ok(moats.length > 0, 'お堀に userData.moat');
+  let bad = 0;
+  const v = new THREE.Vector3();
+  for (let s = 0; s < t.marks.NJ; s += 4) {
+    const p = t.samples[Math.round(s)];
+    for (const m of moats) {
+      m.geometry.computeBoundingBox();
+      const bb = m.geometry.boundingBox;
+      // 道の幅の分も見る（道のはしの点）
+      for (const lat of [-p.wall, 0, p.wall]) {
+        v.set(p.x - Math.sin(p.h) * lat, 0, p.z + Math.cos(p.h) * lat);
+        m.worldToLocal(v);
+        if (v.x > bb.min.x && v.x < bb.max.x && v.z > bb.min.z && v.z < bb.max.z) bad++;
+      }
+    }
+  }
+  assert.equal(bad, 0, `道の下にお堀 ${bad}`);
+});

@@ -328,7 +328,10 @@ export function stepKart(kart, ctl, track, params, dt) {
   const edgeGone = () => edgeLoc().ground === null;
   // 片道のコース（Global City）の「無い道」には、向きにかかわらず入らない（道のはしで止まる）
   // ゴールのあとの周回（Global City）: 道の終わりの近くに来たら、同じ所のゴールの手前の点へつなぎかえる（位置はそのまま）
-  if (track.loopTo !== undefined && track.samples[loc.i].s > track.loopEnd - 30) {
+  // 道の終わりの手前 30m だけ（スタートの後ろの点は、点の並びでは道の終わりより後ろにあるので、含めない。
+  // 含めると、スタート直後にクアラルンプールへ飛んだ。2026-10-21 のユーザー依頼）
+  const ls = track.samples[loc.i].s;
+  if (track.loopTo !== undefined && ls > track.loopEnd - 30 && ls <= track.loopEnd) {
     const back = track.samples.findIndex((q) => q.s >= track.loopTo - 30);
     loc = locate(track, kart.x, kart.z, back, 40, kart.y ?? null);
     kart.seg = loc.i;

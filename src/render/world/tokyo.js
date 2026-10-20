@@ -50,13 +50,30 @@ export function buildTokyo(track) {
   const bb = createBuilder();
 
   // ---- 皇居の北西のお堀と、満開の桜並木（スタート）----
+  // お堀は道から離して、水は道より低く（道の上に青い床が出た。2026-10-21 のユーザー依頼「海のように青い床が出ている」）
   for (let k = 0; k + 1 < S.moat.length; k++) {
     const a = worldAt(track, S.moat[k]);
     const c = worldAt(track, S.moat[k + 1]);
     const len = Math.hypot(c.x - a.x, c.z - a.z);
-    b.push((a.x + c.x) / 2, 0, (a.z + c.z) / 2, Math.atan2(c.x - a.x, c.z - a.z));
-    b.box(30, 0.08, len + 4, 0x3f6f8f, -0, -0.05, 0);
+    let mx = (a.x + c.x) / 2;
+    let mz = (a.z + c.z) / 2;
+    const loc = locate(track, mx, mz, null, 40);
+    const need = loc.wall + 15 + 4 + len * 0.15; // お堀の半分のはば 15m ＋ すき間（ななめでも道にかからないよう、長さの分も）
+    if (Math.abs(loc.lateral) < need) {
+      const p = pointAt(track, loc.s);
+      const sd = Math.sign(loc.lateral) || -1;
+      mx += -Math.sin(p.h) * sd * (need - Math.abs(loc.lateral));
+      mz += Math.cos(p.h) * sd * (need - Math.abs(loc.lateral));
+    }
+    const ry = Math.atan2(c.x - a.x, c.z - a.z);
+    const water = new THREE.Mesh(new THREE.BoxGeometry(30, 0.04, len + 4), new THREE.MeshLambertMaterial({ color: 0x3f6f8f }));
+    water.position.set(mx, -0.075, mz);
+    water.rotation.y = ry;
+    water.userData.moat = true;
+    city.add(water);
+    b.push(mx, 0, mz, ry);
     b.box(2, 3, len + 4, STONE, 16, -2, 0); // お堀の石垣のふち
+    b.box(2, 3, len + 4, STONE, -16, -2, 0);
     b.pop();
   }
   along(track, 'S', 'NJ', 8, (p, s) => {
