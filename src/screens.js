@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=0e87b93';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=0e87b93';
+import { typeLetter, isValidName } from './names.js?v=0f5aefc';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=0f5aefc';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 

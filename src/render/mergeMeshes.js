@@ -1,6 +1,6 @@
 // コースの動かない形を、同じ材質ごと・区画ごとに1つの形にまとめる（描く回数を減らす。2026-10-16 のユーザー依頼「タブレットでカクつく」）
 // 区画（chunk m）に分けるのは、画面に映らない区画を描かないため
-import * as THREE from '../../vendor/three.module.min.js?v=0e87b93';
+import * as THREE from '../../vendor/three.module.min.js?v=0f5aefc';
 
 // まとめてよい形か: 動かない（onBeforeRender なし・userData.keep なし）、ふつうの三角の形
 function mergeable(m) {
