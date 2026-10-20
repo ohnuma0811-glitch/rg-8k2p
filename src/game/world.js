@@ -30,6 +30,16 @@ export function autoViewOf(kart) {
   return a.id;
 }
 
+// 平らな地面（世界にしいてある灰色の板）を見せるか（Global City）。宇宙・ワープの間と、海の底の区間（SD〜LIB）では見せない
+// （海の底へもぐる道が、地面の板の下にもぐって、板が道をふさいで見えた。2026-10-21 のユーザー依頼）
+export function groundShown(track, rel, mode) {
+  if (mode === 'space' || mode === 'warp') return false;
+  const sd = track.marks.SD;
+  const lib = track.marks.LIB;
+  if (sd !== undefined && lib !== undefined && rel > sd && rel < lib) return false;
+  return true;
+}
+
 // 夜のステージ（Global City の香港・クアラルンプール）。カートのライトを点ける（2026-10-21 のユーザー依頼）
 export function nightStage(track, cur) {
   return track.def.theme === 'world' && (cur === 3 || cur === 6);

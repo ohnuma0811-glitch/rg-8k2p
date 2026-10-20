@@ -1339,3 +1339,14 @@ test('地球に近づいても、地球の中（大気もふくむ）に入ら�
   }
   assert.ok(spaceLook(0.9).flash > 0.9, 'いちばん近づく前に白く');
 });
+
+import { groundShown } from '../src/game/world.js';
+
+test('海の底の区間（もぐる所〜自由の女神の足もと）では、灰色の平らな地面を見せない（道が地面の下へもぐるので、地面の板が道をふさいで見えた。2026-10-21 のユーザー依頼）', () => {
+  assert.equal(groundShown(t, t.marks.SD + 20, 'normal'), false);
+  assert.equal(groundShown(t, (t.marks.SD + t.marks.LIB) / 2, 'sea'), false);
+  assert.equal(groundShown(t, t.marks.LIB - 10, 'normal'), false);
+  assert.equal(groundShown(t, t.marks.HL + 50, 'normal'), true);
+  assert.equal(groundShown(t, t.marks.NY + 20, 'normal'), true);
+  assert.equal(groundShown(t, t.marks.HL + 50, 'space'), false);
+});
