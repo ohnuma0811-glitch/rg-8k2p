@@ -32,7 +32,27 @@ function prep(track) {
   // 橋の上の点、ジャンプ台、地面のない所（川の上）は、地面を引っぱらない（ジャンプ台の下も川が見えるように）
   // トンネルの中の道（Kyugo Mountain）も、地面を引っぱらない（上を山でおおう）
   // 自動の区間（Global City の大ジャンプ・宇宙・ワープの空の道すじ）と無い道も、地面を引っぱらない
-  const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp && !p.tunnel && !p.auto && !p.void);
+  // Global City: トンネルの入口・出口から MOUTH m の中は、トンネルとしてではなく道として地面を下げる（切り通し）。
+  // 山の面の三角が入口の前に張り出して、入口がふさがって見えた（2026-10-21 のユーザー依頼「富士山の入り口のトンネルが山で塞がれている」）
+  const mouth = new Set();
+  if (track.def.theme === 'world') {
+    const MOUTH = 35;
+    for (let i = 0; i < track.length; i++) {
+      const p = track.samples[i];
+      if (!p.tunnel) continue;
+      let a = p;
+      let b = p;
+      let near = false;
+      for (let k = 0; k < MOUTH && !near; k++) {
+        a = track.samples[a.prev];
+        b = track.samples[b.next];
+        if (!a.tunnel || !b.tunnel) near = true;
+      }
+      if (near) mouth.add(p);
+    }
+  }
+  const inTunnel = (p) => p.tunnel && !mouth.has(p);
+  const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp && !inTunnel(p) && !p.auto && !p.void);
   for (const p of pts) {
     const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
     if (!grid.has(key)) grid.set(key, []);
@@ -41,7 +61,7 @@ function prep(track) {
   const river = (track.def.river ?? []).map(([x, z]) => track.toWorld(x, z));
   const tunnel = new Map();
   for (const p of track.samples) {
-    if (!p.tunnel) continue;
+    if (!inTunnel(p)) continue;
     const key = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
     if (!tunnel.has(key)) tunnel.set(key, []);
     tunnel.get(key).push(p);
@@ -250,7 +270,7 @@ export function buildTerrain(track) {
 // 地面の形の、ます目の点の高さ（buildTerrain と、道のふちの土手の外のはし。2026-10-18: 土手だけが急な坂になっていた）
 // 道の下の点は少し下げる（ます目の間で、道の上に地面が出ないように）
 const meshCache = new WeakMap();
-function meshHeightOf(track) {
+export function meshHeightOf(track) {
   if (meshCache.has(track)) return meshCache.get(track);
   const { grid } = prep(track);
   const under = (x, z) => {

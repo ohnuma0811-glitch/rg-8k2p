@@ -125,6 +125,35 @@ export function buildKyoto(track) {
     glow.pop();
     b.pop();
   }
+  // 清水の舞台（2026-10-21 のユーザー依頼「一目で舞台だとわかるように。飛び降りるところ以外に手すり」）:
+  // 本堂を出てから飛び降りる所まで、道に板張りの床。両わきに木の手すり。飛び降りる所（前のはし）は開けておく
+  {
+    const d0 = km - 24;
+    const d1 = km - 2;
+    for (let s = d0; s <= d1; s += 1.2) {
+      const p = pointAt(track, s);
+      b.push(p.x, p.y, p.z, ryAlong(p.h));
+      b.box(2 * p.half + 2, 0.02, 1.1, Math.round(s / 1.2) % 2 ? 0x9a6a3a : 0x8a5a30, 0, 0.005, 0); // 板
+      b.pop();
+    }
+    const dm = pointAt(track, (d0 + d1) / 2);
+    landmark(g, 'kiyomizuDeck', dm.x, dm.y, dm.z);
+    for (let s = d0; s <= km - 3; s += 2) {
+      const p = pointAt(track, s);
+      const q = pointAt(track, Math.min(s + 2, km - 3));
+      for (const side of [-1, 1]) {
+        const c = beside(p, side * (p.half + 0.8));
+        const e = beside(q, side * (q.half + 0.8));
+        b.cyl(0.16, 0.16, 1.2, 6, 0x6a4026, c.x, p.y, c.z); // 手すりの柱
+        const post = landmark(g, 'kiyomizuRailPost', c.x, p.y, c.z);
+        post.userData.s = s;
+        b.rod(c.x, p.y + 1.15, c.z, e.x, q.y + 1.15, e.z, 0.1, 0x7a4a2a, 4); // 上の木
+        b.rod(c.x, p.y + 0.6, c.z, e.x, q.y + 0.6, e.z, 0.07, 0x7a4a2a, 4); // 中の木
+      }
+    }
+    landmark(g, 'kiyomizuRail', dm.x, dm.y, dm.z);
+    roadBanner(g, b, track, h1 + 3, 'KIYOMIZU STAGE', 'bannerKiyomizuStage', { bg: '#7a1a10', fg: '#ffe14a' });
+  }
   const hm = pointAt(track, (h0 + h1) / 2);
   landmark(g, 'kiyomizuHall', hm.x, hm.y, hm.z);
   landmark(g, 'kiyomizu', hm.x, 0, hm.z);
@@ -277,7 +306,7 @@ export function buildKyoto(track) {
   }
 
   // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
-  const sign = (s, text, name) => roadBanner(g, b, track, s, text, name);
+  const sign = (s, text, name) => roadBanner(g, b, track, s, text, name, { bg: '#7a1a10', fg: '#ffe14a' }); // 濃い赤に黄色の字（見やすく）
   sign(sOf(track, 'FI') - 30, 'FUSHIMI INARI', 'signFushimi');
   sign(km - 72, 'KIYOMIZU-DERA', 'signKiyomizu'); // 仁王門と本堂の間（鳥居のトンネルに重ならないように）
   sign(sOf(track, 'GK') - 40, 'GINKAKU-JI', 'signGinkaku');

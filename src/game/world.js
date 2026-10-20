@@ -72,8 +72,11 @@ export const SHINKANSEN_GAP = 25.5; // 両と両の間かく（m）
 // train.t0: 走り出した時刻（自分が線路の始まりに近づいた時。null ならまだ走らず、見せない）。lead: 走り出した時の先頭の s（from から）。
 // 線路の終わり（to）まで行っても始まりへ戻らない（戻ると、横を走っているときに急に消えた。2026-10-21 のユーザー依頼）
 export function shinkansenCars(track, train, time, topSpeed, cars = 16) {
-  if (train.t0 === null || train.t0 === undefined) return Array.from({ length: cars }, () => ({ x: 0, y: train.y, z: 0, heading: 0, visible: false }));
-  const head = train.from + (train.lead ?? 0) + topSpeed * SHINKANSEN_FACTOR * Math.max(0, time - train.t0);
+  // wait: 走り出す前は、始まりの所で止まって待つ（東京駅。2026-10-21 のユーザー依頼「発見できなかった」）
+  const waiting = train.t0 === null || train.t0 === undefined;
+  if (waiting && !train.wait) return Array.from({ length: cars }, () => ({ x: 0, y: train.y, z: 0, heading: 0, visible: false }));
+  const elapsed = waiting ? 0 : Math.max(0, time - train.t0);
+  const head = train.from + (train.lead ?? 0) + topSpeed * (train.speed ?? SHINKANSEN_FACTOR) * elapsed;
   const rail = (s) => {
     const p = sampleAt(track, s);
     return { x: p.x - Math.sin(p.h) * train.off, z: p.z + Math.cos(p.h) * train.off };

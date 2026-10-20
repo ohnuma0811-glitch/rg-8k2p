@@ -1166,13 +1166,13 @@ test('信号機: ニューヨークは直角の角の右側、香港は左側（
 test('東京の新幹線は東京駅から走り出す（線路は東京駅の横から。2026-10-21 のユーザー依頼「途中から湧き出てきている」）', () => {
   const line = GLOBAL_SCENERY.tokyo.shinkansenLine;
   assert.equal(line.from, 'TS');
-  assert.ok(line.lead >= 16 * 25.5, '走り出すとき、全部の両が線路の上');
-  const tr = { from: t.marks[line.from], to: t.marks[line.to], off: line.off, y: line.y, t0: 0, lead: line.lead };
-  const cars = shinkansenCars(t, tr, 0.01, 30, 16);
+  assert.ok(line.lead >= line.cars * 25.5, '走り出すとき、全部の両が線路の上');
+  const tr = { from: t.marks[line.from], to: t.marks[line.to], off: line.off, y: line.y, t0: 0, lead: line.lead, speed: line.speed };
+  const cars = shinkansenCars(t, tr, 0.01, 30, line.cars);
   assert.ok(cars.every((c) => c.visible), '走り出すときに全部見える');
   // いちばん後ろの両は、東京駅の横
   const st = t.samples[Math.round(t.marks.TS)];
-  const last = cars[15];
+  const last = cars[line.cars - 1];
   assert.ok(Math.hypot(last.x - st.x, last.z - st.z) < 80, `${Math.round(Math.hypot(last.x - st.x, last.z - st.z))}m`);
 });
 
@@ -1208,4 +1208,108 @@ test('富士山のコースの左側にも木（殺風景だった。2026-10-21 
   let left = 0;
   buildFuji(t).traverse((o) => { if (o.userData.landmark === 'fujiTree') left++; });
   assert.ok(left >= 30, `${left}`);
+});
+
+test('東京の新幹線は、自分が来るまで東京駅の横で待ち、駅を通るころに走り出して、並んで走れる（2026-10-21 のユーザー依頼「発見できなかった」）', () => {
+  const line = GLOBAL_SCENERY.tokyo.shinkansenLine;
+  const tr = { from: t.marks[line.from], to: t.marks[line.to], off: line.off, y: line.y, t0: null, lead: line.lead, wait: line.wait, speed: line.speed };
+  const waiting = shinkansenCars(t, tr, 30, 30, line.cars);
+  assert.ok(waiting.every((c) => c.visible), '待っている間も見える');
+  const st = t.samples[Math.round(t.marks.TS)];
+  assert.ok(waiting.some((c) => Math.hypot(c.x - st.x, c.z - st.z) < 60), '東京駅の横');
+  assert.ok(line.speed < 1, '自分より少し遅い');
+  // 走り出して 8秒たっても、まだ線路の上に見える
+  const moving = shinkansenCars(t, { ...tr, t0: 0 }, 8, 30, line.cars);
+  assert.ok(moving.some((c) => c.visible), '8秒あとも見える');
+});
+
+test('フジテレビの球体は、レインボーブリッジから2つの塔の間に見える（2026-10-21 のユーザー依頼「90度ほど回転」）', () => {
+  const m = landmarks(buildTokyo(t));
+  const f = m.get('fujiTV');
+  const p = t.samples[Math.round((t.marks.RB + t.marks.RBE) / 2)];
+  const towers = [];
+  buildTokyo(t).traverse((o) => { if (o.userData.landmark === 'fujiTVTower') towers.push(o.position); });
+  assert.equal(towers.length, 2);
+  // 橋から球体を見る線の、左と右に1本ずつ
+  const dx = f.x - p.x;
+  const dz = f.z - p.z;
+  const side = (q) => Math.sign(dx * (q.z - p.z) - dz * (q.x - p.x));
+  assert.notEqual(side(towers[0]), side(towers[1]));
+});
+
+import { splitByStage } from '../src/render/trackMesh.js';
+
+test('道の形は、三角ごとに、いちばん近い道のステージに分ける（富士山の着地点の近くを通るニューヨークの道が、富士山で見えた。2026-10-21 のユーザー依頼「途切れた道」）', async () => {
+  const THREE = await import('../vendor/three.module.min.js');
+  const fl = t.samples[Math.round(t.marks.FL) + 5];
+  const ny = t.samples[Math.round(t.marks.R2)];
+  const tri = (p) => [p.x, p.y + 0.02, p.z, p.x + 1, p.y + 0.02, p.z, p.x, p.y + 0.02, p.z + 1];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([...tri(fl), ...tri(ny)], 3));
+  const pieces = splitByStage(new THREE.Mesh(geo, new THREE.MeshBasicMaterial()), t);
+  const st = pieces.map((m) => m.userData.stages.join()).sort();
+  assert.deepEqual(st, ['1', '5']);
+});
+
+test('大ジャンプ台は一定の角度で上り、その角度のまま放物線で飛ぶ（ジャンプ台の角度と高さが合わなかった。2026-10-21 のユーザー依頼）', () => {
+  for (const [ramp, off, land] of [['JP', 'AJ', 'FL'], ['R0', 'GJ', 'LND']]) {
+    const y = (s) => t.samples[Math.round(s)].y;
+    const a = t.marks[off];
+    const before = (y(a) - y(a - 6)) / 6;
+    const after = (y(a + 6) - y(a)) / 6;
+    assert.ok(before > 0.25, `${ramp}: ジャンプ台の坂 ${before.toFixed(2)}`);
+    assert.ok(Math.abs(after - before) < 0.06, `${ramp}: 飛び出す角度 ${before.toFixed(2)} → ${after.toFixed(2)}`);
+    // ジャンプ台の途中も同じ角度（まっすぐな坂）
+    const mid = (t.marks[ramp] + a) / 2;
+    assert.ok(Math.abs((y(mid + 3) - y(mid - 3)) / 6 - before) < 0.06, `${ramp}: 坂の途中`);
+    // 放物線のいちばん高い所
+    let top = 0;
+    for (let s = a; s < t.marks[land]; s += 5) top = Math.max(top, y(s));
+    assert.ok(top > 60, `${ramp}: 高さ ${Math.round(top)}m`);
+  }
+});
+
+test('富士山のトンネルの入口と出口は、山でふさがれない（入口の前後は地面を道の高さまで下げる。2026-10-21 のユーザー依頼）', async () => {
+  const a = Math.round(t.marks.FL);
+  const b = Math.round(t.marks.SK);
+  let start = -1;
+  let end = -1;
+  for (let i = a; i < b; i++) {
+    if (t.samples[i].tunnel && start < 0) start = i;
+    if (t.samples[i].tunnel) end = i;
+  }
+  for (const [i, dir] of [[start, 1], [end, -1]]) {
+    // 入口の 5m 外から、10m 中まで: 道の上 6m より地面が高くない
+    // 地面の形（ます目の点の高さ）で見る。入口の前後の道の上と、道の両わき
+    const { meshHeightOf } = await import('../src/render/terrain.js');
+    const meshY = meshHeightOf(t);
+    for (let d = -12; d <= 4; d += 2) {
+      const p = t.samples[i - dir * d];
+      for (const lat of [-p.half, 0, p.half]) {
+        const x = p.x - Math.sin(p.h) * lat;
+        const z = p.z + Math.cos(p.h) * lat;
+        assert.ok(meshY(x, z) < p.y + 6, `s ${Math.round(p.s)} 横 ${lat}: 地面 ${meshY(x, z).toFixed(1)} / 道 ${p.y.toFixed(1)}`);
+      }
+    }
+  }
+});
+
+import { curveArrowSpots } from '../src/render/snow/signs.js';
+
+test('富士山のトンネルの中に、Kyugo Mountain のようなカーブの矢印（2026-10-21 のユーザー依頼）', () => {
+  const spots = curveArrowSpots(t).filter((sp) => t.samples[sp.i].s > t.marks.FL && t.samples[sp.i].s < t.marks.SK);
+  assert.ok(spots.length >= 6, `${spots.length}`);
+});
+
+test('清水の舞台は一目で舞台と分かる: 板張りの床と、飛び降りる所以外の手すり。横断幕も（2026-10-21 のユーザー依頼）', () => {
+  const g = buildKyoto(t);
+  const m = landmarks(g);
+  assert.ok(m.has('kiyomizuDeck') && m.has('kiyomizuRail'), '床と手すり');
+  const banners = [];
+  g.traverse((o) => { if (o.userData.banner) banners.push(o.userData.banner); });
+  assert.ok(banners.includes('KIYOMIZU STAGE'));
+  // 手すりは、飛び降りる所（KM の前後 4m）にはない
+  let railAtJump = false;
+  g.traverse((o) => { if (o.userData.landmark === 'kiyomizuRailPost' && Math.abs(o.userData.s - t.marks.KM) < 4) railAtJump = true; });
+  assert.ok(!railAtJump);
 });

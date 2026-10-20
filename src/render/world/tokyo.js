@@ -316,11 +316,26 @@ export function buildTokyo(track) {
   // ---- お台場: フジテレビ（格子の建物と球体）----
   const ftv = worldAt(track, S.fujiTV.at);
   landmark(bay, 'fujiTV', ftv.x, 0, ftv.z);
-  for (const dx of [-26, 26]) {
-    tower(bb, ftv.x + dx, ftv.z, 0, 34, 34, 120, 0xe8eaec, { win: 0x8a96a3 });
-    for (let y = 10; y < 120; y += 20) bb.box(34.6, 1.6, 34.6, 0x8a96a3, ftv.x + dx, y, ftv.z);
+  // 2つの塔は、レインボーブリッジから見て左右に並べる（前後に並ぶと、手前の塔が球体を隠した。2026-10-21 のユーザー依頼「90度ほど回転」）
+  const rbv = pointAt(track, (sOf(track, 'RB') + sOf(track, 'RBE')) / 2);
+  const vl = Math.hypot(ftv.x - rbv.x, ftv.z - rbv.z);
+  const vx = (ftv.x - rbv.x) / vl;
+  const vz = (ftv.z - rbv.z) / vl;
+  const ftvRy = Math.atan2(vx, vz); // z が橋から見る向き
+  for (const sd of [-1, 1]) {
+    const tx = ftv.x - vz * 26 * sd;
+    const tz = ftv.z + vx * 26 * sd;
+    tower(bb, tx, tz, ftvRy, 34, 34, 120, 0xe8eaec, { win: 0x8a96a3 });
+    for (let y = 10; y < 120; y += 20) {
+      bb.push(tx, 0, tz, ftvRy);
+      bb.box(34.6, 1.6, 34.6, 0x8a96a3, 0, y, 0);
+      bb.pop();
+    }
+    landmark(bay, 'fujiTVTower', tx, 0, tz);
   }
-  bb.box(20, 14, 30, 0xe8eaec, ftv.x, 84, ftv.z); // 上の方の通路
+  bb.push(ftv.x, 0, ftv.z, ftvRy);
+  bb.box(30, 14, 20, 0xe8eaec, 0, 84, 0); // 上の方の通路（2つの塔をつなぐ）
+  bb.pop();
   bb.sphere(20, 0xd8dee6, ftv.x, 100, ftv.z, 20); // 球体（大きく、光って見える。橋の出口から正面に）
   for (let k = 0; k < 4; k++) { // 名前は4つの面に
     const a = (k * Math.PI) / 2;
@@ -332,6 +347,14 @@ export function buildTokyo(track) {
   const glow = createBuilder({ glow: true });
   const js = sOf(track, 'JP');
   const je = sOf(track, 'AJ');
+  // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）
+  for (let s = js; s <= je; s += 4) {
+    const p = pointAt(track, s);
+    if (p.y < 1) continue;
+    bb.push(p.x, 0, p.z, ryAlong(p.h));
+    bb.box(2 * p.wall, p.y - 0.3, 4.4, Math.round(s / 4) % 2 ? 0xd8d4cc : 0xc8c4bc, 0, 0, 0);
+    bb.pop();
+  }
   for (let s = js; s <= je; s += 6) {
     const p = pointAt(track, s);
     glow.push(p.x, p.y + 0.08, p.z, ryAlong(p.h));

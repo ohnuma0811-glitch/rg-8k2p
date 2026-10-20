@@ -198,6 +198,14 @@ export function buildKL(track) {
   {
     const r0 = sOf(track, 'R0');
     const gj = sOf(track, 'GJ');
+  // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）
+  for (let s = r0; s <= gj; s += 4) {
+    const p = pointAt(track, s);
+    if (p.y < 1) continue;
+    b.push(p.x, 0, p.z, ryAlong(p.h));
+    b.box(2 * p.wall, p.y - 0.3, 4.4, Math.round(s / 4) % 2 ? 0xd8d4cc : 0xc8c4bc, 0, 0, 0);
+    b.pop();
+  }
     for (let s = r0; s <= gj; s += 6) {
       const p = pointAt(track, s);
       glow.push(p.x, p.y + 0.08, p.z, ryAlong(p.h));
