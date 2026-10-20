@@ -6,6 +6,7 @@ import { createRace, raceTick, updateProgress, ranking, gridSlot, progress } fro
 import { pushApart } from '../src/game/collide.js';
 import { slowContact, SLOW_PULL, snowmanPose, snowmanContact, mogulContact, MOGUL_HOP_VY, SNOWMAN_HEIGHT, SNOWMAN_HOP } from '../src/game/hazards.js';
 import { COURSE4, COURSES } from '../src/data/tracks.js';
+import * as THREE from '../vendor/three.module.min.js';
 import { buildBridge } from '../src/render/forest/bridge.js';
 import { fenceSides, bridgeSlab, landingEdges } from '../src/render/trackMesh.js';
 import { buildTunnel, TUNNEL_HEIGHT, tunnelLight, TUNNEL_BLACK, tunnelLook, touchOnly, snowMound, MOUND_ABOVE } from '../src/render/snow/tunnel.js';
@@ -711,6 +712,31 @@ test('ジャンプの着地の道のはし: 手前の地面は道より 3m 以�
   assert.ok(!kart.airborne && !(kart.respawn > 0));
   const s = (kart.x - e.x) * Math.cos(e.h) + (kart.z - e.z) * Math.sin(e.h); // はしから前へ（m）
   assert.ok(s > 0.85 && s < 1.5, `はしから ${s.toFixed(2)}m`); // うしろの端（1.4m うしろ）が、壁の面（はしの 0.5m 先）の所
+});
+
+test('トンネルの中から、外の雪の山は見えない（前・ななめ前を見ても、先に当たるのはトンネルの壁。2026-10-20 のユーザー依頼「トンネル内で白い壁があって先が見えない」）', () => {
+  const g = buildTunnel(t);
+  g.updateMatrixWorld(true);
+  const meshes = [];
+  g.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const mound = meshes.find((o) => o.material.emissive?.getHex() === 0x8a8e94);
+  assert.ok(mound, '雪の山がない');
+  const rc = new THREE.Raycaster();
+  const seen = [];
+  for (let i = 0; i < L; i += 3) {
+    const p = t.samples[i];
+    if (!p.tunnel) continue;
+    const cam = new THREE.Vector3(p.x - Math.cos(p.h) * 6.3, p.y + 3.7, p.z - Math.sin(p.h) * 6.3); // 走るときのカメラ
+    for (const yaw of [-0.6, -0.3, 0, 0.3, 0.6]) {
+      for (const pitch of [0, 0.15]) {
+        rc.set(cam, new THREE.Vector3(Math.cos(p.h + yaw), pitch, Math.sin(p.h + yaw)).normalize());
+        rc.far = 80;
+        const hit = rc.intersectObjects(meshes, false)[0];
+        if (hit && hit.object === mound) seen.push(`${i}(${yaw},${pitch})`);
+      }
+    }
+  }
+  assert.deepEqual(seen.slice(0, 10), [], `${seen.length} か所`);
 });
 
 // 形の三角の数

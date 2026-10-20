@@ -3,6 +3,7 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
+const CEIL_LATS = [-1, -0.5, 0, 0.5, 1]; // 天井の高さを決める横の位置（壁の位置を ±1 として）
 const WALL = 0x5a5f66;
 const CEIL = 0x4a4e55;
 const ARCH = 0x9a958c;
@@ -36,6 +37,12 @@ export function buildTunnel(track) {
       w,
       wall: { '-1': roof(p, p.x - rx * w, p.z - rz * w, 0.5), 1: roof(p, p.x + rx * w, p.z + rz * w, 0.5) },
       ceil: roof(p, p.x, p.z, w) >= TUNNEL_HEIGHT,
+      // 中の天井の高さ（横に5か所）。上・横にらせんの段が重なる所は、その道の裏のすぐ下まで下げる
+      // （天井を丸ごとなくすと、すき間から外の雪が見えた。2026-10-20 のユーザー依頼）
+      ceilH: CEIL_LATS.map((u) => {
+        const h = roof(p, p.x + rx * w * u, p.z + rz * w * u, 0.5);
+        return h >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : h;
+      }),
     };
   });
   const pos = [];
@@ -55,11 +62,17 @@ export function buildTunnel(track) {
     const B = info[k + 1];
     if (track.samples[A.p.next] !== B.p) continue;
     for (const side of [-1, 1]) {
-      const ha = A.wall[side];
-      const hb = B.wall[side];
+      // 壁は天井の高さまで（壁の上と天井の間に 0.3m のすき間があり、外の雪が白く見えた。2026-10-20 のユーザー依頼）
+      const ha = A.wall[side] >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : A.wall[side];
+      const hb = B.wall[side] >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : B.wall[side];
       if (ha > 0.3 && hb > 0.3) quad(at(A.p, side * A.w, A.p.y), at(B.p, side * B.w, B.p.y), at(A.p, side * A.w, A.p.y + ha), at(B.p, side * B.w, B.p.y + hb), WALL);
     }
-    if (A.ceil && B.ceil) quad(at(A.p, -A.w, A.p.y + TUNNEL_HEIGHT + 0.3), at(B.p, -B.w, B.p.y + TUNNEL_HEIGHT + 0.3), at(A.p, A.w, A.p.y + TUNNEL_HEIGHT + 0.3), at(B.p, B.w, B.p.y + TUNNEL_HEIGHT + 0.3), CEIL);
+    for (let k2 = 0; k2 + 1 < CEIL_LATS.length; k2++) {
+      const [u0, u1] = [CEIL_LATS[k2], CEIL_LATS[k2 + 1]];
+      const h = [A.ceilH[k2], A.ceilH[k2 + 1], B.ceilH[k2], B.ceilH[k2 + 1]];
+      if (Math.min(...h) < 3.5) continue; // 車が通れない低さの天井は作らない（上の道の裏が天井）
+      quad(at(A.p, A.w * u0, A.p.y + h[0]), at(B.p, B.w * u0, B.p.y + h[2]), at(A.p, A.w * u1, A.p.y + h[1]), at(B.p, B.w * u1, B.p.y + h[3]), CEIL);
+    }
     // 道の裏（下の段から見たときの天井。道の絵が透けて見えないように。2026-10-18 のユーザー依頼「上部に道路が映っている」）
     quad(at(A.p, -A.w, A.p.y - 0.3), at(B.p, -B.w, B.p.y - 0.3), at(A.p, A.w, A.p.y - 0.3), at(B.p, B.w, B.p.y - 0.3), CEIL);
   }
@@ -92,17 +105,64 @@ const SNOW = 0xf2f6fb; // 雪山の地面と同じ色（src/render/terrain.js）
 
 // 雪の坂（点ごと・左右ごと）: { i, side, w: 壁の位置, top: 上の高さ, base: 下の地面の高さ, reach: 壁から坂のはしまで, end: はしの高さ }
 // tunnelInfo は buildTunnel の中の点ごとの情報（壁の高さ）。なければ作る
+const cellKey = (gx, gz) => gx * 100003 + gz; // ます目の番号（文字を作らない）
 export function snowMound(track, tunnelInfo = null) {
   const samples = track.samples.slice(0, track.length);
   const pts = samples.filter((p) => p.tunnel);
   const others = track.samples.filter((q) => !q.tunnel && q.y !== null);
   const info = tunnelInfo ?? pts.map((p) => ({ p, w: p.wall + 0.5, wall: { '-1': TUNNEL_HEIGHT, 1: TUNNEL_HEIGHT } }));
+  const index = new Map(track.samples.map((p, i) => [p, i]));
+  const noCeil = new Set(info.filter((it) => it.ceil === false).map((it) => it.p));
+  // 点のます目（20m）で、(x, z) のまわり r m の点だけを見る（全部の点を毎回見ると重い）
+  const gridOf = (list) => {
+    const g = new Map();
+    for (const q of list) {
+      const key = cellKey(Math.floor(q.x / 20), Math.floor(q.z / 20));
+      if (!g.has(key)) g.set(key, []);
+      g.get(key).push(q);
+    }
+    return g;
+  };
+  const around = (g, x, z, r) => {
+    const res = [];
+    const n = Math.ceil(r / 20);
+    const cx = Math.floor(x / 20);
+    const cz = Math.floor(z / 20);
+    for (let gx = cx - n; gx <= cx + n; gx++) for (let gz = cz - n; gz <= cz + n; gz++) for (const q of g.get(cellKey(gx, gz)) ?? []) res.push(q);
+    return res;
+  };
+  const othersGrid = gridOf(others);
+  // トンネルの点のます目（20m）。点 (x, z) の高さ yTop〜yLow の雪が、どこかのトンネルの中（壁の内がわ、道の 1m 下〜天井の上）に入るか
+  const cells = new Map();
+  for (const q of pts) {
+    const key = cellKey(Math.floor(q.x / 20), Math.floor(q.z / 20));
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(q);
+  }
+  const insideTunnel = (x, z, yTop, yLow) => {
+    const cx = Math.floor(x / 20);
+    const cz = Math.floor(z / 20);
+    for (let gx = cx - 1; gx <= cx + 1; gx++) {
+      for (let gz = cz - 1; gz <= cz + 1; gz++) {
+        for (const q of cells.get(cellKey(gx, gz)) ?? []) {
+          const dx = x - q.x;
+          const dz = z - q.z;
+          if (Math.abs(dx * Math.cos(q.h) + dz * Math.sin(q.h)) > 0.75) continue;
+          if (Math.abs(-dx * Math.sin(q.h) + dz * Math.cos(q.h)) >= q.wall + 0.5 + MOUND_GAP) continue;
+          // 天井のない所（上にらせんの段が重なる所）は、もう1段上まで中（天井のすき間から上の雪が見えた）
+          const roofY = noCeil.has(q) ? q.y + 2 * TUNNEL_HEIGHT + 2 : q.y + MOUND_ABOVE + 0.5;
+          if (yLow < roofY && yTop > q.y - 1) return true;
+        }
+      }
+    }
+    return false;
+  };
   const out = [];
   for (const it of info) {
     const p = it.p;
     const top = p.y + MOUND_ABOVE;
     let base = p.y;
-    for (const q of pts) if (Math.abs(q.x - p.x) < 40 && Math.abs(q.z - p.z) < 40) base = Math.min(base, q.y);
+    for (const q of around(cells, p.x, p.z, 40)) if (Math.abs(q.x - p.x) < 40 && Math.abs(q.z - p.z) < 40) base = Math.min(base, q.y);
     base -= 3;
     for (const side of [-1, 1]) {
       if (it.wall[side] < TUNNEL_HEIGHT - 0.01) continue; // 上をほかの道が通る壁（らせんの下の段）は、上の段の雪の下
@@ -110,7 +170,7 @@ export function snowMound(track, tunnelInfo = null) {
       const rz = Math.cos(p.h) * side;
       // 壁の真下をほかの道が通る（トンネルが B の上を渡る所）: 雪はその道の上 6m まで
       let floor = base;
-      for (const q of others) {
+      for (const q of around(othersGrid, p.x, p.z, 40)) {
         if (Math.abs(q.x - p.x) > 40 || Math.abs(q.z - p.z) > 40 || q.y >= p.y) continue;
         const dx = q.x - p.x;
         const dz = q.z - p.z;
@@ -119,7 +179,7 @@ export function snowMound(track, tunnelInfo = null) {
       }
       const full = (top - floor) * MOUND_SLOPE;
       let reach = full;
-      for (const q of others) {
+      for (const q of around(othersGrid, p.x, p.z, it.w + full + 20)) {
         const dx = q.x - p.x;
         const dz = q.z - p.z;
         if (Math.abs(dx) > it.w + full + 20 || Math.abs(dz) > it.w + full + 20) continue;
@@ -133,7 +193,7 @@ export function snowMound(track, tunnelInfo = null) {
       }
       // トンネルのほかの所（らせんの別の段の横・入口へ向かう所の横など）: 雪がトンネルの中を通らない
       // （中から白い壁が見えた。2026-10-19 のユーザー依頼）
-      for (const q of pts) {
+      for (const q of around(cells, p.x, p.z, it.w + full + 20)) {
         if (Math.min(Math.abs(q.s - p.s), track.length - Math.abs(q.s - p.s)) < 60) continue;
         const dx = q.x - p.x;
         const dz = q.z - p.z;
@@ -147,15 +207,114 @@ export function snowMound(track, tunnelInfo = null) {
         const hFar = top - ((top - floor) * Math.max(0, l + qw)) / full;
         if (hFar < q.y + MOUND_ABOVE + 1 && hNear > q.y - 1) reach = Math.min(reach, Math.max(0, near));
       }
-      out.push({ i: track.samples.indexOf(p), side, w: it.w + MOUND_GAP, top, base: floor, reach, end: top - ((top - floor) * reach) / full });
+      // 坂の上を 1m ごとに、トンネルのどこかの中（カーブの内がわの先など）に入らないか調べ、入る所の手前で止める
+      // （2026-10-20 のユーザー依頼「トンネル内で白い壁があって、先が見えない」）
+      const w0 = it.w + MOUND_GAP;
+      for (let d = 1; d <= reach; d += 1) { // 根もと（壁のすぐ外）は、カーブの内がわでとなりの点から見ると中に入るので、1m 外から
+        const x = p.x + rx * (w0 + d);
+        const z = p.z + rz * (w0 + d);
+        const h = top - ((top - floor) * d) / full;
+        if (insideTunnel(x, z, h, h - (top - floor) * (1 / full))) {
+          reach = Math.max(0, d - 1);
+          break;
+        }
+      }
+      out.push({ i: index.get(p), side, w: w0, top, base: floor, reach, end: top - ((top - floor) * reach) / full });
     }
   }
+  // 坂のはしから下へのびる雪の壁は、下を通るトンネルの天井の上で止める（らせんの段の雪の壁が、下の道のトンネルの中を縦に突きぬけていた）
+  const tunnelTopBelow = (x, z, yFrom) => {
+    let top = -Infinity;
+    const cx = Math.floor(x / 20);
+    const cz = Math.floor(z / 20);
+    for (let gx = cx - 1; gx <= cx + 1; gx++) {
+      for (let gz = cz - 1; gz <= cz + 1; gz++) {
+        for (const q of cells.get(cellKey(gx, gz)) ?? []) {
+          const dx = x - q.x;
+          const dz = z - q.z;
+          if (Math.abs(dx * Math.cos(q.h) + dz * Math.sin(q.h)) > 1.5) continue;
+          if (Math.abs(-dx * Math.sin(q.h) + dz * Math.cos(q.h)) >= q.wall + 0.5 + MOUND_GAP + 1) continue;
+          if (q.y - 1 < yFrom - 0.5) top = Math.max(top, q.y + MOUND_ABOVE + 0.5);
+        }
+      }
+    }
+    return top;
+  };
+  const setBottom = (m) => {
+    const p = track.samples[m.i];
+    const d = m.w + m.reach;
+    const x = p.x - Math.sin(p.h) * m.side * d;
+    const z = p.z + Math.cos(p.h) * m.side * d;
+    m.bottom = Math.min(m.end, Math.max(m.base, tunnelTopBelow(x, z, m.end)));
+  };
+  // 坂の長さは、前後 SMOOTH 点のいちばん短いものにそろえる（となりとばらばらだと、外から見て、くしの歯のようなしまになった）
+  {
+    const SMOOTH = 8;
+    const byKey = new Map(out.map((m) => [`${m.i}:${m.side}`, m]));
+    const raw = new Map(out.map((m) => [m, m.reach]));
+    for (const m of out) {
+      let r = raw.get(m);
+      for (const dir of ['next', 'prev']) {
+        let i = m.i;
+        for (let k = 0; k < SMOOTH; k++) {
+          i = track.samples[i][dir];
+          const o = byKey.get(`${i}:${m.side}`);
+          if (!o) break;
+          r = Math.min(r, raw.get(o) + k + 1); // 離れるほど、少しずつ長くてよい
+        }
+      }
+      const full = (m.top - m.base) * MOUND_SLOPE;
+      m.reach = r;
+      m.end = m.top - ((m.top - m.base) * r) / full;
+    }
+  }
+  // となり合う2点の間の坂の面も、トンネルの中を横切らないように（坂の長さが大きくちがうと、面がななめにカーブの内がわを横切る）
+  const at = (m, frac, d) => {
+    const p = track.samples[m.i];
+    const rx = -Math.sin(p.h) * m.side;
+    const rz = Math.cos(p.h) * m.side;
+    return [p.x + rx * (m.w + d * m.reach), p.z + rz * (m.w + d * m.reach)];
+  };
+  const bySide = new Map(out.map((m) => [`${m.i}:${m.side}`, m]));
+  for (let pass = 0; pass < 20; pass++) {
+    let changed = false;
+    for (const m of out) {
+      const nb = bySide.get(`${track.samples[m.i].next}:${m.side}`);
+      if (!nb) continue;
+      const hit = () => {
+        if (Math.max(m.reach, nb.reach) < 1) return false;
+        for (const u of [0.25, 0.5, 0.75]) {
+          for (const d of [0.4, 0.6, 0.8, 1]) {
+            const [ax, az] = at(m, 0, d);
+            const [bx, bz] = at(nb, 0, d);
+            const ha = m.top - (m.top - m.end) * d;
+            const hb = nb.top - (nb.top - nb.end) * d;
+            const y = ha + (hb - ha) * u;
+            if (insideTunnel(ax + (bx - ax) * u, az + (bz - az) * u, y, y - 0.5)) return true;
+          }
+        }
+        return false;
+      };
+      if (!hit()) continue;
+      // 長い方を短い方にそろえ、それでも横切るなら半分ずつ短くする
+      const r = Math.min(m.reach, nb.reach, Math.max(m.reach, nb.reach) / 2);
+      for (const k of [m, nb]) {
+        const full = (k.top - k.base) * MOUND_SLOPE;
+        k.reach = r < 1 ? 0 : r;
+        k.end = k.top - ((k.top - k.base) * k.reach) / full;
+      }
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  for (const m of out) setBottom(m);
   return out;
 }
 
 function moundMesh(track, info) {
   const slopes = snowMound(track, info);
   const bySide = new Map(slopes.map((m) => [`${m.i}:${m.side}`, m]));
+  const index = new Map(track.samples.map((p, i) => [p, i]));
   const pos = [];
   // 三角は、表（反時計回り）が外（ref の向き）を向くように並べる。表だけを描くので、トンネルの中から
   // 壁のすき間ごしに見ると裏になり、雪は見えない（2026-10-19 のユーザー依頼「トンネル内に白い壁がみえている」）
@@ -179,8 +338,8 @@ function moundMesh(track, info) {
     const wa = A.w + MOUND_GAP;
     const wb = B.w + MOUND_GAP;
     if (A.ceil && B.ceil) quad(at(A.p, -wa, A.p.y + MOUND_ABOVE), at(B.p, -wb, B.p.y + MOUND_ABOVE), at(A.p, wa, A.p.y + MOUND_ABOVE), at(B.p, wb, B.p.y + MOUND_ABOVE), [0, 1, 0]);
-    const ia = track.samples.indexOf(A.p);
-    const ib = track.samples.indexOf(B.p);
+    const ia = index.get(A.p);
+    const ib = index.get(B.p);
     for (const side of [-1, 1]) {
       const ma = bySide.get(`${ia}:${side}`);
       const mb = bySide.get(`${ib}:${side}`);
@@ -188,7 +347,7 @@ function moundMesh(track, info) {
       // 坂（壁の上 → はし）と、はしから下の地面までの雪の壁。外は、道から横へ離れる向き
       const out = [-Math.sin(A.p.h) * side, 0, Math.cos(A.p.h) * side];
       quad(at(A.p, side * ma.w, ma.top), at(B.p, side * mb.w, mb.top), at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), [out[0], 1, out[2]]);
-      quad(at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), at(A.p, side * (ma.w + ma.reach), ma.base), at(B.p, side * (mb.w + mb.reach), mb.base), out);
+      quad(at(A.p, side * (ma.w + ma.reach), ma.end), at(B.p, side * (mb.w + mb.reach), mb.end), at(A.p, side * (ma.w + ma.reach), ma.bottom), at(B.p, side * (mb.w + mb.reach), mb.bottom), out);
     }
   }
   const geo = new THREE.BufferGeometry();
