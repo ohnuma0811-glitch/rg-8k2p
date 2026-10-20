@@ -1,6 +1,6 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import * as THREE from '../../../vendor/three.module.min.js?v=0f5aefc';
-import { createBuilder } from '../town/builder.js?v=0f5aefc';
+import * as THREE from '../../../vendor/three.module.min.js?v=42729ef';
+import { createBuilder } from '../town/builder.js?v=42729ef';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const CEIL_LATS = [-1, -0.5, 0, 0.5, 1]; // 天井の高さを決める横の位置（壁の位置を ±1 として）
@@ -360,14 +360,19 @@ function moundMesh(track, info) {
 // トンネルの中の暗さ（2026-10-18 のユーザー依頼「トンネル内は画面がブラックアウトし、カートにライト、視野が一部制限」）
 export const TUNNEL_BLACK = 0.25; // 入るときのまっくらの秒数
 export const TUNNEL_FADE = 0.6; // 出るときに明るくなる秒数
-export const TUNNEL_DIM = 0.35; // 中の明るさ（外を 1 として。2026-10-18 のユーザー依頼「タブレットだと暗すぎる」で 0.15 から）
+export const TUNNEL_DIM = 0.25; // PC の中の明るさ（外を 1 として。2026-10-18 に 0.15 から 0.35、2026-10-20 のユーザー依頼「PC用も少し暗くして」で 0.25）
 // トンネルの中の見え方。dim 中の明るさ（外を 1 として）、vignette まわりの暗さ、headlight 車のライト、fog 霧の色と見える距離（m）
 // タブレット・スマホ（指で操作する端末）は画面が暗く見えるので明るめ（2026-10-19 のユーザー依頼「PC は問題ないが、アンドロイドタブレットだとまだ暗い」）
 const LOOK_PC = { dim: TUNNEL_DIM, vignette: 0.55, headlight: 120, fog: 0x07090c, fogNear: 8, fogFar: 70 };
 const LOOK_TOUCH = { dim: 0.7, vignette: 0.2, headlight: 200, fog: 0x3a424e, fogNear: 30, fogFar: 180 };
 // 指だけで操作する端末か（matchMedia を渡す）。タッチ画面つきの PC（マウス・タッチパッドもある）は PC とする
 // （2026-10-19 のユーザー依頼「PC 版のトンネルの暗さを前の暗さに戻して。今はかなり明るい」）
-export function touchOnly(matchMedia) {
+// 端末の名前（userAgent）が Android・iPhone・iPad のときも、指で操作する端末とする（ペンやキーボードカバーで「細かく指せるもの」が
+// あると答えるタブレットが、PC の暗さになっていた。2026-10-20 のユーザー依頼「タブレットだと非常に暗い」）。
+// iPad は Mac と名乗るので、触れる点が2つ以上の Mac も iPad とする
+export function touchOnly(matchMedia, userAgent = '', maxTouchPoints = 0) {
+  if (/Android|iPhone|iPad|iPod/i.test(userAgent)) return true;
+  if (/Macintosh/i.test(userAgent) && maxTouchPoints > 1) return true;
   if (!matchMedia) return false;
   return matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
 }
