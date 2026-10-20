@@ -1,10 +1,10 @@
 // Global City の富士山のふもとと、新幹線と並走する道（2026-10-20）。富士山の山は地面（src/render/terrain.js の peaks）
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { terrainHeight } from '../terrain.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, along, beside, pointAt, coneTree, viaduct } from './kit.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { terrainHeight } from '../terrain.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { landmark, worldAt, sOf, along, beside, pointAt, coneTree, viaduct } from './kit.js?v=9c29d4f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const clear = (track, x, z, gap) => {
@@ -55,6 +55,28 @@ export function buildFuji(track) {
     }
   }
   landmark(g, 'paddies', worldAt(track, S.paddies[0]).x, 0, worldAt(track, S.paddies[0]).z);
+  // コースの左がわ（南）にも木の林と、ところどころに小さな家（殺風景だった。2026-10-21 のユーザー依頼）
+  {
+    let k = 0;
+    along(track, 'FL', 'KT', 16, (p) => {
+      if (p.tunnel || p.tunnelLook) return;
+      for (const lat of [10, 22, 36]) {
+        k++;
+        const c = beside(p, -(p.wall + lat + ((k * 7) % 6)));
+        if (!clear(track, c.x, c.z, 5)) continue;
+        const y = terrainHeight(track, c.x, c.z);
+        if (k % 9 === 0) {
+          b.push(c.x, y, c.z, ryAlong(p.h));
+          b.box(7, 4, 6, 0xe8e0cc, 0, 0, 0);
+          b.box(8.4, 1.2, 7.4, 0x6a4a3a, 0, 4, 0); // 屋根
+          b.pop();
+        } else {
+          coneTree(b, c.x, y, c.z, 1.2 + (k % 3) * 0.3, k % 4 ? 0x2f5d3a : 0x4f8a3a);
+          landmark(g, 'fujiTree', c.x, y, c.z);
+        }
+      }
+    });
+  }
   g.add(b.build());
   return root;
 }

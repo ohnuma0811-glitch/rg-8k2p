@@ -1,10 +1,10 @@
 // Global City の東京（2026-10-20）: 皇居の桜並木からスタート、丸の内・東京駅・東京タワー・新幹線・レインボーブリッジ・お台場
 // 方角は実際のとおり（北は -z）。名所の置き場所は src/data/global.js の GLOBAL_SCENERY.tokyo
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct } from './kit.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct, roadBanner } from './kit.js?v=9c29d4f';
 
 const STONE = 0xd8d2c4; // 皇居の白い石垣
 const ROOF_COPPER = 0x5f8f7a; // 銅の屋根（緑青）
@@ -126,7 +126,12 @@ export function buildTokyo(track) {
     b.box(w + 6, 3, 8, WHITE, 0, 12, 0); // 櫓の白い壁
     b.box(w + 10, 1.2, 11, 0x3a3a40, 0, 15, 0); // 瓦の屋根
     b.box(w + 4, 1.2, 9, 0x3a3a40, 0, 16.2, 0);
+    // 英語の看板「IMPERIAL PALACE」は、門の正面の上（くぐる前に正面から見える。道ばたに立てると石垣に埋まった。2026-10-21 のユーザー依頼）
+    b.box(24, 3.2, 0.4, 0x2a2a30, 0, 11.6, -4.3);
+    b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 128], 0, 13.2, -4.6, Math.PI, 22.8, 2.8);
+    b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 128], 0, 13.2, 4.3, 0, 22.8, 2.8);
     b.pop();
+    landmark(city, 'palaceSign', p.x, 13.2, p.z);
   }
   // 宮殿は、地図の点に近い道の横に、道にそって長く置く（地図の点のままだと建物が道の上に重なり、壁のように見えた。2026-10-21 のユーザー依頼）
   const pw = worldAt(track, S.palace.at);
@@ -150,16 +155,6 @@ export function buildTokyo(track) {
     const z = palace.z + dz;
     if (clearOfRoads(track, x, z, 4)) coneTree(b, x, 0, z, 1.3, 0x2f5d3a);
   }
-  // 英語の看板「IMPERIAL PALACE」（道の横、走ってくる方に向けて。2026-10-21 のユーザー依頼）
-  const sp = pointAt(track, pl.s - 40);
-  const sc = beside(sp, pside * (sp.wall + 4));
-  landmark(city, 'palaceSign', sc.x, 0, sc.z);
-  b.push(sc.x, 0, sc.z, ryAlong(sp.h) + Math.PI);
-  b.box(0.4, 2.2, 0.4, 0x5a5048, -4, 0, 0);
-  b.box(0.4, 2.2, 0.4, 0x5a5048, 4, 0, 0);
-  b.box(10, 2.6, 0.5, 0x3a3a40, 0, 2.2, 0);
-  b.label(textSign('IMPERIAL PALACE', { bg: '#2a2a30', fg: '#f2ead2', font: 'bold 64px serif' }), [768, 160], 0, 3.5, 0.3, 0, 9.4, 2.2);
-  b.pop();
 
   // ---- 丸の内（新丸ビルと高層ビル）と、東京駅 ----
   const shin = worldAt(track, S.shinmaru.at);
@@ -190,6 +185,7 @@ export function buildTokyo(track) {
   }
   b.pop();
   landmark(city, 'stationSign', st.x - 14.3, 26, st.z);
+  roadBanner(city, b, track, sOf(track, 'TS') - 20, 'TOKYO STATION', 'bannerTokyoStation', { bg: '#6a2a1f', fg: '#ffffff' }); // 横断幕（駅の名前が見にくかった。2026-10-21 のユーザー依頼）
   cityBlocks(b, track, 'MRN', 'TT', { avoid: [{ ...st, r: 190 }, { ...shin, r: 60 }] });
 
   // ---- 東京タワー（赤と白のしま、高さ 333m）----
@@ -232,6 +228,19 @@ export function buildTokyo(track) {
   const ls = sOf(track, line.from);
   const le = sOf(track, line.to);
   viaduct(b, track, ls, le, line.off, line.y);
+  // 線路の終わりは、新幹線が入っていくトンネルの入口（急に消えて見えないように。2026-10-21 のユーザー依頼）
+  {
+    const pe = pointAt(track, le);
+    const pq = pointAt(track, le - 10);
+    const a = beside(pe, line.off);
+    const c = beside(pq, line.off);
+    b.push(a.x, 0, a.z, Math.atan2(a.x - c.x, a.z - c.z)); // z が線路の向き
+    for (const sx of [-1, 1]) b.box(5, line.y + 9, 14, 0x8a8f96, sx * 7.5, 0, 7);
+    b.box(20, 4, 14, 0x8a8f96, 0, line.y + 6, 7);
+    b.box(10, 6, 0.4, 0x111111, 0, line.y + 0.2, 0.1); // 暗い入口
+    b.box(24, 1.2, 16, 0x5a6168, 0, line.y + 10, 7);
+    b.pop();
+  }
   const lm = pointAt(track, (ls + le) / 2);
   const lc = beside(lm, line.off);
   landmark(city, 'shinkansenLine', lc.x, line.y, lc.z);
@@ -280,9 +289,13 @@ export function buildTokyo(track) {
     bb.box(2 * p.wall + 4, 3, 2.9, 0xeef0f2, 0, 0, 0);
     bb.pop();
   });
+  // 橋のたもとの柱は、道の両がわに（道の真ん中に立てると、下を通る芝浦のループの道の上に立っていた。2026-10-21 のユーザー依頼）
   for (const s of [rbs, rbe]) {
     const p = pointAt(track, s);
-    bb.cyl(4, 4, Math.max(1, p.y - 3), 8, 0xc8ccd2, p.x, 0, p.z);
+    for (const side of [-1, 1]) {
+      const c = beside(p, side * (p.wall + 6));
+      if (clearOfRoads(track, c.x, c.z, 2)) bb.cyl(3, 3, Math.max(1, p.y - 3), 8, 0xc8ccd2, c.x, 0, c.z);
+    }
   }
   const rbm = pointAt(track, (rbs + rbe) / 2);
   landmark(bay, 'rainbowBridge', rbm.x, rbm.y, rbm.z);
@@ -308,8 +321,11 @@ export function buildTokyo(track) {
     for (let y = 10; y < 120; y += 20) bb.box(34.6, 1.6, 34.6, 0x8a96a3, ftv.x + dx, y, ftv.z);
   }
   bb.box(20, 14, 30, 0xe8eaec, ftv.x, 84, ftv.z); // 上の方の通路
-  bb.sphere(16, 0xc8ccd2, ftv.x, 100, ftv.z, 16); // 球体
-  bb.label(textSign('FUJI TV', { bg: '#ffffff', fg: '#1f4aa8' }), [512, 128], ftv.x, 60, ftv.z + 17.4, 0, 30, 7.5);
+  bb.sphere(20, 0xd8dee6, ftv.x, 100, ftv.z, 20); // 球体（大きく、光って見える。橋の出口から正面に）
+  for (let k = 0; k < 4; k++) { // 名前は4つの面に
+    const a = (k * Math.PI) / 2;
+    bb.label(textSign('FUJI TV', { bg: '#ffffff', fg: '#1f4aa8', font: 'bold 96px sans-serif' }), [512, 128], ftv.x + Math.sin(a) * 44, 50, ftv.z + Math.cos(a) * 44, a, 36, 9);
+  }
   cityBlocks(bb, track, 'RBE', 'FTV', { back: 40, hMax: 70, avoid: [{ ...ftv, r: 70 }] });
 
   // ---- 巨大ジャンプ台（加速板の巨大版。オレンジと黄色の光る矢印、赤白の柱）----

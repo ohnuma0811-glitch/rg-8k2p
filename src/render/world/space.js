@@ -1,8 +1,8 @@
 // Global City の宇宙と発射台（2026-10-20）: 京都の嵐山から打ち上がって、宇宙（星・地球・月・いん石）を見て、香港に着陸する
 // 宇宙の景色はカメラについていく（userData.followCamera）。見えるのは宇宙の自動の区間の間だけ（userData.stages = ['space']）
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { landmark, sOf, pointAt } from './kit.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { landmark, sOf, pointAt } from './kit.js?v=9c29d4f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 
@@ -27,23 +27,22 @@ export function buildSpace() {
   stars.userData.keep = true;
   g.add(stars);
   landmark(g, 'stars', 0, 0, 0);
-  // 地球（下前方。青い海に、緑の陸と白い雲のまだら）
+  // 地球（2026-10-21 のユーザー依頼「本物ぽくない。凹凸がありすぎる」）: なめらかな球に、陸と海の絵（緑・茶色の大陸、白い北極と南極）。
+  // その上に、白い雲の層と、青くうっすら光る大気
   const earth = new THREE.Group();
   earth.position.set(0, -900, -1100); // updateSpace でカメラの向きに合わせる
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(500, 40, 28), new THREE.MeshLambertMaterial({ color: 0x2f6fd0, fog: false }));
-  earth.add(ball);
-  const b = createBuilder();
-  for (let k = 0; k < 40; k++) {
-    const a = k * 2.399963;
-    const y = 1 - (2 * (k + 0.5)) / 40;
-    const r = Math.sqrt(1 - y * y);
-    const x = Math.cos(a) * r;
-    const z = Math.sin(a) * r;
-    b.sphere(70 + (k % 4) * 25, k % 3 ? 0x4f9a4a : 0xf4f6f8, x * 470, y * 470, z * 470, 8);
+  const surface = new THREE.MeshLambertMaterial({ color: 0x2f6fd0, fog: false });
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0, fog: false, depthWrite: false });
+  const maps = earthMaps();
+  if (maps) {
+    surface.color.setHex(0xffffff);
+    surface.map = maps.ground;
+    cloudMat.alphaMap = maps.clouds;
+    cloudMat.opacity = 0.9;
   }
-  const land = b.build();
-  land.traverse((o) => { if (o.material) o.material = o.material.clone(); if (o.material) o.material.fog = false; });
-  earth.add(land);
+  earth.add(new THREE.Mesh(new THREE.SphereGeometry(500, 64, 48), surface));
+  earth.add(new THREE.Mesh(new THREE.SphereGeometry(507, 64, 48), cloudMat));
+  earth.add(new THREE.Mesh(new THREE.SphereGeometry(530, 64, 48), new THREE.MeshBasicMaterial({ color: 0x6fb6ff, transparent: true, opacity: 0.18, side: THREE.BackSide, fog: false, depthWrite: false })));
   earth.userData.spin = 0.02;
   earth.userData.ahead = [0, -900, 1100]; // カメラの前（向き）・上・横の m
   g.add(earth);
@@ -76,48 +75,17 @@ export function buildSpace() {
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
   sun.position.set(800, 400, 300);
   g.add(sun);
-  // 香港の地図（地球にズームしていくと見えてくる。2026-10-21 のユーザー依頼）: 青い海、緑の島、白い道、赤い印と「HONG KONG」
-  const map = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, fog: false, depthWrite: false }));
-  if (typeof document !== 'undefined') {
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = 512;
-    const c = cv.getContext('2d');
-    c.fillStyle = '#1f5f9a';
-    c.fillRect(0, 0, 512, 512);
-    c.fillStyle = '#3f8a4a';
-    c.beginPath(); c.moveTo(0, 0); c.lineTo(512, 0); c.lineTo(512, 190); c.bezierCurveTo(380, 230, 200, 200, 0, 230); c.fill(); // 九龍（北）
-    c.beginPath(); c.moveTo(60, 300); c.bezierCurveTo(150, 260, 330, 270, 450, 300); c.bezierCurveTo(470, 380, 360, 450, 250, 440); c.bezierCurveTo(140, 450, 40, 380, 60, 300); c.fill(); // 香港島
-    c.beginPath(); c.arc(40, 470, 40, 0, Math.PI * 2); c.fill(); // 小さな島
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 3;
-    for (const y of [60, 120, 170]) { c.beginPath(); c.moveTo(0, y); c.lineTo(512, y - 20); c.stroke(); }
-    for (const x of [100, 220, 340, 450]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 20, 200); c.stroke(); }
-    c.beginPath(); c.moveTo(80, 320); c.bezierCurveTo(200, 300, 330, 300, 440, 320); c.stroke(); // 香港島の道
-    c.fillStyle = '#ff3a3a';
-    c.beginPath(); c.arc(256, 318, 12, 0, Math.PI * 2); c.fill(); // ここに着く
-    c.font = 'bold 44px sans-serif';
-    c.textAlign = 'center';
-    c.fillStyle = '#ffffff';
-    c.fillText('HONG KONG', 256, 380);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    map.material.map = tex;
-  }
-  map.userData.ahead = [0, -500, 900];
-  map.frustumCulled = false;
-  g.add(map);
-  g.userData.map = map;
   g.userData.earth = earth;
   // 動かす形（地球・月・いん石）は、まとめない（まとめると動かせず、カメラの前に灰色の玉が残った。最後のレビュー）
   g.traverse((o) => { o.userData.keep = true; });
   return root;
 }
 
-// 宇宙から香港への見え方（p は宇宙の区間の進み 0〜1。2026-10-21 のユーザー依頼）:
-// はじめは宇宙（地球は小さく遠く）→ 地球が大きくなる → 地球へズーム → 香港の地図 → コースに着く
+// 宇宙から香港への見え方（p は宇宙の区間の進み 0〜1。2026-10-21 のユーザー依頼「宇宙に飛び出す→地球が見える→地球に突っ込む→画面を切り替えて香港に着地」）:
+// はじめは宇宙（地球は小さく遠く）→ 地球がどんどん大きくなり、画面いっぱいに → 白く光って画面を切りかえ、香港に着く。地図はなし
 export function spaceLook(p) {
-  const zoom = Math.min(1, Math.max(0, (p - 0.25) / 0.5)); // 0.25〜0.75 で地球へ近づく
-  return { earth: 0.25 + 3.5 * zoom * zoom, zoom, map: Math.min(1, Math.max(0, (p - 0.68) / 0.12)) };
+  const zoom = Math.min(1, Math.max(0, (p - 0.2) / 0.65)); // 0.2〜0.85 で地球へ突っこむ
+  return { earth: 0.25 + 6 * zoom * zoom * zoom, zoom, flash: Math.min(1, Math.max(0, (p - 0.82) / 0.1)) };
 }
 
 // 宇宙の景色を毎フレーム動かす（カメラについていく。いん石を流す。地球を回す）
@@ -127,13 +95,7 @@ export function updateSpace(group, camera, time, p = 0) {
   const earth = group.userData.earth;
   if (earth) {
     earth.scale.setScalar(look.earth);
-    earth.userData.ahead = [0, -900 + 500 * look.zoom, 1100 + 400 * look.zoom]; // 近づくと、前の少し下に大きく
-    earth.visible = look.map < 1;
-  }
-  const map = group.userData.map;
-  if (map) {
-    map.material.opacity = look.map;
-    map.visible = look.map > 0;
+    earth.userData.ahead = [0, -900 + 900 * look.zoom, 1100 + 700 * look.zoom]; // 突っこむほど、正面に大きく
   }
   group.position.copy(camera.position);
   // 地球と月は、カメラの向き（水平の前）に合わせて置く（どちらへ飛んでも前に見える）
@@ -155,7 +117,6 @@ export function updateSpace(group, camera, time, p = 0) {
     m.rotation.set(time * 0.7 + d.k, time * 0.5, 0);
   }
   for (const c of group.children) if (c.userData.spin) c.rotation.y = time * c.userData.spin;
-  if (map) map.lookAt(camera.position); // 地図はカメラの方を向く
 }
 
 // 発射台のレール（加速板の巨大版。LP から 約60m、青白い2本のレールと、オレンジの光の矢印、両わきの炎のような光）
@@ -206,4 +167,49 @@ export function buildLaunchRail(track) {
   landmark(g, 'launchRail', p.x, p.y, p.z);
   g.add(b.build(), glow.build());
   return root;
+}
+
+// 地球の絵（緯度・経度の長方形の絵）: なめらかなまだらの値（いくつかの大きさの波を重ねる）で、陸と海、雲を描く。node のテストでは作らない
+function earthMaps() {
+  if (typeof document === 'undefined') return null;
+  const W = 512;
+  const H = 256;
+  // 決まった種からの、なめらかなまだら
+  const field = (seed) => {
+    const waves = Array.from({ length: 7 }, (_, k) => ({ fx: (k + 1) * 1.7 + seed, fy: (k + 2) * 1.3 + seed * 0.7, ph: k * 2.1 + seed * 3, a: 1 / (k + 1) }));
+    return (u, v) => {
+      let n = 0;
+      for (const w of waves) n += w.a * Math.sin(u * w.fx * Math.PI * 2 + Math.sin(v * w.fy * 3 + w.ph)) * Math.cos(v * w.fy * Math.PI + w.ph);
+      return n;
+    };
+  };
+  const landN = field(1.3);
+  const cloudN = field(4.7);
+  const make = (paint) => {
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const g = cv.getContext('2d');
+    const img = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) paint(x / W, y / H, img.data, (y * W + x) * 4);
+    g.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  };
+  const ground = make((u, v, d, o) => {
+    const lat = Math.abs(v - 0.5) * 2; // 0 赤道、1 極
+    const n = landN(u, v);
+    let c;
+    if (lat > 0.86) c = [240, 244, 248]; // 極の氷
+    else if (n > 0.35) c = lat < 0.3 && n < 0.6 ? [196, 170, 110] : n > 0.9 ? [120, 110, 90] : [70, 130, 60]; // 砂漠・山・森
+    else c = [20 + n * 20, 60 + n * 30, 140 + n * 40]; // 海（深いほど暗い）
+    d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+  });
+  const clouds = make((u, v, d, o) => {
+    const n = cloudN(u * 1.3, v);
+    const a = n > 0.45 ? Math.min(255, (n - 0.45) * 500) : 0;
+    d[o] = d[o + 1] = d[o + 2] = a; d[o + 3] = 255;
+  });
+  return { ground, clouds };
 }

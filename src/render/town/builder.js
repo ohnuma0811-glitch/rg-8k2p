@@ -1,6 +1,6 @@
 // 箱と円柱と文字の板を集めて、まとめて描ける形にする
 // 街の景色は形がとても多いので、色ごとに分けず、頂点の色にして1つの形にまとめる（描く回数を減らす）
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
 
 const MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true });
 // 光る形（夜の窓・ネオン・光る看板。Global City）: 光の当たり方に関係なく、その色のまま

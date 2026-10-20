@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=cd7c3b4';
-import { buildTrackMesh } from './trackMesh.js?v=cd7c3b4';
+import * as THREE from '../../vendor/three.module.min.js?v=9c29d4f';
+import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=9c29d4f';
 
 const SKY = 0x8fd3ff;
 
@@ -37,12 +37,15 @@ export function createWorld() {
 }
 
 // コースの形を入れかえる（レースごと）。形は一度作ったら、その track に取っておいて使い回す
-export function setCourse(scene, track) {
-  if (scene.userData.course === track) return;
-  if (scene.userData.course) scene.remove(scene.userData.course.mesh);
-  if (!track.mesh) track.mesh = buildTrackMesh(track);
-  scene.add(track.mesh);
+// lite: コース選び・紹介の背景だけ（Global City は軽い形 buildShowcase。全部を作るのはレースのとき。2026-10-21 のユーザー依頼「選ぶ画面が重い」）
+export function setCourse(scene, track, { lite = false } = {}) {
+  const useLite = lite && !!track.def.showcase && !track.mesh;
+  const mesh = useLite ? (track.showcaseMesh ??= buildShowcase(track)) : (track.mesh ??= buildTrackMesh(track));
+  if (scene.userData.courseMesh === mesh) return;
+  if (scene.userData.courseMesh) scene.remove(scene.userData.courseMesh);
+  scene.add(mesh);
   scene.userData.course = track;
+  scene.userData.courseMesh = mesh;
   // 森・雪山は地面の形を作るので、平らな地面は川の底より下へ（2026-10-16）。雪山は雪の色（2026-10-18）
   const ground = scene.userData.ground;
   if (ground) {

@@ -1,10 +1,10 @@
 // Global City の香港（2026-10-20）: 夜。香港島の中環（セントラル）の高層ビル群の間を抜ける。ネオンの看板がギラギラ光る。北がわがビクトリア湾
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign } from './kit.js?v=cd7c3b4';
-import { cityBlocks } from './tokyo.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=9c29d4f';
+import { cityBlocks } from './tokyo.js?v=9c29d4f';
 
 const NEON = [0xff2d6f, 0x2de0ff, 0xffe12d, 0x7dff3a, 0xff7a1a, 0xc23aff];
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -88,6 +88,11 @@ export function buildHongKong(track) {
       b.pop();
     }
   });
+  // 信号機（左側。香港は左側通行。2026-10-21 のユーザー依頼）: 道にそって 130m ごと
+  {
+    let k = 0;
+    for (let s = sOf(track, 'HL') + 60; s < sOf(track, 'SD') - 40; s += 130) trafficLight(g, b, glow, track, s, -1, k++ % 2 ? 'red' : 'green');
+  }
   const mid = pointAt(track, (sOf(track, 'HL') + sOf(track, 'SD')) / 2);
   landmark(g, 'neon', mid.x, 0, mid.z);
   g.add(b.build(), glow.build());

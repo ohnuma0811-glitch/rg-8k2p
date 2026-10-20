@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=cd7c3b4';
+import { locate } from '../game/track.js?v=9c29d4f';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -120,7 +120,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.bumps > prev.bumps) ev.push('bump');
   // 自動の区間（Global City）: 打ち上げ・大ジャンプ・輪っか（3つ目で ERROR とワープ）
   if (cur.auto !== prev.auto && cur.auto === 'space') ev.push('launch');
-  if (cur.auto !== prev.auto && cur.auto === 'jump') ev.push('bigJump');
+  if (cur.auto !== prev.auto && (cur.auto === 'jump' || cur.auto === 'goalJump')) ev.push('bigJump'); // 富士山へ飛ぶ大ジャンプと、最後の大ジャンプ
   // 輪っかを通るときは、ジャンプ台の加速の音（2026-10-21 のユーザー依頼）
   if (cur.auto === 'warp' && (prev.auto !== 'warp' || cur.autoLeg > prev.autoLeg)) {
     if (cur.autoError && !prev.autoError) ev.push('error', 'warp');

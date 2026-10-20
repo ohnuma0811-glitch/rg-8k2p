@@ -134,7 +134,7 @@ function inRange(s, from, to) {
 
 // カーブの半径が minR より小さい所だけを、少しずつならす（カーブの内側で、道・柵・土手が折れ返らないように）
 // 形と長さは保つ（ならしたあと、もう一度 1m ごとに取り直す）。直らなければ、ならす範囲を広げていく
-function limitCurvature(samples, minR, length) {
+function limitCurvature(samples, minR, length, keepSharp = []) {
   let pts = samples.map((p) => [p.x, p.z]);
   for (let round = 0; round < 300; round++) {
     const n = pts.length;
@@ -150,6 +150,7 @@ function limitCurvature(samples, minR, length) {
     };
     const bad = new Set();
     for (let i = 0; i < n; i++) {
+      if (keepSharp.some(([x, z]) => Math.abs(pts[i][0] - x) < 30 && Math.abs(pts[i][1] - z) < 30)) continue;
       if (radius(i) < minR) for (let k = -8 - (round >> 3); k <= 8 + (round >> 3); k++) bad.add((i + k + n) % n);
     }
     if (bad.size === 0) break;
@@ -245,7 +246,11 @@ export function between(track, s, from, to) {
 export const HELIX_PER_TURN = 16;
 export function expandHelix(def) {
   if (!def.helix) return def;
-  const { at, r, turns } = def.helix;
+  return expandOne(def, def.helix, 'HX', 1);
+}
+// らせんを1つ足す。dir: 1 は右回り、-1 は左回り（Global City のジョージ・ワシントン・ブリッジ。2026-10-21）。印は prefix0〜prefix{turns}
+function expandOne(def, helix, prefix, dir) {
+  const { at, r, turns } = helix;
   const ai = def.marks[at];
   const line = smoothLoop(def.points);
   let px = 0;
@@ -259,18 +264,18 @@ export function expandHelix(def) {
   const p = def.points[ai];
   const q = def.points[ai + 1];
   const h = Math.atan2(q[1] - p[1], q[0] - p[0]);
-  // 円の中心は、入る向き h の右（x - sin h, z + cos h）。円の上の点は h から右回りに進む
-  const cx = p[0] - Math.sin(h) * rp;
-  const cz = p[1] + Math.cos(h) * rp;
+  // 円の中心は、入る向き h の右（右回り。x - sin h, z + cos h）か左（左回り）。円の上の点は h から回る
+  const cx = p[0] - dir * Math.sin(h) * rp;
+  const cz = p[1] + dir * Math.cos(h) * rp;
   const circle = [];
   for (let n = 1; n <= turns * HELIX_PER_TURN; n++) {
-    const a = h + (2 * Math.PI * n) / HELIX_PER_TURN;
-    circle.push([cx + Math.sin(a) * rp, cz - Math.cos(a) * rp]);
+    const a = h + (dir * 2 * Math.PI * n) / HELIX_PER_TURN;
+    circle.push([cx + dir * Math.sin(a) * rp, cz - dir * Math.cos(a) * rp]);
   }
   const points = [...def.points.slice(0, ai + 1), ...circle, ...def.points.slice(ai + 1)];
   const marks = {};
   for (const [m, i] of Object.entries(def.marks)) marks[m] = i > ai ? i + circle.length : i;
-  for (let n = 0; n <= turns; n++) marks[`HX${n}`] = ai + n * HELIX_PER_TURN;
+  for (let n = 0; n <= turns; n++) marks[`${prefix}${n}`] = ai + n * HELIX_PER_TURN;
   return { ...def, points, marks };
 }
 
@@ -292,6 +297,8 @@ export function buildTrack(def) {
   if (def.meters) {
     def = { ...def, points: def.points.map(([x, z]) => [x * scale, z * scale]) };
     def = expandHelix({ ...def, length: Math.round(lineLength(smoothLoop(def.points))) });
+    // 2つ目のらせん（helix2。左回りもできる）
+    if (def.helix2) def = expandOne({ ...def, length: Math.round(lineLength(smoothLoop(def.points))) }, def.helix2, def.helix2.prefix ?? 'GX', def.helix2.dir ?? 1);
     def = { ...def, length: Math.round(lineLength(smoothLoop(def.points))) };
   } else {
     def = expandHelix(def);
@@ -300,7 +307,9 @@ export function buildTrack(def) {
   const fit = fitOf(line, def.length);
   let samples = resample(line, def.length);
   // 柵まで（道幅の半分＋ダート）より半径が小さいカーブは、ならす
-  samples = limitCurvature(samples, def.roadHalf + def.dirt + 0.5, def.length);
+  // 直角の角（squareCorners。あとで直角の形にする）のまわりは、ならさない（ならしきれずに何度もくり返し、コースを作るのが遅かった。2026-10-21）
+  const keepSharp = (def.theme === 'world' ? def.squareCorners ?? [] : []).map(([m]) => def.points[def.marks[m]]).filter(Boolean).map((pt) => [(pt[0] - fit.cx) * fit.k, (pt[1] - fit.cz) * fit.k]);
+  samples = limitCurvature(samples, def.roadHalf + def.dirt + 0.5, def.length, keepSharp);
   const n = samples.length;
   for (let i = 0; i < n; i++) {
     const p = samples[i];
@@ -351,31 +360,54 @@ export function buildTrack(def) {
   const startIndex = samples.findIndex((p) => p.s >= startS);
   const t = { def, samples, length: def.length, roadHalf: def.roadHalf, startIndex, cross, marks: {} };
   for (const [name, i] of Object.entries(def.marks ?? {})) t.marks[name] = pointS(samples, fit, def.points[i]);
-  if (def.helix) {
-    // らせんの始まり（HX0）は、地図の点にいちばん近い点ではなく、近い点（3m 以内）のうち道のいちばん手前。
+  // らせん（helix は HX、helix2 は GX など）の印と範囲
+  t.helixes = [];
+  for (const [hel, P] of [[def.helix, 'HX'], [def.helix2, def.helix2?.prefix ?? 'GX']]) {
+    if (!hel) continue;
+    // らせんの始まり（P0）は、地図の点にいちばん近い点ではなく、近い点（3m 以内）のうち道のいちばん手前。
     // 1周回り終えた所も同じ場所なので、そちらを選ぶと、らせんの高さがずれた（Global City の芝浦のループ。2026-10-21 のユーザー依頼）
-    const pt = def.points[def.marks.HX0];
+    const pt = def.points[def.marks[`${P}0`]];
     const hx = (pt[0] - fit.cx) * fit.k;
     const hz = (pt[1] - fit.cz) * fit.k;
     const near = samples.filter((p) => Math.hypot(p.x - hx, p.z - hz) < 3);
     if (near.length) {
       const first = Math.min(...near.map((p) => p.s));
-      for (const [name, i] of Object.entries(def.marks)) if (i === def.marks.HX0) t.marks[name] = first;
+      for (const [name, i] of Object.entries(def.marks)) if (i === def.marks[`${P}0`]) t.marks[name] = first;
     }
-    // らせんの段は上から見て同じ場所なので、印 HX1〜 は、前の段から道にそって1周（約 2πr）先の、いちばん近い点
-    const turn = 2 * Math.PI * def.helix.r;
-    for (let k = 1; k <= def.helix.turns; k++) {
-      const a = samples[Math.round(t.marks[`HX${k - 1}`]) % n];
+    // らせんの段は上から見て同じ場所なので、印 P1〜 は、前の段から道にそって1周（約 2πr）先の、いちばん近い点
+    const turn = 2 * Math.PI * hel.r;
+    for (let k = 1; k <= hel.turns; k++) {
+      const a = samples[Math.round(t.marks[`${P}${k - 1}`]) % n];
       let best = null;
       for (let d = Math.round(turn * 0.8); d <= Math.round(turn * 1.2); d++) {
-        const q = samples[(Math.round(t.marks[`HX${k - 1}`]) + d) % n];
+        const q = samples[(Math.round(t.marks[`${P}${k - 1}`]) + d) % n];
         const dd = Math.hypot(q.x - a.x, q.z - a.z);
         if (!best || dd < best.dd) best = { dd, s: q.s };
       }
-      t.marks[`HX${k}`] = best.s;
+      t.marks[`${P}${k}`] = best.s;
     }
-    t.helix = { from: Math.round(t.marks.HX0), to: Math.round(t.marks[`HX${def.helix.turns}`]), r: def.helix.r };
+    t.helixes.push({ from: Math.round(t.marks[`${P}0`]), to: Math.round(t.marks[`${P}${hel.turns}`]), r: hel.r });
   }
+  if (t.helixes.length) t.helix = t.helixes[0];
+  // ゴールのあとの周回（Global City）: 同じ所に点が2つある印を、高さを決める前に選び直す（後だと、高さが周回の道の側の点で決まった）
+  if (def.open?.loop) {
+    // ゴールのあとの周回（Global City のクアラルンプール。2026-10-21 のユーザー依頼）: 道の終わり（END）は、つなぎ目（loop の印）と同じ所。
+    // 同じ所に点が2つあるので、その印は道のいちばん手前の点にする
+    for (const name of [def.open.finish, def.open.loop, ...(def.open.dup ?? [])]) {
+      const pt = def.points[def.marks[name]];
+      const fx = (pt[0] - fit.cx) * fit.k;
+      const fz = (pt[1] - fit.cz) * fit.k;
+      const near = samples.filter((q) => Math.hypot(q.x - fx, q.z - fz) < 3);
+      if (near.length) t.marks[name] = Math.min(...near.map((q) => q.s));
+    }
+    // 道の終わり（END）は、同じ所の点のうち、いちばん先（周回の道の最後）。手前の点にすると、そこから先が無い道になった
+    const ept = def.points[def.marks[def.open.end]];
+    const ex = (ept[0] - fit.cx) * fit.k;
+    const ez = (ept[1] - fit.cz) * fit.k;
+    const enear = samples.filter((q) => Math.hypot(q.x - ex, q.z - ez) < 3);
+    if (enear.length) t.marks[def.open.end] = Math.max(...enear.map((q) => q.s));
+  }
+
   // ロータリー: 真ん中に島を置き、島のまわりだけ道を広げる（島の両側を道の幅で走れる）
   t.islands = [];
   for (const rb of def.roundabouts ?? []) {
@@ -450,7 +482,7 @@ export function buildTrack(def) {
   for (const v of def.vehicles ?? []) {
     const from = refS(t, v.from);
     const to = refS(t, v.to);
-    for (let k = 0; k < v.count; k++) t.buses.push({ s0: from + ((to - from) * (k + 0.5)) / v.count, from, to, kind: v.kind });
+    for (let k = 0; k < v.count; k++) t.buses.push({ s0: from + ((to - from) * (k + 0.5)) / v.count, from, to, kind: v.kind, dir: v.dir ?? -1, side: v.side ?? 1 });
   }
   applyHeights(t, def);
   applyJumps(t, def);
@@ -483,15 +515,6 @@ export function buildTrack(def) {
   // 片道のコース（Global City。2026-10-20）: END から GB までは「無い道」（描かない・通れない）。ゴールは finish の印
   if (def.open) {
     t.open = true;
-    if (def.open.loop) {
-      // ゴールのあとの周回（Global City のクアラルンプール。2026-10-21 のユーザー依頼）: 道の終わり（END）はゴールと同じ所。
-      // 印は、同じ所の点のうち、道のいちばん手前（ゴール）にする
-      const pt = def.points[def.marks[def.open.finish]];
-      const fx = (pt[0] - fit.cx) * fit.k;
-      const fz = (pt[1] - fit.cz) * fit.k;
-      const near = samples.filter((q) => Math.hypot(q.x - fx, q.z - fz) < 3);
-      if (near.length) t.marks[def.open.finish] = Math.min(...near.map((q) => q.s));
-    }
     t.finish = refS(t, def.open.finish);
     const from = refS(t, def.open.end);
     const to = refS(t, def.open.back);
@@ -504,9 +527,9 @@ export function buildTrack(def) {
     }
     if (def.open.loop) {
       // 周回の道が、ゴールへ向かう道に合流してからは重なるので、描かない（ghost。走れる）。道の終わりに着いたら t.loopTo（ゴール）へ
-      t.loopTo = t.finish;
+      t.loopTo = t.marks[def.open.loop];
       t.loopEnd = from;
-      const incoming = t.samples.filter((q) => q.s > t.finish - 700 && q.s <= t.finish);
+      const incoming = t.samples.filter((q) => q.s > t.loopTo - 400 && q.s <= t.loopTo + 20);
       for (const p of t.samples) {
         if (p.void || p.s < t.finish + 100 || p.s > from) continue;
         if (incoming.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < q.half)) p.ghost = true;
@@ -541,9 +564,9 @@ export function buildTrack(def) {
     return { from, to: (from + 30) % t.length, lateral: sl.side * (def.roadHalf - half), half };
   });
   // らせんの段（Kyugo Mountain）: 上から見て、同じ道のほかの段と重なる点
-  if (t.helix) {
-    for (let i = t.helix.from; i <= t.helix.to; i++) {
-      for (let j = i + 60; j <= t.helix.to; j++) {
+  for (const hx of t.helixes ?? []) {
+    for (let i = hx.from; i <= hx.to; i++) {
+      for (let j = i + 60; j <= hx.to; j++) {
         if (Math.hypot(samples[i].x - samples[j].x, samples[i].z - samples[j].z) < samples[i].wall * 2) {
           samples[i].stacked = true;
           samples[j].stacked = true;
@@ -953,6 +976,38 @@ function nearGrid(track) {
   return nearGrids.get(track);
 }
 
+// 数で引くます目の表（ヒントなしの locate 用）
+const numGrids = new WeakMap();
+function numGrid(track) {
+  if (!numGrids.has(track)) {
+    const xs = track.samples.map((p) => p.x);
+    const zs = track.samples.map((p) => p.z);
+    const x0 = Math.min(...xs);
+    const z0 = Math.min(...zs);
+    const w = Math.floor((Math.max(...xs) - x0) / NEAR_CELL) + 1;
+    const h = Math.floor((Math.max(...zs) - z0) / NEAR_CELL) + 1;
+    const cells = new Array(w * h);
+    track.samples.forEach((p, i) => {
+      const k = Math.floor((p.x - x0) / NEAR_CELL) * h + Math.floor((p.z - z0) / NEAR_CELL);
+      (cells[k] ??= []).push(i);
+    });
+    numGrids.set(track, { cells, x0, z0, w, h });
+  }
+  return numGrids.get(track);
+}
+
+// ます目の表の、いちばん遠い環（どこから探しても、ここまで見ればコースの全部の点に届く）
+const nearMaxR = new WeakMap();
+function nearGridMaxR(track) {
+  if (!nearMaxR.has(track)) {
+    const xs = track.samples.map((p) => p.x);
+    const zs = track.samples.map((p) => p.z);
+    const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+    nearMaxR.set(track, Math.ceil(span / NEAR_CELL) + 400); // コースの外の遠い所から探しても届くように
+  }
+  return nearMaxR.get(track);
+}
+
 // 点 i の前後 win 個に、分かれる所・合流する所がなく、ひと続きの道か（点ごとに覚えておく）
 const straightMemo = new WeakMap();
 function straightAround(track, i, win) {
@@ -1005,7 +1060,48 @@ export function locate(track, x, z, hint = null, win = 40, y = null) {
   // 分かれる所・合流する所がない所は、前と後ろへまっすぐたどるだけ（下のたどり方と同じ点を、同じ順に見る。
   // 毎回 Set や配列を作らないので速い。2026-10-19 のユーザー依頼「47fps くらいで重たい」）
   const plain = hint !== null && straightAround(track, hint, win);
-  if (hint === null) {
+  if (hint === null && n > 3000) {
+    // 長いコース（Global City）: 点を 30m のます目に分けた表で、近います目から順に探す（全部の点を調べると、景色を作るのがとても遅かった。2026-10-21）
+    // 答えは全部調べたときと同じ（同じ近さなら番号の小さい点）
+    const { cells, x0, z0, w, h } = numGrid(track);
+    const cx = Math.floor((x - x0) / NEAR_CELL);
+    const cz = Math.floor((z - z0) / NEAR_CELL);
+    const scanTie = (i) => {
+      const p = samples[i];
+      const dx = x - p.x;
+      const dz = z - p.z;
+      const dy = y !== null && p.y !== null ? 3 * (p.y - y) : 0;
+      const d = dx * dx + dz * dz + dy * dy;
+      if (d < bestD || (d === bestD && i < best)) {
+        bestD = d;
+        best = i;
+      }
+    };
+    const maxR = nearGridMaxR(track);
+    for (let r = 0; r <= maxR; r++) {
+      // 環 r のます目までの、いちばん近い所の距離（これより遠ければ、もう見なくてよい）
+      const reach = Math.max(0, r - 1) * NEAR_CELL;
+      if (reach * reach > bestD) break;
+      // 表の外のます目は空なので、表の中だけ見る
+      const gx0 = Math.max(0, cx - r);
+      const gx1 = Math.min(w - 1, cx + r);
+      const gz0 = Math.max(0, cz - r);
+      const gz1 = Math.min(h - 1, cz + r);
+      if (gx0 > gx1 || gz0 > gz1) continue;
+      const look = (gx, gz) => {
+        const list = cells[gx * h + gz];
+        if (list) for (let k = 0; k < list.length; k++) scanTie(list[k]);
+      };
+      for (let gx = gx0; gx <= gx1; gx++) {
+        if (gx === cx - r || gx === cx + r) {
+          for (let gz = gz0; gz <= gz1; gz++) look(gx, gz); // 環の左右の列は全部
+        } else {
+          if (cz - r >= gz0 && cz - r <= gz1) look(gx, cz - r); // 環の上下の行だけ
+          if (r > 0 && cz + r >= gz0 && cz + r <= gz1) look(gx, cz + r);
+        }
+      }
+    }
+  } else if (hint === null) {
     for (let i = 0; i < n; i++) scan(i);
   } else if (plain) {
     scan(hint);

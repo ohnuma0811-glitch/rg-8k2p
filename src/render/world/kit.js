@@ -1,6 +1,6 @@
 // Global City の部品（2026-10-20）: 箱・円柱・球・棒だけで作る。名所は src/render/world/<都市>.js
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { markS, sampleAt } from '../../game/track.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { markS, sampleAt } from '../../game/track.js?v=9c29d4f';
 
 // 名所の印（テストと確かめ用。見えない）
 export function landmark(group, name, x, y, z) {
@@ -173,4 +173,42 @@ export function neonSign(text, color) {
   };
   draw.key = `neon:${text}:${color}`;
   return draw;
+}
+
+// 道をまたぐ横断幕（名所の名前。2026-10-21 のユーザー依頼「看板が全く読めない。横断幕にするなど視認性をよく」）:
+// 道の両がわの柱と、道の上 6.5m の大きな布。字は大きく、両面に
+export function roadBanner(group, b, track, s, text, name, { bg = '#b01a10', fg = '#ffffff' } = {}) {
+  const p = pointAt(track, s);
+  const w = p.wall + 1.5;
+  const o = landmark(group, name, p.x, (p.y ?? 0) + 8, p.z);
+  o.userData.banner = text;
+  b.push(p.x, p.y ?? 0, p.z, Math.atan2(Math.cos(p.h), Math.sin(p.h)));
+  for (const side of [-1, 1]) b.box(0.6, 10.5, 0.6, 0x4a4a52, side * w, 0, 0);
+  b.box(2 * w + 0.6, 0.4, 0.4, 0x4a4a52, 0, 10.2, 0);
+  b.box(2 * w - 1, 3.4, 0.2, 0xf4f0e6, 0, 6.5, 0);
+  const draw = textSign(text, { bg, fg, font: 'bold 110px sans-serif' });
+  b.label(draw, [1024, 160], 0, 8.2, -0.15, Math.PI, 2 * w - 1.4, 3.2); // 走ってくる方
+  b.label(draw, [1024, 160], 0, 8.2, 0.15, 0, 2 * w - 1.4, 3.2);
+  b.pop();
+}
+
+// 信号機（2026-10-21 のユーザー依頼「青信号や赤信号を設置」）: 道の s の所の横（side 1 右、-1 左）に、走ってくる方へ向けて。
+// 柱と、3つの灯（青・黄・赤）の箱。点いている灯（green / red）だけ光る
+export function trafficLight(group, b, glow, track, s, side, color) {
+  const p = pointAt(track, s);
+  const c = beside(p, side * (p.wall + 1.2));
+  const o = landmark(group, 'trafficLight', c.x, p.y ?? 0, c.z);
+  o.userData.color = color;
+  const ry = Math.atan2(Math.cos(p.h), Math.sin(p.h)) + Math.PI; // 走ってくる方
+  const y = p.y ?? 0;
+  b.cyl(0.18, 0.22, 7, 6, 0x3a3e44, c.x, y, c.z); // 柱
+  b.push(c.x, y, c.z, ry);
+  b.box(3.4, 0.2, 0.2, 0x3a3e44, side * -1.6, 6.8, 0); // 道の上へのびる腕
+  b.box(2.6, 0.9, 0.6, 0x2a2e34, side * -2.6, 6.2, 0); // 灯の箱（横に3つ）
+  b.pop();
+  // 灯（左から青・黄・赤）。点いている灯は明るく、ほかは暗い色
+  const colors = [color === 'green' ? 0x2de07a : 0x123a22, 0x3a3a14, color === 'red' ? 0xff3a2a : 0x3a1414];
+  glow.push(c.x, y, c.z, ry);
+  [-0.8, 0, 0.8].forEach((dx, k) => glow.sphere(0.3, colors[k], side * -2.6 - dx * side, 6.2, -0.35, 8));
+  glow.pop();
 }

@@ -1,4 +1,4 @@
-import { sampleAt, stageAt } from './track.js?v=cd7c3b4';
+import { sampleAt, stageAt } from './track.js?v=9c29d4f';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ
@@ -9,8 +9,8 @@ export function stageVisible(groupStages, cur, autoId, win = null) {
   return groupStages.some((k) => k === cur || (k === cur + 1 && win.next) || (k === cur - 1 && win.prev));
 }
 
-// 今のステージと、次のステージに入る 400m 手前か（next）、前のステージを出て 250m までか（prev）
-export const STAGE_AHEAD = 400;
+// 今のステージと、次のステージに入る 150m 手前か（next）、前のステージを出て 250m までか（prev）
+export const STAGE_AHEAD = 150; // 富士山から京都の鳥居が見えたので短く（2026-10-21 のユーザー依頼）
 export const STAGE_BEHIND = 250;
 export function stageWindow(track, rel) {
   const st = track.stages ?? [];
@@ -24,9 +24,15 @@ export function stageWindow(track, rel) {
 export function autoViewOf(kart) {
   const a = kart.auto;
   if (!a) return null;
-  if (a.id === 'space') return kart.y >= 150 ? 'space' : null;
+  // 宇宙: 高さ 150m より上に出たら、宇宙の区間を出るまでずっと宇宙だけ（下りてくる所で香港の道が見えた。2026-10-21 のユーザー依頼「宇宙とコースを完全に分離」）
+  if (a.id === 'space') return kart.y >= 150 || a.t > 2 ? 'space' : null;
   if (a.id === 'warp') return a.leg >= 2 ? 'warp' : null;
   return a.id;
+}
+
+// 夜のステージ（Global City の香港・クアラルンプール）。カートのライトを点ける（2026-10-21 のユーザー依頼）
+export function nightStage(track, cur) {
+  return track.def.theme === 'world' && (cur === 3 || cur === 6);
 }
 
 // 京都へ向かう加速板（新幹線と並走、SK〜KT）で加速しているか（2026-10-21 のユーザー依頼「あっという間に京都についたような演出」）

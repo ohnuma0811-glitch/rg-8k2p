@@ -1,52 +1,52 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=cd7c3b4';
-import { startLoop } from './loop.js?v=cd7c3b4';
-import { COURSES } from './data/tracks.js?v=cd7c3b4';
-import { buildTrack, span, locate, stageAt } from './game/track.js?v=cd7c3b4';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=cd7c3b4';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=cd7c3b4';
-import { kartParams } from './game/stats.js?v=cd7c3b4';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=cd7c3b4';
-import { pushApart, newBumps } from './game/collide.js?v=cd7c3b4';
+import * as THREE from '../vendor/three.module.min.js?v=9c29d4f';
+import { startLoop } from './loop.js?v=9c29d4f';
+import { COURSES } from './data/tracks.js?v=9c29d4f';
+import { buildTrack, span, locate, stageAt } from './game/track.js?v=9c29d4f';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=9c29d4f';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=9c29d4f';
+import { kartParams } from './game/stats.js?v=9c29d4f';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=9c29d4f';
+import { pushApart, newBumps } from './game/collide.js?v=9c29d4f';
 import {
   LAPS, raceLaps, raceDistance, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=cd7c3b4';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=cd7c3b4';
-import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=cd7c3b4';
-import { applyStageVisibility } from './render/world/stages.js?v=cd7c3b4';
-import { skyFor } from './render/world/sky.js?v=cd7c3b4';
-import { updateSpace } from './render/world/space.js?v=cd7c3b4';
-import { updateSea } from './render/world/sea.js?v=cd7c3b4';
-import { updateWarp } from './render/world/warp.js?v=cd7c3b4';
-import { showcaseCamera } from './render/showcase.js?v=cd7c3b4';
-import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=cd7c3b4';
-import { createMinimap } from './render/minimap.js?v=cd7c3b4';
-import { grandstandSpot } from './render/trackMesh.js?v=cd7c3b4';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=cd7c3b4';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush } from './game/world.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from './data/global.js?v=cd7c3b4';
-import { faceSvg } from './titleArt.js?v=cd7c3b4';
-import { createEffects } from './render/effects.js?v=cd7c3b4';
-import { nextQuality, pixelRatio } from './render/quality.js?v=cd7c3b4';
-import { blendPose, poseOf } from './render/interp.js?v=cd7c3b4';
-import { speedText } from './hud.js?v=cd7c3b4';
-import { addRecent, cleanRecent } from './names.js?v=cd7c3b4';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=cd7c3b4';
-import { load, save } from './storage.js?v=cd7c3b4';
-import * as screens from './screens.js?v=cd7c3b4';
-import { SharedTimes, dateText } from './sharedTimes.js?v=cd7c3b4';
-import { TIMES_URL } from './config.js?v=cd7c3b4';
-import { createAudio } from './audio/audio.js?v=cd7c3b4';
-import { createSfx } from './audio/sfx.js?v=cd7c3b4';
-import { createVoices } from './audio/voice.js?v=cd7c3b4';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=cd7c3b4';
-import { createCrowd } from './audio/crowd.js?v=cd7c3b4';
-import { crowdMix } from './audio/mix.js?v=cd7c3b4';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=cd7c3b4';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=cd7c3b4';
+} from './game/race.js?v=9c29d4f';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=9c29d4f';
+import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=9c29d4f';
+import { applyStageVisibility } from './render/world/stages.js?v=9c29d4f';
+import { skyFor } from './render/world/sky.js?v=9c29d4f';
+import { updateSpace, spaceLook } from './render/world/space.js?v=9c29d4f';
+import { updateSea } from './render/world/sea.js?v=9c29d4f';
+import { updateWarp, warpLook } from './render/world/warp.js?v=9c29d4f';
+import { showcaseCamera } from './render/showcase.js?v=9c29d4f';
+import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=9c29d4f';
+import { createMinimap } from './render/minimap.js?v=9c29d4f';
+import { grandstandSpot } from './render/trackMesh.js?v=9c29d4f';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=9c29d4f';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage } from './game/world.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from './data/global.js?v=9c29d4f';
+import { faceSvg } from './titleArt.js?v=9c29d4f';
+import { createEffects } from './render/effects.js?v=9c29d4f';
+import { nextQuality, pixelRatio } from './render/quality.js?v=9c29d4f';
+import { blendPose, poseOf } from './render/interp.js?v=9c29d4f';
+import { speedText } from './hud.js?v=9c29d4f';
+import { addRecent, cleanRecent } from './names.js?v=9c29d4f';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=9c29d4f';
+import { load, save } from './storage.js?v=9c29d4f';
+import * as screens from './screens.js?v=9c29d4f';
+import { SharedTimes, dateText } from './sharedTimes.js?v=9c29d4f';
+import { TIMES_URL } from './config.js?v=9c29d4f';
+import { createAudio } from './audio/audio.js?v=9c29d4f';
+import { createSfx } from './audio/sfx.js?v=9c29d4f';
+import { createVoices } from './audio/voice.js?v=9c29d4f';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=9c29d4f';
+import { createCrowd } from './audio/crowd.js?v=9c29d4f';
+import { crowdMix } from './audio/mix.js?v=9c29d4f';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=9c29d4f';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=9c29d4f';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'cd7c3b4';
+const VERSION = '9c29d4f';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -84,6 +84,8 @@ const canvas = $('game');
 const hud = $('hud');
 const rotate = $('rotate');
 const speedLines = $('speed-lines');
+const spaceFlash = $('space-flash');
+let flashLevel = 0; // 宇宙・ワープの終わりの白い光（着いたあと、だんだん消す）
 const speedo = $('speedo');
 const speedNum = speedo.querySelector('.num');
 const wrongWayEl = $('wrongway');
@@ -118,10 +120,11 @@ let track = trackOf(course);
 let standSpot = null; // 観客席の真ん中（歓声の大きさと左右）。観客席のないコースでは null
 let minimap = null;
 // 走るコースを決める（形・マップ・歓声）
-function useCourse(def) {
+// lite: コース選びの背景だけ（Global City は軽い形。全部はレースのときに作る）
+function useCourse(def, { lite = false } = {}) {
   course = def;
   track = trackOf(def);
-  setCourse(scene, track);
+  setCourse(scene, track, { lite });
   minimap = createMinimap($('minimap'), track);
   minimap.resize();
   standSpot = def.theme === 'circuit' || def.grandstand ? grandstandSpot(track) : null; // Kyugo Mountain も観客席の前で歓声（2026-10-18 のユーザー依頼）
@@ -502,8 +505,8 @@ function placeBuses(time) {
 function trainsOf(t) {
   if (t.def.theme !== 'world') return [];
   const ref = (r) => (typeof r === 'string' ? t.marks[r] : null);
-  // 自分が線路の始まりの 300m 手前に来たら走り出す（t0）。そのとき先頭は始まりの 100m 手前（見えないところ）から
-  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: -100 }));
+  // 自分が線路の始まりの near m 手前に来たら走り出す（t0）。lead: 走り出すときの先頭の位置（東京は全部の両が線路の上、富士山は始まりの手前から出てくる）
+  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: tr.lead ?? -100, near: tr.near ?? 300 }));
 }
 function placeTrains(time, topSpeed) {
   if (!track.trains) track.trains = trainsOf(track);
@@ -515,7 +518,7 @@ function placeTrains(time, topSpeed) {
   // 1両ずつ線路にそって置く（カーブで真っすぐのまま突き出ていた。2026-10-21 のユーザー依頼）
   const mine = progress(game.race, game.me, track);
   track.trains.forEach((tr, k) => {
-    if (tr.t0 === null && mine > tr.from - 300) tr.t0 = time;
+    if (tr.t0 === null && mine > tr.from - tr.near) tr.t0 = time; // 自分が線路の始まりに近づいたら走り出す
     const cars = track.trainModels[k].userData.cars;
     shinkansenCars(track, tr, Math.max(0, time), topSpeed, cars.length).forEach((p, j) => {
       cars[j].visible = p.visible;
@@ -541,6 +544,9 @@ function removeGame() {
   resetSky(scene); // Global City の空を、ふつうの空に戻す
   if (track) track.trains = null; // 新幹線は、次のレースでまた自分が近づいてから走り出す
   if (scene.userData.ground) scene.userData.ground.visible = true;
+  flashLevel = 0;
+  spaceFlash.style.opacity = '0';
+  if (track?.mesh) for (const c of track.mesh.children) c.visible = true; // 宇宙・ワープの途中でやめても、コースを見せる
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();
   crowd.stop();
@@ -868,7 +874,7 @@ async function flow() {
         // コースを押すと、そのコースを背景に映す（タイトルと同じカメラ）。もう一度押すと決まる
         const pick = await screens.chooseCourse(menu, COURSES, courseNo, {
           onSelect: (k, sound) => {
-            useCourse(COURSES[k]);
+            useCourse(COURSES[k], { lite: true });
             if (sound) sfx.play('select');
           },
           records: () => sharedTimes.view(),
@@ -953,7 +959,7 @@ function idleCamera(dt) {
     showcaseCamera(camera, c, orbit / 0.08);
     if (!showcasing) {
       // ステージ 7 として見せると、まわりはクアラルンプール（6）だけ（6 だと、となりのニューヨークも見える）
-      applyStageVisibility(c.mesh, 7, null);
+      applyStageVisibility(scene.userData.courseMesh, 7, null);
       setSky(scene, skyFor(c, 6, { y: 0, auto: null }));
       showcasing = true;
     }
@@ -1026,6 +1032,18 @@ function renderGame(alpha, dt) {
     // 宇宙は高さ 150m より上だけ（打ち上がってすぐと、香港へ下りてくる所では、京都・香港の景色が見える）。ワープは3つ目の輪っかから
     const autoView = autoViewOf(me);
     applyStageVisibility(track.mesh, cur, autoView, win);
+    // 夜のステージでは、カートのライトを点ける
+    const night = nightStage(track, cur);
+    for (const m of g.models) if (m.userData.lights) m.userData.lights.visible = night;
+    // 宇宙・ワープの間は、コースの道や柵も見せない（宇宙から香港の道が見えた。2026-10-21 のユーザー依頼「宇宙とコースを完全に分離」）
+    const away = autoView === 'space' || autoView === 'warp';
+    const stageSet = new Set(track.mesh.userData.stageGroups ?? []);
+    for (const c of track.mesh.children) if (!stageSet.has(c) && c.visible === away) c.visible = !away;
+    // 終わりの白い光（宇宙は地球に突っこむところ、ワープは最後）。着いたら、だんだん消す
+    const ap0 = autoProgress(track, me);
+    const target = me.auto?.id === 'space' ? spaceLook(ap0).flash : me.auto?.id === 'warp' ? warpLook(ap0).flash : 0;
+    flashLevel = Math.max(target, flashLevel - dt * 1.5);
+    spaceFlash.style.opacity = String(flashLevel);
     const look = skyFor(track, cur, me);
     setSky(scene, look);
     // 宇宙・ワープの間は、平らな地面を消す（宇宙から灰色の地面が見えた）
@@ -1057,7 +1075,7 @@ function renderGame(alpha, dt) {
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
   const ap = autoProgress(track, g.karts[g.me]); // 宇宙・ワープの演出の進み
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t, ap);
-  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t);
+  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t, camera);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 京都へ向かう加速板では、光の線を濃く速く回し、画面のまわりを白く光らせ、広い角度で（あっという間に京都へ。2026-10-21 のユーザー依頼）
   const rush = padRush(track, kart);

@@ -1,29 +1,29 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=cd7c3b4';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=cd7c3b4';
-import { buildJungle } from './town/jungle.js?v=cd7c3b4';
-import { buildWater } from './town/water.js?v=cd7c3b4';
-import { buildBridge } from './forest/bridge.js?v=cd7c3b4';
-import { buildTunnel } from './snow/tunnel.js?v=cd7c3b4';
-import { buildSnowScenery } from './snow/kit.js?v=cd7c3b4';
-import { buildSigns } from './snow/signs.js?v=cd7c3b4';
-import { buildTokyo } from './world/tokyo.js?v=cd7c3b4';
-import { buildFuji } from './world/fuji.js?v=cd7c3b4';
-import { buildKyoto } from './world/kyoto.js?v=cd7c3b4';
-import { buildSpace, buildLaunchRail } from './world/space.js?v=cd7c3b4';
-import { buildHongKong } from './world/hongkong.js?v=cd7c3b4';
-import { buildSea } from './world/sea.js?v=cd7c3b4';
-import { buildNewYork } from './world/newyork.js?v=cd7c3b4';
-import { buildWarp } from './world/warp.js?v=cd7c3b4';
-import { buildKL } from './world/kl.js?v=cd7c3b4';
-import { buildClouds } from './world/clouds.js?v=cd7c3b4';
-import * as forestKit from './forest/kit.js?v=cd7c3b4';
-import { createBuilder } from './town/builder.js?v=cd7c3b4';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=cd7c3b4';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=cd7c3b4';
-import { mergeMeshes } from './mergeMeshes.js?v=cd7c3b4';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=cd7c3b4';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=cd7c3b4';
+import * as THREE from '../../vendor/three.module.min.js?v=9c29d4f';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=9c29d4f';
+import { buildJungle } from './town/jungle.js?v=9c29d4f';
+import { buildWater } from './town/water.js?v=9c29d4f';
+import { buildBridge } from './forest/bridge.js?v=9c29d4f';
+import { buildTunnel } from './snow/tunnel.js?v=9c29d4f';
+import { buildSnowScenery } from './snow/kit.js?v=9c29d4f';
+import { buildSigns } from './snow/signs.js?v=9c29d4f';
+import { buildTokyo } from './world/tokyo.js?v=9c29d4f';
+import { buildFuji } from './world/fuji.js?v=9c29d4f';
+import { buildKyoto } from './world/kyoto.js?v=9c29d4f';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=9c29d4f';
+import { buildHongKong } from './world/hongkong.js?v=9c29d4f';
+import { buildSea } from './world/sea.js?v=9c29d4f';
+import { buildNewYork } from './world/newyork.js?v=9c29d4f';
+import { buildWarp } from './world/warp.js?v=9c29d4f';
+import { buildKL } from './world/kl.js?v=9c29d4f';
+import { buildClouds } from './world/clouds.js?v=9c29d4f';
+import * as forestKit from './forest/kit.js?v=9c29d4f';
+import { createBuilder } from './town/builder.js?v=9c29d4f';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=9c29d4f';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=9c29d4f';
+import { mergeMeshes } from './mergeMeshes.js?v=9c29d4f';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=9c29d4f';
+import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=9c29d4f';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -467,6 +467,7 @@ function landingCliffs(track) {
   for (let i = 0; i < track.length; i++) {
     const p = track.samples[i];
     if (p.y === null || p.void || !track.samples[p.next].void) continue;
+    if (track.loopTo !== undefined) continue; // ゴールのあと周回するコースは、道の終わりに壁を置かない（ストッパーに見えた。2026-10-21 のユーザー依頼）
     b.push(p.x, p.y, p.z, Math.PI / 2 - p.h);
     const n = Math.round(p.wall);
     for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, 0.7);
@@ -635,6 +636,68 @@ export function roadDrawn(p) {
   return p.y !== null && !p.void && !p.ghost && !(p.auto && p.y > 0.5);
 }
 
+// 大きな形（コースぜんぶの道の帯など）を、三角の真ん中の場所で size m のます目ごとの形に切り分ける
+function splitMesh(mesh, size = 250) {
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+  const names = Object.keys(geo.attributes);
+  const pos = geo.attributes.position;
+  const cells = new Map();
+  for (let t = 0; t < pos.count; t += 3) {
+    const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3;
+    const cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3;
+    const key = `${Math.floor(cx / size)},${Math.floor(cz / size)}`;
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(t);
+  }
+  return [...cells.values()].map((tris) => {
+    const g = new THREE.BufferGeometry();
+    for (const n of names) {
+      const a = geo.attributes[n];
+      const out = new Float32Array(tris.length * 3 * a.itemSize);
+      let o = 0;
+      for (const t of tris) for (let v = 0; v < 3; v++) for (let c = 0; c < a.itemSize; c++) out[o++] = a.array[(t + v) * a.itemSize + c];
+      g.setAttribute(n, new THREE.BufferAttribute(out, a.itemSize));
+    }
+    const m = new THREE.Mesh(g, mesh.material);
+    m.renderOrder = mesh.renderOrder;
+    m.userData = { ...mesh.userData };
+    return m;
+  });
+}
+
+// 四角（x0〜x1、z0〜z1。少し広げて見る）の中の道の点のステージ（Global City）。道や柵のまとまりを、ステージごとに見せるため
+// （遠くのステージの道が見えた。2026-10-21 のユーザー依頼）。道がなければ []
+export function chunkStages(track, x0, x1, z0, z1, pad = 20) {
+  const st = new Set();
+  for (const p of track.samples) {
+    if (p.y === null || p.void) continue;
+    if (p.x < x0 - pad || p.x > x1 + pad || p.z < z0 - pad || p.z > z1 + pad) continue;
+    st.add(stageAt(track, p.s));
+  }
+  return [...st].sort((a, b) => a - b);
+}
+
+// コース選び・紹介の背景だけの、軽い形（Global City はクアラルンプールだけ）。全部の景色を作ると、とても時間がかかった
+// （名前・コース選びの画面が重かった。2026-10-21 のユーザー依頼）。レースのときは buildTrackMesh で全部を作る
+export function buildShowcase(track) {
+  const group = new THREE.Group();
+  group.userData.stageGroups = [];
+  group.userData.showcase = true;
+  const road = new THREE.MeshLambertMaterial({ color: 0x55585c });
+  // 道（最後の大ジャンプの空の道すじは描かない）
+  const gj = track.marks.GJ ?? track.marks.END;
+  const lnd = track.marks.LND ?? track.marks.END;
+  const onRoad = (p) => (p.y ?? 0) + 0.02;
+  group.add(strip(track, markS(track, 'KL'), gj, onRoad, road));
+  if (lnd < (track.loopEnd ?? 0)) group.add(strip(track, lnd, track.loopEnd, onRoad, road));
+  for (const g of buildKL(track).children) {
+    g.visible = true;
+    group.add(g);
+  }
+  mergeMeshes(group);
+  return group;
+}
+
 export function hasTunnels(track) {
   return track.samples.some((p) => p.tunnel || p.tunnelLook);
 }
@@ -735,6 +798,13 @@ export function buildTrackMesh(track) {
     const edge = (p) => (p.tunnel ? 0x4a4e55 : snow ? 0xf4f7fb : 0x6aa84f);
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half, (p) => p.y + 0.02, grassOk(-1), { colorOf: edge }));
     group.add(ribbon(samples, half, (p) => p.half + dirt, (p) => p.y + 0.02, grassOk(1), { colorOf: edge }));
+  } else if (world) {
+    // Global City: 道のはし（縁石の外から柵まで）を、道と同じ高さで描く（高い所の道で、すき間から下が見えた。2026-10-21 のユーザー依頼）。
+    // 高い所の道は、横に側面の板（下から見上げたときと、横から見たときに、うすい紙のように見えないように）
+    const edgeOk = (side) => (p) => hasGround(p) && !p.tunnel && !onOtherRoad(track, p, side * (p.half + 1.5));
+    group.add(ribbon(samples, (p) => -p.wall, (p) => -p.half - 1, (p) => p.y + 0.03, edgeOk(-1), { color: 0x8a8d90 }));
+    group.add(ribbon(samples, (p) => p.half + 1, (p) => p.wall, (p) => p.y + 0.03, edgeOk(1), { color: 0x8a8d90 }));
+    for (const side of [-1, 1]) group.add(fence(samples, (p) => side * p.wall, (p) => p.y - 1.2, (p) => p.y + 0.03, (p) => edgeOk(side)(p) && p.y > 1.5, () => 0xb8bcc2));
   } else if (!town) {
     group.add(ribbon(samples, (p) => -p.half - dirt, (p) => -p.half - 1, () => 0.02, flat, { color: COLORS.dirt }));
     group.add(ribbon(samples, (p) => p.half + 1, (p) => p.half + dirt, () => 0.02, flat, { color: COLORS.dirt }));
@@ -983,7 +1053,34 @@ export function buildTrackMesh(track) {
   const stageGroups = group.userData.stageGroups ?? [];
   for (const g of stageGroups) group.remove(g);
   group.userData.merged = mergeMeshes(group);
+  // Global City: 道・柵・トンネルなどのまとまりも、ある所のステージの群れにする（遠くのステージの道を見せない）
+  if (world) {
+    const box = new THREE.Box3();
+    // 大きな形（400m より大きい）は、ます目ごとに切り分ける（入れ子のグループの中の形も）
+    const big = [];
+    group.traverse((o) => {
+      if (!o.isMesh || Array.isArray(o.material)) return;
+      box.setFromObject(o);
+      if (box.max.x - box.min.x > 400 || box.max.z - box.min.z > 400) big.push(o);
+    });
+    for (const m of big) {
+      m.updateMatrixWorld(true);
+      if (!m.matrixWorld.equals(new THREE.Matrix4())) continue; // 動かした形はそのまま（道の形は動かしていない）
+      const parent = m.parent;
+      parent.remove(m);
+      for (const piece of splitMesh(m)) group.add(piece);
+    }
+    for (const c of group.children.slice()) {
+      box.setFromObject(c);
+      if (box.isEmpty()) continue;
+      const st = chunkStages(track, box.min.x, box.max.x, box.min.z, box.max.z);
+      if (!st.length) continue;
+      c.userData.stages = st;
+      stageGroups.push(c);
+    }
+  }
   for (const g of stageGroups) {
+    if (g.parent === group) continue; // 道のまとまり（もうまとめてある）
     mergeMeshes(g);
     group.add(g);
   }

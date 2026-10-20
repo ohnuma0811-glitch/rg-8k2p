@@ -1,11 +1,11 @@
 // Global City のクアラルンプール（2026-10-20）: 夕方から夜。南のプトラジャヤのピンクモスクの中の回廊を通り、
 // 北西のバトゥ洞窟（金色の像・虹色の階段）の中を通って、ペトロナスツインタワーの前でゴール
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=cd7c3b4';
-import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=9c29d4f';
+import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=9c29d4f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const PINK = 0xd9a0a8;
@@ -83,7 +83,7 @@ export function buildKL(track) {
 
   // ---- バトゥ洞窟: 石灰岩の岩山。道は洞窟の中（暗い）。入口の前に金色の像と虹色の階段 ----
   const c0 = sOf(track, 'BC');
-  const c1 = sOf(track, ['BC', 'FIN', 0.12]);
+  const c1 = sOf(track, ['BC', 'M', 0.5]);
   const bc = pointAt(track, c0);
   landmark(g, 'batuCaves', bc.x, bc.y, bc.z);
   // 洞窟の上と両がわを、岩でおおう（道の上は、トンネルの天井の上から）
@@ -167,8 +167,8 @@ export function buildKL(track) {
   // クアラルンプールの街の高層ビル（道ぞいに、夜の窓。2026-10-21 のユーザー依頼「殺風景」）
   {
     let n = 0;
-    along(track, ['BC', 'FIN', 0.3], 'END', 45, (p) => {
-      if (p.ghost) return;
+    along(track, 'M', 'END', 45, (p) => {
+      if (p.ghost || p.auto) return;
       for (const side of [-1, 1]) {
         n++;
         const c = beside(p, side * (p.wall + 26));
@@ -179,14 +179,41 @@ export function buildKL(track) {
     });
   }
 
-  // ゴールの門（2本の柱と「FINISH」の文字）
-  b.push(fin.x, fin.y, fin.z, ryAlong(fin.h));
-  const gx = fin.half + 2;
-  for (const side of [-1, 1]) b.box(2, 10, 2, 0x2a2a2a, side * gx, 0, 0);
-  b.box(2 * gx + 2, 3, 1.2, 0x2a2a2a, 0, 10, 0);
-  b.label(textSign('FINISH', { bg: '#ffffff', fg: '#111111', font: 'bold 96px sans-serif' }), [512, 128], 0, 11.5, -0.7, Math.PI, 2 * gx - 2, 2.6);
-  b.label(textSign('FINISH', { bg: '#ffffff', fg: '#111111', font: 'bold 96px sans-serif' }), [512, 128], 0, 11.5, 0.7, 0, 2 * gx - 2, 2.6);
-  b.pop();
+  // ゴールは、ツインタワーの空中の橋の下を飛びぬける。地面の門は置かない（ストッパーに見えた。2026-10-21 のユーザー依頼）。
+  // FINISH の大きな幕は、空中の橋に（走ってくる方と、その反対の両方へ）
+  {
+    const [ta, tb] = twin;
+    const mx = (ta.x + tb.x) / 2;
+    const mz = (ta.z + tb.z) / 2;
+    const ry = Math.atan2(tb.x - ta.x, tb.z - ta.z) + Math.PI / 2; // 幕の面は、走る向きに向く
+    const span = Math.hypot(tb.x - ta.x, tb.z - ta.z) - 30;
+    b.push(mx, 0, mz, ry);
+    b.box(span, 14, 0.6, 0xffffff, 0, 152, 0);
+    for (const sd of [-1, 1]) b.label(textSign('FINISH', { bg: '#ffffff', fg: '#111111', font: 'bold 110px sans-serif' }), [768, 192], 0, 159, sd * 0.4, sd > 0 ? 0 : Math.PI, span - 2, 12);
+    for (let k = 0; k < 12; k++) b.box(span / 12, 2, 0.7, k % 2 ? 0x111111 : 0xffffff, -span / 2 + (k + 0.5) * (span / 12), 150, 0); // 白黒のしま
+    b.pop();
+    landmark(g, 'finishBanner', mx, 159, mz);
+  }
+  // 最後の大ジャンプ台（オレンジと黄色の光る矢印、赤白の柱）
+  {
+    const r0 = sOf(track, 'R0');
+    const gj = sOf(track, 'GJ');
+    for (let s = r0; s <= gj; s += 6) {
+      const p = pointAt(track, s);
+      glow.push(p.x, p.y + 0.08, p.z, ryAlong(p.h));
+      for (const side of [-1, 1]) glow.box(9, 0.06, 1.6, Math.round(s / 6) % 2 ? 0xffb000 : 0xff6a00, side * 3.3, 0, 0, side * 0.7);
+      glow.pop();
+    }
+    for (const s of [r0, gj]) {
+      const p = pointAt(track, s);
+      for (const side of [-1, 1]) {
+        const c = beside(p, side * (p.wall + 1));
+        for (let k = 0; k < 6; k++) b.cyl(0.8, 0.8, 2, 8, k % 2 ? 0xffffff : 0xe0251c, c.x, p.y + k * 2, c.z);
+      }
+    }
+    const jm = pointAt(track, (r0 + gj) / 2);
+    landmark(g, 'goalJump', jm.x, jm.y, jm.z);
+  }
 
   // 道ぞいの街灯（夕方の明かり）
   along(track, 'KL', 'END', 40, (p) => {

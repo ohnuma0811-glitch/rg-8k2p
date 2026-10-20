@@ -1,10 +1,10 @@
 // Global City の京都（2026-10-20）: 外国の人が見ても京都だと分かるように、日本らしさ・京都らしさを前に出す
 // 東から入るので、実際の位置のとおり時計回り: 伏見稲荷 → 清水寺（舞台からジャンプ）→ 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign } from './kit.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=9c29d4f';
 
 const VERMILION = 0xe0441c; // 朱色
 const DARK_WOOD = 0x3a2a22;
@@ -161,8 +161,8 @@ export function buildKyoto(track) {
   along(track, S.gion.from, S.gion.to, 13, (p) => {
     for (const side of [-1, 1]) {
       k++;
-      const c = beside(p, side * (p.wall + 8));
-      if (!clear(track, c.x, c.z, 4) || Math.hypot(c.x - yp.x, c.z - yp.z) < 18) continue;
+      const c = beside(p, side * (p.wall + 12)); // 町家は奥行き 12m なので、桜（道から 2m）にかからない所に（桜が建物に埋まった。2026-10-21 のユーザー依頼）
+      if (!clear(track, c.x, c.z, 6) || Math.hypot(c.x - yp.x, c.z - yp.z) < 18) continue;
       machiya(b, c.x, c.z, ryAlong(p.h) + (side > 0 ? -Math.PI / 2 : Math.PI / 2));
       // 赤いちょうちん（光る）
       const l = beside(p, side * (p.wall + 3.4));
@@ -277,17 +277,9 @@ export function buildKyoto(track) {
   }
 
   // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
-  const sign = (s, text, name) => {
-    for (const side of [-1, 1]) {
-      const p = pointAt(track, s);
-      const c = beside(p, side * (p.wall + 4));
-      if (!clear(track, c.x, c.z, 2)) continue;
-      roadSign(g, b, track, s, side, text, name, { bg: '#7a1a10', fg: '#fff2d8' });
-      return;
-    }
-  };
+  const sign = (s, text, name) => roadBanner(g, b, track, s, text, name);
   sign(sOf(track, 'FI') - 30, 'FUSHIMI INARI', 'signFushimi');
-  sign(km - 100, 'KIYOMIZU-DERA', 'signKiyomizu');
+  sign(km - 72, 'KIYOMIZU-DERA', 'signKiyomizu'); // 仁王門と本堂の間（鳥居のトンネルに重ならないように）
   sign(sOf(track, 'GK') - 40, 'GINKAKU-JI', 'signGinkaku');
   sign(sOf(track, 'KK') - 40, 'KINKAKU-JI', 'signKinkaku');
   sign(sOf(track, 'AR') - 30, 'ARASHIYAMA', 'signArashiyama');

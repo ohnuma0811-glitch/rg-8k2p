@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=cd7c3b4';
-import { span, locate, ahead, behind } from './track.js?v=cd7c3b4';
+import { SPEED_SHOW } from '../hud.js?v=9c29d4f';
+import { span, locate, ahead, behind } from './track.js?v=9c29d4f';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -505,12 +505,15 @@ export function busPose(track, bus, time) {
   const n = track.length; // バスは本線だけを走る（分かれ道の点は本線の点のあとにある）
   // 範囲のある乗り物（Global City の路面電車・タクシー）は、その範囲の中でくり返す
   const len = bus.from !== undefined ? bus.to - bus.from : 0;
-  const s = len ? bus.from + ((((bus.s0 - BUS_SPEED * time - bus.from) % len) + len) % len) : ((((bus.s0 - BUS_SPEED * time) % L) + L) % L);
+  // dir: -1 はコースと逆向き（向かってくる）、1 は同じ向き。side: 1 は道の右、-1 は左（Global City。2026-10-21）
+  const dir = bus.dir ?? -1;
+  const side = bus.side ?? 1;
+  const s = len ? bus.from + ((((bus.s0 + dir * BUS_SPEED * time - bus.from) % len) + len) % len) : ((((bus.s0 + dir * BUS_SPEED * time) % L) + L) % L);
   const i = Math.floor(s) % n;
   const p = track.samples[i];
   const q = track.samples[(i + 1) % n];
   const f = s - Math.floor(s);
-  const lateral = BUS_LANE + (p.half - track.roadHalf);
+  const lateral = side * (BUS_LANE + (p.half - track.roadHalf));
   const px = p.x + (q.x - p.x) * f;
   const pz = p.z + (q.z - p.z) * f;
   return {
@@ -518,7 +521,7 @@ export function busPose(track, bus, time) {
     x: px - Math.sin(p.h) * lateral,
     z: pz + Math.cos(p.h) * lateral,
     lateral,
-    heading: p.h + Math.PI, // コースと逆向き
+    heading: dir < 0 ? p.h + Math.PI : p.h, // 向かってくる車はコースと逆向き
   };
 }
 

@@ -1,11 +1,11 @@
 // Global City のニューヨーク（2026-10-20）: 碁盤の目の街を直角に曲がって北へ。タイムズスクエア、マディソン街の Jefferies 本社とユニクロ、
 // 五番街のティファニー、セントラルパークの中を通って、ジョージ・ワシントン・ブリッジでハドソン川をわたる。NY育英学園の門をくぐると輪っか
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree } from './kit.js?v=cd7c3b4';
-import { cityBlocks } from './tokyo.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner, trafficLight } from './kit.js?v=9c29d4f';
+import { cityBlocks } from './tokyo.js?v=9c29d4f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const BOARD = [0xff2d3a, 0x2d7dff, 0xffd21a, 0x2de07a, 0xff7a1a, 0xffffff];
@@ -149,6 +149,7 @@ export function buildNewYork(track) {
   const c1 = sOf(track, 'CPN');
   const cm = pointAt(track, (c0 + c1) / 2);
   landmark(g, 'centralPark', cm.x, 0, cm.z);
+  roadBanner(g, b, track, c0 + 6, 'CENTRAL PARK', 'bannerCentralPark', { bg: '#2f6f3a', fg: '#ffffff' }); // 入口の横断幕（2026-10-21 のユーザー依頼）
   b.push(cm.x, 0, cm.z, ryAlong(cm.h));
   b.box(260, 0.08, c1 - c0 + 60, 0x5f9a3f, 0, -0.09, 0); // 芝生（道より下。地面 -0.1 より上）
   b.box(70, 0.08, 50, 0x3f7fa8, -80, -0.08, 30); // 池
@@ -264,6 +265,9 @@ export function buildNewYork(track) {
       b.rod(c.x, p.y + 4, c.z, p.x - Math.sin(p.h) * side * 14, p.y + 6, p.z + Math.cos(p.h) * side * 14, 0.25, 0x2a2e34, 3); // 配線
     }
   });
+
+  // 信号機（直角の角の手前の右側。ニューヨークは右側通行。2026-10-21 のユーザー依頼）
+  (track.def.squareCorners ?? []).forEach(([m], k) => trafficLight(g, b, glow, track, sOf(track, m) - 14, 1, k % 2 ? 'red' : 'green'));
 
   g.add(b.build(), glow.build());
   return root;

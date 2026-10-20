@@ -1,11 +1,11 @@
 // Global City の海の底（2026-10-20）: 香港の港から坂を下って海にもぐり、透明なガラスのトンネルを走る。
 // クジラ・サメ・魚の群れ・しずんだ船が見える。坂を上って、自由の女神の足もとから地上に出る
-import * as THREE from '../../../vendor/three.module.min.js?v=cd7c3b4';
-import { createBuilder } from '../town/builder.js?v=cd7c3b4';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cd7c3b4';
-import { locate } from '../../game/track.js?v=cd7c3b4';
-import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js?v=cd7c3b4';
-import { createDinoModel } from '../models.js?v=cd7c3b4';
+import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
+import { createBuilder } from '../town/builder.js?v=9c29d4f';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
+import { locate } from '../../game/track.js?v=9c29d4f';
+import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js?v=9c29d4f';
+import { createDinoModel } from '../models.js?v=9c29d4f';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 
@@ -41,17 +41,7 @@ export function buildSea(track) {
   const cx = (a.x + z.x) / 2;
   const cz = (a.z + z.z) / 2;
   const len = Math.hypot(z.x - a.x, z.z - a.z) + 300;
-  // 海の水面（上から見ると青い海、下から見ると明るい水色）と、砂の海底
-  const top = new THREE.Mesh(new THREE.PlaneGeometry(len, 600), new THREE.MeshLambertMaterial({ color: 0x1f5f8f }));
-  top.rotation.x = -Math.PI / 2;
-  top.rotation.z = -Math.atan2(z.z - a.z, z.x - a.x);
-  top.position.set(cx, -0.05, cz); // 地面（-0.1）より上、道（0）より下
-  top.userData.keep = true;
-  const under = new THREE.Mesh(new THREE.PlaneGeometry(len, 600), new THREE.MeshBasicMaterial({ color: 0x3f9fd0, side: THREE.BackSide }));
-  under.rotation.copy(top.rotation);
-  under.position.set(cx, -0.3, cz);
-  under.userData.keep = true;
-  g.add(top, under);
+  // 海の水面はなし（トンネルの中は水で満たされていないので。2026-10-21 のユーザー依頼「水面は不要」）。砂の海底
   b.push(cx, -45, cz, Math.atan2(z.x - a.x, z.z - a.z) + Math.PI / 2);
   b.box(len, 0.5, 600, 0xc8b98a, 0, 0, 0);
   b.pop();
@@ -191,7 +181,14 @@ export function buildSea(track) {
     mon.add(head, body.build());
     mon.scale.setScalar(0.8);
     mon.userData.jaw = head.userData.upper;
-    g.add(swimmer(mon, c, 90, 0.09, 0.5, -24));
+    // 泳がず、トンネルの横の海底にいて、通るカートの方を向き、食べたそうに口を開け閉めする（2026-10-21 のユーザー依頼）
+    mon.position.set(c.x, -30, c.z);
+    mon.userData.watch = true;
+    mon.traverse((o) => {
+      o.userData.keep = true;
+      if (o.material) { o.material = o.material.clone(); o.material.fog = false; }
+    });
+    g.add(mon);
     landmark(g, 'monster', c.x, -24, c.z);
   }
 
@@ -260,9 +257,14 @@ export function buildSea(track) {
   return root;
 }
 
-// 泳ぐ生き物を動かす（毎フレーム）
-export function updateSea(group, time) {
+// 泳ぐ生き物を動かす（毎フレーム）。怪獣（watch）はカメラの方を向いて、口を開け閉め
+export function updateSea(group, time, camera = null) {
   group.traverse((o) => {
+    if (o.userData.watch) {
+      if (camera) o.rotation.y = Math.atan2(camera.position.x - o.position.x, camera.position.z - o.position.z);
+      if (o.userData.jaw) o.userData.jaw.rotation.z = 0.55 + Math.sin(time * 1.6) * 0.3;
+      return;
+    }
     const s = o.userData.swim;
     if (!s) return;
     const an = time * s.speed + s.phase;
