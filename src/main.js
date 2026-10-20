@@ -23,7 +23,7 @@ import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, 
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow } from './game/world.js';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -1055,9 +1055,17 @@ function renderGame(alpha, dt) {
   else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.base.topSpeed, dt);
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
-  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t);
+  const ap = autoProgress(track, g.karts[g.me]); // 宇宙・ワープの演出の進み
+  for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t, ap);
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
+  // 京都へ向かう加速板では、光の線を濃く速く回し、画面のまわりを白く光らせ、広い角度で（あっという間に京都へ。2026-10-21 のユーザー依頼）
+  const rush = padRush(track, kart);
+  speedLines.classList.toggle('rush', rush);
+  if (rush) {
+    camera.fov += 18; // 走るときのカメラが毎フレームもとの角度にするので、その上から広げる
+    camera.updateProjectionMatrix();
+  }
   // 表示
   setText(speedNum, kart.autoError ? 'ERR' : speedText(kart.speed));
   speedo.classList.toggle('boost', kart.boost > 0);

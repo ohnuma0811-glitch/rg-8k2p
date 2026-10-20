@@ -250,6 +250,32 @@ export function buildKyoto(track) {
   const ar = pointAt(track, sOf(track, 'AR') + 20);
   landmark(g, 'bamboo', ar.x, 0, ar.z);
 
+  // 銀閣寺 → 金閣寺 → 嵐山の間の町なみ（町家・紅葉と桜）と、遠くの山なみ（2026-10-21 のユーザー依頼「周りも殺風景」）
+  {
+    let n = 0;
+    const avoid = [kk, gk].map((c) => ({ x: c.x, z: c.z, r: 90 }));
+    along(track, 'GK', 'AR', 14, (p) => {
+      for (const side of [-1, 1]) {
+        n++;
+        const c = beside(p, side * (p.wall + 9));
+        if (!clear(track, c.x, c.z, 6) || avoid.some((a) => Math.hypot(a.x - c.x, a.z - c.z) < a.r)) continue;
+        if (n % 5 === 0) roundTree(b, c.x, 0, c.z, 1.2, n % 2 ? 0xd8644a : 0xe89ab0); // 紅葉・桜
+        else {
+          machiya(b, c.x, c.z, ryAlong(p.h) + (side > 0 ? -Math.PI / 2 : Math.PI / 2));
+          landmark(g, 'kyotoTown', c.x, 0, c.z);
+        }
+      }
+    });
+    // 遠くの山なみ（緑の低い山）
+    along(track, 'FI', 'LP', 120, (p) => {
+      for (const side of [-1, 1]) {
+        const c = beside(p, side * 300);
+        if (!clear(track, c.x, c.z, 150)) continue;
+        b.cyl(0, 110, 70, 9, 0x3f6f3a, c.x, 0, c.z);
+      }
+    });
+  }
+
   // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
   const sign = (s, text, name) => {
     for (const side of [-1, 1]) {

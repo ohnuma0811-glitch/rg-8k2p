@@ -16,6 +16,7 @@ import { buildSea } from './world/sea.js';
 import { buildNewYork } from './world/newyork.js';
 import { buildWarp } from './world/warp.js';
 import { buildKL } from './world/kl.js';
+import { buildClouds } from './world/clouds.js';
 import * as forestKit from './forest/kit.js';
 import { createBuilder } from './town/builder.js';
 import { buildRiver, buildWaterfall } from './forest/water.js';
@@ -973,7 +974,7 @@ export function buildTrackMesh(track) {
   if (hasTunnels(track)) group.add(buildTunnel(track));
   // Global City の景色（ステージごとの群れ）
   if (world) {
-    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL]) {
+    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL, buildClouds]) {
       for (const g of build(track).children.slice()) group.userData.addStage(g, g.userData.stages);
     }
   }

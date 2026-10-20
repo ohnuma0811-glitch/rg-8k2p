@@ -14,6 +14,11 @@ const ROCK = 0x8a8478;
 const GOLD = 0xd4a62a;
 const SILVER = 0xc8ccd2;
 
+const clear = (track, x, z, gap) => {
+  const loc = locate(track, x, z, null, 40);
+  return Math.abs(loc.lateral) > loc.wall + gap;
+};
+
 // 道から need m 以上はなれた所（近ければ、道の横へ押し出す）
 function away(track, x, z, need) {
   const loc = locate(track, x, z, null, 40);
@@ -157,6 +162,21 @@ export function buildKL(track) {
     const p = away(track, w.x, w.z, 30);
     if (twin.some((c) => Math.hypot(c.x - p.x, c.z - p.z) < 60)) continue;
     tower(b, p.x, p.z, 0, 30, 30, 120 + ((Math.abs(at[0]) * 3) % 90), 0x3a3448, { glow, win: WIN });
+  }
+
+  // クアラルンプールの街の高層ビル（道ぞいに、夜の窓。2026-10-21 のユーザー依頼「殺風景」）
+  {
+    let n = 0;
+    along(track, ['BC', 'FIN', 0.3], 'END', 45, (p) => {
+      if (p.ghost) return;
+      for (const side of [-1, 1]) {
+        n++;
+        const c = beside(p, side * (p.wall + 26));
+        if (!clear(track, c.x, c.z, 20) || twin.some((t2) => Math.hypot(t2.x - c.x, t2.z - c.z) < 60)) continue;
+        tower(b, c.x, c.z, ryAlong(p.h), 26, 26, 90 + ((n * 37) % 140), [0x3a3448, 0x2e3a4a, 0x48405a][n % 3], { glow, win: n % 2 ? WIN : 0xbfe6ff });
+        landmark(g, 'klTower', c.x, 0, c.z);
+      }
+    });
   }
 
   // ゴールの門（2本の柱と「FINISH」の文字）

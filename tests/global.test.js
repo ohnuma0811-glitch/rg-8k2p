@@ -98,15 +98,15 @@ function through(id, seconds) {
   return { kart, log };
 }
 
-test('自動の区間は3つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 3秒）', () => {
+test('自動の区間は3つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）', () => {
   assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp']);
   const time = (id) => t.autos.find((a) => a.id === id).legs.reduce((x, l) => x + l.time, 0);
   assert.equal(time('jump'), 4);
   assert.equal(time('space'), 8);
-  assert.ok(Math.abs(time('warp') - 4.2) < 1e-9);
+  assert.ok(Math.abs(time('warp') - 10.2) < 1e-9); // ワープは約10秒（2026-10-21 のユーザー依頼「もっと壮大に」）
 });
 
-for (const [id, to, secs] of [['jump', 'FL', 4], ['space', 'HL', 8], ['warp', 'KL', 4.2]]) {
+for (const [id, to, secs] of [['jump', 'FL', 4], ['space', 'HL', 8], ['warp', 'KL', 10.2]]) {
   test(`${id}: 操作は効かず、決まった時間で ${to} に出る。出たら地面の上で、入る前の速さ`, () => {
     const { log } = through(id, secs + 3);
     const inAuto = log.filter((x) => x.auto === id).length / 60;
@@ -489,11 +489,15 @@ test('軽さ: ステージごとに見える景色（そのステージと前後
   const { buildLaunchRail } = await import('../src/render/world/space.js');
   const tri = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return n; };
   const groups = [];
-  for (const b of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL]) for (const g of b(t).children) groups.push([g.userData.stages, tri(g)]);
+  const { buildClouds } = await import('../src/render/world/clouds.js');
+  for (const b of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL, buildClouds]) for (const g of b(t).children) groups.push([g.userData.stages, tri(g)]);
   groups.push([[0, 1, 2], tri(buildTerrain(t))]);
+  // 見えるのは、今のステージと、さかいめの近くでは次か前のステージ（stageWindow）。いちばん多いときで数える
   for (let cur = 0; cur < 7; cur++) {
-    const n = groups.filter(([st]) => stageVisible(st, cur, null)).reduce((a, [, k]) => a + k, 0);
-    assert.ok(n <= 170000, `ステージ ${cur}: ${n}`);
+    for (const win of [{ cur, next: true, prev: false }, { cur, next: false, prev: true }]) {
+      const n = groups.filter(([st]) => stageVisible(st, cur, null, win)).reduce((a, [, k]) => a + k, 0);
+      assert.ok(n <= 170000, `ステージ ${cur}${win.next ? '（次も）' : '（前も）'}: ${n}`);
+    }
   }
 });
 
@@ -836,4 +840,64 @@ test('香港は中国語のネオン看板であふれる（道の上へ突き�
   assert.ok(signs.length >= 50, `看板 ${signs.length}`);
   assert.ok(signs.every((s) => /[一-鿿]/.test(s)), '漢字');
   assert.ok(new Set(signs).size >= 12, `種類 ${new Set(signs).size}`);
+});
+
+import { warpLook } from '../src/render/world/warp.js';
+import { spaceLook } from '../src/render/world/space.js';
+
+test('クアラルンプールへのワープは約10秒で壮大に: 色が変わり、速くなり、最後は白く光る（2026-10-21 のユーザー依頼）', () => {
+  const w = t.autos.find((a) => a.id === 'warp');
+  const total = w.legs.reduce((a, l) => a + l.time, 0);
+  assert.ok(total >= 9.5 && total <= 11, `${total}秒`);
+  const a = warpLook(0.1);
+  const b = warpLook(0.6);
+  const c = warpLook(0.97);
+  assert.ok(b.speed > a.speed && c.speed > b.speed, '速くなる');
+  assert.notEqual(a.hue, b.hue, '色が変わる');
+  assert.ok(c.flash > 0.5 && a.flash === 0, '最後に白く光る');
+});
+
+test('宇宙から香港へ: 宇宙 → 地球が見える → 地球へズーム → 香港の地図 → コース（2026-10-21 のユーザー依頼）', () => {
+  const p = [0.1, 0.35, 0.6, 0.8, 0.95].map(spaceLook);
+  assert.ok(p[0].earth < p[1].earth && p[1].earth < p[2].earth, '地球が大きくなる');
+  assert.equal(p[0].map, 0);
+  assert.ok(p[3].map > 0.5 && p[4].map >= p[3].map, '香港の地図が見える');
+});
+
+import { autoProgress } from '../src/game/world.js';
+
+test('自動の区間の進み（0〜1）: 区間ごとの時間を足して数える', () => {
+  const w = t.autos.find((a) => a.id === 'warp');
+  const total = w.legs.reduce((a, l) => a + l.time, 0);
+  assert.equal(autoProgress(t, { auto: null }), 0);
+  assert.ok(Math.abs(autoProgress(t, { auto: { id: 'warp', leg: 0, t: 0 } })) < 1e-9);
+  assert.ok(Math.abs(autoProgress(t, { auto: { id: 'warp', leg: 2, t: 1 } }) - (w.legs[0].time + w.legs[1].time + 1) / total) < 1e-9);
+});
+
+import { padRush } from '../src/game/world.js';
+
+test('京都へ向かう加速板（新幹線と並走）では、特別なスピードの演出（2026-10-21 のユーザー依頼）', () => {
+  const mid = t.samples.findIndex((p) => p.s >= (t.marks.SK + t.marks.KT) / 2);
+  assert.equal(padRush(t, { seg: mid, boost: 1 }), true);
+  assert.equal(padRush(t, { seg: mid, boost: 0 }), false);
+  assert.equal(padRush(t, { seg: t.samples.findIndex((p) => p.s >= t.marks.TT), boost: 1 }), false);
+});
+
+import { buildClouds } from '../src/render/world/clouds.js';
+
+test('空に雲（昼・夕方のステージ）。京都の銀閣寺〜嵐山とクアラルンプールにも町なみ（2026-10-21 のユーザー依頼「殺風景」）', () => {
+  const g = buildClouds(t);
+  const per = {};
+  for (const c of g.children) {
+    let n = 0;
+    c.traverse((o) => { if (o.userData.landmark === 'cloud') n++; });
+    per[c.userData.stages.join()] = n;
+  }
+  for (const k of ['0', '1', '2', '5', '6']) assert.ok(per[k] >= 10, `ステージ ${k}: ${per[k]}`);
+  let town = 0;
+  buildKyoto(t).traverse((o) => { if (o.userData.landmark === 'kyotoTown') town++; });
+  assert.ok(town >= 20, `京都の町家 ${town}`);
+  let kl = 0;
+  buildKL(t).traverse((o) => { if (o.userData.landmark === 'klTower') kl++; });
+  assert.ok(kl >= 12, `クアラルンプールのビル ${kl}`);
 });

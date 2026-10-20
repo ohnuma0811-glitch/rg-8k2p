@@ -386,7 +386,7 @@ export const COURSE5 = {
   autos: [
     { id: 'jump', from: 'AJ', legs: [{ to: 'FL', time: 4 }] }, // お台場の巨大ジャンプ → 富士山
     { id: 'space', from: 'LP', legs: [{ to: 'HL', time: 8 }] }, // 発射台 → 宇宙 → 香港
-    { id: 'warp', from: 'R1', legs: [{ to: 'R2', time: 0.7 }, { to: 'R3', time: 0.5 }, { to: 'KL', time: 3 }] }, // 輪っか → ワープ
+    { id: 'warp', from: 'R1', legs: [{ to: 'R2', time: 0.7 }, { to: 'R3', time: 0.5 }, { to: 'KL', time: 9 }] }, // 輪っか → ワープ（約10秒。2026-10-21 のユーザー依頼「もっと壮大に」）
   ],
   helix: { at: 'SL', r: 45, turns: 1 }, // 芝浦のループ（ぐるっと1周回ってレインボーブリッジに上がる）
   heights: [

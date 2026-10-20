@@ -29,6 +29,24 @@ export function autoViewOf(kart) {
   return a.id;
 }
 
+// 京都へ向かう加速板（新幹線と並走、SK〜KT）で加速しているか（2026-10-21 のユーザー依頼「あっという間に京都についたような演出」）
+export function padRush(track, kart) {
+  if (!(kart.boost > 0) || track.marks.SK === undefined) return false;
+  const s = track.samples[kart.seg].s;
+  return s >= track.marks.SK && s <= track.marks.KT;
+}
+
+// 自動の区間の進み（0〜1）。宇宙・ワープの演出に使う
+export function autoProgress(track, kart) {
+  const st = kart.auto;
+  if (!st) return 0;
+  const a = track.autos.find((x) => x.id === st.id);
+  if (!a) return 0;
+  const total = a.legs.reduce((s, l) => s + l.time, 0);
+  const done = a.legs.slice(0, st.leg).reduce((s, l) => s + l.time, 0);
+  return Math.min(1, (done + st.t) / total);
+}
+
 // 見せるステージ（Global City）: ふつうは今のステージ。宇宙から下りてくる後半は、着く所（香港）のステージ
 // （京都の青空が一瞬出てから香港の夜になった。最後のレビュー）
 export function viewStage(track, kart, cur) {
