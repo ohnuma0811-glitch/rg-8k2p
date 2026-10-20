@@ -1,8 +1,8 @@
 // Global City の宇宙と発射台（2026-10-20）: 京都の嵐山から打ち上がって、宇宙（星・地球・月・いん石）を見て、香港に着陸する
 // 宇宙の景色はカメラについていく（userData.followCamera）。見えるのは宇宙の自動の区間の間だけ（userData.stages = ['space']）
-import * as THREE from '../../../vendor/three.module.min.js?v=98f8b2f';
-import { createBuilder } from '../town/builder.js?v=98f8b2f';
-import { landmark, sOf, pointAt } from './kit.js?v=98f8b2f';
+import * as THREE from '../../../vendor/three.module.min.js?v=d553df2';
+import { createBuilder } from '../town/builder.js?v=d553df2';
+import { landmark, sOf, pointAt } from './kit.js?v=d553df2';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 

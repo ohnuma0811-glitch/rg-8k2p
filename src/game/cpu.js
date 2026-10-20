@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=98f8b2f';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=98f8b2f';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=d553df2';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=d553df2';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
