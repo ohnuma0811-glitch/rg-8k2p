@@ -367,7 +367,11 @@ export const COURSE5 = {
   vehicles: [{ kind: 'tram', from: 'HL', to: 'SD', count: 3 }, { kind: 'taxi', from: 'NY1', to: 'GWB', count: 5 }], // 香港の路面電車、ニューヨークのタクシー（ぶつかるとスピン）
   fenceStyles: [{ from: 'RB', to: 'RBE', style: 'rail' }, { from: 'AR', to: 'LP', style: 'bamboo' }, { from: 'NY', to: 'R1', style: 'curb' }, { from: ['CPN', 'GWB', 0.4], to: ['GWB', 'IG', 0.6], style: 'rail' }], // 場所ごとの柵（あとの Task で足していく）
   // 新幹線と並走する道の加速板（2026-10-20 のユーザー依頼「加速板を置いて、新幹線の速度よりも早く」）
-  pads: Array.from({ length: 5 }, (_, k) => ({ at: ['SK', 'KT', 0.1 + k * 0.17], len: 8, time: 1.2 })),
+  pads: [
+    ...Array.from({ length: 5 }, (_, k) => ({ at: ['SK', 'KT', 0.1 + k * 0.17], len: 8, time: 1.2 })),
+    // 宇宙へ行く発射台の手前の加速板3つ（2026-10-21 のユーザー依頼）
+    ...[0.33, 0.51, 0.69].map((f) => ({ at: ['AR', 'LP', f], len: 8, time: 1.2 })),
+  ],
   // 清水の舞台（2026-10-20 のユーザー依頼「清水の舞台からジャンプしたい」）: 舞台のはしから、下の谷の道へ
   jumps: [{ at: 'KM', boost: [-46, -40], ramp: [-14, -2, 1.5], gap: [-2, 24] }],
   tunnels: [

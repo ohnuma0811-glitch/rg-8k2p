@@ -142,8 +142,9 @@ test('自動の区間の間は、ほかの車に当たらない（押し合わ�
 
 test('自動の区間の前後で、2台の差（s）は変わらない（同じ時間で進むので順位はそのまま）', () => {
   const a = t.autos.find((x) => x.id === 'space');
-  const k1 = createKart(t, Math.round(a.from - 40), 0);
-  const k2 = createKart(t, Math.round(a.from - 80), 0);
+  // 2台とも、発射台の手前の加速板（2026-10-21）を過ぎた所から
+  const k1 = createKart(t, Math.round(a.from - 20), 0);
+  const k2 = createKart(t, Math.round(a.from - 55), 0);
   k1.speed = k2.speed = 30;
   // 2台目が自動の区間を出たときに比べる（そのあとハンドルを切らずに走ると、壁にぶつかって差が変わる）
   let was = false;
@@ -900,4 +901,10 @@ test('空に雲（昼・夕方のステージ）。京都の銀閣寺〜嵐山�
   let kl = 0;
   buildKL(t).traverse((o) => { if (o.userData.landmark === 'klTower') kl++; });
   assert.ok(kl >= 12, `クアラルンプールのビル ${kl}`);
+});
+
+test('宇宙へ行く発射台の手前に、加速板が3つ（2026-10-21 のユーザー依頼）', () => {
+  let runs = 0;
+  for (let i = Math.round(t.marks.AR); i < Math.round(t.marks.LP); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) runs++;
+  assert.equal(runs, 3);
 });
