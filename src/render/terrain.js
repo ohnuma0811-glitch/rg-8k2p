@@ -186,8 +186,10 @@ export function terrainHeight(track, x, z) {
 }
 
 // コースのまわりの地面（GRID m のます目）。道の下の所は少し下げる（ます目の間で、道の上に地面が出ないように）
+const GRID_DEFAULT = GRID;
 export function buildTerrain(track) {
   const { samples } = track;
+  const GRID = track.def.terrainGrid ?? GRID_DEFAULT; // Global City は広いので粗く（2026-10-20 の軽さの見直し）
   const xs = samples.map((p) => p.x);
   const zs = samples.map((p) => p.z);
   // Global City は四角（terrainBox）の中だけ

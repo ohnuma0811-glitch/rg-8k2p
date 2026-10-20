@@ -453,3 +453,41 @@ test('ワープの景色は3つ目の輪っか（R3）を過ぎてから。輪�
   assert.equal(skyFor(t, 5, { auto: { id: 'warp', leg: 0 }, y: 0 }).mode, 'normal');
   assert.equal(skyFor(t, 5, { auto: { id: 'warp', leg: 2 }, y: 0 }).mode, 'warp');
 });
+
+import { createCpu, cpuControl, cpuParams } from '../src/game/cpu.js';
+import { busContact } from '../src/game/hazards.js';
+import { PHYS } from '../src/game/kart.js';
+
+test('CPU がスタートからゴールまで走りきる（自動の区間・直角の角・清水の舞台・海の底の坂・乗り物）。7分以内。止まらない', () => {
+  for (const seed of [0, 1, 2]) {
+    const kart = createKart(t, 0, seed % 2 ? 4 : -4);
+    const cpu = createCpu(1, seed);
+    let time = 0;
+    let best = 0;
+    let bestAt = 0;
+    for (let f = 0; f < 60 * 420; f++) {
+      stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(params, 1), 1 / 60);
+      busContact(kart, t, time, PHYS);
+      time += 1 / 60;
+      const s = t.samples[kart.seg].s;
+      if (s > best + 15) { best = s; bestAt = time; }
+      assert.ok(time - bestAt < 8, `seed ${seed}: s ${Math.round(s)} で止まった`);
+      if (s >= t.marks.FIN) break;
+    }
+    assert.ok(t.samples[kart.seg].s >= t.marks.FIN, `seed ${seed}: s ${Math.round(t.samples[kart.seg].s)} / ${Math.round(t.marks.FIN)}`);
+  }
+});
+
+test('軽さ: ステージごとに見える景色（そのステージと前後）の三角は 17万まで（道・トンネルを足して 30万まで）', async () => {
+  const { buildTerrain } = await import('../src/render/terrain.js');
+  const { buildFuji } = await import('../src/render/world/fuji.js');
+  const { buildLaunchRail } = await import('../src/render/world/space.js');
+  const tri = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return n; };
+  const groups = [];
+  for (const b of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL]) for (const g of b(t).children) groups.push([g.userData.stages, tri(g)]);
+  groups.push([[0, 1, 2], tri(buildTerrain(t))]);
+  for (let cur = 0; cur < 7; cur++) {
+    const n = groups.filter(([st]) => stageVisible(st, cur, null)).reduce((a, [, k]) => a + k, 0);
+    assert.ok(n <= 170000, `ステージ ${cur}: ${n}`);
+  }
+});
