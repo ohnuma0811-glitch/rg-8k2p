@@ -274,8 +274,28 @@ export function expandHelix(def) {
   return { ...def, points, marks };
 }
 
+// 点が m のコース（Global City。2026-10-20）: 地図の画素ではなく m で書く。全長は点の並び（なめらかにした線）の長さ
+function lineLength(line) {
+  let total = 0;
+  for (let i = 0; i < line.length; i++) {
+    const a = line[i];
+    const b = line[(i + 1) % line.length];
+    total += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  return total;
+}
+
 export function buildTrack(def) {
-  def = expandHelix(def);
+  // 点が m のコース: らせんの半径も m のまま（expandHelix は def.length から 1画素の m を求めるので、先に点の長さを入れる）
+  // scale: 全体の大きさの倍率（Global City は 0.8。名所の座標も toWorld で同じ倍率）
+  const scale = def.meters ? def.scale ?? 1 : 1;
+  if (def.meters) {
+    def = { ...def, points: def.points.map(([x, z]) => [x * scale, z * scale]) };
+    def = expandHelix({ ...def, length: Math.round(lineLength(smoothLoop(def.points))) });
+    def = { ...def, length: Math.round(lineLength(smoothLoop(def.points))) };
+  } else {
+    def = expandHelix(def);
+  }
   const line = smoothLoop(def.points);
   const fit = fitOf(line, def.length);
   let samples = resample(line, def.length);
@@ -439,7 +459,25 @@ export function buildTrack(def) {
     }
   }
   addBranches(t, def, fit);
+  if (scale !== 1) {
+    const toWorld = t.toWorld;
+    t.toWorld = (x, z) => toWorld(x * scale, z * scale);
+  }
   applyGrip(t, def);
+  // 片道のコース（Global City。2026-10-20）: END から GB までは「無い道」（描かない・通れない）。ゴールは finish の印
+  if (def.open) {
+    t.open = true;
+    t.finish = refS(t, def.open.finish);
+    const from = refS(t, def.open.end);
+    const to = refS(t, def.open.back);
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      if (p.s === from || !between(t, p.s, from, to)) continue;
+      p.void = true;
+      p.y = null;
+      p.wall = p.half;
+    }
+  }
   // トンネル（Kyugo Mountain）: TI〜TO の本線の点
   if (def.tunnel) {
     const from = refS(t, def.tunnel.from);
@@ -1025,4 +1063,17 @@ export function respawnIndex(track, i) {
     if (run >= 10) return j;
   }
   return track.startIndex;
+}
+
+// 本線の s の所の位置・高さ・向き（となりの点の間をつなぐ。自動の区間で車を動かすのに使う）
+export function sampleAt(track, s) {
+  const L = track.length;
+  const u = ((s % L) + L) % L;
+  const i = Math.floor(u) % L;
+  const p = track.samples[i];
+  const q = track.samples[p.next];
+  const f = u - Math.floor(u);
+  const py = p.y ?? 0;
+  const qy = q.y ?? py;
+  return { x: p.x + (q.x - p.x) * f, y: py + (qy - py) * f, z: p.z + (q.z - p.z) * f, h: p.h, i };
 }

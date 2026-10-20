@@ -9,7 +9,7 @@ import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
 import {
-  LAPS, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
+  LAPS, raceLaps, raceDistance, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
@@ -615,7 +615,7 @@ function resultRows(g) {
   const avg = g.base.topSpeed * 0.8;
   return ranking(race, track).map((k, n) => {
     const e = race.entries[k];
-    const est = e.finished ? e.time : race.t + (LAPS * track.length - progress(race, k, track)) / avg;
+    const est = e.finished ? e.time : race.t + (raceDistance(track) - progress(race, k, track)) / avg;
     return {
       place: ordinal(n + 1),
       name: g.names[k],
@@ -630,7 +630,7 @@ function resultRows(g) {
 // 大会の1レース。'next'（次のレースへ）か 'title'（タイトルへ。最後のレースのあとも）を返す
 async function runRace(name, charId, cup, level = 2) {
   // 確かめ用: URL の後ろに #course2 / #course3 / #course4 を付けると、1レース目からそのコース
-  const devCourse = ['course4', 'course3', 'course2'].find((c) => dev.has(c));
+  const devCourse = ['course5', 'course4', 'course3', 'course2'].find((c) => dev.has(c));
   useCourse(devCourse ? COURSES[Number(devCourse.slice(-1)) - 1] : courseOf(COURSES, cup));
   const label = `RACE ${cup.done + 1}/${cup.races}`;
   // レースの画面に移ったら、曲（タイトル・結果）をだんだん小さくして止める。GO! でコースの曲が始まる
@@ -963,7 +963,7 @@ function renderGame(alpha, dt) {
   // 表示
   setText(speedNum, speedText(kart.speed));
   speedo.classList.toggle('boost', kart.boost > 0);
-  setText(lapEl, `LAP ${Math.min(LAPS, e.lap + 1)}/${LAPS}`);
+  setText(lapEl, `LAP ${Math.min(raceLaps(track), e.lap + 1)}/${raceLaps(track)}`);
   setText(timeEl, timeText(Math.max(0, e.finished ? e.time : race.t)));
   const order = ranking(race, track);
   setText(rankEl, ordinal(order.indexOf(g.me) + 1));
@@ -976,7 +976,7 @@ function renderGame(alpha, dt) {
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
   const now = soundState({ count: countEl.textContent, lap: e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), snowmanHop: g.snowmanHops });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
-  for (const name of soundEvents(g.sound, now, LAPS)) {
+  for (const name of soundEvents(g.sound, now, raceLaps(track))) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.base.topSpeed);
     else if (name === 'driftEnd') sfx.drift(false);
     else if (name === 'jump') voices.play(g.voice); // 自分の車だけ、キャラの声で叫ぶ

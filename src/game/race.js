@@ -69,6 +69,18 @@ export function updateProgress(race, k, track, seg) {
   const e = race.entries[k];
   if (e.finished) return;
   const L = track.length;
+  // 片道のコース: スタートからの m。スタートの後ろ（点の並びの最後の、無い道より先）はマイナス。ゴールを越えたらゴール
+  if (track.open) {
+    const s = track.samples[seg].s;
+    const rel = s > track.marks.END ? s - L : s;
+    if (e.rel !== null && e.rel < track.finish && rel >= track.finish) {
+      e.lap = 1;
+      e.finished = true;
+      e.time = race.t;
+    }
+    e.rel = rel;
+    return;
+  }
   const start = track.samples[track.startIndex].s;
   const rel = (((track.samples[seg].s - start) % L) + L) % L;
   // その周の半分（コースの反対側）を、前向きに通ったときだけ数える（逆走で戻っても数えない）
@@ -95,6 +107,7 @@ export function updateProgress(race, k, track, seg) {
 // 進んだ距離（順位を決める。スタートラインの手前はマイナス）
 export function progress(race, k, track) {
   const e = race.entries[k];
+  if (track.open) return e.rel === null ? -Infinity : e.rel;
   const L = track.length;
   if (e.rel === null) return -Infinity;
   const rel = e.checkpoint || e.rel < L / 2 ? e.rel : e.rel - L;
@@ -133,4 +146,12 @@ export function timeText(sec) {
   const m = Math.floor(sec / 60);
   const s = sec - m * 60;
   return `${m}:${s < 10 ? '0' : ''}${s.toFixed(2)}`;
+}
+
+// 走る周回の数（片道のコースは1回）と、スタートからゴールまでの m
+export function raceLaps(track) {
+  return track.open ? 1 : LAPS;
+}
+export function raceDistance(track) {
+  return track.open ? track.finish : LAPS * track.length;
 }

@@ -599,7 +599,7 @@ function roadside(track, sides) {
 export function buildTrackMesh(track) {
   const { samples } = track;
   const dirt = track.def.dirt;
-  const town = track.def.theme === 'town';
+  const town = ['town', 'world'].includes(track.def.theme);
   // 森（Soki Forest。2026-10-16）: 茶色い土の道（線なし）、縁石なし、道の外は草、柵は丸太の色の低い柵
   const forest = track.def.theme === 'forest';
   // 雪山（Kyugo Mountain。2026-10-18）: 雪のつもった道（線なし）、縁石なし、道の外は雪、柵は低い木の柵
@@ -1076,7 +1076,7 @@ function bumpSign(track, s) {
 const MOUNTAIN = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
 function mountains(track) {
   const g = new THREE.Group();
-  const town = track.def.theme === 'town';
+  const town = ['town', 'world'].includes(track.def.theme);
   const reach = Math.max(...track.samples.map((p) => Math.hypot(p.x, p.z)));
   const radius = 700;
   for (let k = 0; k < 14; k++) {

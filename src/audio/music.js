@@ -43,6 +43,16 @@ export function wrapTail(channels, loopLen) {
 // cutoff: 音の出だしで明るく開いて（peak）、decay 秒でもとの明るさ（base）にもどるフィルター（null なら使わない）
 // vibrato: 長い音で、少し遅れてかかる音のゆれ（セント）。attack・sustain・release・decay: 音量の山の形
 export const LEAD_VOICES = {
+  // Global City（2026-10-20）: 近未来的なネオンのシンセ（ギザギザと四角の波、出だしで強く開いて、すぐしぼむ）
+  neon: {
+    layers: [{ type: 'sawtooth', detune: -14, gain: 1 }, { type: 'square', detune: 14, gain: 0.6 }, { type: 'sawtooth', detune: 1200, gain: 0.25 }],
+    gain: 0.07,
+    cutoff: { base: 900, peak: 7000, decay: 0.06, q: 8 },
+    vibrato: 10,
+    attack: 0.003,
+    sustain: 0.55,
+    release: 0.08,
+  },
   // タイトル: クールなシンセ（ギザギザの波を2つ重ね、出だしで明るく開く）
   synth: {
     layers: [{ type: 'sawtooth', detune: -10, gain: 1 }, { type: 'sawtooth', detune: 10, gain: 1 }],

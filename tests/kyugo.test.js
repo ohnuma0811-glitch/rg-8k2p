@@ -36,7 +36,7 @@ const L = t.length;
 const at = (ref) => t.samples[Math.round(markS(t, typeof ref === 'string' ? [ref, ref, 0] : ref)) % L];
 
 test('Kyugo Mountain は4つ目のコース。大会は4レース（2026-10-18 のユーザー依頼）', () => {
-  assert.equal(COURSES.length, 4);
+  assert.ok(COURSES.length >= 4); // 2026-10-20 に Global City で5つ
   assert.equal(COURSES[3], COURSE4);
   assert.equal(COURSE4.name, 'Kyugo Mountain');
   assert.equal(COURSE4.theme, 'snow');
