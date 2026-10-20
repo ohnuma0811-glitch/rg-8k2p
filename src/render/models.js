@@ -701,7 +701,6 @@ export function createTaxiModel() {
     w.position.set(x, 0.38, z * 0.95);
     g.add(w);
   }
-  addHeadlights(g, 2.55, 0.7, 0.75, 14);
   g.scale.setScalar(1.8); // 大きく（2026-10-21 のユーザー依頼「タクシーが小さい」）
   return mergeStatic(g);
 }

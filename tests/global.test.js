@@ -1111,7 +1111,8 @@ import { createKartModel, createTramModel, createTaxiModel } from '../src/render
 import { nightStage } from '../src/game/world.js';
 
 test('夜の香港とクアラルンプールでは、カートとバス・タクシーのライトがつく（2026-10-21 のユーザー依頼）', () => {
-  for (const m of [createKartModel(), createTramModel(), createTaxiModel()]) assert.ok(m.userData.lights, 'ライト');
+  for (const m of [createKartModel(), createTramModel()]) assert.ok(m.userData.lights, 'ライト');
+  assert.ok(!createTaxiModel().userData.lights, 'タクシー（昼のニューヨーク）はライトなし（2026-10-21 のユーザー依頼「不要」）');
   assert.equal(nightStage(t, 3), true);
   assert.equal(nightStage(t, 6), true);
   assert.equal(nightStage(t, 0), false);
@@ -1349,4 +1350,21 @@ test('海の底の区間（もぐる所〜自由の女神の足もと）では�
   assert.equal(groundShown(t, t.marks.HL + 50, 'normal'), true);
   assert.equal(groundShown(t, t.marks.NY + 20, 'normal'), true);
   assert.equal(groundShown(t, t.marks.HL + 50, 'space'), false);
+});
+
+test('信号の灯は、走ってくるカートの方を向く（反対を向いていた。2026-10-21 のユーザー依頼）', async () => {
+  const { trafficLight } = await import('../src/render/world/kit.js');
+  const { createBuilder } = await import('../src/render/town/builder.js');
+  const THREE = await import('../vendor/three.module.min.js');
+  const s = t.marks.TSQ - 14;
+  const g = new THREE.Group();
+  const b = createBuilder();
+  const glow = createBuilder({ glow: true });
+  trafficLight(g, b, glow, t, s, 1, 'green');
+  const p = t.samples[Math.round(s)];
+  // 灯（光る形）の点の、道の向きでの前後の位置: 箱の真ん中より、走ってくる方（うしろ）
+  const lamps = glow.build();
+  const box = b.build();
+  const fwd = (o) => { let sum = 0; let n = 0; o.traverse((m) => { if (!m.isMesh) return; const a = m.geometry.attributes.position; for (let k = 0; k < a.count; k++) { sum += (a.getX(k) - p.x) * Math.cos(p.h) + (a.getZ(k) - p.z) * Math.sin(p.h); n++; } }); return sum / n; };
+  assert.ok(fwd(lamps) < fwd(box) - 0.1, `灯 ${fwd(lamps).toFixed(2)} / 箱 ${fwd(box).toFixed(2)}`);
 });
