@@ -174,3 +174,20 @@ export function neonSign(text, color) {
   draw.key = `neon:${text}:${color}`;
   return draw;
 }
+
+// 道をまたぐ横断幕（名所の名前。2026-10-21 のユーザー依頼「看板が全く読めない。横断幕にするなど視認性をよく」）:
+// 道の両がわの柱と、道の上 6.5m の大きな布。字は大きく、両面に
+export function roadBanner(group, b, track, s, text, name, { bg = '#b01a10', fg = '#ffffff' } = {}) {
+  const p = pointAt(track, s);
+  const w = p.wall + 1.5;
+  const o = landmark(group, name, p.x, (p.y ?? 0) + 8, p.z);
+  o.userData.banner = text;
+  b.push(p.x, p.y ?? 0, p.z, Math.atan2(Math.cos(p.h), Math.sin(p.h)));
+  for (const side of [-1, 1]) b.box(0.6, 10.5, 0.6, 0x4a4a52, side * w, 0, 0);
+  b.box(2 * w + 0.6, 0.4, 0.4, 0x4a4a52, 0, 10.2, 0);
+  b.box(2 * w - 1, 3.4, 0.2, 0xf4f0e6, 0, 6.5, 0);
+  const draw = textSign(text, { bg, fg, font: 'bold 110px sans-serif' });
+  b.label(draw, [1024, 160], 0, 8.2, -0.15, Math.PI, 2 * w - 1.4, 3.2); // 走ってくる方
+  b.label(draw, [1024, 160], 0, 8.2, 0.15, 0, 2 * w - 1.4, 3.2);
+  b.pop();
+}

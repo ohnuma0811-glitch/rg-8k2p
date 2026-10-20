@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, locate, sampleAt, markS } from '../src/game/track.js';
+import { readFileSync } from 'node:fs';
 import { createRace, updateProgress, progress, ranking, raceLaps, raceDistance, LAPS } from '../src/game/race.js';
 import { COURSE5, COURSES } from '../src/data/tracks.js';
 
@@ -791,7 +792,7 @@ test('清水寺は巨大で、道は本堂の中を通りぬける。仁王門�
 
 import { stageWindow } from '../src/game/world.js';
 
-test('ほかの都市は遠くから見えない: 次のステージは入る 400m 手前から、前のステージは出て 250m まで（2026-10-21 のユーザー依頼）', () => {
+test('ほかの都市は遠くから見えない: 次のステージは入る 150m 手前から、前のステージは出て 250m まで（2026-10-21 のユーザー依頼）', () => {
   const st = t.stages;
   const ny = st[5].s;
   const kl = st[6].s;
@@ -801,7 +802,7 @@ test('ほかの都市は遠くから見えない: 次のステージは入る 40
   assert.ok(!stageVisible([6], w.cur, null, w), 'ニューヨークの真ん中からクアラルンプールは見えない');
   assert.ok(!stageVisible([4], w.cur, null, w), 'ニューヨークの真ん中から海の底は見えない');
   assert.ok(stageVisible([4, 5], w.cur, null, w), '自由の女神（4・5）は見える');
-  w = stageWindow(t, kl - 200);
+  w = stageWindow(t, kl - 100);
   assert.ok(stageVisible([6], w.cur, null, w), '入る少し手前から次の都市が見える');
   w = stageWindow(t, ny + 100);
   assert.ok(stageVisible([4], w.cur, null, w), '出たすぐあとは、前のステージも見える');
@@ -979,4 +980,44 @@ test('スタートの桜並木の道の上に、お堀の水が出ない（2026-
 
 test('東京の景色（レインボーブリッジの柱など）は、道の上に出ない（2026-10-21 のユーザー依頼「支柱がコース上にある」）', () => {
   assert.equal(intrusions(buildTokyo(t), t.marks.SHIN, t.marks.JP - 5), 0); // 巨大ジャンプ台（JP〜AJ）の上の矢印は、わざと道の上に描く
+});
+
+import { chunkStages } from '../src/render/trackMesh.js';
+
+test('道や柵も、ステージごとに分けて見せる（遠くのステージの道が見えた。2026-10-21 のユーザー依頼）', () => {
+  const at0 = t.samples[Math.round(t.marks.TT)];
+  assert.deepEqual(chunkStages(t, at0.x - 30, at0.x + 30, at0.z - 30, at0.z + 30), [0]);
+  const ny = t.samples[Math.round(t.marks.TSQ)];
+  assert.deepEqual(chunkStages(t, ny.x - 30, ny.x + 30, ny.z - 30, ny.z + 30), [5]);
+  const b = t.stages[2].s; // 京都の始まり（KY）
+  const p = t.samples[Math.round(b)];
+  assert.deepEqual(chunkStages(t, p.x - 40, p.x + 40, p.z - 40, p.z + 40), [1, 2], 'さかいめは両方');
+  assert.deepEqual(chunkStages(t, 1e6, 1e6 + 10, 1e6, 1e6 + 10), [], '道のない所');
+});
+
+test('名所の名前は、道をまたぐ横断幕（京都・東京駅・セントラルパーク。2026-10-21 のユーザー依頼「全く読めない」「Central Parkとわかるように」）', () => {
+  const banners = (g) => { const n = []; g.traverse((o) => { if (o.userData.banner) n.push(o.userData.banner); }); return n; };
+  const k = banners(buildKyoto(t));
+  for (const name of ['FUSHIMI INARI', 'KIYOMIZU-DERA', 'GINKAKU-JI', 'KINKAKU-JI', 'ARASHIYAMA']) assert.ok(k.includes(name), name);
+  assert.ok(banners(buildTokyo(t)).includes('TOKYO STATION'));
+  assert.ok(banners(buildNewYork(t)).includes('CENTRAL PARK'));
+});
+
+test('京都の桜は、町家に埋まらない（2026-10-21 のユーザー依頼）', () => {
+  // 祇園の町家（奥行き 12m）と桜（道から 2m）: 町家の道がわの面は、桜の幹より道から遠い
+  const src = readFileSync(new URL('../src/render/world/kyoto.js', import.meta.url), 'utf8');
+  const m = src.match(/const c = beside\(p, side \* \(p\.wall \+ (\d+)\)\); \/\/ 町家は奥行き 12m/);
+  assert.ok(m && Number(m[1]) - 6 > 2 + 3, '町家の面が桜の花より外');
+});
+
+test('フジテレビは、レインボーブリッジの出口の正面に見える（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildTokyo(t));
+  const f = m.get('fujiTV');
+  const p = t.samples[Math.round(t.marks.RBE)];
+  // 橋の出口から見て、前（向き h）に 100〜300m、横は 80m 以内
+  const fwd = (f.x - p.x) * Math.cos(p.h) + (f.z - p.z) * Math.sin(p.h);
+  const lat = -(f.x - p.x) * Math.sin(p.h) + (f.z - p.z) * Math.cos(p.h);
+  assert.ok(fwd > 100 && fwd < 300 && Math.abs(lat) < 80, `前 ${Math.round(fwd)} 横 ${Math.round(lat)}`);
+  // 道にかからない（建物の半分のはば 45m）
+  for (const q of t.samples) if (q.y !== null && !q.void && !q.auto) assert.ok(Math.hypot(q.x - f.x, q.z - f.z) > q.wall + 45, `道 s ${Math.round(q.s)}`);
 });

@@ -4,7 +4,7 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 import { locate } from '../../game/track.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct } from './kit.js';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct, roadBanner } from './kit.js';
 
 const STONE = 0xd8d2c4; // 皇居の白い石垣
 const ROOF_COPPER = 0x5f8f7a; // 銅の屋根（緑青）
@@ -185,6 +185,7 @@ export function buildTokyo(track) {
   }
   b.pop();
   landmark(city, 'stationSign', st.x - 14.3, 26, st.z);
+  roadBanner(city, b, track, sOf(track, 'TS') - 20, 'TOKYO STATION', 'bannerTokyoStation', { bg: '#6a2a1f', fg: '#ffffff' }); // 横断幕（駅の名前が見にくかった。2026-10-21 のユーザー依頼）
   cityBlocks(b, track, 'MRN', 'TT', { avoid: [{ ...st, r: 190 }, { ...shin, r: 60 }] });
 
   // ---- 東京タワー（赤と白のしま、高さ 333m）----
@@ -307,8 +308,11 @@ export function buildTokyo(track) {
     for (let y = 10; y < 120; y += 20) bb.box(34.6, 1.6, 34.6, 0x8a96a3, ftv.x + dx, y, ftv.z);
   }
   bb.box(20, 14, 30, 0xe8eaec, ftv.x, 84, ftv.z); // 上の方の通路
-  bb.sphere(16, 0xc8ccd2, ftv.x, 100, ftv.z, 16); // 球体
-  bb.label(textSign('FUJI TV', { bg: '#ffffff', fg: '#1f4aa8' }), [512, 128], ftv.x, 60, ftv.z + 17.4, 0, 30, 7.5);
+  bb.sphere(20, 0xd8dee6, ftv.x, 100, ftv.z, 20); // 球体（大きく、光って見える。橋の出口から正面に）
+  for (let k = 0; k < 4; k++) { // 名前は4つの面に
+    const a = (k * Math.PI) / 2;
+    bb.label(textSign('FUJI TV', { bg: '#ffffff', fg: '#1f4aa8', font: 'bold 96px sans-serif' }), [512, 128], ftv.x + Math.sin(a) * 44, 50, ftv.z + Math.cos(a) * 44, a, 36, 9);
+  }
   cityBlocks(bb, track, 'RBE', 'FTV', { back: 40, hMax: 70, avoid: [{ ...ftv, r: 70 }] });
 
   // ---- 巨大ジャンプ台（加速板の巨大版。オレンジと黄色の光る矢印、赤白の柱）----

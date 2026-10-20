@@ -4,7 +4,7 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 import { locate } from '../../game/track.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree } from './kit.js';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner } from './kit.js';
 import { cityBlocks } from './tokyo.js';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -149,6 +149,7 @@ export function buildNewYork(track) {
   const c1 = sOf(track, 'CPN');
   const cm = pointAt(track, (c0 + c1) / 2);
   landmark(g, 'centralPark', cm.x, 0, cm.z);
+  roadBanner(g, b, track, c0 + 6, 'CENTRAL PARK', 'bannerCentralPark', { bg: '#2f6f3a', fg: '#ffffff' }); // 入口の横断幕（2026-10-21 のユーザー依頼）
   b.push(cm.x, 0, cm.z, ryAlong(cm.h));
   b.box(260, 0.08, c1 - c0 + 60, 0x5f9a3f, 0, -0.09, 0); // 芝生（道より下。地面 -0.1 より上）
   b.box(70, 0.08, 50, 0x3f7fa8, -80, -0.08, 30); // 池

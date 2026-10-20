@@ -9,8 +9,8 @@ export function stageVisible(groupStages, cur, autoId, win = null) {
   return groupStages.some((k) => k === cur || (k === cur + 1 && win.next) || (k === cur - 1 && win.prev));
 }
 
-// 今のステージと、次のステージに入る 400m 手前か（next）、前のステージを出て 250m までか（prev）
-export const STAGE_AHEAD = 400;
+// 今のステージと、次のステージに入る 150m 手前か（next）、前のステージを出て 250m までか（prev）
+export const STAGE_AHEAD = 150; // 富士山から京都の鳥居が見えたので短く（2026-10-21 のユーザー依頼）
 export const STAGE_BEHIND = 250;
 export function stageWindow(track, rel) {
   const st = track.stages ?? [];

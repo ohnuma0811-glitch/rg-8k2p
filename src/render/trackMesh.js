@@ -23,7 +23,7 @@ import { buildRiver, buildWaterfall } from './forest/water.js';
 import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js';
 import { mergeMeshes } from './mergeMeshes.js';
 import { BUMP_STRIPE_M } from '../game/hazards.js';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js';
+import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -635,6 +635,47 @@ export function roadDrawn(p) {
   return p.y !== null && !p.void && !p.ghost && !(p.auto && p.y > 0.5);
 }
 
+// 大きな形（コースぜんぶの道の帯など）を、三角の真ん中の場所で size m のます目ごとの形に切り分ける
+function splitMesh(mesh, size = 250) {
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+  const names = Object.keys(geo.attributes);
+  const pos = geo.attributes.position;
+  const cells = new Map();
+  for (let t = 0; t < pos.count; t += 3) {
+    const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3;
+    const cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3;
+    const key = `${Math.floor(cx / size)},${Math.floor(cz / size)}`;
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(t);
+  }
+  return [...cells.values()].map((tris) => {
+    const g = new THREE.BufferGeometry();
+    for (const n of names) {
+      const a = geo.attributes[n];
+      const out = new Float32Array(tris.length * 3 * a.itemSize);
+      let o = 0;
+      for (const t of tris) for (let v = 0; v < 3; v++) for (let c = 0; c < a.itemSize; c++) out[o++] = a.array[(t + v) * a.itemSize + c];
+      g.setAttribute(n, new THREE.BufferAttribute(out, a.itemSize));
+    }
+    const m = new THREE.Mesh(g, mesh.material);
+    m.renderOrder = mesh.renderOrder;
+    m.userData = { ...mesh.userData };
+    return m;
+  });
+}
+
+// 四角（x0〜x1、z0〜z1。少し広げて見る）の中の道の点のステージ（Global City）。道や柵のまとまりを、ステージごとに見せるため
+// （遠くのステージの道が見えた。2026-10-21 のユーザー依頼）。道がなければ []
+export function chunkStages(track, x0, x1, z0, z1, pad = 20) {
+  const st = new Set();
+  for (const p of track.samples) {
+    if (p.y === null || p.void) continue;
+    if (p.x < x0 - pad || p.x > x1 + pad || p.z < z0 - pad || p.z > z1 + pad) continue;
+    st.add(stageAt(track, p.s));
+  }
+  return [...st].sort((a, b) => a - b);
+}
+
 export function hasTunnels(track) {
   return track.samples.some((p) => p.tunnel || p.tunnelLook);
 }
@@ -990,7 +1031,34 @@ export function buildTrackMesh(track) {
   const stageGroups = group.userData.stageGroups ?? [];
   for (const g of stageGroups) group.remove(g);
   group.userData.merged = mergeMeshes(group);
+  // Global City: 道・柵・トンネルなどのまとまりも、ある所のステージの群れにする（遠くのステージの道を見せない）
+  if (world) {
+    const box = new THREE.Box3();
+    // 大きな形（400m より大きい）は、ます目ごとに切り分ける（入れ子のグループの中の形も）
+    const big = [];
+    group.traverse((o) => {
+      if (!o.isMesh || Array.isArray(o.material)) return;
+      box.setFromObject(o);
+      if (box.max.x - box.min.x > 400 || box.max.z - box.min.z > 400) big.push(o);
+    });
+    for (const m of big) {
+      m.updateMatrixWorld(true);
+      if (!m.matrixWorld.equals(new THREE.Matrix4())) continue; // 動かした形はそのまま（道の形は動かしていない）
+      const parent = m.parent;
+      parent.remove(m);
+      for (const piece of splitMesh(m)) group.add(piece);
+    }
+    for (const c of group.children.slice()) {
+      box.setFromObject(c);
+      if (box.isEmpty()) continue;
+      const st = chunkStages(track, box.min.x, box.max.x, box.min.z, box.max.z);
+      if (!st.length) continue;
+      c.userData.stages = st;
+      stageGroups.push(c);
+    }
+  }
   for (const g of stageGroups) {
+    if (g.parent === group) continue; // 道のまとまり（もうまとめてある）
     mergeMeshes(g);
     group.add(g);
   }

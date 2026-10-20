@@ -11,7 +11,7 @@ export const GLOBAL_SCENERY = {
     tokyoTower: { at: [150, 480], ry: 0 }, // 東京タワー（高さ 333m）
     shinkansenLine: { from: 'TT', to: 'SL', off: -30, y: 8 }, // 新幹線の線路（道の北がわ 30m、高架 8m）
     rainbowBridge: { from: 'RB', to: 'RBE' }, // レインボーブリッジ（白い主塔2本、高さ 126m）
-    fujiTV: { at: [1110, 880], ry: 180 }, // フジテレビ本社（格子の建物と球体）
+    fujiTV: { at: [1450, 800], ry: 180 }, // フジテレビ本社（格子の建物と球体）。レインボーブリッジの出口の正面（2026-10-21 のユーザー依頼）
     bigJump: { from: 'JP', to: 'AJ' }, // お台場の巨大ジャンプ台
   },
   fuji: {
