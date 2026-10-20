@@ -157,6 +157,16 @@ html, body {
   color: #7dffb0;
   text-shadow: 0 0 10px rgba(125, 255, 176, 0.8);
 }
+/* ワープの最後の区間（Global City）: スピードメーターが ERROR で赤く点滅 */
+#speedo.error .num {
+  color: #ff3b3b;
+  animation: speedo-error 0.4s steps(1) infinite;
+}
+@keyframes speedo-error {
+  50% {
+    opacity: 0.15;
+  }
+}
 #speedo.boost .num {
   color: #ffd84a;
   text-shadow: 0 0 12px rgba(255, 216, 74, 0.9);
@@ -696,6 +706,28 @@ html, body {
   text-shadow: 3px 0 0 #1c3c88, -3px 0 0 #1c3c88, 0 3px 0 #1c3c88, 0 -3px 0 #1c3c88, 2px 2px 0 #1c3c88, -2px 2px 0 #1c3c88, 2px -2px 0 #1c3c88, -2px -2px 0 #1c3c88, 0 7px 0 #1c3c88;
   pointer-events: none;
 }
+/* Global City のステージが変わったときの、場所の大きな表示（2026-10-20 のユーザー依頼） */
+#stage-banner {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  font: italic 900 28px / 1.1 system-ui, sans-serif;
+  text-shadow: 3px 0 0 #1c3c88, -3px 0 0 #1c3c88, 0 3px 0 #1c3c88, 0 -3px 0 #1c3c88, 2px 2px 0 #1c3c88, -2px 2px 0 #1c3c88, 2px -2px 0 #1c3c88, -2px -2px 0 #1c3c88;
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+#stage-banner .name {
+  font-size: clamp(36px, 9vh, 64px);
+}
+#stage-banner.show {
+  opacity: 1;
+}
 #time-left {
   position: fixed;
   top: calc(env(safe-area-inset-top) + 10px);
@@ -773,7 +805,7 @@ html, body {
 #menu table.results.tt-table td {
   padding: 1px 10px;
 }
-/* コース選びのボタン: 名前は折り返さず、2×2 に並べる（大きさは src/screens.js で、いちばん大きいボタンにそろえる） */
+/* コース選びのボタン: 名前は折り返さず、2列に並べる（大きさは src/screens.js で、いちばん大きいボタンにそろえる） */
 #menu .choices.courses {
   display: grid;
   grid-template-columns: repeat(2, max-content);
@@ -781,6 +813,11 @@ html, body {
 }
 #menu .choices.courses button {
   white-space: nowrap;
+}
+/* 5つ目（Global City）は、最後の段の真ん中に（2026-10-20） */
+#menu .choices.courses button:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  justify-self: center;
 }
 #menu table.results.tt-table th {
   padding: 0 10px 2px;

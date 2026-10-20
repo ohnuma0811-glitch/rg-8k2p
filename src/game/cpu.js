@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=42729ef';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=42729ef';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=0e5d133';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=0e5d133';
 
 export const CPU = {
   LOOK: 10, // 何m先の点を目指すか（の基本）
@@ -80,7 +80,11 @@ export function cpuControl(cpu, kart, track, t) {
   // 一度たどった先の点は覚えておく（毎回はじめから数え直すと重い。2026-10-19 のユーザー依頼「47fps くらいで重たい」）
   const chain = [loc.i];
   const at = (k) => {
-    for (let c = chain.length; c <= k; c++) chain.push(aheadOf(track, chain[c - 1], 1, choose));
+    for (let c = chain.length; c <= k; c++) {
+      const next = aheadOf(track, chain[c - 1], 1, choose);
+      // 片道のコース（Global City）: 無い道の点は目指さない（道の終わりの手前の点のまま）
+      chain.push(samples[next].void ? chain[c - 1] : next);
+    }
     return samples[chain[k]];
   };
   const p = at(look);

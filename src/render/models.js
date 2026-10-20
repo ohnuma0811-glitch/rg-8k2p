@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=42729ef';
-import { PHYS } from '../game/kart.js?v=42729ef';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=42729ef';
+import * as THREE from '../../vendor/three.module.min.js?v=0e5d133';
+import { PHYS } from '../game/kart.js?v=0e5d133';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=0e5d133';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -586,4 +586,74 @@ export function createBusModel() {
     g.add(plate);
   }
   return g;
+}
+
+// 新幹線（Global City。2026-10-20）: 白い車体に青い帯、cars 両（1両 25m）。先頭はくさび形。+x が前
+export function createShinkansenModel(cars = 16) {
+  const g = new THREE.Group();
+  const body = new THREE.MeshLambertMaterial({ color: 0xf4f6f8 });
+  const band = new THREE.MeshLambertMaterial({ color: 0x1f4aa8 });
+  const win = new THREE.MeshLambertMaterial({ color: 0x2a3440 });
+  for (let k = 0; k < cars; k++) {
+    const x = -k * 25.5;
+    const car = new THREE.Mesh(new THREE.BoxGeometry(25, 3.6, 3.4), body);
+    car.position.set(x, 2.2, 0);
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(25.1, 0.5, 3.5), band);
+    b1.position.set(x, 1.4, 0);
+    const w1 = new THREE.Mesh(new THREE.BoxGeometry(22, 0.7, 3.45), win);
+    w1.position.set(x, 2.9, 0);
+    g.add(car, b1, w1);
+  }
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.9, 9, 4), body);
+  nose.rotation.z = -Math.PI / 2;
+  nose.rotation.x = Math.PI / 4;
+  nose.position.set(17, 2, 0);
+  g.add(nose);
+  return mergeStatic(g);
+}
+
+// 香港の2階建ての路面電車（Global City。2026-10-20）: 緑に白い帯、長さ 12m。+x が前（バスと同じ向き）
+export function createTramModel() {
+  const g = new THREE.Group();
+  const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+  const add = (w, h, d, c, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c));
+    m.position.set(x, y, z);
+    g.add(m);
+  };
+  add(12, 4.2, 2.6, 0x2f7d4a, 0, 2.5, 0); // 車体
+  add(12.05, 0.35, 2.65, 0xf4f4f0, 0, 2.4, 0); // 白い帯
+  for (const y of [1.9, 3.7]) add(10.5, 0.9, 2.7, 0x2a3440, 0, y, 0); // 1階・2階の窓
+  add(11.6, 0.3, 2.4, 0xf4f4f0, 0, 4.75, 0); // 屋根
+  add(1.2, 0.6, 0.15, 0x333333, 0, 5.2, 0); // パンタグラフ
+  for (const x of [-4, 4]) for (const z of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 10), mat(0x222222));
+    w.rotation.x = Math.PI / 2;
+    w.position.set(x, 0.4, z * 1.2);
+    g.add(w);
+  }
+  return mergeStatic(g);
+}
+
+// ニューヨークの黄色いタクシー（Global City。2026-10-20）: 長さ 5m、屋根に「TAXI」の小さな箱。+x が前
+export function createTaxiModel() {
+  const g = new THREE.Group();
+  const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+  const add = (w, h, d, c, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c));
+    m.position.set(x, y, z);
+    g.add(m);
+  };
+  add(5, 0.9, 2, 0xf2c200, 0, 0.75, 0); // 車体
+  add(2.8, 0.7, 1.8, 0xf2c200, -0.3, 1.55, 0); // 屋根
+  add(2.6, 0.55, 1.85, 0x2a3440, -0.3, 1.55, 0); // 窓
+  add(0.8, 0.3, 0.5, 0xffffff, -0.3, 2.05, 0); // TAXI の箱
+  add(0.1, 0.25, 1.6, 0x222222, 2.5, 0.8, 0); // 前のグリル
+  for (const x of [-1.6, 1.6]) for (const z of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10), mat(0x222222));
+    w.rotation.x = Math.PI / 2;
+    w.position.set(x, 0.38, z * 0.95);
+    g.add(w);
+  }
+  return mergeStatic(g);
 }

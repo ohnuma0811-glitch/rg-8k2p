@@ -1,10 +1,13 @@
 // 箱と円柱と文字の板を集めて、まとめて描ける形にする
 // 街の景色は形がとても多いので、色ごとに分けず、頂点の色にして1つの形にまとめる（描く回数を減らす）
-import * as THREE from '../../../vendor/three.module.min.js?v=42729ef';
+import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
 
 const MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true });
+// 光る形（夜の窓・ネオン・光る看板。Global City）: 光の当たり方に関係なく、その色のまま
+const GLOW = new THREE.MeshBasicMaterial({ vertexColors: true });
 
-export function createBuilder() {
+// glow: 光る形の builder にする
+export function createBuilder({ glow = false } = {}) {
   const pos = [];
   const nor = [];
   const col = [];
@@ -37,6 +40,21 @@ export function createBuilder() {
     cyl(rTop, rBottom, h, segments, color, x, y, z, open = false) {
       add(new THREE.CylinderGeometry(rTop, rBottom, h, segments, 1, open), color, x, y + h / 2, z, 0);
     },
+    // 球（半径 r）。(x, y, z) は真ん中（Global City の桜の花・ドーム など）
+    sphere(r, color, x, y, z, segments = 8) {
+      add(new THREE.SphereGeometry(r, segments, Math.max(4, Math.round(segments * 0.75))), color, x, y, z, 0);
+    },
+    // 2点をつなぐ棒（半径 r。つり橋のケーブル・鉄の格子 など）
+    rod(x1, y1, z1, x2, y2, z2, r, color, segments = 4) {
+      const a = new THREE.Vector3(x1, y1, z1);
+      const d = new THREE.Vector3(x2 - x1, y2 - y1, z2 - z1);
+      const len = d.length();
+      if (len < 1e-6) return;
+      const g = new THREE.CylinderGeometry(r, r, len, segments, 1, true);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
+      const mid = a.add(d.multiplyScalar(0.5));
+      add(g, color, mid.x, mid.y, mid.z, 0);
+    },
     // x の向きに寝かせた円柱（半径 r、長さ len）。(x, y, z) は真ん中
     cylX(r, len, segments, color, x, y, z) {
       const g = new THREE.CylinderGeometry(r, r, len, segments);
@@ -61,7 +79,7 @@ export function createBuilder() {
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
         geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-        group.add(new THREE.Mesh(geo, MATERIAL));
+        group.add(new THREE.Mesh(geo, glow ? GLOW : MATERIAL));
       }
       for (const l of labels) {
         const m = labelMesh(l);

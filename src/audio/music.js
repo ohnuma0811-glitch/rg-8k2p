@@ -1,6 +1,6 @@
 // 曲: 楽譜のデータから音の並びを作り（テストできる）、OfflineAudioContext で一度だけ音にして、ループで流す
-import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=42729ef';
-import { SONGS } from './songs.js?v=42729ef';
+import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=0e5d133';
+import { SONGS } from './songs.js?v=0e5d133';
 
 // 16分音符1つの秒数と、曲1回分の秒数
 export const stepSec = (song) => 60 / song.bpm / 4;
@@ -43,6 +43,16 @@ export function wrapTail(channels, loopLen) {
 // cutoff: 音の出だしで明るく開いて（peak）、decay 秒でもとの明るさ（base）にもどるフィルター（null なら使わない）
 // vibrato: 長い音で、少し遅れてかかる音のゆれ（セント）。attack・sustain・release・decay: 音量の山の形
 export const LEAD_VOICES = {
+  // Global City（2026-10-20）: 近未来的なネオンのシンセ（ギザギザと四角の波、出だしで強く開いて、すぐしぼむ）
+  neon: {
+    layers: [{ type: 'sawtooth', detune: -14, gain: 1 }, { type: 'square', detune: 14, gain: 0.6 }, { type: 'sawtooth', detune: 1200, gain: 0.25 }],
+    gain: 0.07,
+    cutoff: { base: 900, peak: 7000, decay: 0.06, q: 8 },
+    vibrato: 10,
+    attack: 0.003,
+    sustain: 0.55,
+    release: 0.08,
+  },
   // タイトル: クールなシンセ（ギザギザの波を2つ重ね、出だしで明るく開く）
   synth: {
     layers: [{ type: 'sawtooth', detune: -10, gain: 1 }, { type: 'sawtooth', detune: 10, gain: 1 }],

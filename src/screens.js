@@ -1,6 +1,6 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=42729ef';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=42729ef';
+import { typeLetter, isValidName } from './names.js?v=0e5d133';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=0e5d133';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -388,4 +388,9 @@ export function revealOrder(n) {
 
 function wait(sec) {
   return new Promise((r) => setTimeout(r, sec * 1000));
+}
+
+// 周回の所の文字（片道のコースはステージ。2026-10-20 のユーザー依頼「STAGE 2/5 HONG KONG」の形）
+export function stageText(track, k) {
+  return `STAGE ${k + 1}/${track.stages.length} ${track.stages[k].name}`;
 }

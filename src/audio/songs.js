@@ -106,4 +106,16 @@ export const SONGS = {
     // jingle: そりの鈴（シャラシャラ）。2拍目と4拍目は強く（src/audio/music.js）
     drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', jingle: 'x.xxx.xxx.xxx.xx' },
   },
+  // Global City（2026-10-20）: 近未来的な、スピード感のある曲（E マイナー、160 BPM）。全部のステージで同じ曲、7/7 で少し速く
+  city: {
+    voice: 'neon',
+    bpm: 160,
+    bars: 16,
+    chords: ['Em', 'C', 'D', 'Bm', 'Em', 'C', 'D', 'D', 'C', 'D', 'Em', 'Bm', 'C', 'D', 'Em', 'Em'],
+    lead: `E5:1 G5:1 B5:1 E6:1 D6:2 B5:2 G5:2 B5:2 E6:4  C6:1 E6:1 G6:1 E6:1 D6:2 C6:2 B5:4 G5:4  D6:2 F#6:2 A6:2 F#6:2 D6:4 A5:4  B5:2 D6:2 F#6:2 D6:2 B5:8
+           E6:2 G6:2 B6:2 G6:2 E6:2 D6:2 B5:4  C6:2 E6:2 G6:2 E6:2 C7:4 B6:4  A6:2 F#6:2 D6:2 F#6:2 A6:4 B6:4  A6:2 F#6:2 E6:2 D6:2 E6:8
+           G6:2 E6:2 C6:2 E6:2 G6:4 A6:4  F#6:2 D6:2 A5:2 D6:2 F#6:4 A6:4  B6:2 G6:2 E6:2 G6:2 B6:4 G6:4  B6:2 G6:2 F#6:2 G6:2 B6:8
+           C7:2 B6:2 G6:2 E6:2 C6:4 E6:4  D6:2 F#6:2 A6:2 B6:2 C7:4 A6:4  B6:2 G6:2 E6:2 B5:2 E6:4 G6:4  E6:4 B5:4 E5:4 R:4`,
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '.x.x.x.x.x.x.x.x' },
+  },
 };

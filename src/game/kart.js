@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex } from './track.js?v=42729ef';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=42729ef';
+import { locate, respawnIndex, sampleAt } from './track.js?v=0e5d133';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=0e5d133';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -118,6 +118,49 @@ function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
   kart.speed = Math.max(kart.speed, params.topSpeed * factor);
 }
 
+// 自動の区間に入る（本線の点 p.auto の所に来た）
+function startAuto(kart, track, params, id) {
+  const a = track.autos.find((x) => x.id === id);
+  kart.auto = { id, leg: 0, t: 0, from: a.from, speedIn: kart.speed };
+  kart.autoError = false;
+  kart.airborne = false;
+  kart.vy = 0;
+  kart.hop = 0;
+  kart.spin = 0;
+  kart.tumble = 0;
+  if (kart.drift.active) endDrift(kart, params, false);
+}
+
+function stepAuto(kart, track, dt) {
+  const a = track.autos.find((x) => x.id === kart.auto.id);
+  const st = kart.auto;
+  st.t += dt;
+  let leg = a.legs[st.leg];
+  while (st.t >= leg.time && st.leg < a.legs.length - 1) {
+    st.t -= leg.time;
+    st.from = leg.to;
+    st.leg += 1;
+    leg = a.legs[st.leg];
+  }
+  const done = st.t >= leg.time;
+  const s = done ? leg.to : st.from + ((leg.to - st.from) * st.t) / leg.time;
+  const p = sampleAt(track, s);
+  kart.x = p.x;
+  kart.z = p.z;
+  kart.y = p.y;
+  kart.seg = p.i;
+  kart.heading = p.h;
+  kart.move = p.h;
+  kart.autoError = a.id === 'warp' && st.leg === a.legs.length - 1;
+  kart.speed = (leg.to - st.from) / leg.time; // スピードメーターには進む速さ（ワープは大きな数字）
+  if (done) {
+    kart.speed = st.speedIn;
+    kart.auto = null;
+    kart.autoError = false;
+    kart.autoDone = a.id; // 出た所の点がまだ自動の区間の点でも、入りなおさないように
+  }
+}
+
 function endDrift(kart, params, release) {
   const lv = driftLevel(kart);
   kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
@@ -138,6 +181,11 @@ export function stepKart(kart, ctl, track, params, dt) {
   if (kart.respawn > 0) {
     kart.respawn -= dt;
     if (kart.respawn <= 0) placeAt(kart, track, kart.respawnAt);
+    return;
+  }
+  // 自動の区間（Global City。2026-10-20）: 操作は効かず、決まった時間で道すじを進む
+  if (kart.auto) {
+    stepAuto(kart, track, dt);
     return;
   }
   // バンプで転がっている間: 操作は効かず、すぐに止まる（その場で転がる）。終わったら、止まった状態からコースの向きで走り出す
@@ -271,13 +319,16 @@ export function stepKart(kart, ctl, track, params, dt) {
   // 逆走・バックで地面のない所へ向かうときは、車の中心ではなく、進む向きの車の端（バンパー）で止める
   // （着地の道のはしに壁を描いた。2026-10-19 のユーザー依頼）
   const backward = Math.cos(wrapAngle(kart.move - loc.heading)) * kart.speed <= 0;
-  const edgeGone = () => {
+  const edgeLoc = () => {
     const dir = kart.speed < 0 ? -1 : 1;
     const x = kart.x + Math.cos(kart.move) * dir * KART_HALF_LENGTH;
     const z = kart.z + Math.sin(kart.move) * dir * KART_HALF_LENGTH;
-    return locate(track, x, z, loc.i, 40, kart.y ?? null).ground === null;
+    return locate(track, x, z, loc.i, 40, kart.y ?? null);
   };
-  if (!kart.airborne && backward && (loc.ground === null || edgeGone())) {
+  const edgeGone = () => edgeLoc().ground === null;
+  // 片道のコース（Global City）の「無い道」には、向きにかかわらず入らない（道のはしで止まる）
+  const voidAhead = () => track.open && (track.samples[loc.i].void || track.samples[edgeLoc().i].void);
+  if (!kart.airborne && ((backward && (loc.ground === null || edgeGone())) || voidAhead())) {
     // 着地する側から、コースと逆向きに地面のない所へ入ろうとした（逆走・バック）。飛ばずに、ふちで止まる
     // （2026-10-14 の実機確認で、逆走して飛び越えてしまった）
     kart.x = fromX;
@@ -311,6 +362,14 @@ export function stepKart(kart, ctl, track, params, dt) {
   }
   kart.seg = loc.i;
   kart.surface = loc.surface;
+  // 自動の区間の始まりに来たら入る（出たばかりの区間には入りなおさない）
+  const autoHere = track.samples[kart.seg].auto;
+  if (autoHere && kart.autoDone !== autoHere && track.autos) {
+    startAuto(kart, track, params, autoHere);
+    stepAuto(kart, track, 0);
+    return;
+  }
+  if (!autoHere) kart.autoDone = null;
 
   if (kicked) {
     // 決まった速さで小さく飛ぶ（ジャンプ台なので「イヤッホー」と着地の音あり）

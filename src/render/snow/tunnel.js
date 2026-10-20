@@ -1,17 +1,22 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import * as THREE from '../../../vendor/three.module.min.js?v=42729ef';
-import { createBuilder } from '../town/builder.js?v=42729ef';
+import * as THREE from '../../../vendor/three.module.min.js?v=0e5d133';
+import { createBuilder } from '../town/builder.js?v=0e5d133';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
-const CEIL_LATS = [-1, -0.5, 0, 0.5, 1]; // 天井の高さを決める横の位置（壁の位置を ±1 として）
+const CEIL_LATS = [-1, -0.5, 0, 0.5, 1];
+const GLASS_ARC = 16; // ガラスの半円を何枚の板で作るか // 天井の高さを決める横の位置（壁の位置を ±1 として）
 const WALL = 0x5a5f66;
 const CEIL = 0x4a4e55;
+// 見た目ごとの壁と天井の色（snow は Kyugo Mountain のトンネル）
+const LOOKS = { snow: [WALL, CEIL], rock: [0x6b625a, 0x5a524a], cave: [0x5a524a, 0x463f38], mosque: [0xe8b8c0, 0xf0d0d6], glass: [0x9fd0e8, 0xbfe8ff] };
+const lookOf = (p) => LOOKS[p.tunnelLook ?? 'snow'] ?? LOOKS.snow;
 const ARCH = 0x9a958c;
 
 export function buildTunnel(track) {
   const group = new THREE.Group();
   const b = createBuilder();
-  const pts = track.samples.slice(0, track.length).filter((p) => p.tunnel);
+  // 暗いトンネル（p.tunnel）と、見た目だけのトンネル（p.tunnelLook。Global City の山のトンネル・海の底・モスク・洞窟）
+  const pts = track.samples.slice(0, track.length).filter((p) => (p.tunnel || p.tunnelLook) && !p.auto);
   if (!pts.length) return b.build();
   const ryOf = (p) => Math.PI / 2 - p.h;
   // 上に別の道が重なる所（らせんの段、らせんに入る道の横）: 壁はその道の下まで、天井は作らない（上の道の裏が天井）
@@ -47,11 +52,17 @@ export function buildTunnel(track) {
   });
   const pos = [];
   const col = [];
+  // ガラスのトンネル（Global City の海の底）は、別の透明な形に
+  const gpos = [];
+  const gcol = [];
   const c = new THREE.Color();
+  let glassNow = false;
   const quad = (a, bb, cc, d, color) => {
-    pos.push(...a, ...bb, ...cc, ...cc, ...bb, ...d);
+    const P = glassNow ? gpos : pos;
+    const C = glassNow ? gcol : col;
+    P.push(...a, ...bb, ...cc, ...cc, ...bb, ...d);
     c.setHex(color);
-    for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
+    for (let k = 0; k < 6; k++) C.push(c.r, c.g, c.b);
   };
   const at = (p, lat, y) => {
     const [rx, rz] = rightOf(p);
@@ -61,17 +72,30 @@ export function buildTunnel(track) {
     const A = info[k];
     const B = info[k + 1];
     if (track.samples[A.p.next] !== B.p) continue;
+    glassNow = A.p.tunnelLook === 'glass';
+    if (glassNow) {
+      // ガラスのトンネルは半円（半径は道のはしまで。2026-10-20 のユーザー依頼）
+      const arc = (it, a) => at(it.p, -Math.cos(a) * it.w, it.p.y + Math.sin(a) * it.w);
+      for (let j = 0; j < GLASS_ARC; j++) {
+        const a0 = (Math.PI * j) / GLASS_ARC;
+        const a1 = (Math.PI * (j + 1)) / GLASS_ARC;
+        quad(arc(A, a0), arc(B, a0), arc(A, a1), arc(B, a1), lookOf(A.p)[j % 2]);
+      }
+      glassNow = false;
+      quad(at(A.p, -A.w, A.p.y - 0.3), at(B.p, -B.w, B.p.y - 0.3), at(A.p, A.w, A.p.y - 0.3), at(B.p, B.w, B.p.y - 0.3), CEIL);
+      continue;
+    }
     for (const side of [-1, 1]) {
       // 壁は天井の高さまで（壁の上と天井の間に 0.3m のすき間があり、外の雪が白く見えた。2026-10-20 のユーザー依頼）
       const ha = A.wall[side] >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : A.wall[side];
       const hb = B.wall[side] >= TUNNEL_HEIGHT ? TUNNEL_HEIGHT + 0.3 : B.wall[side];
-      if (ha > 0.3 && hb > 0.3) quad(at(A.p, side * A.w, A.p.y), at(B.p, side * B.w, B.p.y), at(A.p, side * A.w, A.p.y + ha), at(B.p, side * B.w, B.p.y + hb), WALL);
+      if (ha > 0.3 && hb > 0.3) quad(at(A.p, side * A.w, A.p.y), at(B.p, side * B.w, B.p.y), at(A.p, side * A.w, A.p.y + ha), at(B.p, side * B.w, B.p.y + hb), lookOf(A.p)[0]);
     }
     for (let k2 = 0; k2 + 1 < CEIL_LATS.length; k2++) {
       const [u0, u1] = [CEIL_LATS[k2], CEIL_LATS[k2 + 1]];
       const h = [A.ceilH[k2], A.ceilH[k2 + 1], B.ceilH[k2], B.ceilH[k2 + 1]];
       if (Math.min(...h) < 3.5) continue; // 車が通れない低さの天井は作らない（上の道の裏が天井）
-      quad(at(A.p, A.w * u0, A.p.y + h[0]), at(B.p, B.w * u0, B.p.y + h[2]), at(A.p, A.w * u1, A.p.y + h[1]), at(B.p, B.w * u1, B.p.y + h[3]), CEIL);
+      quad(at(A.p, A.w * u0, A.p.y + h[0]), at(B.p, B.w * u0, B.p.y + h[2]), at(A.p, A.w * u1, A.p.y + h[1]), at(B.p, B.w * u1, B.p.y + h[3]), lookOf(A.p)[1]);
     }
     // 道の裏（下の段から見たときの天井。道の絵が透けて見えないように。2026-10-18 のユーザー依頼「上部に道路が映っている」）
     quad(at(A.p, -A.w, A.p.y - 0.3), at(B.p, -B.w, B.p.y - 0.3), at(A.p, A.w, A.p.y - 0.3), at(B.p, B.w, B.p.y - 0.3), CEIL);
@@ -81,9 +105,55 @@ export function buildTunnel(track) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
   group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  group.add(moundMesh(track, info));
-  // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）
-  for (const p of [pts[0], pts[pts.length - 1]]) {
+  if (gpos.length) {
+    const gg = new THREE.BufferGeometry();
+    gg.setAttribute('position', new THREE.Float32BufferAttribute(gpos, 3));
+    gg.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3));
+    gg.computeVertexNormals();
+    const glass = new THREE.Mesh(gg, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }));
+    glass.userData.keep = true;
+    group.add(glass);
+    // 輪の骨組み（60m ごと、白い細い半円の枠。多いとじゃまなので少なく。2026-10-20 のユーザー依頼）
+    const ribs = createBuilder();
+    for (let k = 0; k < info.length; k += 60) {
+      const it = info[k];
+      if (it.p.tunnelLook !== 'glass') continue;
+      const p = it.p;
+      const [rx, rz] = rightOf(p);
+      const pt = (a) => [p.x - rx * Math.cos(a) * it.w, p.y + Math.sin(a) * it.w, p.z - rz * Math.cos(a) * it.w];
+      for (let j = 0; j < GLASS_ARC; j++) ribs.rod(...pt((Math.PI * j) / GLASS_ARC), ...pt((Math.PI * (j + 1)) / GLASS_ARC), 0.15, 0xeef6ff);
+    }
+    group.add(ribs.build());
+  }
+  // モスクの回廊（Global City）: ピンクの柱と、上がとがったアーチを 6m ごと
+  // バトゥ洞窟（Global City）: 天井から下がる灰色の鍾乳石
+  const deco = createBuilder();
+  let cave = 0;
+  info.forEach((it, k) => {
+    const p = it.p;
+    const [rx, rz] = rightOf(p);
+    const w = it.w - 0.6;
+    if (p.tunnelLook === 'mosque' && k % 6 === 0) {
+      const top = p.y + TUNNEL_HEIGHT;
+      for (const side of [-1, 1]) {
+        deco.cyl(0.5, 0.6, TUNNEL_HEIGHT - 2.5, 8, 0xe8b8c0, p.x + rx * side * w, p.y, p.z + rz * side * w); // 柱
+        deco.rod(p.x + rx * side * w, top - 2.5, p.z + rz * side * w, p.x, top - 0.2, p.z, 0.3, 0xffe6ea); // アーチ（とがった形）
+      }
+    }
+    if (p.tunnelLook === 'cave' && k % 3 === 0) {
+      cave++;
+      const lat = (((cave * 37) % 9) / 4 - 1) * w * 0.8;
+      const h = 1.5 + (cave % 4) * 0.8;
+      deco.cyl(0.6 + (cave % 3) * 0.3, 0, h, 5, 0x8a8a86, p.x + rx * lat, p.y + TUNNEL_HEIGHT - h, p.z + rz * lat); // 鍾乳石
+    }
+  });
+  group.add(deco.build());
+  // 雪の山は、雪のトンネル（Kyugo Mountain）だけ
+  const snowInfo = info.filter((it) => (it.p.tunnelLook ?? 'snow') === 'snow');
+  if (snowInfo.length) group.add(moundMesh(track, snowInfo));
+  // 入口と出口: 石のアーチ（はば 道いっぱい、厚さ 2m）。トンネルが いくつもあるときは、それぞれのはし
+  const ends = pts.filter((p) => p.tunnelLook !== 'glass' && (!pts.includes(track.samples[p.prev]) || !pts.includes(track.samples[p.next])));
+  for (const p of ends) {
     const w = p.wall + 1.5;
     b.push(p.x, p.y, p.z, ryOf(p));
     b.box(2.5, TUNNEL_HEIGHT + 3, 2, ARCH, -w, 0, 0);

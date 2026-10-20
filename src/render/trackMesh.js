@@ -1,19 +1,28 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=42729ef';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=42729ef';
-import { buildJungle } from './town/jungle.js?v=42729ef';
-import { buildWater } from './town/water.js?v=42729ef';
-import { buildBridge } from './forest/bridge.js?v=42729ef';
-import { buildTunnel } from './snow/tunnel.js?v=42729ef';
-import { buildSnowScenery } from './snow/kit.js?v=42729ef';
-import { buildSigns } from './snow/signs.js?v=42729ef';
-import * as forestKit from './forest/kit.js?v=42729ef';
-import { createBuilder } from './town/builder.js?v=42729ef';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=42729ef';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=42729ef';
-import { mergeMeshes } from './mergeMeshes.js?v=42729ef';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=42729ef';
-import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=42729ef';
+import * as THREE from '../../vendor/three.module.min.js?v=0e5d133';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0e5d133';
+import { buildJungle } from './town/jungle.js?v=0e5d133';
+import { buildWater } from './town/water.js?v=0e5d133';
+import { buildBridge } from './forest/bridge.js?v=0e5d133';
+import { buildTunnel } from './snow/tunnel.js?v=0e5d133';
+import { buildSnowScenery } from './snow/kit.js?v=0e5d133';
+import { buildSigns } from './snow/signs.js?v=0e5d133';
+import { buildTokyo } from './world/tokyo.js?v=0e5d133';
+import { buildFuji } from './world/fuji.js?v=0e5d133';
+import { buildKyoto } from './world/kyoto.js?v=0e5d133';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=0e5d133';
+import { buildHongKong } from './world/hongkong.js?v=0e5d133';
+import { buildSea } from './world/sea.js?v=0e5d133';
+import { buildNewYork } from './world/newyork.js?v=0e5d133';
+import { buildWarp } from './world/warp.js?v=0e5d133';
+import { buildKL } from './world/kl.js?v=0e5d133';
+import * as forestKit from './forest/kit.js?v=0e5d133';
+import { createBuilder } from './town/builder.js?v=0e5d133';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=0e5d133';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=0e5d133';
+import { mergeMeshes } from './mergeMeshes.js?v=0e5d133';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=0e5d133';
+import { cornerUW, markS, GRIP_ICE } from '../game/track.js?v=0e5d133';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -453,7 +462,29 @@ function landingCliffs(track) {
     for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, -0.7);
     b.pop();
   }
+  // 片道のコース（Global City）の道の終わり（すぐ先が無い道）: 前向きの、しまの低い壁
+  for (let i = 0; i < track.length; i++) {
+    const p = track.samples[i];
+    if (p.y === null || p.void || !track.samples[p.next].void) continue;
+    b.push(p.x, p.y, p.z, Math.PI / 2 - p.h);
+    const n = Math.round(p.wall);
+    for (let k = -n; k < n; k++) b.box(1, LANDING_WALL, 0.4, k % 2 ? 0xffd000 : 0x222222, k + 0.5, -0.02, 0.7);
+    b.pop();
+  }
   return b.build();
+}
+
+// 点 p の柵の見た目（Global City の def.fenceStyles。範囲のない所は guard。あとに書いた範囲が勝つ）
+function fenceStyleOf(track) {
+  const ranges = (track.def.fenceStyles ?? []).map((f) => ({ from: refOf(track, f.from), to: refOf(track, f.to), style: f.style }));
+  return (p) => {
+    let style = 'guard';
+    for (const r of ranges) if (p.path === 0 && p.s >= r.from && p.s <= r.to) style = r.style;
+    return style;
+  };
+}
+function refOf(track, ref) {
+  return typeof ref === 'string' ? track.marks[ref] : markS(track, ref);
 }
 
 // 柵の外の高い土手（マリオカート64 のように、道の両側を高く囲む）。ほかの道・交わる所・観客席の前には作らない
@@ -596,21 +627,34 @@ function roadside(track, sides) {
   return group;
 }
 
+// トンネルのあるコース（Kyugo Mountain の雪のトンネル、Global City の山の岩・海の底のガラス。2026-10-20）
+// 道を描く点か: 無い道・自動の区間（Global City）の空の道すじは描かない。
+// 自動の区間でも、地面の高さの所（輪っかの間 R1〜R3）は描く（道が消えて見えた。最後のレビュー）
+export function roadDrawn(p) {
+  return p.y !== null && !p.void && !(p.auto && p.y > 0.5);
+}
+
+export function hasTunnels(track) {
+  return track.samples.some((p) => p.tunnel || p.tunnelLook);
+}
+
 export function buildTrackMesh(track) {
   const { samples } = track;
   const dirt = track.def.dirt;
   const town = track.def.theme === 'town';
+  // 世界の都市（Global City。2026-10-20）: アスファルトの道（白線）、柵は場所ごと（fenceStyles）、景色はステージごとの群れ
+  const world = track.def.theme === 'world';
   // 森（Soki Forest。2026-10-16）: 茶色い土の道（線なし）、縁石なし、道の外は草、柵は丸太の色の低い柵
   const forest = track.def.theme === 'forest';
   // 雪山（Kyugo Mountain。2026-10-18）: 雪のつもった道（線なし）、縁石なし、道の外は雪、柵は低い木の柵
   const snow = track.def.theme === 'snow';
   const natural = forest || snow;
   const group = new THREE.Group();
-  const hasGround = (p) => p.y !== null;
+  const hasGround = roadDrawn;
   const flat = (p) => p.y === 0 && !p.ramp;
   const stripes = (len) => (p) => (Math.floor(p.s / len) % 2 ? COLORS.white : COLORS.red);
   // 街の縁石は白黒のしま
-  const curb = town ? (p) => (Math.floor(p.s / 2) % 2 ? 0xf2f2f2 : 0x222222) : stripes(2);
+  const curb = town || world ? (p) => (Math.floor(p.s / 2) % 2 ? 0xf2f2f2 : 0x222222) : stripes(2);
   const half = (p) => p.half;
 
   // 道: 灰色に、真ん中の白い破線と、両はしの白線
@@ -709,6 +753,13 @@ export function buildTrackMesh(track) {
     if (snow) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 0.8, (p) => fenceOk(p) && !p.bridge && !p.tunnel, () => 0x8a6a4a)); // 低い木の柵（高さ0.8m。トンネルの中は壁）
     else if (forest) group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + 1.0, (p) => fenceOk(p) && !p.bridge, () => 0x7a5230)); // 丸太の色の低い柵（高さ1m。橋の上は石の手すり）
     else if (town) group.add(fence(samples, off, () => 0, () => 0.9, fenceOk, () => 0xd8d4cc)); // 低いコンクリートの壁（高さ0.9m）
+    else if (world) {
+      // 場所ごとの柵（def.fenceStyles。あとに書いた範囲が勝つ）: guard 白いガードレール、bamboo 竹、curb 歩道のふち、rail 橋の手すり、none なし
+      const styleOf = fenceStyleOf(track);
+      for (const [style, h, color] of [['guard', 0.8, 0xe8eaec], ['bamboo', 1.0, 0x8aa05a], ['curb', 0.3, 0xb8b4ac], ['rail', 1.2, 0xd8dce0]]) {
+        group.add(fence(samples, off, (p) => p.y ?? 0, (p) => (p.y ?? 0) + h, (p) => fenceOk(p) && !p.tunnel && !p.auto && !p.void && styleOf(p) === style, () => color));
+      }
+    }
     else group.add(fence(samples, off, () => 0, () => 2.5, fenceOk, stripes(4))); // 柵（高さ2.5m）
     // ジャンプ台の側面は、黄色と黒のしま（ジャンプ台だと分かるように）
     // 下は、台の高さの分だけ（高い所のジャンプ台が、地面までの大きな壁にならないように。Kyugo Mountain）
@@ -716,7 +767,7 @@ export function buildTrackMesh(track) {
     group.add(fence(samples, side * track.roadHalf, (p) => p.y, (p) => p.y + 1, (p) => p.ramp, stripes(4)));
   }
   // ジャンプの着地の道のはし（Kyugo Mountain）: 岩の崖と、黄色と黒のしまの低い壁（逆走すると、ここで止まる）
-  if (snow) group.add(landingCliffs(track));
+  if (snow || track.def.theme === 'world') group.add(landingCliffs(track));
 
   // 分離帯（芝生）と、両はしの白黒の縁石
   const hasMedian = (p) => p.median > 0;
@@ -821,12 +872,26 @@ export function buildTrackMesh(track) {
     group.add(buildBridge(track, { snow: true }));
     group.add(bridgeSlab(track));
     group.add(buildTerrain(track));
-    group.add(buildTunnel(track));
     group.add(buildRiver(track));
     group.add(grandstand(track));
     group.add(buildSnowScenery(track));
     group.add(buildSigns(track)); // トンネルのカーブの矢印、分かれ道と合流の横断幕
     group.add(mergeArrows(track)); // 合流の手前の、進む向きの白い矢印
+  }
+  // Global City（2026-10-20）: 景色はステージごとの群れ（userData.stages）。富士山のまわりだけ高さのある地面
+  if (track.def.theme === 'world') {
+    group.userData.stageGroups = [];
+    const addStage = (g, stages) => {
+      g.userData.stages = stages;
+      group.userData.stageGroups.push(g);
+      group.add(g);
+    };
+    group.userData.addStage = addStage;
+    if (track.def.terrainBox) {
+      const land = new THREE.Group();
+      land.add(buildTerrain(track));
+      addStage(land, [0, 1, 2]);
+    }
   }
   // 森（Soki Forest）: 石のアーチ橋、道の高さに合わせた地面、川と滝
   if (forest) {
@@ -905,8 +970,22 @@ export function buildTrackMesh(track) {
     group.add(bank(track, sides, -1), bank(track, sides, 1));
     group.add(roadside(track, sides));
   }
+  if (hasTunnels(track)) group.add(buildTunnel(track));
+  // Global City の景色（ステージごとの群れ）
+  if (world) {
+    for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL]) {
+      for (const g of build(track).children.slice()) group.userData.addStage(g, g.userData.stages);
+    }
+  }
   // 動かない形は、同じ材質ごと・区画ごとに1つにまとめる（タブレットで描く回数を減らす。2026-10-16）
+  // Global City のステージごとの群れは、見えたり消えたりするので、群れの中だけでまとめる
+  const stageGroups = group.userData.stageGroups ?? [];
+  for (const g of stageGroups) group.remove(g);
   group.userData.merged = mergeMeshes(group);
+  for (const g of stageGroups) {
+    mergeMeshes(g);
+    group.add(g);
+  }
   return group;
 }
 
@@ -1076,7 +1155,7 @@ function bumpSign(track, s) {
 const MOUNTAIN = new THREE.MeshLambertMaterial({ color: 0x7c9a6b });
 function mountains(track) {
   const g = new THREE.Group();
-  const town = track.def.theme === 'town';
+  const town = ['town', 'world'].includes(track.def.theme);
   const reach = Math.max(...track.samples.map((p) => Math.hypot(p.x, p.z)));
   const radius = 700;
   for (let k = 0; k < 14; k++) {

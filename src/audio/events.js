@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=42729ef';
+import { locate } from '../game/track.js?v=0e5d133';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -61,6 +61,9 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     snowmanHop, // 近くの雪だるまが跳ねて着いた数の合計
     mogulHits: kart.mogulHits || 0, // コブに当たった回数（Kyugo Mountain）
     treeHits: kart.treeHits || 0, // 道の上の木にぶつかった回数（Soki Forest）
+    auto: kart.auto?.id ?? null, // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）
+    autoLeg: kart.auto?.leg ?? 0,
+    autoError: !!kart.autoError, // スピードメーターが ERROR
   };
 }
 
@@ -115,5 +118,12 @@ export function soundEvents(prev, cur, laps) {
   if (cur.landingSoon && !prev.landingSoon) ev.push('land');
   else if (!cur.airborne && prev.rampJump && !prev.landingSoon && !cur.swallowed) ev.push('land');
   if (cur.bumps > prev.bumps) ev.push('bump');
+  // 自動の区間（Global City）: 打ち上げ・大ジャンプ・輪っか（3つ目で ERROR とワープ）
+  if (cur.auto !== prev.auto && cur.auto === 'space') ev.push('launch');
+  if (cur.auto !== prev.auto && cur.auto === 'jump') ev.push('bigJump');
+  if (cur.auto === 'warp' && (prev.auto !== 'warp' || cur.autoLeg > prev.autoLeg)) {
+    if (cur.autoError && !prev.autoError) ev.push('error', 'warp');
+    else ev.push('ring');
+  }
   return ev;
 }

@@ -274,8 +274,28 @@ export function expandHelix(def) {
   return { ...def, points, marks };
 }
 
+// 点が m のコース（Global City。2026-10-20）: 地図の画素ではなく m で書く。全長は点の並び（なめらかにした線）の長さ
+function lineLength(line) {
+  let total = 0;
+  for (let i = 0; i < line.length; i++) {
+    const a = line[i];
+    const b = line[(i + 1) % line.length];
+    total += Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
+  return total;
+}
+
 export function buildTrack(def) {
-  def = expandHelix(def);
+  // 点が m のコース: らせんの半径も m のまま（expandHelix は def.length から 1画素の m を求めるので、先に点の長さを入れる）
+  // scale: 全体の大きさの倍率（Global City は 0.8。名所の座標も toWorld で同じ倍率）
+  const scale = def.meters ? def.scale ?? 1 : 1;
+  if (def.meters) {
+    def = { ...def, points: def.points.map(([x, z]) => [x * scale, z * scale]) };
+    def = expandHelix({ ...def, length: Math.round(lineLength(smoothLoop(def.points))) });
+    def = { ...def, length: Math.round(lineLength(smoothLoop(def.points))) };
+  } else {
+    def = expandHelix(def);
+  }
   const line = smoothLoop(def.points);
   const fit = fitOf(line, def.length);
   let samples = resample(line, def.length);
@@ -416,6 +436,12 @@ export function buildTrack(def) {
     const to = t.length - BUS_HIDE_BACK - BUS_HIDE_MOVE;
     for (let k = 0; k < def.buses; k++) t.buses.push({ s0: from + ((to - from) * k) / Math.max(1, def.buses - 1) });
   }
+  // 場所ごとの乗り物（Global City。2026-10-20）: from〜to の中を、等しい間で並べる。動き・当たりはバスと同じ
+  for (const v of def.vehicles ?? []) {
+    const from = refS(t, v.from);
+    const to = refS(t, v.to);
+    for (let k = 0; k < v.count; k++) t.buses.push({ s0: from + ((to - from) * (k + 0.5)) / v.count, from, to, kind: v.kind });
+  }
   applyHeights(t, def);
   applyJumps(t, def);
   applyKicks(t, def);
@@ -439,15 +465,46 @@ export function buildTrack(def) {
     }
   }
   addBranches(t, def, fit);
+  if (scale !== 1) {
+    const toWorld = t.toWorld;
+    t.toWorld = (x, z) => toWorld(x * scale, z * scale);
+  }
   applyGrip(t, def);
-  // トンネル（Kyugo Mountain）: TI〜TO の本線の点
-  if (def.tunnel) {
-    const from = refS(t, def.tunnel.from);
-    const to = refS(t, def.tunnel.to);
-    for (let i = 0; i < t.length; i++) t.samples[i].tunnel = between(t, t.samples[i].s, from, to);
+  // 片道のコース（Global City。2026-10-20）: END から GB までは「無い道」（描かない・通れない）。ゴールは finish の印
+  if (def.open) {
+    t.open = true;
+    t.finish = refS(t, def.open.finish);
+    const from = refS(t, def.open.end);
+    const to = refS(t, def.open.back);
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      if (p.s === from || !between(t, p.s, from, to)) continue;
+      p.void = true;
+      p.y = null;
+      p.wall = p.half;
+    }
+  }
+  // ステージ（Global City）: 印の所から、その名前のステージ
+  t.stages = (def.stages ?? []).map((st) => ({ name: st.name, s: refS(t, st.at) })).sort((a, b) => a.s - b.s);
+  // 自動の区間（Global City）: from から legs の最後の to までの本線の点に p.auto
+  t.autos = (def.autos ?? []).map((a) => ({ id: a.id, from: refS(t, a.from), legs: a.legs.map((l) => ({ to: refS(t, l.to), time: l.time })) }));
+  for (const a of t.autos) {
+    const to = a.legs[a.legs.length - 1].to;
+    for (let i = 0; i < t.length; i++) if (between(t, t.samples[i].s, a.from, to)) t.samples[i].auto = a.id;
+  }
+  // トンネル（Kyugo Mountain・Global City）: いくつでも。dark のトンネルの点だけ暗くする（p.tunnel）。見た目は p.tunnelLook
+  const tunnels = def.tunnels ?? (def.tunnel ? [{ ...def.tunnel, look: 'snow', dark: true }] : []);
+  for (const tn of tunnels) {
+    const from = refS(t, tn.from);
+    const to = refS(t, tn.to);
+    for (let i = 0; i < t.length; i++) {
+      if (!between(t, t.samples[i].s, from, to)) continue;
+      t.samples[i].tunnelLook = tn.look;
+      if (tn.dark) t.samples[i].tunnel = true;
+    }
   }
   // 雪山（地図の座標 → m）
-  t.peaks = (def.peaks ?? []).map((pk) => ({ ...t.toWorld(pk.at[0], pk.at[1]), h: pk.h, r: pk.r }));
+  t.peaks = (def.peaks ?? []).map((pk) => ({ ...t.toWorld(pk.at[0], pk.at[1]), h: pk.h, r: pk.r, shape: pk.shape }));
   // スローの板（Kyugo Mountain）: 長さ 30m、はば 道の30%。道のはしに寄せる
   t.slows = (def.slows ?? []).map((sl) => {
     const from = Math.round(markS(t, sl.at)) % t.length;
@@ -1025,4 +1082,24 @@ export function respawnIndex(track, i) {
     if (run >= 10) return j;
   }
   return track.startIndex;
+}
+
+// 本線の s の所の位置・高さ・向き（となりの点の間をつなぐ。自動の区間で車を動かすのに使う）
+export function sampleAt(track, s) {
+  const L = track.length;
+  const u = ((s % L) + L) % L;
+  const i = Math.floor(u) % L;
+  const p = track.samples[i];
+  const q = track.samples[p.next];
+  const f = u - Math.floor(u);
+  const py = p.y ?? 0;
+  const qy = q.y ?? py;
+  return { x: p.x + (q.x - p.x) * f, y: py + (qy - py) * f, z: p.z + (q.z - p.z) * f, h: p.h, i };
+}
+
+// rel（スタートからの m）が、どのステージか（0 から）。ステージのないコースは 0
+export function stageAt(track, rel) {
+  let k = 0;
+  (track.stages ?? []).forEach((st, i) => { if (rel >= st.s) k = i; });
+  return k;
 }
