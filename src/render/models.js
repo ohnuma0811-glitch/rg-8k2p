@@ -590,28 +590,45 @@ export function createBusModel() {
 
 // 新幹線（Global City。2026-10-20）: 白い車体に青い帯、cars 両（1両 25m）。先頭はくさび形。+x が前
 export function createShinkansenModel(cars = 16) {
-  // 1両ずつのグループ（+x が前、真ん中が原点）。カーブでは1両ずつ線路にそって置く（2026-10-21 のユーザー依頼）
+  // 「のぞみ」（N700）の形（2026-10-21 のユーザー依頼「牛乳パックのように四角」）: 白い車体に丸い屋根、窓の上下に青い帯、
+  // 先頭と最後尾に、低く長いカモノハシのような鼻。1両ずつのグループ（+x が前、真ん中が原点）。カーブでは1両ずつ線路にそって置く
   const g = new THREE.Group();
-  const body = new THREE.MeshLambertMaterial({ color: 0xf4f6f8 });
-  const band = new THREE.MeshLambertMaterial({ color: 0x1f4aa8 });
-  const win = new THREE.MeshLambertMaterial({ color: 0x2a3440 });
+  const WHITE_BODY = 0xf4f6f8;
+  const BLUE = 0x1f4aa8;
+  const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+  const body = mat(WHITE_BODY);
+  const L = 25;
+  const add = (car, geo, m, x, y, z) => {
+    const o = new THREE.Mesh(geo, m);
+    o.position.set(x, y, z);
+    car.add(o);
+    return o;
+  };
+  // 鼻（dir = 1 は前、-1 は後ろ）: 低くのびるくちばしと、運転席の丸いふくらみ
+  const nose = (car, dir) => {
+    const beak = add(car, new THREE.SphereGeometry(1, 20, 12), body, dir * L / 2, 1.5, 0);
+    beak.scale.set(11, 1.25, 1.7); // 長く低い鼻
+    const cab = add(car, new THREE.SphereGeometry(1, 16, 10), body, dir * (L / 2 + 1.5), 2.3, 0);
+    cab.scale.set(6, 1.4, 1.65);
+    const glass = add(car, new THREE.SphereGeometry(1, 12, 8), mat(0x1a2230), dir * (L / 2 + 3.2), 2.9, 0);
+    glass.scale.set(2.2, 0.55, 1.2); // 運転席の窓
+    const line = add(car, new THREE.SphereGeometry(1, 16, 8), mat(BLUE), dir * (L / 2 + 0.5), 1.25, 0);
+    line.scale.set(9.2, 0.18, 1.72); // 鼻の青い線
+    for (const z of [-1, 1]) add(car, new THREE.BoxGeometry(0.6, 0.25, 0.1), mat(0xfff6dc), dir * (L / 2 + 7.5), 1.35, z * 0.9); // ライト
+  };
   g.userData.cars = [];
   for (let k = 0; k < cars; k++) {
     const car = new THREE.Group();
-    const box = new THREE.Mesh(new THREE.BoxGeometry(25, 3.6, 3.4), body);
-    box.position.set(0, 2.2, 0);
-    const b1 = new THREE.Mesh(new THREE.BoxGeometry(25.1, 0.5, 3.5), band);
-    b1.position.set(0, 1.4, 0);
-    const w1 = new THREE.Mesh(new THREE.BoxGeometry(22, 0.7, 3.45), win);
-    w1.position.set(0, 2.9, 0);
-    car.add(box, b1, w1);
-    if (k === 0) {
-      const nose = new THREE.Mesh(new THREE.ConeGeometry(1.9, 9, 4), body);
-      nose.rotation.z = -Math.PI / 2;
-      nose.rotation.x = Math.PI / 4;
-      nose.position.set(17, 2, 0);
-      car.add(nose);
-    }
+    add(car, new THREE.BoxGeometry(L, 2.6, 3.4), body, 0, 1.6, 0); // 車体の下（四角）
+    const roof = add(car, new THREE.CylinderGeometry(1.7, 1.7, L, 16, 1, false, 0, Math.PI), body, 0, 2.9, 0); // 丸い屋根
+    roof.rotation.z = Math.PI / 2; // 円柱の向きを前後に、半分を上に
+    roof.scale.set(0.55, 1, 1); // 低い丸み
+    add(car, new THREE.BoxGeometry(L + 0.05, 0.35, 3.45), mat(BLUE), 0, 1.0, 0); // 下の太い青い帯
+    add(car, new THREE.BoxGeometry(L + 0.05, 0.12, 3.45), mat(BLUE), 0, 1.45, 0); // 細い青い線
+    for (let x = -L / 2 + 2; x <= L / 2 - 2; x += 1.6) add(car, new THREE.BoxGeometry(0.9, 0.55, 3.46), mat(0x2a3440), x, 2.45, 0); // 窓
+    add(car, new THREE.BoxGeometry(0.6, 2.6, 2.6), mat(0x3a3f46), -L / 2 - 0.25, 1.9, 0); // 車両のつなぎめ
+    if (k === 0) nose(car, 1);
+    if (k === cars - 1) nose(car, -1);
     g.add(car);
     g.userData.cars.push(car);
   }

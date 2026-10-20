@@ -32,9 +32,11 @@ export const SHINKANSEN_FACTOR = 1.12;
 // 両の前と後ろのはしを線路の上に置き、その真ん中に、前と後ろを結ぶ向きで置く。線路の始まりより後ろの両は見せない（トンネルから出てくる）
 export const SHINKANSEN_CAR = 25; // 1両の長さ（m）
 export const SHINKANSEN_GAP = 25.5; // 両と両の間かく（m）
+// train.t0: 走り出した時刻（自分が線路の始まりに近づいた時。null ならまだ走らず、見せない）。lead: 走り出した時の先頭の s（from から）。
+// 線路の終わり（to）まで行っても始まりへ戻らない（戻ると、横を走っているときに急に消えた。2026-10-21 のユーザー依頼）
 export function shinkansenCars(track, train, time, topSpeed, cars = 16) {
-  const len = train.to - train.from;
-  const head = train.from + ((((train.s0 + topSpeed * SHINKANSEN_FACTOR * time - train.from) % len) + len) % len);
+  if (train.t0 === null || train.t0 === undefined) return Array.from({ length: cars }, () => ({ x: 0, y: train.y, z: 0, heading: 0, visible: false }));
+  const head = train.from + (train.lead ?? 0) + topSpeed * SHINKANSEN_FACTOR * Math.max(0, time - train.t0);
   const rail = (s) => {
     const p = sampleAt(track, s);
     return { x: p.x - Math.sin(p.h) * train.off, z: p.z + Math.cos(p.h) * train.off };
@@ -44,7 +46,7 @@ export function shinkansenCars(track, train, time, topSpeed, cars = 16) {
     const sb = sf - SHINKANSEN_CAR;
     const f = rail(sf);
     const b = rail(sb);
-    return { x: (f.x + b.x) / 2, y: train.y, z: (f.z + b.z) / 2, heading: Math.atan2(f.z - b.z, f.x - b.x), visible: sb >= train.from };
+    return { x: (f.x + b.x) / 2, y: train.y, z: (f.z + b.z) / 2, heading: Math.atan2(f.z - b.z, f.x - b.x), visible: sb >= train.from && sf <= train.to };
   });
 }
 

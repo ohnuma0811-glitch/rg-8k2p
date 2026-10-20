@@ -502,7 +502,8 @@ function placeBuses(time) {
 function trainsOf(t) {
   if (t.def.theme !== 'world') return [];
   const ref = (r) => (typeof r === 'string' ? t.marks[r] : null);
-  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), s0: ref(tr.from), off: tr.off, y: tr.y }));
+  // 自分が線路の始まりの 300m 手前に来たら走り出す（t0）。そのとき先頭は始まりの 100m 手前（見えないところ）から
+  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: -100 }));
 }
 function placeTrains(time, topSpeed) {
   if (!track.trains) track.trains = trainsOf(track);
@@ -512,7 +513,9 @@ function placeTrains(time, topSpeed) {
     track.trainModels.forEach((m) => track.mesh.add(m));
   }
   // 1両ずつ線路にそって置く（カーブで真っすぐのまま突き出ていた。2026-10-21 のユーザー依頼）
+  const mine = progress(game.race, game.me, track);
   track.trains.forEach((tr, k) => {
+    if (tr.t0 === null && mine > tr.from - 300) tr.t0 = time;
     const cars = track.trainModels[k].userData.cars;
     shinkansenCars(track, tr, Math.max(0, time), topSpeed, cars.length).forEach((p, j) => {
       cars[j].visible = p.visible;
@@ -536,6 +539,7 @@ function removeGame() {
   if (!game) return;
   stageBanner.classList.remove('show');
   resetSky(scene); // Global City の空を、ふつうの空に戻す
+  if (track) track.trains = null; // 新幹線は、次のレースでまた自分が近づいてから走り出す
   if (scene.userData.ground) scene.userData.ground.visible = true;
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   sfx.stopAll();

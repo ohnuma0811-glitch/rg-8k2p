@@ -4,7 +4,10 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
 import { locate } from '../../game/track.js';
-import { landmark, worldAt, sOf, pointAt, ryOf, beside } from './kit.js';
+import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js';
+import { createDinoModel } from '../models.js';
+
+const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 
 // 地図の点に近い道の点から、横へ lat m の所（生き物はトンネルのすぐ横・上を泳ぐ。遠いと霧で見えなかった）
 function nearRoad(track, at, lat) {
@@ -119,6 +122,110 @@ export function buildSea(track) {
     g.add(swimmer(school, c, 25, 0.4, k, -16 - (k % 3) * 3));
     landmark(g, 'fish', c.x, -18, c.z);
   });
+  // ---- もっとたくさんの生き物（2026-10-21 のユーザー依頼「魚や大型生物が少ない」）: ガラスのトンネルにそって ----
+  const gs = sOf(track, ['SD', 'LIB', 0.12]);
+  const ge = sOf(track, ['SD', 'LIB', 0.9]);
+  const onRoad = (s, lat) => {
+    const p = pointAt(track, s);
+    const c = beside(p, lat);
+    return { x: c.x, z: c.z, h: p.h };
+  };
+  const FISH = [0xffd23a, 0xff7a3a, 0x3ad2ff, 0xff4a8a, 0x9aff4a, 0xffffff];
+  for (let k = 0; k < 14; k++) {
+    const c = onRoad(gs + ((ge - gs) * (k + 0.5)) / 14, (k % 2 ? -1 : 1) * (15 + (k % 3) * 4));
+    const school = new THREE.Group();
+    const fb = createBuilder();
+    for (let j = 0; j < 40; j++) {
+      const r = 2 + (j % 6);
+      const an = j * 1.1;
+      fb.push(Math.cos(an) * r, ((j * 7) % 7) - 3, Math.sin(an) * r, an);
+      fb.cyl(0, 0.45, 1.1, 3, FISH[k % FISH.length], 0, 0, 0);
+      fb.pop();
+    }
+    school.add(fb.build());
+    g.add(swimmer(school, c, 20, 0.5, k * 0.7, -12 - (k % 4) * 4));
+  }
+  // 2頭目のクジラ（親子。小さい子クジラ）
+  {
+    const c = onRoad(gs + (ge - gs) * 0.7, 0);
+    const calf = new THREE.Group();
+    const cb = createBuilder();
+    cb.sphere(3, 0x7fa3c8, 0, 0, 0, 10);
+    cb.box(6, 5, 9, 0x7fa3c8, 0, -2.5, -4);
+    cb.box(4, 3, 6, 0x6a8eb4, 0, -1.5, -10);
+    cb.box(8, 0.6, 2, 0x6a8eb4, 0, -0.3, -13);
+    cb.box(4.5, 0.8, 10, 0xe8ecf0, 0, -3, -4);
+    calf.add(cb.build());
+    g.add(swimmer(calf, c, 60, 0.14, 1.5, -6));
+  }
+  // ウミガメ（緑のこうら、4枚のひれ）
+  for (let k = 0; k < 4; k++) {
+    const c = onRoad(gs + ((ge - gs) * (k + 0.3)) / 4, (k % 2 ? 1 : -1) * 13);
+    const tt = new THREE.Group();
+    const tb = createBuilder();
+    tb.sphere(1.6, 0x3f7a4a, 0, 0, 0, 8);
+    tb.box(3.2, 0.6, 3.6, 0xb8a070, 0, -0.9, 0);
+    tb.sphere(0.6, 0x8aa070, 0, 0, 2.2, 6);
+    for (const [x, z] of [[-1.8, 1], [1.8, 1], [-1.4, -1.2], [1.4, -1.2]]) tb.box(1.6, 0.25, 0.8, 0x8aa070, x, -0.3, z);
+    tt.add(tb.build());
+    g.add(swimmer(tt, c, 15, 0.3, k, -18 + (k % 2) * 4));
+    if (k === 0) landmark(g, 'turtle', c.x, -18, c.z);
+  }
+  // マンタ（黒っぽいひし形の大きなエイ）
+  for (let k = 0; k < 3; k++) {
+    const c = onRoad(gs + ((ge - gs) * (k + 0.6)) / 3, (k % 2 ? -1 : 1) * 26);
+    const mt = new THREE.Group();
+    const mb = createBuilder();
+    mb.push(0, 0, 0, Math.PI / 4);
+    mb.box(5, 0.6, 5, 0x2a3440, 0, 0, 0);
+    mb.box(4.6, 0.3, 4.6, 0xe8ecf0, 0, -0.35, 0);
+    mb.pop();
+    mb.box(0.3, 0.3, 5, 0x2a3440, 0, 0.1, -5);
+    mt.add(mb.build());
+    g.add(swimmer(mt, c, 35, 0.25, k * 2, -20 - k * 3));
+    if (k === 0) landmark(g, 'manta', c.x, -20, c.z);
+  }
+  // Soki Forest の巨大怪獣も泳ぐ（オレンジの大きな頭に、体と長いしっぽ。口をぱくぱく。2026-10-21 のユーザー依頼）
+  {
+    const c = onRoad(gs + (ge - gs) * 0.45, -34);
+    const mon = new THREE.Group();
+    const head = createDinoModel(); // 前は +x、横はば 26m
+    head.rotation.y = -Math.PI / 2; // 前を +z に
+    const body = createBuilder();
+    body.box(22, 16, 30, 0xf08a24, 0, -4, -18); // 体
+    body.box(14, 10, 22, 0xc4601a, 0, -2, -40); // しっぽの根もと
+    body.box(8, 6, 20, 0xf08a24, 0, 0, -60); // しっぽ
+    body.box(4, 3, 14, 0xc4601a, 0, 1, -76); // しっぽの先
+    for (const z of [-12, -26]) for (const x of [-13, 13]) body.box(8, 2, 6, 0xc4601a, x, -10, z); // ひれのような足
+    for (let z = -6; z > -70; z -= 8) body.box(2, 4, 3, 0xc4601a, 0, 4 + (z > -30 ? 0 : -2), z); // 背中のとげ
+    mon.add(head, body.build());
+    mon.scale.setScalar(0.8);
+    mon.userData.jaw = head.userData.upper;
+    g.add(swimmer(mon, c, 90, 0.09, 0.5, -24));
+    landmark(g, 'monster', c.x, -24, c.z);
+  }
+
+  // ---- 入口と出口の門（2026-10-21 のユーザー依頼「潜るトンネルの入り口を作って」）: コンクリートの建物に、光る「UNDER THE SEA」の看板 ----
+  const portal = (s, name, back) => {
+    const p = pointAt(track, s);
+    landmark(g, name, p.x, p.y, p.z);
+    const w = p.wall + 0.5;
+    const ry = ryAlong(p.h) + (back ? 0 : Math.PI); // 看板は、走ってくる方に向ける
+    const gate = createBuilder();
+    const light = createBuilder({ glow: true });
+    for (const bld of [gate, light]) bld.push(p.x, p.y, p.z, ry);
+    for (const side of [-1, 1]) gate.box(10, 16, 12, 0x8a9096, side * (w + 5.2), 0, 0); // 両がわの建物
+    gate.box(2 * w + 20.4, 7, 12, 0x8a9096, 0, 9.5, 0); // 入口の上
+    gate.box(2 * w + 22, 1, 13, 0x5a6066, 0, 16.5, 0); // 屋根
+    light.box(2 * w + 2, 0.5, 0.4, 0x3ad2ff, 0, 9.2, 6.3); // 入口のふちの青い光
+    for (const side of [-1, 1]) light.box(0.5, 9, 0.4, 0x3ad2ff, side * (w + 0.3), 0, 6.3);
+    gate.label(textSign('UNDER THE SEA', { bg: '#0b3d66', fg: '#bfefff', font: 'bold 80px sans-serif' }), [768, 128], 0, 13, 6.3, 0, 2 * w, 4);
+    for (const bld of [gate, light]) bld.pop();
+    g.add(gate.build(), light.build());
+  };
+  portal(sOf(track, 'SD'), 'seaPortal', false);
+  portal(sOf(track, 'LIB'), 'seaExit', true);
+
   // しずんだ船（茶色の木の船、かたむいて砂にうまる）
   const wr = nearRoad(track, S.wreck.at, 45);
   landmark(g, 'wreck', wr.x, -44, wr.z);
@@ -175,5 +282,6 @@ export function updateSea(group, time) {
     o.position.set(s.cx + s.fx * f - s.fz * l, s.y + Math.sin(an * 3) * 1, s.cz + s.fz * f + s.fx * l);
     const dir = Math.cos(an) >= 0 ? 1 : -1;
     o.rotation.y = Math.atan2(s.fx * dir, s.fz * dir);
+    if (o.userData.jaw) o.userData.jaw.rotation.z = 0.45 + Math.sin(time * 2.2) * 0.35; // 怪獣の口をぱくぱく
   });
 }

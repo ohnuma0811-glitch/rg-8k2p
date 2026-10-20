@@ -121,9 +121,12 @@ export function soundEvents(prev, cur, laps) {
   // 自動の区間（Global City）: 打ち上げ・大ジャンプ・輪っか（3つ目で ERROR とワープ）
   if (cur.auto !== prev.auto && cur.auto === 'space') ev.push('launch');
   if (cur.auto !== prev.auto && cur.auto === 'jump') ev.push('bigJump');
+  // 輪っかを通るときは、ジャンプ台の加速の音（2026-10-21 のユーザー依頼）
   if (cur.auto === 'warp' && (prev.auto !== 'warp' || cur.autoLeg > prev.autoLeg)) {
     if (cur.autoError && !prev.autoError) ev.push('error', 'warp');
-    else ev.push('ring');
+    else ev.push('boost');
   }
+  // ワープが終わって着いたら「ドーン」（2026-10-21 のユーザー依頼）
+  if (prev.auto === 'warp' && cur.auto !== 'warp') ev.push('land');
   return ev;
 }

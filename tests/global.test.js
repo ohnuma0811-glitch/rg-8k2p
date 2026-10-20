@@ -144,9 +144,13 @@ test('自動の区間の前後で、2台の差（s）は変わらない（同じ
   const k1 = createKart(t, Math.round(a.from - 40), 0);
   const k2 = createKart(t, Math.round(a.from - 80), 0);
   k1.speed = k2.speed = 30;
+  // 2台目が自動の区間を出たときに比べる（そのあとハンドルを切らずに走ると、壁にぶつかって差が変わる）
+  let was = false;
   for (let f = 0; f < 60 * 14; f++) {
     stepKart(k1, full, t, params, 1 / 60);
     stepKart(k2, full, t, params, 1 / 60);
+    if (k2.auto) was = true;
+    else if (was) break;
   }
   const gap = t.samples[k1.seg].s - t.samples[k2.seg].s;
   assert.ok(gap > 20 && gap < 70, `${gap}`);
@@ -581,10 +585,11 @@ test('皇居と東京駅には英語の看板（2026-10-21 のユーザー依頼
 import { shinkansenCars, SHINKANSEN_CAR } from '../src/game/world.js';
 
 test('新幹線は1両ずつ線路にそって曲がる（2026-10-21 のユーザー依頼「真っすぐなままカーブして、レールの外に突き出ている」）', () => {
-  const line = { from: t.marks.SK, to: t.marks.KT, s0: t.marks.SK, off: 40, y: 10 };
+  const line = { from: t.marks.SK, to: t.marks.KT, off: 40, y: 10, t0: 0, lead: 300 };
   for (const time of [3, 7, 11, 20]) {
     const cars = shinkansenCars(t, line, time, 30, 16);
     assert.equal(cars.length, 16);
+    assert.ok(cars.some((c) => c.visible) || time > 15, `time ${time}: 見えない`);
     for (const c of cars.filter((c) => c.visible)) {
       // 両の前と後ろのはしが、線路（道の横 off m の線）から 1.5m 以内
       for (const end of [-1, 1]) {
@@ -643,4 +648,79 @@ test('お台場の道の下は海ではない（2026-10-21 のユーザー依頼
     if (water.some((b) => p.x > b.min.x - p.wall && p.x < b.max.x + p.wall && p.z > b.min.z - p.wall && p.z < b.max.z + p.wall)) under++;
   }
   assert.equal(under, 0, `お台場の道の下に海 ${under}`);
+});
+
+test('海の底: もぐる所に入口の門と、コンクリートのトンネル（そのあとガラス）。出口も（2026-10-21 のユーザー依頼「潜るトンネルの入り口を作って」）', () => {
+  const m = landmarks(buildSea(t));
+  assert.ok(m.has('seaPortal'), '入口の門');
+  assert.ok(m.has('seaExit'), '出口の門');
+  const lib = t.marks.LIB;
+  assert.equal(t.samples[Math.round(t.marks.SD) + 5].tunnelLook, 'concrete');
+  assert.equal(t.samples[Math.round(lib) - 5].tunnelLook, 'concrete');
+  // 入口から出口まで、トンネルがとぎれない
+  for (let s = Math.round(t.marks.SD) + 1; s < lib - 1; s++) assert.ok(t.samples[s].tunnelLook, `s ${s}`);
+});
+
+test('海の底: 魚の群れや大きな生き物がたくさん。Soki Forest の巨大怪獣も泳ぐ（2026-10-21 のユーザー依頼）', () => {
+  const g = buildSea(t);
+  let swim = 0;
+  g.traverse((o) => { if (o.userData.swim) swim++; });
+  assert.ok(swim >= 24, `泳ぐもの ${swim}`);
+  const m = landmarks(g);
+  for (const name of ['monster', 'turtle', 'manta']) assert.ok(m.has(name), name);
+});
+
+test('富士山のふもとの道は、左右にカーブが続く（2026-10-21 のユーザー依頼「直線で単調。もっとカーブをつけて」）', () => {
+  const a = Math.round(t.marks.FL);
+  const b = Math.round(t.marks.KT);
+  let total = 0;
+  let flips = 0;
+  let prevSign = 0;
+  for (let i = a; i < b; i += 10) {
+    let d = t.samples[i + 10].h - t.samples[i].h;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    total += Math.abs(d);
+    const sg = Math.abs(d) > 0.02 ? Math.sign(d) : 0;
+    if (sg && prevSign && sg !== prevSign) flips++;
+    if (sg) prevSign = sg;
+  }
+  assert.ok((total * 180) / Math.PI > 400, `曲がる角度の合計 ${Math.round((total * 180) / Math.PI)}度`);
+  assert.ok(flips >= 5, `左右の切りかえ ${flips}回`);
+});
+
+import { createShinkansenModel } from '../src/render/models.js';
+
+test('新幹線は「のぞみ」の形: 先頭と最後尾に長い鼻、屋根は丸い（2026-10-21 のユーザー依頼「牛乳パックのように四角」）', async () => {
+  const THREE = await import('../vendor/three.module.min.js');
+  const m = createShinkansenModel(4);
+  const cars = m.userData.cars;
+  const box = (o) => new THREE.Box3().setFromObject(o);
+  assert.ok(box(cars[0]).max.x >= 12.5 + 9, `先頭の鼻 ${box(cars[0]).max.x}`);
+  assert.ok(box(cars[3]).min.x <= -12.5 - 9, `最後尾の鼻 ${box(cars[3]).min.x}`);
+  // 屋根は丸い: 車体の上の角（横のはし・高いところ）に形がない
+  let corner = 0;
+  cars[1].updateMatrixWorld(true);
+  cars[1].traverse((o) => {
+    if (!o.isMesh) return;
+    const a = o.geometry.attributes.position;
+    for (let k = 0; k < a.count; k++) if (a.getY(k) > 3.7 && Math.abs(a.getZ(k)) > 1.5) corner++;
+  });
+  assert.equal(corner, 0, '屋根の角が四角');
+});
+
+test('新幹線は、自分が近づいてから走り出し、線路の終わりまで行っても始まりへ戻らない（2026-10-21 のユーザー依頼「突然新幹線が消えた」）', () => {
+  const line = { from: t.marks.SK, to: t.marks.KT, off: -28, y: 10, t0: 100, lead: -100 };
+  let prev = -Infinity;
+  for (let time = 100; time < 160; time += 0.5) {
+    const cars = shinkansenCars(t, line, time, 30, 16);
+    // 先頭の s（見えている両の中でいちばん前）は、もどらない
+    const head = cars[0];
+    const s = locate(t, head.x - Math.sin(0) * 0, head.z, null, 40).s;
+    if (cars.some((c) => c.visible)) {
+      assert.ok(s >= prev - 1, `time ${time}: ${Math.round(prev)} → ${Math.round(s)}`);
+      prev = s;
+    }
+  }
+  // 走り出す前は見えない
+  assert.ok(shinkansenCars(t, { ...line, t0: null }, 50, 30, 16).every((c) => !c.visible));
 });

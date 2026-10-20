@@ -216,16 +216,26 @@ test('道の上の木にぶつかったら bump（ドン。Soki Forest）', () =
   assert.deepEqual(soundEvents(st({}, { treeHits: 0 }), st({}, { treeHits: 1 }), 3), ['bump']);
 });
 
-test('Global City: 宇宙に入ると launch、大ジャンプは bigJump、輪っかごとに ring、3つ目で error と warp', () => {
+test('Global City: 宇宙に入ると launch、大ジャンプは bigJump、輪っかごとに加速の音（boost）、3つ目で error と warp', () => {
   const base = st();
   const a = (k) => st({}, k);
   assert.ok(soundEvents(base, a({ auto: { id: 'space', leg: 0 } }), 1).includes('launch'));
   assert.ok(soundEvents(base, a({ auto: { id: 'jump', leg: 0 } }), 1).includes('bigJump'));
   const w0 = a({ auto: { id: 'warp', leg: 0 } });
-  assert.ok(soundEvents(base, w0, 1).includes('ring'));
+  assert.ok(soundEvents(base, w0, 1).includes('boost'));
   const w1 = a({ auto: { id: 'warp', leg: 1 } });
-  assert.ok(soundEvents(w0, w1, 1).includes('ring'));
+  assert.ok(soundEvents(w0, w1, 1).includes('boost'));
   assert.deepEqual(soundEvents(w1, w1, 1), [], '同じ区間の間は鳴らさない');
   const ev = soundEvents(w1, a({ auto: { id: 'warp', leg: 2 }, autoError: true }), 1);
-  assert.ok(ev.includes('error') && ev.includes('warp') && !ev.includes('ring'));
+  assert.ok(ev.includes('error') && ev.includes('warp') && !ev.includes('boost'));
+});
+
+test('ワープが終わって着くと「ドーン」の着地の音。輪っかを通るときはジャンプ台の加速の音（2026-10-21 のユーザー依頼）', () => {
+  const a = (k) => st({}, k);
+  const w0 = a({ auto: { id: 'warp', leg: 0 } });
+  assert.ok(soundEvents(st(), w0, 1).includes('boost'), '1つ目の輪っか');
+  const w1 = a({ auto: { id: 'warp', leg: 1 } });
+  assert.ok(soundEvents(w0, w1, 1).includes('boost'), '2つ目の輪っか');
+  const w2 = a({ auto: { id: 'warp', leg: 2 }, autoError: true });
+  assert.ok(soundEvents(w2, a({ auto: null }), 1).includes('land'), 'ワープの着地');
 });
