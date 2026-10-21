@@ -1444,3 +1444,12 @@ test('TOKYO STATION の看板は、駅の手前のカーブに入る前から正
   const loc = locate(t, sg.x, sg.z, null, 40);
   assert.ok(Math.abs(loc.lateral) > t.samples[loc.i].wall + 2);
 });
+
+test('金閣寺は道の近く（池は建物のすぐ前、松は池の両わき）（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildKyoto(t));
+  const k = m.get('kinkaku');
+  const loc = locate(t, k.x, k.z, null, 40);
+  const gap = Math.abs(loc.lateral) - t.samples[loc.i].wall;
+  assert.ok(gap > 30 && gap < 50, `道から ${Math.round(gap)}m`);
+  assert.equal(intrusions(buildKyoto(t), t.marks.GK, t.marks.AR), 0);
+});
