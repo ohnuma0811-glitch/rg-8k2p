@@ -104,3 +104,11 @@ test('コース選びのボタンは5つ: 2列にならべ、最後の1つは真
   const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
   assert.match(css, /#menu \.choices\.courses button:last-child:nth-child\(odd\)\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*justify-self:\s*center/);
 });
+
+test('コース選び: ボタンの並びと OK ボタンの間をあける（Global City と OK が重なった。2026-10-21 のユーザー依頼）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const m = css.match(/#menu \.choices\.courses \{[^}]*margin-bottom:\s*(\d+)px/);
+  assert.ok(m && Number(m[1]) >= 28, '下のすき間');
+  assert.match(css, /#menu \.choices\.courses button\.picked \{[^}]*box-shadow/);
+});

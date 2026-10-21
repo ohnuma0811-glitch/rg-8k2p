@@ -832,6 +832,11 @@ html, body {
   display: grid;
   grid-template-columns: repeat(2, max-content);
   justify-content: center;
+  margin-bottom: 32px; /* 選んだボタンの光が、下の OK ボタンに重ならないように（2026-10-21 のユーザー依頼） */
+}
+/* 選んだコースの光は控えめに（光が広いと、となりや下のボタンに重なった） */
+#menu .choices.courses button.picked {
+  box-shadow: 0 0 0 4px #fff6b0, 0 0 14px 4px #ffd84a;
 }
 #menu .choices.courses button {
   white-space: nowrap;
@@ -840,6 +845,16 @@ html, body {
 #menu .choices.courses button:last-child:nth-child(odd) {
   grid-column: 1 / -1;
   justify-self: center;
+}
+/* 縦の短い画面（スマホを横にしたときなど）は3列に（OK ボタンまで画面に収まるように。2026-10-21） */
+@media (max-height: 520px) {
+  #menu .choices.courses {
+    grid-template-columns: repeat(3, max-content);
+    margin-bottom: 20px;
+  }
+  #menu .choices.courses button:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
 }
 #menu table.results.tt-table th {
   padding: 0 10px 2px;
