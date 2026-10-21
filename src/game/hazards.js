@@ -516,9 +516,12 @@ export function busPose(track, bus, time) {
   const lateral = side * (BUS_LANE + (p.half - track.roadHalf));
   const px = p.x + (q.x - p.x) * f;
   const pz = p.z + (q.z - p.z) * f;
+  // 高さは道の高さ（高い橋やらせんの上で、地面の高さを走って見えた。2026-10-21 のユーザー依頼）
+  const y = (p.y ?? 0) + ((q.y ?? p.y ?? 0) - (p.y ?? 0)) * f;
   return {
     s,
     x: px - Math.sin(p.h) * lateral,
+    y,
     z: pz + Math.cos(p.h) * lateral,
     lateral,
     heading: dir < 0 ? p.h + Math.PI : p.h, // 向かってくる車はコースと逆向き
@@ -532,6 +535,7 @@ export function busContact(kart, track, time, phys) {
   let touching = false;
   for (const bus of track.buses ?? []) {
     const b = busPose(track, bus, time);
+    if (Math.abs((kart.y ?? 0) - b.y) > 3) continue; // 高さがちがう（らせんの上と下など）
     const fx = Math.cos(b.heading);
     const fz = Math.sin(b.heading);
     const dx = kart.x - b.x;

@@ -496,7 +496,7 @@ function placeBuses(time) {
   track.buses.forEach((bus, k) => {
     const p = busPose(track, bus, time);
     const m = track.busModels[k];
-    m.position.set(p.x, 0, p.z);
+    m.position.set(p.x, p.y ?? 0, p.z); // 道の高さ
     m.rotation.y = -p.heading;
   });
 }

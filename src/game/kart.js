@@ -121,7 +121,9 @@ function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
 // 自動の区間に入る（本線の点 p.auto の所に来た）
 function startAuto(kart, track, params, id) {
   const a = track.autos.find((x) => x.id === id);
-  kart.auto = { id, leg: 0, t: 0, from: a.from, speedIn: kart.speed };
+  // ワープのあとは、最高速度のまま走りだす（2026-10-21 のユーザー依頼「最高速度を維持したまま」）
+  const speedIn = id === 'warp' ? Math.max(kart.speed, params?.topSpeed ?? kart.speed) : kart.speed;
+  kart.auto = { id, leg: 0, t: 0, from: a.from, speedIn };
   kart.autoError = false;
   kart.airborne = false;
   kart.vy = 0;
@@ -147,7 +149,7 @@ function stepAuto(kart, track, dt) {
   // 進む割合 f(u) = a・u + (1 − a)・u²（はじめの速さが入ったときの速さ）
   const D = leg.to - st.from;
   const u = Math.min(1, st.t / leg.time);
-  const ease = (a.id === 'jump' || a.id === 'goalJump') && st.leg === 0 ? Math.min(1, Math.max(0.15, (st.speedIn * leg.time) / D)) : 1;
+  const ease = (a.id === 'jump' || a.id === 'goalJump' || a.id === 'batuJump') && st.leg === 0 ? Math.min(1, Math.max(0.15, (st.speedIn * leg.time) / D)) : 1;
   const s = done ? leg.to : st.from + D * (ease * u + (1 - ease) * u * u);
   const p = sampleAt(track, s);
   kart.x = p.x;

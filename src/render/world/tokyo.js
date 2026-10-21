@@ -175,8 +175,6 @@ export function buildTokyo(track) {
   for (let k = 0; k < 40; k++) b.box(22.6, 4, 2.2, 0xe8e4da, 0, 10, -156 + k * 8); // 窓の白いふち
   b.box(28, 30, 40, BRICK, 0, 0, 0); // 真ん中
   b.box(28.4, 2, 40.4, 0x4a5058, 0, 30, 0);
-  // 英語の看板「TOKYO STATION」（正面の西がわ。2026-10-21 のユーザー依頼）
-  b.label(textSign('TOKYO STATION', { bg: '#f4f0e6', fg: '#6a2a1f', font: 'bold 72px serif' }), [768, 128], -14.3, 24, 0, -Math.PI / 2, 26, 4.4);
   for (const zz of [-150, 150]) {
     b.cyl(17, 17, 32, 8, BRICK, 0, 0, zz); // 南北のドーム
     b.cyl(17.4, 17.4, 1.6, 8, WHITE, 0, 18, zz);
@@ -184,7 +182,30 @@ export function buildTokyo(track) {
     b.cyl(0.5, 0.5, 4, 6, 0x5a6168, 0, 44, zz);
   }
   b.pop();
-  landmark(city, 'stationSign', st.x - 14.3, 26, st.z);
+  // 英語の看板「TOKYO STATION」: 駅の手前のカーブに入る前から、正面に見える所（カーブの外がわの先）に、高い柱の上の大きな板
+  // （駅の建物に付けた看板は見えなかった。2026-10-21 のユーザー依頼）
+  {
+    const cw = worldAt(track, [400, -60]);
+    const cl = locate(track, cw.x, cw.z, null, 40);
+    const pin = pointAt(track, cl.s - 60);
+    const c = pointAt(track, cl.s);
+    let x = 0;
+    let z = 0;
+    for (let d = c.wall + 18; d < c.wall + 120; d += 4) {
+      x = c.x + Math.cos(pin.h) * d;
+      z = c.z + Math.sin(pin.h) * d;
+      if (clearOfRoads(track, x, z, 8)) break;
+    }
+    const ry = ryAlong(pin.h) + Math.PI; // 走ってくる方へ
+    b.push(x, 0, z, ry);
+    for (const sx of [-9, 9]) b.box(0.8, 14, 0.8, 0x4a4a52, sx, 0, 0);
+    b.box(26, 7, 0.6, 0x6a2a1f, 0, 14, 0);
+    const draw = textSign('TOKYO STATION', { bg: '#6a2a1f', fg: '#ffffff', font: 'bold 110px serif' });
+    b.label(draw, [1024, 256], 0, 17.5, 0.4, 0, 25, 6.2);
+    b.label(draw, [1024, 256], 0, 17.5, -0.4, Math.PI, 25, 6.2);
+    b.pop();
+    landmark(city, 'stationSign', x, 17, z);
+  }
   roadBanner(city, b, track, sOf(track, 'TS') - 20, 'TOKYO STATION', 'bannerTokyoStation', { bg: '#6a2a1f', fg: '#ffffff' }); // 横断幕（駅の名前が見にくかった。2026-10-21 のユーザー依頼）
   cityBlocks(b, track, 'MRN', 'TT', { avoid: [{ ...st, r: 190 }, { ...shin, r: 60 }] });
 

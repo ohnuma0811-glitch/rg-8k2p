@@ -237,7 +237,7 @@ test('ワープが終わって着くと「ドーン」の着地の音。輪っ�
   const w1 = a({ auto: { id: 'warp', leg: 1 } });
   assert.ok(soundEvents(w0, w1, 1).includes('boost'), '2つ目の輪っか');
   const w2 = a({ auto: { id: 'warp', leg: 2 }, autoError: true });
-  assert.ok(soundEvents(w2, a({ auto: null }), 1).includes('land'), 'ワープの着地');
+  assert.ok(!soundEvents(w2, a({ auto: null }), 1).includes('land'), 'ワープのあとは着地の音なし（2026-10-21 のユーザー依頼「着地音不要」）');
 });
 
 test('最後の大ジャンプ（goalJump）でも大ジャンプの音（2026-10-21）', () => {

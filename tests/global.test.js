@@ -100,8 +100,8 @@ function through(id, seconds) {
   return { kart, log };
 }
 
-test('自動の区間は4つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）、最後の大ジャンプ', () => {
-  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp', 'goalJump']);
+test('自動の区間は5つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）、バトゥ洞窟へのジャンプ、最後の大ジャンプ', () => {
+  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp', 'batuJump', 'goalJump']);
   const time = (id) => t.autos.find((a) => a.id === id).legs.reduce((x, l) => x + l.time, 0);
   assert.equal(time('jump'), 4);
   assert.equal(time('space'), 8);
@@ -118,7 +118,8 @@ for (const [id, to, secs] of [['jump', 'FL', 4], ['space', 'HL', 8], ['warp', 'K
     assert.ok(out > 0);
     assert.ok(Math.abs(log[out].s - t.marks[to]) < 3, `${log[out].s}`);
     assert.ok(!log[out].air, '浮いている');
-    assert.ok(Math.abs(log[out].speed - log[first - 1].speed) < 3);
+    if (id === 'warp') assert.ok(log[out].speed >= log[first - 1].speed - 0.5, 'ワープのあとは最高速度のまま（2026-10-21 のユーザー依頼）');
+    else assert.ok(Math.abs(log[out].speed - log[first - 1].speed) < 3);
     for (let k = first + 1; k < out; k++) assert.ok(log[k].s >= log[k - 1].s - 0.01, '自動の区間で戻った');
   });
 }
@@ -175,9 +176,9 @@ test('道のはしでは、前にもうしろにも、それより先へ行け�
   assert.ok(!t.samples[back.seg].void && !(back.respawn > 0), 'スタートの後ろの先');
 });
 
-test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（4本）', () => {
+test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（5本）', () => {
   for (const ps of minimapPaths(t)) for (const p of ps) assert.ok(!p.void && !p.auto);
-  assert.equal(minimapDashes(t).length, 4);
+  assert.equal(minimapDashes(t).length, 5);
 });
 
 import { stageVisible } from '../src/game/world.js';
@@ -1033,9 +1034,10 @@ test('コースを作る時間は短い（ならせない急なカーブがな�
 test('クアラルンプールの最後は大ジャンプで自動ゴール（ツインタワーの間を飛ぶ）。ジャンプ台の手前に加速板の代わりの坂、着いた順がそのまま順位（2026-10-21 のユーザー依頼）', () => {
   const gj = t.autos.find((a) => a.id === 'goalJump');
   assert.ok(gj, '自動の区間 goalJump');
-  assert.ok(gj.from < t.finish && gj.legs[gj.legs.length - 1].to > t.finish, 'ゴールをジャンプで越える');
-  const mid = t.samples[Math.round(t.finish)];
-  assert.ok(mid.auto === 'goalJump' && mid.y > 40, 'ゴールの上を高く飛ぶ');
+  // ゴールラインの少し手前（30〜80m）に着地して、走ってゴールラインを越える（2026-10-21 のユーザー依頼）
+  const land = gj.legs[gj.legs.length - 1].to;
+  assert.ok(land < t.finish && t.finish - land > 30 && t.finish - land < 80, `着地からゴールまで ${Math.round(t.finish - land)}m`);
+  assert.ok(!t.samples[Math.round(t.finish)].auto, 'ゴールラインは走って越える');
 });
 
 test('ワープの輪っかの間隔は前の2倍。レインボーブリッジの上に加速板1枚（2026-10-21 のユーザー依頼）', () => {
@@ -1367,4 +1369,78 @@ test('信号の灯は、走ってくるカートの方を向く（反対を向�
   const box = b.build();
   const fwd = (o) => { let sum = 0; let n = 0; o.traverse((m) => { if (!m.isMesh) return; const a = m.geometry.attributes.position; for (let k = 0; k < a.count; k++) { sum += (a.getX(k) - p.x) * Math.cos(p.h) + (a.getZ(k) - p.z) * Math.sin(p.h); n++; } }); return sum / n; };
   assert.ok(fwd(lamps) < fwd(box) - 0.1, `灯 ${fwd(lamps).toFixed(2)} / 箱 ${fwd(box).toFixed(2)}`);
+});
+
+test('タクシーは道の高さを走る（ジョージ・ワシントン・ブリッジの下の道のない所を走っていた。2026-10-21 のユーザー依頼）', () => {
+  const taxi = t.buses.find((b) => b.kind === 'taxi');
+  let checked = 0;
+  for (let time = 0; time < 200; time += 0.5) {
+    const p = busPose(t, taxi, time);
+    const q = t.samples[Math.floor(p.s)];
+    assert.ok(Math.abs(p.y - q.y) < 0.6, `s ${Math.round(p.s)}: タクシー ${p.y?.toFixed?.(1)} / 道 ${q.y.toFixed(1)}`);
+    if (q.y > 10) checked++;
+  }
+  assert.ok(checked > 0, '橋の上も通る');
+});
+
+test('ワープ地点（輪っか）のまわりに高層ビルがたくさん（殺風景だった。2026-10-21 のユーザー依頼）', () => {
+  let n = 0;
+  buildNewYork(t).traverse((o) => { if (o.userData.landmark === 'ringTower') n++; });
+  assert.ok(n >= 25, `${n}`);
+  assert.equal(intrusions(buildNewYork(t), t.marks.IG, t.marks.R3), 0);
+});
+
+test('クアラルンプールのゴールにゴールライン（白黒の線）（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildKL(t));
+  assert.ok(m.has('finishLine'));
+  const f = m.get('finishLine');
+  const p = t.samples[Math.round(t.finish)];
+  assert.ok(Math.hypot(f.x - p.x, f.z - p.z) < 3);
+});
+
+test('ワープのあとは、最高速度のまま走りだす（2026-10-21 のユーザー依頼「最高速度を維持したまま」）', () => {
+  const kart = createKart(t, Math.round(t.marks.R1) - 20, 0);
+  kart.speed = 15; // ゆっくり輪っかに入っても
+  let out = null;
+  let was = false;
+  for (let f = 0; f < 60 * 15 && out === null; f++) {
+    stepKart(kart, full, t, params, 1 / 60);
+    if (kart.auto?.id === 'warp') was = true;
+    else if (was) out = kart.speed;
+  }
+  assert.ok(out !== null && out >= params.topSpeed - 0.5, `ワープのあと ${out} / 最高 ${params.topSpeed}`);
+});
+
+test('バトゥ洞窟: ジャンプ台から虹色の階段を飛びこえて、高い所の洞窟の入口に着地。洞窟を抜けたら元の道へ飛び降りる（2026-10-21 のユーザー依頼）', () => {
+  const bj = t.autos.find((a) => a.id === 'batuJump');
+  assert.ok(bj, '洞窟へのジャンプ');
+  const land = t.samples[Math.round(bj.legs[0].to)];
+  assert.ok(land.y >= 15, `洞窟の入口の高さ ${land.y}`);
+  assert.ok(at('BC').tunnel && at('BC').y >= 15, '洞窟の中は高い所');
+  // 洞窟を抜けたら、地面のない所（飛び降りる）を通って、元の道（高さ 0）へ
+  const bx = Math.round(t.marks.BX);
+  let gap = 0;
+  for (let i = bx; i < Math.round(t.marks.M); i++) if (t.samples[i].y === null) gap++;
+  assert.ok(gap > 10, `飛び降りる所 ${gap}m`);
+  assert.ok(Math.abs(at('M').y) < 0.5, '元の道の高さ');
+  // 虹色の階段は、ジャンプの下（道の上）にあり、洞窟の入口の高さまで上る
+  const m = landmarks(buildKL(t));
+  const st = m.get('rainbowStairs');
+  const loc = locate(t, st.x, st.z, null, 40);
+  assert.ok(loc.s > t.marks.BJ && loc.s < bj.legs[0].to, '階段はジャンプの下');
+});
+
+test('TOKYO STATION の看板は、駅の手前のカーブに入る前から正面に見える（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildTokyo(t));
+  const sg = m.get('stationSign');
+  // カーブの手前（MRN と TS の間の角の 60m 手前）から見て、前に 40〜200m、横 40m 以内
+  const cw = t.toWorld(400, -60);
+  const corner = locate(t, cw.x, cw.z, null, 40);
+  const p = t.samples[Math.round(corner.s - 60)];
+  const fwd = (sg.x - p.x) * Math.cos(p.h) + (sg.z - p.z) * Math.sin(p.h);
+  const lat = -(sg.x - p.x) * Math.sin(p.h) + (sg.z - p.z) * Math.cos(p.h);
+  assert.ok(fwd > 40 && fwd < 200 && Math.abs(lat) < 40, `前 ${Math.round(fwd)} 横 ${Math.round(lat)}`);
+  // 道にはかからない
+  const loc = locate(t, sg.x, sg.z, null, 40);
+  assert.ok(Math.abs(loc.lateral) > t.samples[loc.i].wall + 2);
 });
