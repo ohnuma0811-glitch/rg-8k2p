@@ -1,7 +1,7 @@
 // Global City の空の雲（2026-10-21 のユーザー依頼「景色が無ければ空に雲を入れたり」）: 昼と夕方のステージに、道の上の空に白い雲
-import * as THREE from '../../../vendor/three.module.min.js?v=396317d';
-import { createBuilder } from '../town/builder.js?v=396317d';
-import { landmark, pointAt, beside } from './kit.js?v=396317d';
+import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
+import { createBuilder } from '../town/builder.js?v=c221cc0';
+import { landmark, pointAt, beside } from './kit.js?v=c221cc0';
 
 const DAY = [0, 1, 2, 5, 6]; // 雲を出すステージ（香港は夜、海の底は水の中）
 

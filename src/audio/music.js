@@ -1,6 +1,6 @@
 // 曲: 楽譜のデータから音の並びを作り（テストできる）、OfflineAudioContext で一度だけ音にして、ループで流す
-import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=396317d';
-import { SONGS } from './songs.js?v=396317d';
+import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=c221cc0';
+import { SONGS } from './songs.js?v=c221cc0';
 
 // 16分音符1つの秒数と、曲1回分の秒数
 export const stepSec = (song) => 60 / song.bpm / 4;
@@ -340,6 +340,11 @@ function makeInstruments(ctx, dest, noise, end, voice) {
       jingle.exponentialRampToValueAtTime(0.0001, t + 0.1);
     }
   };
+}
+
+// レースの前に作っておく曲（コースの曲、ゴールの曲、結果の曲）
+export function raceSongs(def) {
+  return [def.music, 'victory', 'consolation', 'results'];
 }
 
 // 曲を流す: prepare で作っておき（一度だけ）、play でループ、setRate で速さ、stop でだんだん消す

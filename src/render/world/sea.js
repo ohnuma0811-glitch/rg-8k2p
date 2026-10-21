@@ -1,11 +1,11 @@
 // Global City の海の底（2026-10-20）: 香港の港から坂を下って海にもぐり、透明なガラスのトンネルを走る。
 // クジラ・サメ・魚の群れ・しずんだ船が見える。坂を上って、自由の女神の足もとから地上に出る
-import * as THREE from '../../../vendor/three.module.min.js?v=396317d';
-import { createBuilder } from '../town/builder.js?v=396317d';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=396317d';
-import { locate } from '../../game/track.js?v=396317d';
-import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js?v=396317d';
-import { createDinoModel } from '../models.js?v=396317d';
+import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
+import { createBuilder } from '../town/builder.js?v=c221cc0';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=c221cc0';
+import { locate } from '../../game/track.js?v=c221cc0';
+import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js?v=c221cc0';
+import { createDinoModel, mergeStatic } from '../models.js?v=c221cc0';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 
@@ -169,7 +169,7 @@ export function buildSea(track) {
   {
     const c = onRoad(gs + (ge - gs) * 0.45, -34);
     const mon = new THREE.Group();
-    const head = createDinoModel(); // 前は +x、横はば 26m
+    const head = mergeStatic(createDinoModel()); // 前は +x、横はば 26m。動かない部品はまとめる（描く回数を減らす。2026-10-22 のユーザー依頼「タブレットで重い」）
     head.rotation.y = -Math.PI / 2; // 前を +z に
     const body = createBuilder();
     body.box(22, 16, 30, 0xf08a24, 0, -4, -18); // 体

@@ -1,10 +1,10 @@
 // Global City の香港（2026-10-20）: 夜。香港島の中環（セントラル）の高層ビル群の間を抜ける。ネオンの看板がギラギラ光る。北がわがビクトリア湾
-import * as THREE from '../../../vendor/three.module.min.js?v=396317d';
-import { createBuilder } from '../town/builder.js?v=396317d';
-import { locate } from '../../game/track.js?v=396317d';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=396317d';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=396317d';
-import { cityBlocks } from './tokyo.js?v=396317d';
+import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
+import { createBuilder } from '../town/builder.js?v=c221cc0';
+import { locate } from '../../game/track.js?v=c221cc0';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=c221cc0';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=c221cc0';
+import { cityBlocks } from './tokyo.js?v=c221cc0';
 
 const NEON = [0xff2d6f, 0x2de0ff, 0xffe12d, 0x7dff3a, 0xff7a1a, 0xc23aff];
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -59,6 +59,7 @@ export function buildHongKong(track) {
   const WORDS = ['金龍酒家', '茶餐廳', '大押', '藥房', '海鮮酒家', '麻雀館', '珠寶金行', '時裝', '找換店', '涼茶', '燒臘', '雲吞麵', '大酒樓', '旅館', '電器', '眼鏡', '鐘錶', '夜市', '鴻運', '百貨'];
   const COLORS = ['#ff2d6f', '#2de0ff', '#ffe12d', '#7dff3a', '#ff7a1a', '#c23aff', '#ff4040'];
   let n = 0;
+  const faces = [];
   along(track, S.neon.from, S.neon.to, 12, (p) => {
     for (const side of [-1, 1]) {
       n++;
@@ -80,14 +81,16 @@ export function buildHongKong(track) {
       g.add(sg);
       glow.push(mid.x, y, mid.z, ryAlong(p.h));
       glow.box(out + 0.4, h + 0.4, 0.3, 0x120a18, 0, 0, 0); // 板
-      glow.label(neonSign(text, color), [128, 128 * len], 0, h / 2, 0.2, 0, out, h); // 前（走ってくる方）
-      glow.label(neonSign(text, color), [128, 128 * len], 0, h / 2, -0.2, Math.PI, out, h); // 後ろ
       glow.pop();
+      // 字の面は、あとで1つの形にまとめる（前＝走ってくる方と、後ろ）
+      for (const [dz, ry] of [[0.2, 0], [-0.2, Math.PI]]) faces.push({ w, x: mid.x, y, z: mid.z, ry0: ryAlong(p.h), dz, ry, out, h });
       b.push(base.x, y + h, base.z, ryAlong(p.h));
       b.box(0.2, 0.2, 0.2, 0x333333, 0, 0, 0);
       b.pop();
     }
   });
+  const atlas = neonAtlasMesh(WORDS, COLORS, faces);
+  if (atlas) g.add(atlas);
   // 信号機（左側。香港は左側通行。2026-10-21 のユーザー依頼）: 道にそって 130m ごと
   {
     let k = 0;
@@ -97,4 +100,58 @@ export function buildHongKong(track) {
   landmark(g, 'neon', mid.x, 0, mid.z);
   g.add(b.build(), glow.build());
   return root;
+}
+
+// ネオン看板の字の面を、1枚の絵（言葉を並べた絵）と1つの形にまとめる（看板ごとに描くと、香港が 30fps になった。2026-10-22 のユーザー依頼）
+// 絵: 1つの言葉が はば 128・高さ 128×字の数 の場所に（ATLAS_COLS 列 × 行）。face: 看板の中心・向き・前後・大きさ
+const CELL_W = 128;
+const CELL_H = 512; // 4字まで
+const ATLAS_COLS = 10;
+function neonAtlasMesh(words, colors, faces) {
+  if (typeof document === 'undefined' || !faces.length) return null;
+  const rows = Math.ceil(words.length / ATLAS_COLS);
+  const W = CELL_W * ATLAS_COLS;
+  const H = CELL_H * rows;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const c2 = cv.getContext('2d');
+  words.forEach((text, k) => {
+    const x = (k % ATLAS_COLS) * CELL_W;
+    const y = Math.floor(k / ATLAS_COLS) * CELL_H;
+    const h = CELL_W * [...text].length;
+    c2.save();
+    c2.beginPath();
+    c2.rect(x, y, CELL_W, h);
+    c2.clip();
+    c2.translate(x, y);
+    neonSign(text, colors[k % colors.length])(c2, CELL_W, h);
+    c2.restore();
+  });
+  const pos = [];
+  const uv = [];
+  const m = new THREE.Matrix4();
+  const local = (x, y, z, ry) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z);
+  for (const f of faces) {
+    const len = [...words[f.w]].length;
+    const u0 = ((f.w % ATLAS_COLS) * CELL_W) / W;
+    const u1 = u0 + CELL_W / W;
+    const top = Math.floor(f.w / ATLAS_COLS) * CELL_H;
+    const v1 = 1 - top / H;
+    const v0 = 1 - (top + CELL_W * len) / H;
+    m.multiplyMatrices(local(f.x, f.y, f.z, f.ry0), local(0, f.h / 2, f.dz, f.ry));
+    const geo = new THREE.PlaneGeometry(f.out, f.h).toNonIndexed().applyMatrix4(m);
+    const p = geo.attributes.position.array;
+    const q = geo.attributes.uv.array;
+    for (let i = 0; i < p.length; i++) pos.push(p[i]);
+    for (let i = 0; i < q.length; i += 2) uv.push(u0 + q[i] * (u1 - u0), v0 + q[i + 1] * (v1 - v0));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide }));
+  mesh.userData.neon = true;
+  return mesh;
 }
