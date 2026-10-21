@@ -100,3 +100,38 @@ test('柵は見える: 道の幅いっぱいの低い板が、柵の所の地面
     assert.ok(!box.isEmpty());
   }
 });
+
+test('柵のそばを横切るほかの道（Kenta Circuit の交わる道）の壁ぎわを走る車は、柵に引っかからない（2026-10-22 のユーザー依頼）', () => {
+  let tried = 0;
+  for (const t of built) {
+    for (const g of t.oneWays) {
+      for (let j = 0; j < t.samples.length; j++) {
+        const q = t.samples[j];
+        const d = Math.min(Math.abs(j - g.i), t.length - Math.abs(j - g.i));
+        if (q.y === null || d < 30) continue;
+        for (const side of [-1, 1]) {
+          const lat0 = side * (q.wall - 1.2);
+          const x = q.x - Math.sin(q.h) * lat0;
+          const z = q.z + Math.cos(q.h) * lat0;
+          const dx = x - g.x;
+          const dz = z - g.z;
+          const fwd = dx * Math.cos(g.h) + dz * Math.sin(g.h);
+          const lat = -dx * Math.sin(g.h) + dz * Math.cos(g.h);
+          if (fwd >= 0.8 || fwd < -4 || Math.abs(lat) > g.wall + 1 || Math.abs(q.y - g.y) > 4) continue;
+          for (const turn of [-0.4, 0, 0.4]) {
+            const kart = createKart(t, j, lat0);
+            kart.x = x;
+            kart.z = z;
+            kart.y = q.y;
+            kart.heading = q.h + turn;
+            kart.move = kart.heading;
+            kart.speed = 25;
+            tried++;
+            assert.equal(oneWayContact(kart, t), null, `${t.def.name}: 柵 ${g.i} のそばの道 ${j}`);
+          }
+        }
+      }
+    }
+  }
+  assert.ok(tried > 0, 'Kenta Circuit の交わる道を調べた');
+});
