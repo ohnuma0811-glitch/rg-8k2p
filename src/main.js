@@ -545,7 +545,7 @@ function placeTrains(time, topSpeed) {
 // タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
 const TUNNEL_LOOK = tunnelLook(TOUCH_DEVICE);
 function showTunnel({ dark, black }, kart = null, open = 0) {
-  setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
+  setDarkness(scene, dark, TUNNEL_LOOK, kart, open, track);
   const v = $('vignette');
   v.style.opacity = String(Math.max(black, TUNNEL_LOOK.vignette * dark)); // まわりの暗さ
   v.classList.toggle('black', black > 0);
