@@ -1,6 +1,6 @@
 // Kyugo Mountain の案内（2026-10-18 のユーザー依頼）: トンネルのカーブの矢印の板、分かれ道と合流の手前の横断幕
-import { createBuilder } from '../town/builder.js?v=3d564fd';
-import { banner } from '../town/kit.js?v=3d564fd';
+import { createBuilder } from '../town/builder.js?v=ddbe513';
+import { banner } from '../town/kit.js?v=ddbe513';
 
 const TURN_LOOK = 15; // 前後この点数の向きの差で、カーブを見る
 const TURN_MIN = 0.25; // この角度（rad）より曲がる所に板を置く

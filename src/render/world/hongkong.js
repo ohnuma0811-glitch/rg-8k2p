@@ -1,10 +1,10 @@
 // Global City の香港（2026-10-20）: 夜。香港島の中環（セントラル）の高層ビル群の間を抜ける。ネオンの看板がギラギラ光る。北がわがビクトリア湾
-import * as THREE from '../../../vendor/three.module.min.js?v=3d564fd';
-import { createBuilder } from '../town/builder.js?v=3d564fd';
-import { locate } from '../../game/track.js?v=3d564fd';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=3d564fd';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=3d564fd';
-import { cityBlocks } from './tokyo.js?v=3d564fd';
+import * as THREE from '../../../vendor/three.module.min.js?v=ddbe513';
+import { createBuilder } from '../town/builder.js?v=ddbe513';
+import { locate } from '../../game/track.js?v=ddbe513';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=ddbe513';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=ddbe513';
+import { cityBlocks } from './tokyo.js?v=ddbe513';
 
 const NEON = [0xff2d6f, 0x2de0ff, 0xffe12d, 0x7dff3a, 0xff7a1a, 0xc23aff];
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -51,8 +51,26 @@ export function buildHongKong(track) {
   // ビクトリア湾（北がわの黒い海に、ビルの光の色の帯が映る）
   const hb = worldAt(track, S.harbour.at);
   landmark(g, 'harbour', hb.x, 0, hb.z);
-  b.box(1600, 0.1, 360, 0x0a1428, hb.x, -0.05, hb.z);
-  for (let k = 0; k < 40; k++) glow.box(4, 0.06, 60 + (k % 4) * 30, NEON[k % NEON.length], hb.x - 780 + k * 40, 0.02, hb.z + 120);
+  // 水は 40m 四方のますに分けて、地面より下を通る道（海にもぐるトンネル）の上のますは置かない
+  // （水の板がトンネルの中につき出て、先が見えなかった。2026-10-22 のユーザー依頼）
+  const under = track.samples.filter((p, i) => i % 2 === 0 && p.y !== null && p.y < -0.3 && Math.abs(p.x - hb.x) < 820 && Math.abs(p.z - hb.z) < 200);
+  const CELL = 40;
+  for (let cx = -800 + CELL / 2; cx < 800; cx += CELL) {
+    for (let cz = -180 + CELL / 2; cz < 180; cz += CELL) {
+      const x = hb.x + cx;
+      const z = hb.z + cz;
+      const near = under.some((p) => Math.abs(p.x - x) < CELL / 2 + p.wall + 4 && Math.abs(p.z - z) < CELL / 2 + p.wall + 4);
+      if (!near) b.box(CELL, 0.1, CELL, 0x0a1428, x, -0.05, z);
+    }
+  }
+  // 水に映る光の帯（トンネルの上にかかる帯は置かない）
+  for (let k = 0; k < 40; k++) {
+    const len = 60 + (k % 4) * 30;
+    const x = hb.x - 780 + k * 40;
+    const z = hb.z + 120;
+    if (under.some((p) => Math.abs(p.x - x) < 2 + p.wall + 4 && Math.abs(p.z - z) < len / 2 + p.wall + 4)) continue;
+    glow.box(4, 0.06, len, NEON[k % NEON.length], x, 0.02, z);
+  }
 
   // 中国語のネオン看板（2026-10-21 のユーザー依頼「中国語の看板に溢れているはず。看板を多数配置して」）:
   // 道の両がわのビルから、道の上へ突き出す縦の看板（漢字を縦に）。走ってくる方から読めるよう、板は道を横切る向き

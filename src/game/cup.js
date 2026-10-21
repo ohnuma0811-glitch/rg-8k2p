@@ -1,6 +1,6 @@
 // 大会（2026-10-14 のユーザー依頼）: 全部のレースのポイントの合計で優勝を決める
 // レースの数は、できているコースの数（2026-10-15 のユーザー依頼。今は2レース、最後は5レース）
-import { racePoints } from './race.js?v=3d564fd';
+import { racePoints } from './race.js?v=ddbe513';
 
 // count 台の大会を races レースで。車の番号（0〜count-1）は、どのレースでも同じ人・同じ CPU
 export function createCup(count, races) {

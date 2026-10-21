@@ -1,4 +1,4 @@
-import { sampleAt, stageAt } from './track.js?v=3d564fd';
+import { sampleAt, stageAt } from './track.js?v=ddbe513';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ
@@ -101,7 +101,9 @@ export function shinkansenCars(track, train, time, topSpeed, cars = 16) {
     const sb = sf - SHINKANSEN_CAR;
     const f = rail(sf);
     const b = rail(sb);
-    return { x: (f.x + b.x) / 2, y: train.y, z: (f.z + b.z) / 2, heading: Math.atan2(f.z - b.z, f.x - b.x), visible: sb >= train.from && sf <= train.to };
+    // portal: 線路の始まりが山のトンネルの出口。先頭が出口を出たら見せる（うしろは山の中にかくれている）
+    const shown = train.portal ? sf > train.from : sb >= train.from;
+    return { x: (f.x + b.x) / 2, y: train.y, z: (f.z + b.z) / 2, heading: Math.atan2(f.z - b.z, f.x - b.x), visible: shown && sf <= train.to };
   });
 }
 
