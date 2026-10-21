@@ -1125,6 +1125,11 @@ import { nightStage } from '../src/game/world.js';
 test('夜の香港とクアラルンプールでは、カートとバス・タクシーのライトがつく（2026-10-21 のユーザー依頼）', () => {
   for (const m of [createKartModel(), createTramModel()]) assert.ok(m.userData.lights, 'ライト');
   assert.ok(!createTaxiModel().userData.lights, 'タクシー（昼のニューヨーク）はライトなし（2026-10-21 のユーザー依頼「不要」）');
+  // Kampar のスクールバス（昼）はライトなし（2026-10-22 のユーザー依頼「ライトは消して」）。バスは文字を canvas で描くので、作り方の中身で見る
+  const src = readFileSync(new URL('../src/render/models.js', import.meta.url), 'utf8');
+  const from = src.indexOf('export function createBusModel');
+  const bus = src.slice(from, src.indexOf('export function', from + 10));
+  assert.ok(bus.length > 100 && !bus.includes('addHeadlights'), 'スクールバスはライトなし');
   assert.equal(nightStage(t, 3), true);
   assert.equal(nightStage(t, 6), true);
   assert.equal(nightStage(t, 0), false);

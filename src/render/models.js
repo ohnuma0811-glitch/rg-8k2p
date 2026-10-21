@@ -645,7 +645,7 @@ export function createBusModel() {
     if (side < 0) plate.rotation.y = Math.PI;
     g.add(plate);
   }
-  addHeadlights(g, 3.6, 0.9, 0.9, 16);
+  // ライトはなし（Kampar Town は昼。2026-10-22 のユーザー依頼「Kamparのバスのライトは消して」）
   return g;
 }
 
