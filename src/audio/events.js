@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=3294f6b';
+import { locate } from '../game/track.js?v=3d564fd';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -45,7 +45,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     tumble: (kart.tumble || 0) > 0, // バンプで転がっている
     cowHits: kart.cowHits || 0, // 牛にぶつかった回数
     bumpWarn, // バンプの警告を出している
-    busNear, // スクールバスが近い（すれちがう）
+    busNear, // スクールバスなどが近い（すれちがう）。近くの乗り物の種類か false
     busHits: kart.busHits || 0, // スクールバスにぶつかった回数
     boarWarn, // 近くのイノシシが、飛び出す前（しげみがゆれている）
     boarHits: kart.boarHits || 0, // イノシシにぶつかった回数
@@ -92,7 +92,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.tumble && !prev.tumble) ev.push('tumble');
   if (cur.cowHits > prev.cowHits) ev.push('moo');
   if (cur.bumpWarn && !prev.bumpWarn) ev.push('bumpWarn');
-  if (cur.busNear && !prev.busNear) ev.push('busPass');
+  if (cur.busNear && !prev.busNear) ev.push(cur.busNear === 'tram' ? 'tramPass' : 'busPass'); // 路面電車は電車のクラクション（2026-10-22）
   if (cur.busHits > prev.busHits) ev.push('busHit');
   if (cur.boarWarn && !prev.boarWarn) ev.push('boarWarn');
   if (cur.boarHits > prev.boarHits || cur.pierHits > prev.pierHits || cur.snowmanHits > prev.snowmanHits || cur.treeHits > prev.treeHits) ev.push('bump');

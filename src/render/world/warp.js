@@ -1,11 +1,16 @@
 // Global City のワープ（2026-10-20）: 3つ目の輪っかを過ぎると、光のトンネル。星が線になって、前から後ろへ速く流れる
 // カメラについていく（userData.followCamera）。見えるのはワープの間だけ（userData.stages = ['warp']）
-import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
-import { landmark } from './kit.js?v=3294f6b';
+import * as THREE from '../../../vendor/three.module.min.js?v=3d564fd';
+import { landmark } from './kit.js?v=3d564fd';
 
 const STREAKS = 400;
 const DEPTH = 700; // 線が流れてくる奥行き（m）
 const RINGS = 8; // 光の輪の数
+// ワープの最後（2026-10-22 のユーザー依頼「最後は正面の円の中心にカートが小さくなりつつ勢いよく吸い込まれてフェードアウト」）:
+// 正面に光の円が出て、車がその真ん中へ吸いこまれ、そのあと白く消える。SUCK はワープの進み（0〜1）の、吸いこむ間
+export const SUCK = { from: 0.8, to: 0.9 };
+export const PORTAL_Z = 90; // 光の円の、カメラからの奥行き（m）
+const PORTAL_R = 14;
 
 export function buildWarp() {
   const root = new THREE.Group();
@@ -55,14 +60,47 @@ export function buildWarp() {
     g.add(r);
     g.userData.rings.push(r);
   }
+  // 正面の光の円（まぶしい輪と、うすく光る中）
+  const portal = new THREE.Group();
+  portal.position.set(0, 0, -PORTAL_Z);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(PORTAL_R, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(PORTAL_R, 1.4, 8, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0 }));
+  for (const m of [glow, rim]) {
+    m.frustumCulled = false;
+    m.userData.keep = true;
+    portal.add(m);
+  }
+  portal.userData = { glow, rim };
+  g.add(portal);
+  g.userData.portal = portal;
   landmark(g, 'warpTunnel', 0, 0, -DEPTH / 2);
   return root;
 }
 
 // ワープの見た目（p はワープの進み 0〜1。2026-10-21 のユーザー依頼「10秒くらいかけてもっと壮大に」）:
 // だんだん速く、色は青 → むらさき → ピンク、最後に白く光ってクアラルンプールに着く
+// portal は正面の光の円の濃さ（吸いこむ前に出てくる）、suck は吸いこみの進み（0〜1）
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
 export function warpLook(p) {
-  return { speed: 300 + 2600 * p * p, hue: 0.62 - 0.5 * p, flash: p > 0.88 ? Math.min(1, (p - 0.88) / 0.1) : 0 };
+  return {
+    speed: 300 + 2600 * p * p,
+    hue: 0.62 - 0.5 * p,
+    flash: clamp01((p - 0.88) / 0.07),
+    portal: clamp01((p - 0.62) / 0.15),
+    suck: clamp01((p - SUCK.from) / (SUCK.to - SUCK.from)),
+  };
+}
+
+// 吸いこまれる車の、カメラから見た位置と大きさ。start は吸いこみはじめの位置。k は吸いこみの進み（0〜1）。
+// はじめはゆっくり、最後に速く（勢いよく）円の真ん中へ
+export function suckPose(start, k) {
+  const e = k * k * k;
+  return {
+    x: start.x * (1 - e),
+    y: start.y * (1 - e),
+    z: start.z + (-PORTAL_Z - start.z) * e,
+    scale: 1 - 0.95 * k,
+  };
 }
 
 // 毎フレーム: カメラの位置と向きについていき、線を前から後ろへ流す。光の輪が前から飛んでくる
@@ -93,4 +131,10 @@ export function updateWarp(group, camera, time, p = 0) {
     r.position.z = -DEPTH + ((k * (DEPTH / RINGS) + run * 0.6) % DEPTH);
     r.material.color.setHSL((look.hue + k * 0.08) % 1, 0.9, 0.6);
   });
+  const { glow, rim } = group.userData.portal.userData;
+  group.userData.portal.visible = look.portal > 0;
+  glow.material.opacity = look.portal * (0.55 + 0.15 * Math.sin(time * 12)); // ちらちら光る
+  rim.material.opacity = look.portal;
+  rim.material.color.setHSL(look.hue, 0.6, 0.85);
+  group.userData.portal.scale.setScalar(1 + 0.25 * look.suck); // 吸いこむ間、少し大きく
 }

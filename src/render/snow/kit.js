@@ -1,10 +1,10 @@
 // 雪山の景色（Kyugo Mountain。2026-10-18 の設計書 4）: 雪のもみの木、スタートの門「Kyugo Mountain」
-import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
-import { createBuilder } from '../town/builder.js?v=3294f6b';
-import { jungleSpots, CHUNK } from '../town/jungle.js?v=3294f6b';
-import { placeSpot } from '../town/scenery.js?v=3294f6b';
-import { logGate } from '../forest/kit.js?v=3294f6b';
-import { terrainHeight } from '../terrain.js?v=3294f6b';
+import * as THREE from '../../../vendor/three.module.min.js?v=3d564fd';
+import { createBuilder } from '../town/builder.js?v=3d564fd';
+import { jungleSpots, CHUNK } from '../town/jungle.js?v=3d564fd';
+import { placeSpot } from '../town/scenery.js?v=3d564fd';
+import { logGate } from '../forest/kit.js?v=3d564fd';
+import { terrainHeight } from '../terrain.js?v=3d564fd';
 
 const TRUNK = 0x6b4a2b;
 const NEEDLES = [0x2f5d3a, 0x2a5534, 0x356842];

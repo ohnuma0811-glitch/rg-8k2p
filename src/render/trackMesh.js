@@ -1,29 +1,29 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=3294f6b';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=3294f6b';
-import { buildJungle } from './town/jungle.js?v=3294f6b';
-import { buildWater } from './town/water.js?v=3294f6b';
-import { buildBridge } from './forest/bridge.js?v=3294f6b';
-import { buildTunnel } from './snow/tunnel.js?v=3294f6b';
-import { buildSnowScenery } from './snow/kit.js?v=3294f6b';
-import { buildSigns } from './snow/signs.js?v=3294f6b';
-import { buildTokyo } from './world/tokyo.js?v=3294f6b';
-import { buildFuji } from './world/fuji.js?v=3294f6b';
-import { buildKyoto } from './world/kyoto.js?v=3294f6b';
-import { buildSpace, buildLaunchRail } from './world/space.js?v=3294f6b';
-import { buildHongKong } from './world/hongkong.js?v=3294f6b';
-import { buildSea } from './world/sea.js?v=3294f6b';
-import { buildNewYork } from './world/newyork.js?v=3294f6b';
-import { buildWarp } from './world/warp.js?v=3294f6b';
-import { buildKL } from './world/kl.js?v=3294f6b';
-import { buildClouds } from './world/clouds.js?v=3294f6b';
-import * as forestKit from './forest/kit.js?v=3294f6b';
-import { createBuilder } from './town/builder.js?v=3294f6b';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=3294f6b';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=3294f6b';
-import { mergeMeshes } from './mergeMeshes.js?v=3294f6b';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=3294f6b';
-import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=3294f6b';
+import * as THREE from '../../vendor/three.module.min.js?v=3d564fd';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=3d564fd';
+import { buildJungle } from './town/jungle.js?v=3d564fd';
+import { buildWater } from './town/water.js?v=3d564fd';
+import { buildBridge } from './forest/bridge.js?v=3d564fd';
+import { buildTunnel } from './snow/tunnel.js?v=3d564fd';
+import { buildSnowScenery } from './snow/kit.js?v=3d564fd';
+import { buildSigns } from './snow/signs.js?v=3d564fd';
+import { buildTokyo } from './world/tokyo.js?v=3d564fd';
+import { buildFuji } from './world/fuji.js?v=3d564fd';
+import { buildKyoto } from './world/kyoto.js?v=3d564fd';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=3d564fd';
+import { buildHongKong } from './world/hongkong.js?v=3d564fd';
+import { buildSea } from './world/sea.js?v=3d564fd';
+import { buildNewYork } from './world/newyork.js?v=3d564fd';
+import { buildWarp } from './world/warp.js?v=3d564fd';
+import { buildKL } from './world/kl.js?v=3d564fd';
+import { buildClouds } from './world/clouds.js?v=3d564fd';
+import * as forestKit from './forest/kit.js?v=3d564fd';
+import { createBuilder } from './town/builder.js?v=3d564fd';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=3d564fd';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=3d564fd';
+import { mergeMeshes } from './mergeMeshes.js?v=3d564fd';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=3d564fd';
+import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=3d564fd';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -1532,7 +1532,8 @@ function junctionMesh(track, mouths, corners, asphalt) {
   return group;
 }
 
-// 逆走を止める柵の見た目: 道の幅いっぱいの低い板（赤と白のしま。高さ約 0.9m）と、両はしの柱。前（ジャンプで来る側）から見ると低いので、飛んでくる車の上にはかからない
+// 逆走を止める柵の見た目: 道の幅いっぱいの低い板（赤と白のしま。高さ約 0.9m）と、両はしの柱。前（ジャンプで来る側）から見ると低いので、飛んでくる車の上にはかからない。
+// 板は地面までとどかせて、下にすき間を作らない（2026-10-22 のユーザー依頼「通れるような隙間が見える」）
 export function oneWayFences(track) {
   const b = createBuilder();
   const STRIPE = 2; // しまの幅（m）
@@ -1542,10 +1543,9 @@ export function oneWayFences(track) {
     const n = Math.max(1, Math.round((2 * w) / STRIPE));
     for (let k = 0; k < n; k++) {
       const x = -w + ((k + 0.5) * 2 * w) / n;
-      b.box((2 * w) / n, 0.45, 0.25, k % 2 ? 0xffffff : 0xd8262b, x, 0.4, 0);
+      b.box((2 * w) / n, 0.9, 0.25, k % 2 ? 0xffffff : 0xd8262b, x, 0, 0);
     }
     for (const x of [-w, w]) b.box(0.3, 1.2, 0.3, 0x333333, x, 0, 0); // 両はしの柱
-    for (let x = -w + 4; x < w - 2; x += 4) b.box(0.15, 0.4, 0.15, 0x555555, x, 0, 0); // 板の足
     b.pop();
   }
   const g = b.build();

@@ -1,11 +1,11 @@
 // Global City のクアラルンプール（2026-10-20）: 夕方から夜。南のプトラジャヤのピンクモスクの中の回廊を通り、
 // 北西のバトゥ洞窟（金色の像・虹色の階段）の中を通って、ペトロナスツインタワーの前でゴール
-import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
-import { createBuilder } from '../town/builder.js?v=3294f6b';
-import { locate } from '../../game/track.js?v=3294f6b';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=3294f6b';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, buildRampDeck } from './kit.js?v=3294f6b';
-import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=3294f6b';
+import * as THREE from '../../../vendor/three.module.min.js?v=3d564fd';
+import { createBuilder } from '../town/builder.js?v=3d564fd';
+import { locate } from '../../game/track.js?v=3d564fd';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=3d564fd';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, buildRampDeck } from './kit.js?v=3d564fd';
+import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=3d564fd';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const PINK = 0xd9a0a8;
@@ -98,6 +98,18 @@ export function buildKL(track) {
       b.box(30, hgt, 6.5, k % 3 ? ROCK : 0x7a7468, side * (w + 15.5), 0, 0); // 両がわの岩
     }
     b.box(2 * w + 2, 30 + (k % 4) * 6, 6.5, ROCK, 0, p.y + TUNNEL_HEIGHT + 0.6, 0); // 天井の上の岩
+    b.pop();
+  }
+  // 入口の上の名前（2026-10-22 のユーザー依頼「ジャンプで入る際に、洞窟の入口の上に名前を英語で」）: 一番手前の岩の前に、走ってくる方へ向けて
+  {
+    const p = pointAt(track, c0 - 4);
+    const w = 2 * p.wall + 6;
+    const y = p.y + TUNNEL_HEIGHT + 4.2;
+    const o = landmark(g, 'batuCavesSign', p.x - Math.cos(p.h) * 3.6, y, p.z - Math.sin(p.h) * 3.6);
+    o.userData.banner = 'BATU CAVES';
+    b.push(p.x, 0, p.z, ryAlong(p.h));
+    b.box(w + 1.2, 7, 0.4, 0x5a1a12, 0, y - 3.5, -3.45); // 看板の板
+    b.label(textSign('BATU CAVES', { bg: '#7a1f14', fg: '#ffd34a', font: 'bold 130px sans-serif' }), [1024, 192], 0, y, -3.7, Math.PI, w, 6);
     b.pop();
   }
   // 奥の大きな岩山（高さ 100m）。道からはなして

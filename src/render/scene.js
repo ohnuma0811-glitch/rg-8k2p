@@ -1,6 +1,7 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=3294f6b';
-import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=3294f6b';
+import * as THREE from '../../vendor/three.module.min.js?v=3d564fd';
+import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=3d564fd';
+import { ahead, behind } from '../game/track.js?v=3d564fd';
 
 const SKY = 0x8fd3ff;
 
@@ -24,7 +25,7 @@ function softSpot() {
   g.fillRect(0, 0, 64, 64);
   return new THREE.CanvasTexture(cv);
 }
-const HEAD_POOL = [11, 5]; // 明るい楕円の大きさ（前後の半分・横の半分 m）。車の前 HEAD_POOL[0] m の所が真ん中
+export const HEAD_POOL = [11, 5]; // 明るい楕円の大きさ（前後の半分・横の半分 m）。車の前 HEAD_POOL[0] m の所が真ん中
 
 export function createWorld() {
   const scene = new THREE.Scene();
@@ -104,7 +105,7 @@ export function resetSky(scene) {
 // トンネルの中の暗さ（Kyugo Mountain。0 ふつう 〜 1 トンネルの中）。look は中の見え方（src/render/snow/tunnel.js の tunnelLook）。kart があれば、その前にライト
 // open: 出口が近い（0〜1）。霧を晴らして、中から外の明るい景色が見えるように（2026-10-18 のユーザー依頼）
 const tunnelFog = new THREE.Color();
-export function setDarkness(scene, dark, look, kart = null, open = 0) {
+export function setDarkness(scene, dark, look, kart = null, open = 0, track = null) {
   const L = scene.userData.light;
   const lit = 1 - dark * (1 - look.dim);
   L.hemi.intensity = L.hemiBase * lit;
@@ -117,12 +118,50 @@ export function setDarkness(scene, dark, look, kart = null, open = 0) {
   const pool = L.headPool;
   pool.visible = !!kart && dark > 0;
   if (pool.visible) {
-    const fx = Math.cos(kart.move);
-    const fz = Math.sin(kart.move);
     pool.material.opacity = Math.min(0.6, (look.headlight / 400) * dark); // 前のライトの強さ（PC 120・タブレット 200）から
-    pool.position.set(kart.x + fx * HEAD_POOL[0], (kart.y ?? 0) + 0.08, kart.z + fz * HEAD_POOL[0]);
-    pool.rotation.y = -kart.move;
+    const pose = headPoolPose(kart, track);
+    pool.position.set(pose.x, pose.y, pose.z);
+    pool.rotation.set(0, -pose.yaw, pose.pitch, 'YZX');
   }
+}
+
+// 車のライトの楕円の置き場所: 車の前へまっすぐではなく、道にそって HEAD_POOL[0] m 先の点に、道の向きと坂の傾きで置く。
+// まっすぐ前に置くと、らせんの上り坂では道の下にもぐり、急なカーブでは壁の外へ出て、見えなくなっていた（2026-10-22 のユーザー依頼）
+const POOL_LIFT = 0.08; // 道からの高さ
+export function headPoolPose(kart, track) {
+  const fx = Math.cos(kart.move);
+  const fz = Math.sin(kart.move);
+  const flat = { x: kart.x + fx * HEAD_POOL[0], y: (kart.y ?? 0) + POOL_LIFT, z: kart.z + fz * HEAD_POOL[0], yaw: kart.move, pitch: 0, i: kart.seg };
+  const { samples } = track ?? {};
+  const p = samples?.[kart.seg];
+  if (!p || p.y === null) return flat;
+  const back = Math.cos(kart.move - p.h) < 0; // 逆向きに走っている
+  const step = (i, k) => (back ? behind(track, i, k) : ahead(track, i, k));
+  const i = step(kart.seg, HEAD_POOL[0]);
+  const c = samples[i];
+  const f = samples[step(i, HEAD_POOL[0])];
+  const b = samples[kart.seg];
+  if (c.y === null) return flat;
+  const lat0 = -(kart.x - p.x) * Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h);
+  // 横の位置は車と同じ。ただし楕円の前後のはしも道の幅に入るように（カーブでは、はしが外へずれる）
+  let lo = -c.wall + 2;
+  let hi = c.wall - 2;
+  for (const e of [b, f]) {
+    const d = -(e.x - c.x) * Math.sin(c.h) + (e.z - c.z) * Math.cos(c.h);
+    lo = Math.max(lo, d - e.wall + 1);
+    hi = Math.min(hi, d + e.wall - 1);
+  }
+  const lat = lo <= hi ? Math.max(lo, Math.min(hi, lat0)) : (lo + hi) / 2;
+  const fy = f.y ?? c.y;
+  const run = Math.hypot(f.x - b.x, f.z - b.z) || 1;
+  return {
+    x: c.x - Math.sin(c.h) * lat,
+    y: c.y + POOL_LIFT,
+    z: c.z + Math.cos(c.h) * lat,
+    yaw: c.h + (back ? Math.PI : 0),
+    pitch: Math.atan2(fy - b.y, run),
+    i,
+  };
 }
 
 export function resizeRenderer(renderer, camera, w, h, ratio) {
