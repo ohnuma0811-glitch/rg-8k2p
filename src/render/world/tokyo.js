@@ -1,10 +1,10 @@
 // Global City の東京（2026-10-20）: 皇居の桜並木からスタート、丸の内・東京駅・東京タワー・新幹線・レインボーブリッジ・お台場
 // 方角は実際のとおり（北は -z）。名所の置き場所は src/data/global.js の GLOBAL_SCENERY.tokyo
-import * as THREE from '../../../vendor/three.module.min.js?v=996c4bd';
-import { createBuilder } from '../town/builder.js?v=996c4bd';
-import { locate } from '../../game/track.js?v=996c4bd';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=996c4bd';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct, roadBanner } from './kit.js?v=996c4bd';
+import * as THREE from '../../../vendor/three.module.min.js?v=0e78471';
+import { createBuilder } from '../town/builder.js?v=0e78471';
+import { locate } from '../../game/track.js?v=0e78471';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=0e78471';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct, roadBanner } from './kit.js?v=0e78471';
 
 const STONE = 0xd8d2c4; // 皇居の白い石垣
 const ROOF_COPPER = 0x5f8f7a; // 銅の屋根（緑青）
@@ -22,7 +22,7 @@ function clearOfRoads(track, x, z, gap) {
 }
 
 // 街のビル（道ぞいに、道から離して並べる）
-export function cityBlocks(b, track, from, to, { step = 55, back = 30, colors = [0xb8c2cc, 0x9aa8b6, 0xd6d0c4, 0x7f8c99], hMin = 30, hMax = 110, glow = null, win = 0xbfd8ea, avoid = [] } = {}) {
+export function cityBlocks(b, track, from, to, { step = 55, back = 30, colors = [0xb8c2cc, 0x9aa8b6, 0xd6d0c4, 0x7f8c99], hMin = 30, hMax = 110, glow = null, win = 0xbfd8ea, avoid = [], group = null } = {}) {
   let k = 0;
   along(track, from, to, step, (p) => {
     for (const side of [-1, 1]) {
@@ -34,8 +34,22 @@ export function cityBlocks(b, track, from, to, { step = 55, back = 30, colors = 
       if (!clearOfRoads(track, c.x, c.z, Math.max(w, d) / 2 + 6)) continue;
       if (avoid.some((a) => Math.hypot(a.x - c.x, a.z - c.z) < a.r)) continue;
       tower(b, c.x, c.z, ryAlong(p.h), w, d, h, colors[k % colors.length], { glow, win });
+      if (group) landmark(group, 'cityTower', c.x, 0, c.z);
     }
   });
+}
+
+// 芝浦のループの柱: 上の段の道の真ん中から地面まで。ただし真下（まわり）にほかの低い道がある所には立てない
+// （下の段の道や、ループに入る手前の道の上に、柱が立っていた。2026-10-21 のユーザー依頼「道路上の橋脚が撤去されていない」）
+export function loopPillars(track) {
+  const out = [];
+  along(track, 'SL', 'RB', 18, (p) => {
+    if (p.y <= 3) return;
+    const top = p.y - 1.2;
+    const blocked = track.samples.some((q) => q.y !== null && !q.void && !q.auto && q.y < top - 1 && Math.hypot(q.x - p.x, q.z - p.z) < q.wall + 2.5);
+    if (!blocked) out.push({ x: p.x, z: p.z, top });
+  });
+  return out;
 }
 
 export function buildTokyo(track) {
@@ -139,16 +153,20 @@ export function buildTokyo(track) {
   const pp = pointAt(track, pl.s);
   const pside = Math.sign(pl.lateral) || 1;
   const palace = beside(pp, pside * (pp.wall + 34));
-  landmark(city, 'palace', palace.x, 0, palace.z);
+  landmark(city, 'palace', palace.x, 12, palace.z);
   const pry = ryAlong(pp.h) + Math.PI / 2; // x が道にそう向き
   b.push(palace.x, 0, palace.z, pry);
   b.box(220, 0.05, 90, 0xe8e2d4, 0, -0.09, 0); // 白い砂利の広場（道より下）
+  // 石の台（高さ 12m）の上に宮殿。道ばたの石垣（10m）より高くして、道から見えるように（2026-10-21 のユーザー依頼「壁の上に持ち上げて」）
+  b.box(132, 12, 54, STONE, 0, 0, 0);
+  b.push(0, 12, 0, 0);
   b.box(120, 14, 40, 0xece8dc, 0, 0, 0); // 宮殿（低く横に長い）
   for (let k = 0; k < 15; k++) for (const z of [-20.3, 20.3]) b.box(2, 8, 0.5, 0x6a4a32, -56 + k * 8, 2, z); // 柱
   b.box(128, 1.6, 48, ROOF_COPPER, 0, 14, 0); // 大きな屋根（反りを段で）
   b.box(118, 1.6, 40, ROOF_COPPER, 0, 15.6, 0);
   b.box(104, 1.6, 30, ROOF_COPPER, 0, 17.2, 0);
   b.box(80, 1.2, 18, ROOF_COPPER, 0, 18.8, 0);
+  b.pop();
   b.pop();
   for (const [dx, dz] of [[-90, -60], [-70, 70], [80, -70], [95, 60], [-110, 10], [110, -5]]) {
     const x = palace.x + dx;
@@ -206,7 +224,6 @@ export function buildTokyo(track) {
     b.pop();
     landmark(city, 'stationSign', x, 17, z);
   }
-  roadBanner(city, b, track, sOf(track, 'TS') - 20, 'TOKYO STATION', 'bannerTokyoStation', { bg: '#6a2a1f', fg: '#ffffff' }); // 横断幕（駅の名前が見にくかった。2026-10-21 のユーザー依頼）
   cityBlocks(b, track, 'MRN', 'TT', { avoid: [{ ...st, r: 190 }, { ...shin, r: 60 }] });
 
   // ---- 東京タワー（赤と白のしま、高さ 333m）----
@@ -268,9 +285,7 @@ export function buildTokyo(track) {
   cityBlocks(b, track, 'TT', 'SL', { avoid: [{ ...tt, r: 80 }], back: 45 });
 
   // ---- 芝浦のループ（柱）と、レインボーブリッジ ----
-  along(track, 'SL', 'RB', 18, (p) => {
-    if (p.y > 3) bb.cyl(1.6, 1.6, p.y - 1.2, 8, 0xc8ccd2, p.x, 0, p.z);
-  });
+  for (const c of loopPillars(track)) bb.cyl(1.6, 1.6, c.top, 8, 0xc8ccd2, c.x, 0, c.z);
   const rbs = sOf(track, 'RB');
   const rbe = sOf(track, 'RBE');
   const towers = [rbs + (rbe - rbs) * 0.28, rbs + (rbe - rbs) * 0.72];
@@ -337,15 +352,17 @@ export function buildTokyo(track) {
   // ---- お台場: フジテレビ（格子の建物と球体）----
   const ftv = worldAt(track, S.fujiTV.at);
   landmark(bay, 'fujiTV', ftv.x, 0, ftv.z);
-  // 2つの塔は、レインボーブリッジから見て左右に並べる（前後に並ぶと、手前の塔が球体を隠した。2026-10-21 のユーザー依頼「90度ほど回転」）
+  // 2つの塔は、レインボーブリッジから見て左右に並べる（前後に並ぶと、手前の塔が球体を隠した。2026-10-21 のユーザー依頼「90度ほど回転」）。
+  // 塔の間は広く（球体だと分かるように）、球体は少し下げる（2026-10-21 のユーザー依頼）
   const rbv = pointAt(track, (sOf(track, 'RB') + sOf(track, 'RBE')) / 2);
   const vl = Math.hypot(ftv.x - rbv.x, ftv.z - rbv.z);
   const vx = (ftv.x - rbv.x) / vl;
   const vz = (ftv.z - rbv.z) / vl;
   const ftvRy = Math.atan2(vx, vz); // z が橋から見る向き
+  const HALF = 40; // 塔の真ん中どうしの半分
   for (const sd of [-1, 1]) {
-    const tx = ftv.x - vz * 26 * sd;
-    const tz = ftv.z + vx * 26 * sd;
+    const tx = ftv.x - vz * HALF * sd;
+    const tz = ftv.z + vx * HALF * sd;
     tower(bb, tx, tz, ftvRy, 34, 34, 120, 0xe8eaec, { win: 0x8a96a3 });
     for (let y = 10; y < 120; y += 20) {
       bb.push(tx, 0, tz, ftvRy);
@@ -355,14 +372,19 @@ export function buildTokyo(track) {
     landmark(bay, 'fujiTVTower', tx, 0, tz);
   }
   bb.push(ftv.x, 0, ftv.z, ftvRy);
-  bb.box(30, 14, 20, 0xe8eaec, 0, 84, 0); // 上の方の通路（2つの塔をつなぐ）
+  for (const y of [40, 104]) bb.box(2 * HALF - 30, 8, 16, 0xe8eaec, 0, y, 0); // 2つの塔をつなぐ通路（上と下）
   bb.pop();
-  bb.sphere(20, 0xd8dee6, ftv.x, 100, ftv.z, 20); // 球体（大きく、光って見える。橋の出口から正面に）
-  for (let k = 0; k < 4; k++) { // 名前は4つの面に
-    const a = (k * Math.PI) / 2;
-    bb.label(textSign('FUJI TV', { bg: '#ffffff', fg: '#1f4aa8', font: 'bold 96px sans-serif' }), [512, 128], ftv.x + Math.sin(a) * 44, 50, ftv.z + Math.cos(a) * 44, a, 36, 9);
-  }
-  cityBlocks(bb, track, 'RBE', 'FTV', { back: 40, hMax: 70, avoid: [{ ...ftv, r: 70 }] });
+  bb.sphere(20, 0xd8dee6, ftv.x, 80, ftv.z, 20); // 球体（少し下げて、通路の間に）
+  landmark(bay, 'fujiTVSphere', ftv.x, 80, ftv.z);
+  // 名前は1枚だけ: 橋から見える面（下の通路の、橋の方の面）
+  bb.push(ftv.x, 0, ftv.z, ftvRy);
+  bb.label(textSign('FUJI TV', { bg: '#ffffff', fg: '#1f4aa8', font: 'bold 96px sans-serif' }), [512, 128], 0, 44, -8.3, Math.PI, 36, 9);
+  bb.pop();
+  landmark(bay, 'fujiTVSign', ftv.x - vx * 8, 44, ftv.z - vz * 8);
+  // フジテレビの前（橋から見る線のまわり）には、ビルを建てない（前のビルが球体を隠した。2026-10-21 のユーザー依頼）
+  const sight = [{ ...ftv, r: 90 }];
+  for (let u = 0.15; u < 1; u += 0.05) sight.push({ x: rbv.x + (ftv.x - rbv.x) * u, z: rbv.z + (ftv.z - rbv.z) * u, r: 60 });
+  cityBlocks(bb, track, 'RBE', 'FTV', { back: 40, hMax: 70, avoid: sight, group: bay });
 
   // ---- 巨大ジャンプ台（加速板の巨大版。オレンジと黄色の光る矢印、赤白の柱）----
   const glow = createBuilder({ glow: true });

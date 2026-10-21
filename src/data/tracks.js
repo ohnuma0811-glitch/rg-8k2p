@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=996c4bd';
-import { SOKI_SCENERY } from './soki.js?v=996c4bd';
+import { KAMPAR_SCENERY } from './kampar.js?v=0e78471';
+import { SOKI_SCENERY } from './soki.js?v=0e78471';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正

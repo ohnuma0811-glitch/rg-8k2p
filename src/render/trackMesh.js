@@ -1,29 +1,29 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=996c4bd';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=996c4bd';
-import { buildJungle } from './town/jungle.js?v=996c4bd';
-import { buildWater } from './town/water.js?v=996c4bd';
-import { buildBridge } from './forest/bridge.js?v=996c4bd';
-import { buildTunnel } from './snow/tunnel.js?v=996c4bd';
-import { buildSnowScenery } from './snow/kit.js?v=996c4bd';
-import { buildSigns } from './snow/signs.js?v=996c4bd';
-import { buildTokyo } from './world/tokyo.js?v=996c4bd';
-import { buildFuji } from './world/fuji.js?v=996c4bd';
-import { buildKyoto } from './world/kyoto.js?v=996c4bd';
-import { buildSpace, buildLaunchRail } from './world/space.js?v=996c4bd';
-import { buildHongKong } from './world/hongkong.js?v=996c4bd';
-import { buildSea } from './world/sea.js?v=996c4bd';
-import { buildNewYork } from './world/newyork.js?v=996c4bd';
-import { buildWarp } from './world/warp.js?v=996c4bd';
-import { buildKL } from './world/kl.js?v=996c4bd';
-import { buildClouds } from './world/clouds.js?v=996c4bd';
-import * as forestKit from './forest/kit.js?v=996c4bd';
-import { createBuilder } from './town/builder.js?v=996c4bd';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=996c4bd';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=996c4bd';
-import { mergeMeshes } from './mergeMeshes.js?v=996c4bd';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=996c4bd';
-import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=996c4bd';
+import * as THREE from '../../vendor/three.module.min.js?v=0e78471';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=0e78471';
+import { buildJungle } from './town/jungle.js?v=0e78471';
+import { buildWater } from './town/water.js?v=0e78471';
+import { buildBridge } from './forest/bridge.js?v=0e78471';
+import { buildTunnel } from './snow/tunnel.js?v=0e78471';
+import { buildSnowScenery } from './snow/kit.js?v=0e78471';
+import { buildSigns } from './snow/signs.js?v=0e78471';
+import { buildTokyo } from './world/tokyo.js?v=0e78471';
+import { buildFuji } from './world/fuji.js?v=0e78471';
+import { buildKyoto } from './world/kyoto.js?v=0e78471';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=0e78471';
+import { buildHongKong } from './world/hongkong.js?v=0e78471';
+import { buildSea } from './world/sea.js?v=0e78471';
+import { buildNewYork } from './world/newyork.js?v=0e78471';
+import { buildWarp } from './world/warp.js?v=0e78471';
+import { buildKL } from './world/kl.js?v=0e78471';
+import { buildClouds } from './world/clouds.js?v=0e78471';
+import * as forestKit from './forest/kit.js?v=0e78471';
+import { createBuilder } from './town/builder.js?v=0e78471';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=0e78471';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=0e78471';
+import { mergeMeshes } from './mergeMeshes.js?v=0e78471';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=0e78471';
+import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=0e78471';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -667,6 +667,12 @@ function splitMesh(mesh, size = 250) {
 
 // 形を、三角ごとに、いちばん近い道の点（高さもみる）のステージで分け、さらに size m のます目ごとに分ける（Global City）。
 // 地図の上で重なる所（富士山の着地点の近くを通るニューヨークの道など）でも、その道のステージだけで見せる（2026-10-21 のユーザー依頼「途切れた道」）
+// 道の点のステージ。スタートの後ろ（片道のコースの点の並びの最後、GB より先）は、スタートの東京（ステージ 0）
+// （点の並びでは最後なので、クアラルンプールと数えて、東京でスタート地点の道が欠けた。2026-10-21 のユーザー依頼）
+function sampleStage(track, p) {
+  if (track.open && track.marks.GB !== undefined && p.s >= track.marks.GB) return 0;
+  return stageAt(track, p.s);
+}
 const stageGrids = new WeakMap();
 function stageGridOf(track) {
   if (!stageGrids.has(track)) {
@@ -675,7 +681,7 @@ function stageGridOf(track) {
       if (p.y === null || p.void) continue;
       const key = `${Math.floor(p.x / 30)},${Math.floor(p.z / 30)}`;
       if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push({ x: p.x, y: p.y, z: p.z, st: stageAt(track, p.s) });
+      grid.get(key).push({ x: p.x, y: p.y, z: p.z, st: sampleStage(track, p) });
     }
     stageGrids.set(track, grid);
   }
@@ -729,7 +735,7 @@ export function chunkStages(track, x0, x1, z0, z1, pad = 20) {
   for (const p of track.samples) {
     if (p.y === null || p.void) continue;
     if (p.x < x0 - pad || p.x > x1 + pad || p.z < z0 - pad || p.z > z1 + pad) continue;
-    st.add(stageAt(track, p.s));
+    st.add(sampleStage(track, p));
   }
   return [...st].sort((a, b) => a - b);
 }
