@@ -1,53 +1,53 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=c221cc0';
-import { startLoop } from './loop.js?v=c221cc0';
-import { COURSES } from './data/tracks.js?v=c221cc0';
-import { buildTrack, span, locate, stageAt, bannerStageAt } from './game/track.js?v=c221cc0';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=c221cc0';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, oneWayContact, DINO_BLACK } from './game/hazards.js?v=c221cc0';
-import { kartParams } from './game/stats.js?v=c221cc0';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=c221cc0';
-import { pushApart, newBumps } from './game/collide.js?v=c221cc0';
+import * as THREE from '../vendor/three.module.min.js?v=3294f6b';
+import { startLoop } from './loop.js?v=3294f6b';
+import { COURSES } from './data/tracks.js?v=3294f6b';
+import { buildTrack, span, locate, stageAt, bannerStageAt } from './game/track.js?v=3294f6b';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=3294f6b';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, oneWayContact, DINO_BLACK } from './game/hazards.js?v=3294f6b';
+import { kartParams } from './game/stats.js?v=3294f6b';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=3294f6b';
+import { pushApart, newBumps } from './game/collide.js?v=3294f6b';
 import {
   LAPS, raceLaps, raceDistance, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=c221cc0';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=c221cc0';
-import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=c221cc0';
-import { applyStageVisibility, attachStage } from './render/world/stages.js?v=c221cc0';
-import { skyFor } from './render/world/sky.js?v=c221cc0';
-import { updateSpace, spaceLook } from './render/world/space.js?v=c221cc0';
-import { updateSea } from './render/world/sea.js?v=c221cc0';
-import { updateWarp, warpLook } from './render/world/warp.js?v=c221cc0';
-import { showcaseCamera } from './render/showcase.js?v=c221cc0';
-import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=c221cc0';
-import { createMinimap } from './render/minimap.js?v=c221cc0';
-import { releaseTrack, tracksToRelease } from './render/release.js?v=c221cc0';
-import { grandstandSpot } from './render/trackMesh.js?v=c221cc0';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=c221cc0';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js?v=c221cc0';
-import { GLOBAL_SCENERY } from './data/global.js?v=c221cc0';
-import { faceSvg } from './titleArt.js?v=c221cc0';
-import { createEffects } from './render/effects.js?v=c221cc0';
-import { nextQuality, pixelRatio } from './render/quality.js?v=c221cc0';
-import { blendPose, poseOf } from './render/interp.js?v=c221cc0';
-import { speedText } from './hud.js?v=c221cc0';
-import { addRecent, cleanRecent } from './names.js?v=c221cc0';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=c221cc0';
-import { load, save } from './storage.js?v=c221cc0';
-import * as screens from './screens.js?v=c221cc0';
-import { SharedTimes, dateText } from './sharedTimes.js?v=c221cc0';
-import { TIMES_URL } from './config.js?v=c221cc0';
-import { createAudio } from './audio/audio.js?v=c221cc0';
-import { createSfx } from './audio/sfx.js?v=c221cc0';
-import { createVoices } from './audio/voice.js?v=c221cc0';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=c221cc0';
-import { createCrowd } from './audio/crowd.js?v=c221cc0';
-import { crowdMix } from './audio/mix.js?v=c221cc0';
-import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js?v=c221cc0';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=c221cc0';
+} from './game/race.js?v=3294f6b';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=3294f6b';
+import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=3294f6b';
+import { applyStageVisibility, attachStage } from './render/world/stages.js?v=3294f6b';
+import { skyFor } from './render/world/sky.js?v=3294f6b';
+import { updateSpace, spaceLook } from './render/world/space.js?v=3294f6b';
+import { updateSea } from './render/world/sea.js?v=3294f6b';
+import { updateWarp, warpLook } from './render/world/warp.js?v=3294f6b';
+import { showcaseCamera } from './render/showcase.js?v=3294f6b';
+import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=3294f6b';
+import { createMinimap } from './render/minimap.js?v=3294f6b';
+import { releaseTrack, tracksToRelease } from './render/release.js?v=3294f6b';
+import { grandstandSpot } from './render/trackMesh.js?v=3294f6b';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createCowLegs, setCowLegs, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=3294f6b';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js?v=3294f6b';
+import { GLOBAL_SCENERY } from './data/global.js?v=3294f6b';
+import { faceSvg } from './titleArt.js?v=3294f6b';
+import { createEffects } from './render/effects.js?v=3294f6b';
+import { nextQuality, pixelRatio } from './render/quality.js?v=3294f6b';
+import { blendPose, poseOf } from './render/interp.js?v=3294f6b';
+import { speedText } from './hud.js?v=3294f6b';
+import { addRecent, cleanRecent } from './names.js?v=3294f6b';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=3294f6b';
+import { load, save } from './storage.js?v=3294f6b';
+import * as screens from './screens.js?v=3294f6b';
+import { SharedTimes, dateText } from './sharedTimes.js?v=3294f6b';
+import { TIMES_URL } from './config.js?v=3294f6b';
+import { createAudio } from './audio/audio.js?v=3294f6b';
+import { createSfx } from './audio/sfx.js?v=3294f6b';
+import { createVoices } from './audio/voice.js?v=3294f6b';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=3294f6b';
+import { createCrowd } from './audio/crowd.js?v=3294f6b';
+import { crowdMix } from './audio/mix.js?v=3294f6b';
+import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js?v=3294f6b';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=3294f6b';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = 'c221cc0';
+const VERSION = '3294f6b';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -164,6 +164,7 @@ document.addEventListener('visibilitychange', () => (document.hidden ? audio.pau
 // タッチできる端末はボタン、パソコンはキーボード
 controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
 let quality = 1;
+const TOUCH_DEVICE = touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0); // 指で操作する端末（タブレット・スマホ）
 let layout;
 let game = null; // 走っているレース（タイトルなどの画面では null）
 
@@ -213,7 +214,7 @@ function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   rotate.classList.toggle('show', h > w);
-  resizeRenderer(renderer, camera, w, h, pixelRatio(window.devicePixelRatio, quality));
+  resizeRenderer(renderer, camera, w, h, pixelRatio(window.devicePixelRatio, quality, TOUCH_DEVICE ? 0.75 : 1)); // タブレット・スマホは重いときに少し粗く
   layout = computeButtonLayout(w, h, safeArea(), controls.mode);
   controls.relayout(layout);
   placeButtons();
@@ -322,8 +323,15 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
 function placeCows(time) {
   if (!track.cows.length) return;
   if (!track.cowModels) {
-    track.cowModels = track.cows.map((cow, k) => mergeStatic(cow.kind === 'turtle' ? createTurtleModel(k) : createCowModel(k)));
+    // 牛は体と頭を1つの形に、足は全部の牛の分を1つに（描く回数を減らす。2026-10-22 のユーザー依頼「UTAR のあたりが重い」）
+    track.cowModels = track.cows.map((cow, k) => mergeStatic(cow.kind === 'turtle' ? createTurtleModel(k) : createCowModel(k, { legs: false })));
     track.cowModels.forEach((m, k) => { track.mesh.add(m); attachStage(track.mesh, track, m, track.cows[k].s); }); // 海の亀は海のステージの近くだけ
+    const cows = track.cows.map((cow, k) => k).filter((k) => track.cows[k].kind !== 'turtle');
+    if (cows.length) {
+      track.cowLegs = createCowLegs(cows);
+      track.cowLegs.userData.cows = cows;
+      track.mesh.add(track.cowLegs);
+    }
   }
   track.cows.forEach((cow, k) => {
     const p = cowPose(track, cow, time);
@@ -332,6 +340,7 @@ function placeCows(time) {
     m.rotation.y = -p.heading;
     m.userData.walk(time);
   });
+  if (track.cowLegs) track.cowLegs.userData.cows.forEach((k, n) => setCowLegs(track.cowLegs, n, track.cowModels[k], time));
 }
 
 // イノシシの形（Soki Forest。牛と同じく、コースの形と一緒に取っておく）を、時刻 time の場所に置く。高さは道の高さ
@@ -534,7 +543,7 @@ function placeTrains(time, topSpeed) {
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
 // タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
-const TUNNEL_LOOK = tunnelLook(touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0));
+const TUNNEL_LOOK = tunnelLook(TOUCH_DEVICE);
 function showTunnel({ dark, black }, kart = null, open = 0) {
   setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
   const v = $('vignette');
@@ -1195,12 +1204,19 @@ function showTop3(g, top, dt) {
   }
 }
 
+// 確かめ用: URL の後ろに #perf を付けると、下の文字に、1回の書きかえの計算の時間（js）・描く指示の時間（draw）・描く回数・三角の数・画面の細かさを出す
+// （タブレットでどこが重いか見るため。2026-10-22）。js + draw が書きかえの間（60fps なら 16.7ms）より短いのに fps が低ければ、絵を描く部品（GPU）が重い
+const perfOn = dev.has('perf');
+const perf = { js: 0, draw: 0, n: 0, text: '' };
 startLoop({
   update(dt) {
+    const t0 = perfOn ? performance.now() : 0;
     controls.tick();
     if (game && !game.paused) stepGame(dt);
+    if (perfOn) perf.js += performance.now() - t0;
   },
   render(alpha, frameDt) {
+    const tStart = perfOn ? performance.now() : 0;
     const dt = Math.min(0.1, frameDt);
     frames++;
     fpsTime += dt;
@@ -1208,6 +1224,11 @@ startLoop({
       fps = Math.round(frames / fpsTime);
       frames = 0;
       fpsTime = 0;
+      if (perfOn && perf.n) {
+        const info = renderer.info.render;
+        perf.text = `  js ${(perf.js / perf.n).toFixed(1)}ms draw ${(perf.draw / perf.n).toFixed(1)}ms calls ${info.calls} tri ${Math.round(info.triangles / 1000)}k pr ${renderer.getPixelRatio().toFixed(2)}`;
+        perf.js = perf.draw = perf.n = 0;
+      }
       const q = nextQuality(quality, fps);
       if (q !== quality) {
         quality = q;
@@ -1229,7 +1250,13 @@ startLoop({
     } else {
       idleCamera(dt);
     }
+    const tDraw = perfOn ? performance.now() : 0;
     renderer.render(scene, camera);
+    if (perfOn) {
+      perf.js += tDraw - tStart;
+      perf.draw += performance.now() - tDraw;
+      perf.n++;
+    }
     // 逆走の警告: キャラの頭の上の画面の位置に出す
     wrongWayEl.classList.toggle('show', wrong);
     if (wrong) {
@@ -1245,7 +1272,7 @@ startLoop({
       bumpWarnEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
     }
     speedo.classList.toggle('hidden', !game);
-    setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}`);
+    setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}${perf.text}`);
   },
 });
 

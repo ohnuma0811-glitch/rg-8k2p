@@ -1,6 +1,6 @@
 // 箱と円柱と文字の板を集めて、まとめて描ける形にする
 // 街の景色は形がとても多いので、色ごとに分けず、頂点の色にして1つの形にまとめる（描く回数を減らす）
-import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
+import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
 
 const MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true });
 // 光る形（夜の窓・ネオン・光る看板。Global City）: 光の当たり方に関係なく、その色のまま
@@ -15,7 +15,12 @@ export function createBuilder({ glow = false } = {}) {
   const stack = [new THREE.Matrix4()];
   const top = () => stack[stack.length - 1];
   const c = new THREE.Color();
-  const local = (x, y, z, ry) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z);
+  // rx: 前（+z）を上げる・下げる傾き（坂にそわせる。2026-10-22）
+  const local = (x, y, z, ry, rx = 0) => {
+    const m = new THREE.Matrix4().makeRotationY(ry);
+    if (rx) m.multiply(new THREE.Matrix4().makeRotationX(rx));
+    return m.setPosition(x, y, z);
+  };
 
   function add(geo, color, x, y, z, ry) {
     geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(top(), local(x, y, z, ry)));
@@ -66,8 +71,8 @@ export function createBuilder({ glow = false } = {}) {
       labels.push({ draw, px, m: new THREE.Matrix4().multiplyMatrices(top(), local(x, y, z, ry)), w, h });
     },
     // ここから先の形を、(x, y, z) に ry だけ回して置く（pop で戻す）
-    push(x, y, z, ry = 0) {
-      stack.push(new THREE.Matrix4().multiplyMatrices(top(), local(x, y, z, ry)));
+    push(x, y, z, ry = 0, rx = 0) {
+      stack.push(new THREE.Matrix4().multiplyMatrices(top(), local(x, y, z, ry, rx)));
     },
     pop() {
       stack.pop();

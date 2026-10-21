@@ -1,10 +1,10 @@
 // Global City の東京（2026-10-20）: 皇居の桜並木からスタート、丸の内・東京駅・東京タワー・新幹線・レインボーブリッジ・お台場
 // 方角は実際のとおり（北は -z）。名所の置き場所は src/data/global.js の GLOBAL_SCENERY.tokyo
-import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
-import { createBuilder } from '../town/builder.js?v=c221cc0';
-import { locate } from '../../game/track.js?v=c221cc0';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=c221cc0';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct, roadBanner } from './kit.js?v=c221cc0';
+import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
+import { createBuilder } from '../town/builder.js?v=3294f6b';
+import { locate } from '../../game/track.js?v=3294f6b';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=3294f6b';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, sakura, coneTree, petals, roundTree, viaduct, roadBanner, buildRampDeck } from './kit.js?v=3294f6b';
 
 const STONE = 0xd8d2c4; // 皇居の白い石垣
 const ROOF_COPPER = 0x5f8f7a; // 銅の屋根（緑青）
@@ -390,20 +390,8 @@ export function buildTokyo(track) {
   const glow = createBuilder({ glow: true });
   const js = sOf(track, 'JP');
   const je = sOf(track, 'AJ');
-  // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）
-  for (let s = js; s <= je; s += 4) {
-    const p = pointAt(track, s);
-    if (p.y < 1) continue;
-    bb.push(p.x, 0, p.z, ryAlong(p.h));
-    bb.box(2 * p.wall, p.y - 0.3, 4.4, Math.round(s / 4) % 2 ? 0xd8d4cc : 0xc8c4bc, 0, 0, 0);
-    bb.pop();
-  }
-  for (let s = js; s <= je; s += 6) {
-    const p = pointAt(track, s);
-    glow.push(p.x, p.y + 0.08, p.z, ryAlong(p.h));
-    for (const side of [-1, 1]) glow.box(9, 0.06, 1.6, (Math.round(s / 6) % 2) ? 0xffb000 : 0xff6a00, side * 3.3, 0, 0, side * 0.7);
-    glow.pop();
-  }
+  // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）と、光る矢印（階段に見えないように。src/render/world/kit.js）
+  buildRampDeck(bb, glow, track, js, je);
   for (const s of [js, je]) {
     const p = pointAt(track, s);
     for (const side of [-1, 1]) {

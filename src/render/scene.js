@@ -1,6 +1,6 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=c221cc0';
-import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=c221cc0';
+import * as THREE from '../../vendor/three.module.min.js?v=3294f6b';
+import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=3294f6b';
 
 const SKY = 0x8fd3ff;
 
@@ -9,6 +9,22 @@ export function createRenderer(canvas) {
   renderer.setClearColor(SKY);
   return renderer;
 }
+
+// まん中が明るく、ふちへだんだん消える丸い絵（ライトの当たった所に見えるように）。絵の作れない所（テスト）では null
+function softSpot() {
+  if (typeof document === 'undefined') return null;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.45)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(cv);
+}
+const HEAD_POOL = [11, 5]; // 明るい楕円の大きさ（前後の半分・横の半分 m）。車の前 HEAD_POOL[0] m の所が真ん中
 
 export function createWorld() {
   const scene = new THREE.Scene();
@@ -19,12 +35,18 @@ export function createWorld() {
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(200, 400, 100);
   scene.add(sun);
-  // 車のライト（Kyugo Mountain のトンネルの中だけ明るくする）
-  const headlight = new THREE.SpotLight(0xfff2d0, 0, 70, 0.55, 0.5, 1);
-  scene.add(headlight);
-  scene.add(headlight.target);
+  // 車のライト（トンネルの中だけ）: 光（SpotLight）を置くと、どの形も、どの画素も光の計算が重くなる（タブレットで富士山のトンネルが 40fps。2026-10-22）。
+  // そのかわり、車の前の道の上に、明るい楕円をうすく重ねる（光の計算なし）
+  const headPool = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xfff2d0, map: softSpot(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+  );
+  headPool.scale.set(HEAD_POOL[0], 1, HEAD_POOL[1]);
+  headPool.visible = false;
+  headPool.renderOrder = 1;
+  scene.add(headPool);
   // トンネルの暗さ（setDarkness）で変える前の値
-  scene.userData.light = { hemi, sun, headlight, hemiBase: 1.6, sunBase: 1.4, fogNear: 250, fogFar: 1100, sky: new THREE.Color(SKY) };
+  scene.userData.light = { hemi, sun, headPool, hemiBase: 1.6, sunBase: 1.4, fogNear: 250, fogFar: 1100, sky: new THREE.Color(SKY) };
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshLambertMaterial({ color: 0x5fae4b }));
   ground.rotation.x = -Math.PI / 2;
@@ -92,12 +114,14 @@ export function setDarkness(scene, dark, look, kart = null, open = 0) {
   scene.background.copy(scene.fog.color);
   scene.fog.near = L.fogNear + (look.fogNear - L.fogNear) * fog;
   scene.fog.far = L.fogFar + (look.fogFar - L.fogFar) * fog;
-  L.headlight.intensity = kart ? look.headlight * dark : 0;
-  if (kart && dark > 0) {
+  const pool = L.headPool;
+  pool.visible = !!kart && dark > 0;
+  if (pool.visible) {
     const fx = Math.cos(kart.move);
     const fz = Math.sin(kart.move);
-    L.headlight.position.set(kart.x + fx, (kart.y ?? 0) + 1.6, kart.z + fz);
-    L.headlight.target.position.set(kart.x + fx * 18, kart.y ?? 0, kart.z + fz * 18);
+    pool.material.opacity = Math.min(0.6, (look.headlight / 400) * dark); // 前のライトの強さ（PC 120・タブレット 200）から
+    pool.position.set(kart.x + fx * HEAD_POOL[0], (kart.y ?? 0) + 0.08, kart.z + fz * HEAD_POOL[0]);
+    pool.rotation.y = -kart.move;
   }
 }
 

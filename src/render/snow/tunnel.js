@@ -1,6 +1,6 @@
 // トンネル（Kyugo Mountain。2026-10-18 のユーザー依頼）: トンネルの点にそって、両がわの壁と天井。入口と出口に石のアーチ
-import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
-import { createBuilder } from '../town/builder.js?v=c221cc0';
+import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
+import { createBuilder } from '../town/builder.js?v=3294f6b';
 
 export const TUNNEL_HEIGHT = 8; // 道から天井まで（m）
 const CEIL_LATS = [-1, -0.5, 0, 0.5, 1];
@@ -110,7 +110,8 @@ export function buildTunnel(track) {
     gg.setAttribute('position', new THREE.Float32BufferAttribute(gpos, 3));
     gg.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3));
     gg.computeVertexNormals();
-    const glass = new THREE.Mesh(gg, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }));
+    // 光の計算はしない（うすいガラスなので見た目はほとんど同じ。画面いっぱいに重なるので、タブレットで海の底が重かった。2026-10-22）
+    const glass = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }));
     glass.userData.keep = true;
     group.add(glass);
     // 輪の骨組み（60m ごと、白い細い半円の枠。多いとじゃまなので少なく。2026-10-20 のユーザー依頼）

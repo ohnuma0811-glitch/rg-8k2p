@@ -1,6 +1,6 @@
 // Global City の部品（2026-10-20）: 箱・円柱・球・棒だけで作る。名所は src/render/world/<都市>.js
-import * as THREE from '../../../vendor/three.module.min.js?v=c221cc0';
-import { markS, sampleAt } from '../../game/track.js?v=c221cc0';
+import * as THREE from '../../../vendor/three.module.min.js?v=3294f6b';
+import { markS, sampleAt } from '../../game/track.js?v=3294f6b';
 
 // 名所の印（テストと確かめ用。見えない）
 export function landmark(group, name, x, y, z) {
@@ -211,4 +211,44 @@ export function trafficLight(group, b, glow, track, s, side, color) {
   glow.push(c.x, y, c.z, ry);
   [-0.8, 0, 0.8].forEach((dx, k) => glow.sphere(0.3, colors[k], side * -2.6 - dx * side, 6.2, 0.35, 8)); // 箱の、走ってくるカートの方の面（反対を向いていた。2026-10-21 のユーザー依頼）
   glow.pop();
+}
+
+// 大ジャンプ台（お台場・クアラルンプール）の下の台と、光る矢印（2026-10-22 のユーザー依頼「ジャンプ台が階段状」）:
+// 台の上が平らなので、坂の上がる方の半分が道から突き出て、階段に見えた。台の上は、台の前後の道のいちばん低い所より下に。
+// 矢印は平らな板を高さを変えて並べていたので、これも階段に見えた。坂にそって傾ける
+const RAMP_STEP = 4; // 台の間（m）
+const RAMP_DEPTH = 4.4; // 台の奥行き（m）
+const RAMP_ARROW = 6; // 矢印の間（m）
+export function rampSupports(track, from, to) {
+  const out = [];
+  for (let s = from; s <= to; s += RAMP_STEP) {
+    const p = pointAt(track, s);
+    const lo = Math.min(p.y, pointAt(track, s - RAMP_DEPTH / 2).y, pointAt(track, s + RAMP_DEPTH / 2).y);
+    if (lo < 1) continue;
+    out.push({ s, x: p.x, z: p.z, heading: p.h, wall: p.wall, h: lo - 0.3, depth: RAMP_DEPTH });
+  }
+  return out;
+}
+export function rampArrows(track, from, to) {
+  const out = [];
+  for (let s = from; s <= to; s += RAMP_ARROW) {
+    const p = pointAt(track, s);
+    const pitch = Math.atan2(pointAt(track, s + 0.8).y - pointAt(track, s - 0.8).y, 1.6);
+    out.push({ s, x: p.x, y: p.y, z: p.z, heading: p.h, pitch });
+  }
+  return out;
+}
+// bb: 台の builder、glow: 光る矢印の builder
+export function buildRampDeck(bb, glow, track, from, to) {
+  const ry = (h) => Math.atan2(Math.cos(h), Math.sin(h));
+  for (const c of rampSupports(track, from, to)) {
+    bb.push(c.x, 0, c.z, ry(c.heading));
+    bb.box(2 * c.wall, c.h, c.depth, Math.round(c.s / RAMP_STEP) % 2 ? 0xd8d4cc : 0xc8c4bc, 0, 0, 0);
+    bb.pop();
+  }
+  for (const r of rampArrows(track, from, to)) {
+    glow.push(r.x, r.y + 0.08, r.z, ry(r.heading), -r.pitch);
+    for (const side of [-1, 1]) glow.box(9, 0.06, 1.6, Math.round(r.s / RAMP_ARROW) % 2 ? 0xffb000 : 0xff6a00, side * 3.3, 0, 0, side * 0.7);
+    glow.pop();
+  }
 }

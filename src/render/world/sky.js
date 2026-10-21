@@ -1,5 +1,5 @@
 // ステージごとの空・霧・光（Global City）。宇宙・ワープ・海の底は特別
-import { autoViewOf } from '../../game/world.js?v=c221cc0';
+import { autoViewOf } from '../../game/world.js?v=3294f6b';
 const SKIES = {
   0: { sky: 0x9fd4ff, fog: [300, 1400], hemi: 1.6, sun: 1.4 }, // 東京: 春の青空
   1: { sky: 0x9fd4ff, fog: [400, 2200], hemi: 1.6, sun: 1.4 }, // 富士山（遠くまで見える）
