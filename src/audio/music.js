@@ -342,6 +342,11 @@ function makeInstruments(ctx, dest, noise, end, voice) {
   };
 }
 
+// レースの前に作っておく曲（コースの曲、ゴールの曲、結果の曲）
+export function raceSongs(def) {
+  return [def.music, 'victory', 'consolation', 'results'];
+}
+
 // 曲を流す: prepare で作っておき（一度だけ）、play でループ、setRate で速さ、stop でだんだん消す
 export function createMusic(audio, { render = renderSong } = {}) {
   const made = new Map(); // 曲の名前 → Promise<AudioBuffer | null>

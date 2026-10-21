@@ -5,7 +5,7 @@ import { createBuilder } from '../town/builder.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
 import { locate } from '../../game/track.js';
 import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js';
-import { createDinoModel } from '../models.js';
+import { createDinoModel, mergeStatic } from '../models.js';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 
@@ -169,7 +169,7 @@ export function buildSea(track) {
   {
     const c = onRoad(gs + (ge - gs) * 0.45, -34);
     const mon = new THREE.Group();
-    const head = createDinoModel(); // 前は +x、横はば 26m
+    const head = mergeStatic(createDinoModel()); // 前は +x、横はば 26m。動かない部品はまとめる（描く回数を減らす。2026-10-22 のユーザー依頼「タブレットで重い」）
     head.rotation.y = -Math.PI / 2; // 前を +z に
     const body = createBuilder();
     body.box(22, 16, 30, 0xf08a24, 0, -4, -18); // 体

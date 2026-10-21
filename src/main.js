@@ -21,6 +21,7 @@ import { updateWarp, warpLook } from './render/world/warp.js';
 import { showcaseCamera } from './render/showcase.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
+import { releaseTrack, tracksToRelease } from './render/release.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
 import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js';
@@ -42,7 +43,7 @@ import { createVoices } from './audio/voice.js';
 import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js';
 import { createCrowd } from './audio/crowd.js';
 import { crowdMix } from './audio/mix.js';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js';
+import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js';
 import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
@@ -125,6 +126,8 @@ let minimap = null;
 function useCourse(def, { lite = false } = {}) {
   course = def;
   track = trackOf(def);
+  // 新しく形を作るときは、ほかのコースの形を手放す（タイトルのコースと、このコースだけ残す。タブレットのメモリが足りなくなった。2026-10-22）
+  if (!track.mesh && !(lite && track.showcaseMesh)) for (const t of tracksToRelease(builtTracks, [def, COURSES[0]])) releaseTrack(t);
   setCourse(scene, track, { lite });
   minimap = createMinimap($('minimap'), track);
   minimap.resize();
@@ -148,9 +151,9 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
       if (!first || !audio.ctx) return;
       voices.load();
       crowd.load(); // スタジアムの歓声のファイル
-      // 曲を作るのに少し時間がかかるので、タイトルの曲、コースの曲（一覧の順）、ゴールと結果の曲の順に作っておく
-      const order = ['title', ...new Set(COURSES.map((c) => c.music)), 'victory', 'consolation', 'results'];
-      order.reduce((p, name) => p.then(() => music.prepare(name)), Promise.resolve());
+      // 曲を作るのに少し時間がかかる。はじめはタイトルの曲だけ作る（全部の曲を続けて作ると、タブレットでメニューが重くなった。2026-10-22）
+      // コースの曲とゴール・結果の曲は、レースの前に作る（prepareRaceSongs）
+      music.prepare('title');
       if (!game) music.play('title');
     },
     { passive: true },
@@ -675,11 +678,17 @@ function resultRows(g) {
   });
 }
 
+// レースで流す曲（コースの曲と、ゴール・結果の曲）を、スタートの前の紹介の間に作っておく（まだのものだけ。順に）
+function prepareRaceSongs(def) {
+  raceSongs(def).reduce((p, name) => p.then(() => music.prepare(name)), Promise.resolve());
+}
+
 // 大会の1レース。'next'（次のレースへ）か 'title'（タイトルへ。最後のレースのあとも）を返す
 async function runRace(name, charId, cup, level = 2) {
   // 確かめ用: URL の後ろに #course2 / #course3 / #course4 を付けると、1レース目からそのコース
   const devCourse = ['course5', 'course4', 'course3', 'course2'].find((c) => dev.has(c));
   useCourse(devCourse ? COURSES[Number(devCourse.slice(-1)) - 1] : courseOf(COURSES, cup));
+  prepareRaceSongs(course);
   const label = `RACE ${cup.done + 1}/${cup.races}`;
   // レースの画面に移ったら、曲（タイトル・結果）をだんだん小さくして止める。GO! でコースの曲が始まる
   music.stop(1.5);
@@ -739,6 +748,7 @@ async function runRace(name, charId, cup, level = 2) {
 // 'again'（同じコースをもう一度）・'courses'（コース選びへ）・'title' を返す
 async function runTimeTrial(name, charId, def) {
   useCourse(def);
+  prepareRaceSongs(course);
   music.stop(1.5);
   await screens.courseIntro(menu, course.name, 'TIME TRIAL', COURSE_INTRO);
   game = createGame(name, charId, 2, null, { solo: true });
@@ -877,7 +887,9 @@ async function flow() {
         // コースを押すと、そのコースを背景に映す（タイトルと同じカメラ）。もう一度押すと決まる
         const pick = await screens.chooseCourse(menu, COURSES, courseNo, {
           onSelect: (k, sound) => {
-            useCourse(COURSES[k], { lite: true });
+            // 背景に映すのは、もう形を作ってあるコースだけ（作ると、タブレットで10秒ほど止まった。2026-10-22 のユーザー依頼）。ほかはタイトルのコース
+            const built = builtTracks.get(COURSES[k]);
+            useCourse(built?.mesh || built?.showcaseMesh ? COURSES[k] : COURSES[0], { lite: true });
             if (sound) sfx.play('select');
           },
           records: () => sharedTimes.view(),

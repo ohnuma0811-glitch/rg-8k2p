@@ -193,3 +193,14 @@ test('Global City の曲 city: 近未来的でスピード感（E マイナー�
   assert.ok(SONGS.city);
   assert.equal(SONGS.city.bpm, 160);
 });
+
+import { raceSongs } from '../src/audio/music.js';
+import { COURSES } from '../src/data/tracks.js';
+
+test('レースの前に作る曲は、そのコースの曲とゴール・結果の曲（はじめに全部の曲を作るとメニューが重かった。2026-10-22）', () => {
+  for (const c of COURSES) {
+    const names = raceSongs(c);
+    assert.equal(names[0], c.music);
+    for (const n of names) assert.ok(SONGS[n], `${c.name}: ${n}`);
+  }
+});
