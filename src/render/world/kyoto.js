@@ -318,7 +318,7 @@ export function buildKyoto(track) {
   // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
   const sign = (s, text, name) => roadBanner(g, b, track, s, text, name, { bg: '#7a1a10', fg: '#ffe14a' }); // 濃い赤に黄色の字（見やすく）
   sign(sOf(track, 'FI') - 30, 'FUSHIMI INARI', 'signFushimi');
-  sign(km - 72, 'KIYOMIZU-DERA', 'signKiyomizu'); // 仁王門と本堂の間（鳥居のトンネルに重ならないように）
+  // 清水寺の看板は撤去（2026-10-22 のユーザー依頼「視認性が悪い」）。舞台の KIYOMIZU STAGE はそのまま
   sign(sOf(track, 'GK') - 40, 'GINKAKU-JI', 'signGinkaku');
   sign(sOf(track, 'KK') - 40, 'KINKAKU-JI', 'signKinkaku');
   sign(sOf(track, 'AR') - 30, 'ARASHIYAMA', 'signArashiyama');

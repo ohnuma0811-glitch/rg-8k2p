@@ -786,7 +786,8 @@ test('京都の景色は道の上に出ない（2026-10-21 のユーザー依頼
 
 test('清水寺は巨大で、道は本堂の中を通りぬける。仁王門もくぐる。京都の名所には英語の看板（2026-10-21 のユーザー依頼）', () => {
   const m = landmarks(buildKyoto(t));
-  for (const name of ['kiyomizuHall', 'nioGate', 'signKiyomizu', 'signKinkaku', 'signFushimi', 'signGinkaku', 'signArashiyama']) assert.ok(m.has(name), name);
+  for (const name of ['kiyomizuHall', 'nioGate', 'signKinkaku', 'signFushimi', 'signGinkaku', 'signArashiyama']) assert.ok(m.has(name), name);
+  assert.ok(!m.has('signKiyomizu'), '清水寺の看板は撤去（2026-10-22 のユーザー依頼「視認性が悪い」）');
   const h = m.get('kiyomizuHall');
   const loc = locate(t, h.x, h.z, null, 40);
   assert.ok(Math.abs(loc.lateral) < 2, '本堂は道の上にまたがる');
@@ -1000,7 +1001,8 @@ test('道や柵も、ステージごとに分けて見せる（遠くのステ�
 test('名所の名前は、道をまたぐ横断幕（京都・セントラルパーク。2026-10-21 のユーザー依頼「全く読めない」「Central Parkとわかるように」）', () => {
   const banners = (g) => { const n = []; g.traverse((o) => { if (o.userData.banner) n.push(o.userData.banner); }); return n; };
   const k = banners(buildKyoto(t));
-  for (const name of ['FUSHIMI INARI', 'KIYOMIZU-DERA', 'GINKAKU-JI', 'KINKAKU-JI', 'ARASHIYAMA']) assert.ok(k.includes(name), name);
+  for (const name of ['FUSHIMI INARI', 'GINKAKU-JI', 'KINKAKU-JI', 'ARASHIYAMA']) assert.ok(k.includes(name), name);
+  assert.ok(!k.includes('KIYOMIZU-DERA'), '清水寺の看板は撤去（2026-10-22 のユーザー依頼）');
   assert.ok(!banners(buildTokyo(t)).includes('TOKYO STATION'), '東京駅は高い看板だけ（2枚目の横断幕は撤去。2026-10-21 のユーザー依頼）');
   assert.ok(banners(buildNewYork(t)).includes('CENTRAL PARK'));
 });
@@ -1716,4 +1718,18 @@ test('クアラルンプールの街灯は地面に立つ（ジャンプ台の�
   }
   // ゴールの手前（大ジャンプ台の坂から着地まで）には立てない
   assert.ok(!spots.some((c) => c.s > t.marks.R0 && c.s < t.marks.LND));
+});
+
+test('ワープの手前に加速板2枚（十分あける）、東京駅の看板のあたりに1枚（2026-10-22 のユーザー依頼）', () => {
+  const runs = (a, b) => {
+    const out = [];
+    for (let s = Math.round(a); s < b; s++) if (t.samples[s].boost && !t.samples[s - 1].boost) out.push(s);
+    return out;
+  };
+  const warp = runs(t.marks.GWB, t.marks.R1);
+  assert.equal(warp.length, 2, `${warp}`);
+  assert.ok(warp[1] - warp[0] >= 120, `間 ${warp[1] - warp[0]}m`);
+  assert.ok(t.marks.R1 - warp[1] < 80, 'ワープのすぐ手前');
+  const station = runs(t.marks.MRN, t.marks.TS + 20);
+  assert.equal(station.length, 1, `${station}`);
 });
