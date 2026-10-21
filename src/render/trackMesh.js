@@ -1083,6 +1083,7 @@ export function buildTrackMesh(track) {
     group.add(mergeArrows(track));
     // 道の上の動かない木（2026-10-18 のユーザー依頼）: 茶色の幹に、高い所の丸い葉（車の上の高さ）
     for (const tr of track.trees ?? []) {
+      if (tr.scenery) continue; // 分離帯の木（Kampar）は景色の方で描く
       hide.push(tr.x, tr.y, tr.z, tr.k);
       forestKit.broccoliTree(hide, { size: 1.15, k: tr.k });
       hide.pop();

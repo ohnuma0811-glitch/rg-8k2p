@@ -188,3 +188,31 @@ test('CPU は、逆向きに走ってくるスクールバスをよける（ぶ�
   const hits = kamparCpuRace().reduce((n, s) => n + s.busHits, 0);
   assert.ok(hits <= 2, `4台×3周でバスに ${hits} 回ぶつかった`);
 });
+
+import { treeContact, TREE_RADIUS, BUMP_LIMIT_KMH, meterKmh } from '../src/game/hazards.js';
+import { buildScenery } from '../src/render/town/scenery.js';
+
+test('道の真ん中（分離帯）の木は、牛と同じ: メーター150以上でぶつかるとスピン、遅いと跳ね返る（2026-10-22 のユーザー依頼）', () => {
+  const mids = t.trees.filter((tr) => tr.scenery);
+  assert.ok(mids.length >= 5, `${mids.length}`);
+  // 見える分離帯の木と、当たる木は同じ場所
+  const list = t.def.scenery.filter((i) => i.part === 'tree' && i.side === 0);
+  const spots = buildScenery(t, list).userData.spots;
+  assert.equal(spots.length, mids.length);
+  for (const sp of spots) assert.ok(mids.some((tr) => Math.hypot(tr.x - sp.x, tr.z - sp.z) < 0.01), `s ${Math.round(sp.s)}`);
+  const hit = (speed) => {
+    const tr = mids[0];
+    const kart = createKart(t, (tr.i - 2 + t.length) % t.length, 0);
+    kart.x = tr.x - Math.cos(kart.heading) * (TREE_RADIUS + 0.5);
+    kart.z = tr.z - Math.sin(kart.heading) * (TREE_RADIUS + 0.5);
+    kart.speed = speed;
+    return [treeContact(kart, t, 10, PHYS), kart];
+  };
+  const [fast, k1] = hit(30);
+  assert.ok(meterKmh(30) >= BUMP_LIMIT_KMH);
+  assert.equal(fast, 'spin');
+  assert.ok(k1.spin > 0);
+  const [slow, k2] = hit(15);
+  assert.equal(slow, 'bounce');
+  assert.equal(k2.spin, 0);
+});

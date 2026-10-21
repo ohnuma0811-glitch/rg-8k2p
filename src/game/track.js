@@ -605,6 +605,19 @@ export function buildTrack(def) {
   });
   // 道の上の動かない木（Soki Forest。2026-10-18 のユーザー依頼「コース中に30本、ランダムに」）
   t.trees = def.trees ? placeTrees(t, def.trees) : [];
+  // 分離帯の木（Kampar Town。景色の tree で side: 0）も当たる。牛と同じで、メーター150以上でスピン（2026-10-22 のユーザー依頼）。
+  // 置く所は景色と同じ（src/render/town/scenery.js: 道の真ん中、分離帯のある所だけ）。scenery: 景色で描くので、道の上の木としては描かない
+  for (const item of def.scenery ?? []) {
+    if (item.part !== 'tree' || item.side !== 0 || item.path || !item.from) continue;
+    const from = markS(t, item.from);
+    const len = span(t, from, markS(t, item.to));
+    for (let d = 0; d <= len; d += item.every) {
+      const i = ((Math.round(from + d) % t.length) + t.length) % t.length;
+      const p = t.samples[i];
+      if (!(p.median > 0)) continue;
+      t.trees.push({ i, x: p.x, z: p.z, y: p.y ?? 0, path: 0, s: p.s, k: t.trees.length, scenery: true });
+    }
+  }
   // サル（Soki Forest。2026-10-16）: at は [道の id, その道の上の割合]。木は side 側の道のふちから 3m 外
   t.monkeys = (def.monkeys ?? []).map((m) => {
     const path = t.paths.find((q) => q.id === m.at[0]);

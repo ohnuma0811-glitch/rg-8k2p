@@ -744,7 +744,10 @@ test('木にぶつかる: メーター150以上（30 m/s）でスピン、遅い
     kart.z = tr.z + 0.5;
     assert.equal(treeContact(kart, t, 3.5, PHYS), null);
   }
-  for (const c of [COURSES[0], COURSES[1], COURSES[3]]) assert.deepEqual(buildTrack(c).trees, [], c.name);
+  for (const c of [COURSES[0], COURSES[3]]) assert.deepEqual(buildTrack(c).trees, [], c.name);
+  // Kampar Town は、分離帯の木だけ（景色で描く。当たりは牛と同じ。2026-10-22 のユーザー依頼）
+  const kp = buildTrack(COURSES[1]).trees;
+  assert.ok(kp.length > 0 && kp.every((tr) => tr.scenery), COURSES[1].name);
 });
 
 test('CPU は木をよける。ぶつかってもはまって動けなくならない', () => {
