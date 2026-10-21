@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=b6c5b26';
-import { SOKI_SCENERY } from './soki.js?v=b6c5b26';
+import { KAMPAR_SCENERY } from './kampar.js?v=fd408eb';
+import { SOKI_SCENERY } from './soki.js?v=fd408eb';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -385,6 +385,9 @@ export const COURSE5 = {
     // 皇居の道に3枚（加速が落ち着くくらい、約150m ずつあける）、東京の新幹線と並ぶ道に2枚（2026-10-22 のユーザー依頼）
     ...[0.12, 0.45, 0.78].map((f) => ({ at: ['NJ', 'MRN', f], len: 8, time: 1.2 })),
     ...[0.25, 0.7].map((f) => ({ at: ['TT', 'SL', f], len: 8, time: 1.2 })),
+    { at: ['MRN', 'TS', 0.9], len: 8, time: 1.2 }, // 東京駅の看板のあたり（看板のあるカーブを曲がった所。2026-10-22 のユーザー依頼）
+    { at: ['GWB', 'IG', 0.8], len: 8, time: 1.2 }, // ワープの手前に2枚（約145m あける。2026-10-22 のユーザー依頼）
+    { at: ['IG', 'R1', 0.7], len: 8, time: 1.2 },
     // 宇宙へ行く発射台の手前の加速板3つ（2026-10-21 のユーザー依頼）
     ...[0.33, 0.51, 0.69].map((f) => ({ at: ['AR', 'LP', f], len: 8, time: 1.2 })),
     ...[0.25, 0.45, 0.65].map((f) => ({ at: ['RB', 'RBE', f], len: 8, time: 1.2 })), // レインボーブリッジの上に3枚（2026-10-21 のユーザー依頼）

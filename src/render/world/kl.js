@@ -1,11 +1,11 @@
 // Global City のクアラルンプール（2026-10-20）: 夕方から夜。南のプトラジャヤのピンクモスクの中の回廊を通り、
 // 北西のバトゥ洞窟（金色の像・虹色の階段）の中を通って、ペトロナスツインタワーの前でゴール
-import * as THREE from '../../../vendor/three.module.min.js?v=b6c5b26';
-import { createBuilder } from '../town/builder.js?v=b6c5b26';
-import { locate } from '../../game/track.js?v=b6c5b26';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=b6c5b26';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=b6c5b26';
-import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=b6c5b26';
+import * as THREE from '../../../vendor/three.module.min.js?v=fd408eb';
+import { createBuilder } from '../town/builder.js?v=fd408eb';
+import { locate } from '../../game/track.js?v=fd408eb';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=fd408eb';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=fd408eb';
+import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=fd408eb';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const PINK = 0xd9a0a8;
@@ -241,17 +241,28 @@ export function buildKL(track) {
   }
 
   // 道ぞいの街灯（夕方の明かり）
-  along(track, 'KL', 'END', 40, (p) => {
-    if (p.tunnel || p.tunnelLook) return;
+  for (const c of klLampSpots(track)) {
+    b.cyl(0.2, 0.25, 7, 6, 0x4a4a52, c.x, c.y, c.z);
+    glow.sphere(0.7, 0xffe6a8, c.x, c.y + 7.2, c.z, 6);
+  }
+
+  g.add(b.build(), glow.build());
+  return root;
+}
+
+// 道ぞいの街灯の場所（40m ごと、両わき）。地面の高さの道だけ: ジャンプ台の坂・空中の区間（自動の区間）・高い所の洞窟には立てない
+// （ゴール直前に空中にライトが浮かんでいた。2026-10-22 のユーザー依頼）
+export function klLampSpots(track) {
+  const out = [];
+  along(track, 'KL', 'END', 40, (p, s) => {
+    const q = track.samples[Math.round(s) % track.length];
+    if (p.tunnel || p.tunnelLook || q.tunnel || q.auto || q.y === null || Math.abs(p.y) > 0.5) return;
     for (const side of [-1, 1]) {
       const c = beside(p, side * (p.wall + 1.5));
       const lc = locate(track, c.x, c.z, null, 40);
       if (Math.abs(lc.lateral) < lc.wall + 1) continue; // ほかの道（ゴールのあとの周回の道）の上には立てない
-      b.cyl(0.2, 0.25, 7, 6, 0x4a4a52, c.x, p.y, c.z);
-      glow.sphere(0.7, 0xffe6a8, c.x, p.y + 7.2, c.z, 6);
+      out.push({ x: c.x, y: p.y, z: c.z, s });
     }
   });
-
-  g.add(b.build(), glow.build());
-  return root;
+  return out;
 }

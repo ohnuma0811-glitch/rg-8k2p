@@ -1,10 +1,10 @@
 // Global City の京都（2026-10-20）: 外国の人が見ても京都だと分かるように、日本らしさ・京都らしさを前に出す
 // 東から入るので、実際の位置のとおり時計回り: 伏見稲荷 → 清水寺（舞台からジャンプ）→ 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林
-import * as THREE from '../../../vendor/three.module.min.js?v=b6c5b26';
-import { createBuilder } from '../town/builder.js?v=b6c5b26';
-import { locate } from '../../game/track.js?v=b6c5b26';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=b6c5b26';
-import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=b6c5b26';
+import * as THREE from '../../../vendor/three.module.min.js?v=fd408eb';
+import { createBuilder } from '../town/builder.js?v=fd408eb';
+import { locate } from '../../game/track.js?v=fd408eb';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=fd408eb';
+import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=fd408eb';
 
 const VERMILION = 0xe0441c; // 朱色
 const DARK_WOOD = 0x3a2a22;
@@ -318,7 +318,7 @@ export function buildKyoto(track) {
   // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
   const sign = (s, text, name) => roadBanner(g, b, track, s, text, name, { bg: '#7a1a10', fg: '#ffe14a' }); // 濃い赤に黄色の字（見やすく）
   sign(sOf(track, 'FI') - 30, 'FUSHIMI INARI', 'signFushimi');
-  sign(km - 72, 'KIYOMIZU-DERA', 'signKiyomizu'); // 仁王門と本堂の間（鳥居のトンネルに重ならないように）
+  // 清水寺の看板は撤去（2026-10-22 のユーザー依頼「視認性が悪い」）。舞台の KIYOMIZU STAGE はそのまま
   sign(sOf(track, 'GK') - 40, 'GINKAKU-JI', 'signGinkaku');
   sign(sOf(track, 'KK') - 40, 'KINKAKU-JI', 'signKinkaku');
   sign(sOf(track, 'AR') - 30, 'ARASHIYAMA', 'signArashiyama');
