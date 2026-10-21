@@ -1704,3 +1704,16 @@ test('皇居の道に加速板3枚（加速が落ち着くくらいあける）�
   assert.equal(train.length, 2, `${train}`);
   assert.ok(train[1] - train[0] >= 120, `間 ${train[1] - train[0]}m`);
 });
+
+import { klLampSpots } from '../src/render/world/kl.js';
+
+test('クアラルンプールの街灯は地面に立つ（ジャンプ台の坂・空中の区間には立てない。ゴール直前に空中にライトが浮かんでいた。2026-10-22 のユーザー依頼）', () => {
+  const spots = klLampSpots(t);
+  assert.ok(spots.length > 20, `${spots.length}`);
+  for (const c of spots) {
+    assert.ok(Math.abs(c.y) < 1, `高さ ${c.y.toFixed(1)} (s ${Math.round(c.s)})`);
+    assert.ok(!t.samples[Math.round(c.s) % t.length].auto, `自動の区間 s ${Math.round(c.s)}`);
+  }
+  // ゴールの手前（大ジャンプ台の坂から着地まで）には立てない
+  assert.ok(!spots.some((c) => c.s > t.marks.R0 && c.s < t.marks.LND));
+});
