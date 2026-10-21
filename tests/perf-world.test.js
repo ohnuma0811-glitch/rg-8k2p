@@ -18,3 +18,38 @@ test('海の底の泳ぐ生き物と怪獣は、1匹（1つの群れ）を材質
   const swimmers = g.children.filter((c) => c.userData.swim || c.userData.watch);
   for (const s of swimmers) assert.ok(meshes(s) <= 6, `${s.userData.watch ? '怪獣' : '泳ぐ生き物'}: ${meshes(s)} 個の形`);
 });
+
+import * as THREE from '../vendor/three.module.min.js';
+import { createCowModel, createCowLegs, setCowLegs } from '../src/render/models.js';
+import { needsHeadlight } from '../src/render/scene.js';
+import { COURSES } from '../src/data/tracks.js';
+
+// Kampar Town の UTAR のあたりが 45〜50fps（2026-10-22 のユーザー依頼）: 牛9頭を 54 回に分けて描いていた
+test('牛は、体と頭を1つの形で描き、足は全部の牛の分をまとめて1回で描く（足は歩くように動く）', () => {
+  const cow = mergeStatic(createCowModel(0, { legs: false }));
+  assert.equal(meshes(cow), 1);
+  const legs = createCowLegs([0, 1, 2]);
+  assert.ok(legs.isInstancedMesh);
+  assert.equal(legs.count, 12);
+  cow.position.set(10, 0, 20);
+  cow.rotation.y = 0.7;
+  const m = new THREE.Matrix4();
+  const p = new THREE.Vector3();
+  const ys = [];
+  for (const time of [0, 0.4]) {
+    setCowLegs(legs, 1, cow, time);
+    for (let i = 4; i < 8; i++) {
+      legs.getMatrixAt(i, m);
+      p.setFromMatrixPosition(m);
+      assert.ok(Math.hypot(p.x - 10, p.z - 20) < 1.3, `足 ${i} は牛の下`);
+      assert.ok(Math.abs(p.y - 0.8) < 0.01);
+      ys.push(new THREE.Quaternion().setFromRotationMatrix(m).z);
+    }
+  }
+  assert.ok(Math.abs(ys[0] - ys[4]) > 0.01, '時刻で足を振る');
+});
+
+test('トンネルのないコースでは、トンネル用の前を照らす光を使わない（どの形も光の計算が軽くなる）', () => {
+  const tunnels = COURSES.map((c) => needsHeadlight(buildTrack(c)));
+  assert.deepEqual(tunnels, [false, false, false, true, true]);
+});

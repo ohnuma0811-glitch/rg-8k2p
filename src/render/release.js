@@ -3,7 +3,7 @@
 // 道の計算（samples など）は軽いので残し、形と、形にのせた乗り物などだけを片づける。次に使うときに作りなおす
 
 // コースの形と一緒に作って、形にのせているもの（main.js）
-export const TRACK_CACHES = ['mesh', 'showcaseMesh', 'boarModels', 'busModels', 'cowModels', 'dinoModel', 'dinoChomp', 'monkeyModels', 'nutModels', 'snowmanModels', 'trainModels'];
+export const TRACK_CACHES = ['mesh', 'showcaseMesh', 'boarModels', 'busModels', 'cowModels', 'cowLegs', 'dinoModel', 'dinoChomp', 'monkeyModels', 'nutModels', 'snowmanModels', 'trainModels'];
 
 // 形・材質・絵を片づける（同じものは1回だけ）
 function disposeObject(root) {

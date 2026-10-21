@@ -38,7 +38,14 @@ export function createWorld() {
 
 // コースの形を入れかえる（レースごと）。形は一度作ったら、その track に取っておいて使い回す
 // lite: コース選び・紹介の背景だけ（Global City は軽い形 buildShowcase。全部を作るのはレースのとき。2026-10-21 のユーザー依頼「選ぶ画面が重い」）
+// トンネルのあるコースだけ、トンネルの中で前を照らす光を使う（光があるだけで、どの形も光の計算が重くなる。2026-10-22 のユーザー依頼「タブレットで重い」）
+export function needsHeadlight(track) {
+  return track.samples.some((p) => p.tunnel);
+}
+
 export function setCourse(scene, track, { lite = false } = {}) {
+  const L = scene.userData.light;
+  if (L) L.headlight.visible = needsHeadlight(track);
   const useLite = lite && !!track.def.showcase && !track.mesh;
   const mesh = useLite ? (track.showcaseMesh ??= buildShowcase(track)) : (track.mesh ??= buildTrackMesh(track));
   if (scene.userData.courseMesh === mesh) return;

@@ -389,36 +389,66 @@ export function createNameTag(text, color) {
 }
 
 // 牛（Kampar Town。2026-10-15 のユーザー依頼）: 白に黒のまだら（2頭目・4頭目は茶色）。前は +x
-export function createCowModel(k = 0) {
+export function createCowModel(k = 0, { legs: withLegs = true } = {}) {
   const g = new THREE.Group();
-  const coat = k % 2 ? 0x8a5a33 : 0xf2f0ea;
+  const coat = cowCoat(k);
   g.add(box(2.4, 1.0, 1.1, coat, 0, 1.25, 0)); // 体
   if (k % 2 === 0) {
     g.add(box(0.8, 0.7, 1.12, 0x222222, -0.4, 1.35, 0)); // 黒いまだら
     g.add(box(0.5, 0.5, 1.12, 0x222222, 0.6, 1.1, 0));
   }
-  const head = new THREE.Group();
-  head.add(box(0.7, 0.6, 0.6, coat, 0, 0, 0));
-  head.add(box(0.25, 0.3, 0.5, 0xe8a0a0, 0.42, -0.12, 0)); // ピンクの鼻
-  for (const z of [-0.22, 0.22]) head.add(box(0.12, 0.3, 0.1, 0xf6f2e0, -0.1, 0.42, z)); // 角
-  head.position.set(1.45, 1.6, 0);
-  g.add(head);
-  const legs = [];
-  for (const [x, z] of [[0.85, 0.38], [0.85, -0.38], [-0.85, 0.38], [-0.85, -0.38]]) {
-    const leg = new THREE.Group();
-    leg.add(box(0.25, 0.85, 0.25, coat, 0, -0.42, 0));
-    leg.position.set(x, 0.8, z);
-    g.add(leg);
-    legs.push(leg);
-  }
+  // 頭（動かさないので、体と同じ1つの形にまとめられる）
+  g.add(box(0.7, 0.6, 0.6, coat, 1.45, 1.6, 0));
+  g.add(box(0.25, 0.3, 0.5, 0xe8a0a0, 1.87, 1.48, 0)); // ピンクの鼻
+  for (const z of [-0.22, 0.22]) g.add(box(0.12, 0.3, 0.1, 0xf6f2e0, 1.35, 2.02, z)); // 角
   g.add(box(0.1, 0.7, 0.1, coat, -1.25, 1.15, 0)); // しっぽ
-  // 歩く: 足を前後に振る（時刻で決まる）
+  const legs = [];
+  if (withLegs) {
+    for (const [x, z] of COW_LEGS) {
+      const leg = new THREE.Group();
+      leg.add(box(0.25, 0.85, 0.25, coat, 0, -0.42, 0));
+      leg.position.set(x, 0.8, z);
+      g.add(leg);
+      legs.push(leg);
+    }
+  }
+  // 歩く: 足を前後に振る（時刻で決まる）。足のない形（legs: false）は createCowLegs の足を setCowLegs で動かす
   g.userData.walk = (time) => {
     legs.forEach((leg, i) => {
-      leg.rotation.z = Math.sin(time * 4 + (i % 2) * Math.PI + k) * 0.35;
+      leg.rotation.z = cowLegSwing(time, i, k);
     });
   };
   return g;
+}
+
+// 牛の毛の色（2頭目・4頭目は茶色）と、足の場所・振り方
+const cowCoat = (k) => (k % 2 ? 0x8a5a33 : 0xf2f0ea);
+const COW_LEGS = [[0.85, 0.38], [0.85, -0.38], [-0.85, 0.38], [-0.85, -0.38]];
+const cowLegSwing = (time, i, k) => Math.sin(time * 4 + (i % 2) * Math.PI + k) * 0.35;
+
+// 牛の足を、全部の牛の分まとめて1回で描く（牛ごと・足ごとに描くと、9頭で 54 回になった。2026-10-22 のユーザー依頼「UTAR のあたりが重い」）
+// ks: 牛の番号（毛の色を決める）。牛 n の足は n×4〜n×4+3 番
+const LEG_GEO = new THREE.BoxGeometry(0.25, 0.85, 0.25).translate(0, -0.42, 0);
+export function createCowLegs(ks) {
+  const legs = new THREE.InstancedMesh(LEG_GEO, new THREE.MeshLambertMaterial({ color: 0xffffff }), ks.length * 4);
+  const c = new THREE.Color();
+  ks.forEach((k, n) => {
+    c.setHex(cowCoat(k));
+    for (let i = 0; i < 4; i++) legs.setColorAt(n * 4 + i, c);
+  });
+  legs.frustumCulled = false; // 牛が動くので、まとめた形の大きさでは見えるか決められない
+  legs.userData.keep = true;
+  return legs;
+}
+const legM = new THREE.Matrix4();
+const legR = new THREE.Matrix4();
+export function setCowLegs(legs, n, cow, time) {
+  cow.updateMatrix();
+  COW_LEGS.forEach(([x, z], i) => {
+    legM.makeTranslation(x, 0.8, z).multiply(legR.makeRotationZ(cowLegSwing(time, i, n)));
+    legs.setMatrixAt(n * 4 + i, legM.premultiply(cow.matrix));
+  });
+  legs.instanceMatrix.needsUpdate = true;
 }
 
 // 亀（Global City の海の底。2026-10-21 のユーザー依頼「ゆっくり歩く亀」）: 緑のこうらに六角のもよう、黄緑の頭と4本のひれ足。前は +x

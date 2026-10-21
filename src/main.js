@@ -23,7 +23,7 @@ import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, 
 import { createMinimap } from './render/minimap.js';
 import { releaseTrack, tracksToRelease } from './render/release.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createCowLegs, setCowLegs, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
 import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
@@ -322,8 +322,15 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
 function placeCows(time) {
   if (!track.cows.length) return;
   if (!track.cowModels) {
-    track.cowModels = track.cows.map((cow, k) => mergeStatic(cow.kind === 'turtle' ? createTurtleModel(k) : createCowModel(k)));
+    // 牛は体と頭を1つの形に、足は全部の牛の分を1つに（描く回数を減らす。2026-10-22 のユーザー依頼「UTAR のあたりが重い」）
+    track.cowModels = track.cows.map((cow, k) => mergeStatic(cow.kind === 'turtle' ? createTurtleModel(k) : createCowModel(k, { legs: false })));
     track.cowModels.forEach((m, k) => { track.mesh.add(m); attachStage(track.mesh, track, m, track.cows[k].s); }); // 海の亀は海のステージの近くだけ
+    const cows = track.cows.map((cow, k) => k).filter((k) => track.cows[k].kind !== 'turtle');
+    if (cows.length) {
+      track.cowLegs = createCowLegs(cows);
+      track.cowLegs.userData.cows = cows;
+      track.mesh.add(track.cowLegs);
+    }
   }
   track.cows.forEach((cow, k) => {
     const p = cowPose(track, cow, time);
@@ -332,6 +339,7 @@ function placeCows(time) {
     m.rotation.y = -p.heading;
     m.userData.walk(time);
   });
+  if (track.cowLegs) track.cowLegs.userData.cows.forEach((k, n) => setCowLegs(track.cowLegs, n, track.cowModels[k], time));
 }
 
 // イノシシの形（Soki Forest。牛と同じく、コースの形と一緒に取っておく）を、時刻 time の場所に置く。高さは道の高さ
@@ -1195,12 +1203,19 @@ function showTop3(g, top, dt) {
   }
 }
 
+// 確かめ用: URL の後ろに #perf を付けると、下の文字に、1回の書きかえの計算の時間（js）・描く指示の時間（draw）・描く回数・三角の数・画面の細かさを出す
+// （タブレットでどこが重いか見るため。2026-10-22）。js + draw が書きかえの間（60fps なら 16.7ms）より短いのに fps が低ければ、絵を描く部品（GPU）が重い
+const perfOn = dev.has('perf');
+const perf = { js: 0, draw: 0, n: 0, text: '' };
 startLoop({
   update(dt) {
+    const t0 = perfOn ? performance.now() : 0;
     controls.tick();
     if (game && !game.paused) stepGame(dt);
+    if (perfOn) perf.js += performance.now() - t0;
   },
   render(alpha, frameDt) {
+    const tStart = perfOn ? performance.now() : 0;
     const dt = Math.min(0.1, frameDt);
     frames++;
     fpsTime += dt;
@@ -1208,6 +1223,11 @@ startLoop({
       fps = Math.round(frames / fpsTime);
       frames = 0;
       fpsTime = 0;
+      if (perfOn && perf.n) {
+        const info = renderer.info.render;
+        perf.text = `  js ${(perf.js / perf.n).toFixed(1)}ms draw ${(perf.draw / perf.n).toFixed(1)}ms calls ${info.calls} tri ${Math.round(info.triangles / 1000)}k pr ${renderer.getPixelRatio().toFixed(2)}`;
+        perf.js = perf.draw = perf.n = 0;
+      }
       const q = nextQuality(quality, fps);
       if (q !== quality) {
         quality = q;
@@ -1229,7 +1249,13 @@ startLoop({
     } else {
       idleCamera(dt);
     }
+    const tDraw = perfOn ? performance.now() : 0;
     renderer.render(scene, camera);
+    if (perfOn) {
+      perf.js += tDraw - tStart;
+      perf.draw += performance.now() - tDraw;
+      perf.n++;
+    }
     // 逆走の警告: キャラの頭の上の画面の位置に出す
     wrongWayEl.classList.toggle('show', wrong);
     if (wrong) {
@@ -1245,7 +1271,7 @@ startLoop({
       bumpWarnEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
     }
     speedo.classList.toggle('hidden', !game);
-    setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}`);
+    setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}${perf.text}`);
   },
 });
 
