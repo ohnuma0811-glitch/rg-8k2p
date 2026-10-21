@@ -1738,3 +1738,18 @@ test('ワープの手前に加速板2枚（十分あける）、東京駅の看�
   const station = runs(t.marks.MRN, t.marks.TS + 20);
   assert.equal(station.length, 1, `${station}`);
 });
+
+import { buildWarp as makeWarp, updateWarp as stepWarp } from '../src/render/world/warp.js';
+import { PerspectiveCamera } from '../vendor/three.module.min.js';
+
+test('同じコースを2回目に走っても、ワープの光の線と輪は見える（前のレースの時刻が残っていて、遠くへ消えていた。2026-10-22 のユーザー依頼）', () => {
+  const g = makeWarp().children[0];
+  const cam = new PerspectiveCamera();
+  // 1回目のレース: 420秒でワープを通る
+  for (let time = 410; time < 420; time += 1 / 30) stepWarp(g, cam, time, 0.5);
+  // 2回目のレース: 時刻は 0 からやり直し。ワープは 300秒ごろ
+  for (let time = 300; time < 301; time += 1 / 30) stepWarp(g, cam, time, 0.3);
+  const a = g.userData.lines.geometry.attributes.position.array;
+  for (let i = 2; i < a.length; i += 3) assert.ok(a[i] <= 0 && a[i] >= -900, `線 z ${a[i]}`);
+  for (const r of g.userData.rings) assert.ok(r.position.z <= 0 && r.position.z >= -700, `輪 z ${r.position.z}`);
+});
