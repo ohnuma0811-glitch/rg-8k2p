@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=767ac96';
-import { SOKI_SCENERY } from './soki.js?v=767ac96';
+import { KAMPAR_SCENERY } from './kampar.js?v=b6c5b26';
+import { SOKI_SCENERY } from './soki.js?v=b6c5b26';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -311,7 +311,7 @@ export const COURSE4 = {
 // Global City（2026-10-20 のユーザー依頼）: 東京から富士山・京都・香港・海の底・ニューヨークを通って、クアラルンプールへ。片道を1回。
 // 点は m（x は東、z は南）。各都市の中は実際の方角のとおり。設計書 docs/superpowers/specs/2026-10-20-global-city-design.md
 export const COURSE5 = {
-  name: 'Global City',
+  name: 'World Cities', // 2026-10-22 のユーザー依頼で Global City から変更（前の記録は src/sharedTimes.js で引き継ぐ）
   music: 'city',
   theme: 'world',
   meters: true,
@@ -375,13 +375,16 @@ export const COURSE5 = {
   // dir: -1 は向かってくる、1 は同じ向き。side: 1 は右、-1 は左（2026-10-21 のユーザー依頼）。香港は左側通行、ニューヨークは右側通行
   vehicles: [
     { kind: 'tram', from: 'HL', to: 'SD', count: 3, dir: -1, side: 1 }, { kind: 'tram', from: 'HL', to: 'SD', count: 2, dir: 1, side: -1 },
-    { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 25, dir: -1, side: -1 }, { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 20, dir: 1, side: 1 }, // 5倍（2026-10-21 のユーザー依頼）
+    { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 15, dir: -1, side: -1 }, { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 12, dir: 1, side: 1 }, // 5倍にしたあと 3/5 に（2026-10-22 のユーザー依頼）
   ], // 香港の路面電車、ニューヨークのタクシー（ぶつかるとスピン）
   cows: { kind: 'turtle', from: ['SD', 'LIB', 0.2], to: ['SD', 'LIB', 0.8], count: 7, period: 60 }, // 海の底の道をゆっくり歩く亀7匹。当たりは Kampar の牛と同じ（2026-10-21 のユーザー依頼）
   fenceStyles: [{ from: 'RB', to: 'RBE', style: 'rail' }, { from: 'AR', to: 'LP', style: 'bamboo' }, { from: 'NY', to: 'R1', style: 'curb' }, { from: ['GX1', 'GWB', 0.3], to: ['GWB', 'IG', 0.6], style: 'rail' }], // 場所ごとの柵（あとの Task で足していく）
   // 新幹線と並走する道の加速板（2026-10-20 のユーザー依頼「加速板を置いて、新幹線の速度よりも早く」）
   pads: [
     ...Array.from({ length: 5 }, (_, k) => ({ at: ['SK', 'KT', 0.1 + k * 0.17], len: 8, time: 1.2 })),
+    // 皇居の道に3枚（加速が落ち着くくらい、約150m ずつあける）、東京の新幹線と並ぶ道に2枚（2026-10-22 のユーザー依頼）
+    ...[0.12, 0.45, 0.78].map((f) => ({ at: ['NJ', 'MRN', f], len: 8, time: 1.2 })),
+    ...[0.25, 0.7].map((f) => ({ at: ['TT', 'SL', f], len: 8, time: 1.2 })),
     // 宇宙へ行く発射台の手前の加速板3つ（2026-10-21 のユーザー依頼）
     ...[0.33, 0.51, 0.69].map((f) => ({ at: ['AR', 'LP', f], len: 8, time: 1.2 })),
     ...[0.25, 0.45, 0.65].map((f) => ({ at: ['RB', 'RBE', f], len: 8, time: 1.2 })), // レインボーブリッジの上に3枚（2026-10-21 のユーザー依頼）
@@ -396,7 +399,7 @@ export const COURSE5 = {
     { at: ['BR', 'BJ', 0], len: 48, time: 1.5 },
   ],
   // 清水の舞台（2026-10-20 のユーザー依頼「清水の舞台からジャンプしたい」）: 舞台のはしから、下の谷の道へ
-  jumps: [{ at: 'KM', boost: [-46, -40], ramp: [-14, -2, 1.5], gap: [-2, 24] }, { at: 'BX', boost: [-30, -24], ramp: [-12, -2, 1.2], gap: [-2, 26] }, { at: ['FL', 'SK', 0.82], boost: [-30, -24], ramp: [-14, -2, 1.5], gap: [-2, 14] }, { at: ['GK', 'KK', 0.68], boost: [-30, -24], ramp: [-14, -2, 1.5], gap: [-2, 14] }], // バトゥ洞窟の出口から元の道へ飛び降りる（2026-10-21 のユーザー依頼）
+  jumps: [{ at: 'KM', boost: [-46, -40], ramp: [-14, -2, 1.5], gap: [-2, 24] }, { at: ['FL', 'SK', 0.82], boost: [-30, -24], ramp: [-14, -2, 1.5], gap: [-2, 14] }, { at: ['GK', 'KK', 0.68], boost: [-30, -24], ramp: [-14, -2, 1.5], gap: [-2, 14] }], // バトゥ洞窟の出口から元の道へは、自動の飛び降り（autos の caveDrop）
   tunnels: [
     { from: ['FL', 'SK', 0.1], to: ['FL', 'SK', 0.72], look: 'rock', dark: true }, // 富士山の中のトンネル（2026-10-21 のユーザー依頼「そのまま富士山の中のトンネルに入る」）
     { from: ['SK', 'KT', 0.85], to: ['KT', 'KY', 0.9], look: 'rock', dark: false }, // 京都へ抜ける山のトンネル
@@ -416,10 +419,12 @@ export const COURSE5 = {
     { id: 'space', from: 'LP', legs: [{ to: 'HL', time: 8 }] }, // 発射台 → 宇宙 → 香港
     { id: 'warp', from: 'R1', legs: [{ to: 'R2', time: 1.4 }, { to: 'R3', time: 1.0 }, { to: 'KL', time: 7.8 }] }, // 輪っか → ワープ（約10秒。2026-10-21 のユーザー依頼「もっと壮大に」）
     { id: 'batuJump', from: 'BJ', legs: [{ to: 'BCL', time: 2.2 }] }, // 虹色の階段を飛びこえて洞窟の入口へ（2026-10-21 のユーザー依頼）
+    // 洞窟の出口から元の道へ飛び降りる（2026-10-22 のユーザー依頼「コースをはみ出す勢い」）: 道の上を落ちて、合流のすぐあとの真ん中に着地
+    { id: 'caveDrop', from: 'BX', legs: [{ to: ['M', 'MRG', 0.4], time: 1.5 }] },
     { id: 'goalJump', from: 'GJ', legs: [{ to: 'LND', time: 3.5 }] }, // 最後の大ジャンプでツインタワーの間を飛んでゴール（2026-10-21 のユーザー依頼「ジャンプで自動ゴール」）
   ],
   // 大ジャンプの坂と放物線（2026-10-21 のユーザー依頼「ジャンプ台の角度とジャンプする高さがあっていない」）
-  arcs: [{ ramp: 'JP', takeoff: 'AJ', land: 'FL' }, { ramp: 'BR', takeoff: 'BJ', land: 'BCL' }, { ramp: 'R0', takeoff: 'GJ', land: 'LND' }],
+  arcs: [{ ramp: 'JP', takeoff: 'AJ', land: 'FL' }, { ramp: 'BR', takeoff: 'BJ', land: 'BCL' }, { ramp: ['BC', 'BX', 0.8], takeoff: 'BX', land: ['M', 'MRG', 0.4] }, { ramp: 'R0', takeoff: 'GJ', land: 'LND' }],
   helix: { at: 'SL', r: 45, turns: 1 }, // 芝浦のループ（ぐるっと1周回ってレインボーブリッジに上がる）
   helix2: { at: 'GH', r: 40, turns: 1, dir: -1, prefix: 'GX' }, // ジョージ・ワシントン・ブリッジへ上る、左回りのらせん（2026-10-21 のユーザー依頼）
   heights: [
