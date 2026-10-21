@@ -17,7 +17,7 @@ import { applyStageVisibility, attachStage } from './render/world/stages.js';
 import { skyFor } from './render/world/sky.js';
 import { updateSpace, spaceLook } from './render/world/space.js';
 import { updateSea } from './render/world/sea.js';
-import { updateWarp, warpLook } from './render/world/warp.js';
+import { updateWarp, warpLook, suckPose } from './render/world/warp.js';
 import { showcaseCamera } from './render/showcase.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
@@ -1099,6 +1099,24 @@ function renderGame(alpha, dt) {
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
   const ap = autoProgress(track, g.karts[g.me]); // 宇宙・ワープの演出の進み
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t, ap);
+  // ワープの最後: 正面の光の円の真ん中へ、自分の車が小さくなりながら吸いこまれる（2026-10-22 のユーザー依頼）
+  const meModel = g.models[g.me];
+  const suck = kart.auto?.id === 'warp' ? warpLook(ap).suck : 0;
+  if (suck > 0) {
+    camera.updateMatrixWorld();
+    // 吸いこみはじめの、カメラから見た車の位置（とんでもなく遠いときは、いつもの位置から）
+    if (!g.suckFrom) {
+      g.suckFrom = camera.worldToLocal(meModel.position.clone());
+      if (g.suckFrom.length() > 30) g.suckFrom.set(0, -2.6, -6.8);
+    }
+    const sp = suckPose(g.suckFrom, suck);
+    meModel.position.copy(camera.localToWorld(new THREE.Vector3(sp.x, sp.y, sp.z)));
+    meModel.scale.setScalar(sp.scale);
+    if (suck >= 1) meModel.visible = false;
+  } else if (g.suckFrom) {
+    g.suckFrom = null;
+    meModel.scale.setScalar(1);
+  }
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t, camera);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;
   // 京都へ向かう加速板では、光の線を濃く速く回し、画面のまわりを白く光らせ、広い角度で（あっという間に京都へ。2026-10-21 のユーザー依頼）
@@ -1147,6 +1165,7 @@ function renderGame(alpha, dt) {
     else if (name === 'ring') voices.has('ring') ? voices.play('ring') : sfx.play('boost'); // ワープの輪っかを通る音（ユーザーが用意した音。2026-10-22）
     else if (name === 'launch') voices.has('launch') ? voices.play('launch') : sfx.play('launch'); // 発射台の急な坂（ユーザーが用意した音）
     else if (name === 'busPass') voices.has('horn') ? voices.play('horn') : sfx.play('busPass'); // バスのクラクション（ユーザーが用意した音）
+    else if (name === 'tramPass') voices.has('tram') ? voices.play('tram') : sfx.play('busPass'); // 香港の路面電車（ユーザーが用意した電車のクラクション）
     else if (name !== 'finish') sfx.play(name);
     if (standSpot && (name === 'finalLap' || name === 'finish')) crowd.excite(3);
     if (name === 'go') music.play(course.music);
