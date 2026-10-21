@@ -1753,3 +1753,26 @@ test('同じコースを2回目に走っても、ワープの光の線と輪は�
   for (let i = 2; i < a.length; i += 3) assert.ok(a[i] <= 0 && a[i] >= -900, `線 z ${a[i]}`);
   for (const r of g.userData.rings) assert.ok(r.position.z <= 0 && r.position.z >= -700, `輪 z ${r.position.z}`);
 });
+
+import { rampSupports, rampArrows } from '../src/render/world/kit.js';
+
+test('大ジャンプ台（お台場・クアラルンプール）は階段に見えない: 下の台は道より上に出ず、光る矢印は坂にそって傾く（2026-10-22 のユーザー依頼）', () => {
+  for (const [a, b] of [['JP', 'AJ'], ['R0', 'GJ']]) {
+    const from = t.marks[a];
+    const to = t.marks[b];
+    const sup = rampSupports(t, from, to);
+    assert.ok(sup.length > 5, `${a}: 台 ${sup.length}`);
+    for (const c of sup) {
+      for (const d of [-c.depth / 2, 0, c.depth / 2]) {
+        const y = sampleAt(t, c.s + d).y;
+        assert.ok(c.h <= y - 0.2 + 1e-6, `${a}: 台の上 ${c.h.toFixed(2)} / 道 ${y.toFixed(2)}（s ${Math.round(c.s + d)}）`);
+      }
+    }
+    for (const r of rampArrows(t, from, to)) {
+      const y0 = sampleAt(t, r.s - 0.8).y;
+      const y1 = sampleAt(t, r.s + 0.8).y;
+      const slope = Math.atan2(y1 - y0, 1.6);
+      assert.ok(Math.abs(r.pitch - slope) < 0.05, `${a}: 矢印の傾き ${r.pitch.toFixed(2)} / 坂 ${slope.toFixed(2)}`);
+    }
+  }
+});

@@ -4,7 +4,7 @@ import * as THREE from '../../../vendor/three.module.min.js';
 import { createBuilder } from '../town/builder.js';
 import { locate } from '../../game/track.js';
 import { GLOBAL_SCENERY } from '../../data/global.js';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, buildRampDeck } from './kit.js';
 import { TUNNEL_HEIGHT } from '../snow/tunnel.js';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
@@ -215,20 +215,8 @@ export function buildKL(track) {
   {
     const r0 = sOf(track, 'R0');
     const gj = sOf(track, 'GJ');
-  // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）
-  for (let s = r0; s <= gj; s += 4) {
-    const p = pointAt(track, s);
-    if (p.y < 1) continue;
-    b.push(p.x, 0, p.z, ryAlong(p.h));
-    b.box(2 * p.wall, p.y - 0.3, 4.4, Math.round(s / 4) % 2 ? 0xd8d4cc : 0xc8c4bc, 0, 0, 0);
-    b.pop();
-  }
-    for (let s = r0; s <= gj; s += 6) {
-      const p = pointAt(track, s);
-      glow.push(p.x, p.y + 0.08, p.z, ryAlong(p.h));
-      for (const side of [-1, 1]) glow.box(9, 0.06, 1.6, Math.round(s / 6) % 2 ? 0xffb000 : 0xff6a00, side * 3.3, 0, 0, side * 0.7);
-      glow.pop();
-    }
+    // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）と、光る矢印（階段に見えないように。src/render/world/kit.js）
+    buildRampDeck(b, glow, track, r0, gj);
     for (const s of [r0, gj]) {
       const p = pointAt(track, s);
       for (const side of [-1, 1]) {

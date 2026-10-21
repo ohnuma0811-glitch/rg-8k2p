@@ -21,7 +21,6 @@ test('海の底の泳ぐ生き物と怪獣は、1匹（1つの群れ）を材質
 
 import * as THREE from '../vendor/three.module.min.js';
 import { createCowModel, createCowLegs, setCowLegs } from '../src/render/models.js';
-import { needsHeadlight } from '../src/render/scene.js';
 import { COURSES } from '../src/data/tracks.js';
 
 // Kampar Town の UTAR のあたりが 45〜50fps（2026-10-22 のユーザー依頼）: 牛9頭を 54 回に分けて描いていた
@@ -49,7 +48,18 @@ test('牛は、体と頭を1つの形で描き、足は全部の牛の分をま�
   assert.ok(Math.abs(ys[0] - ys[4]) > 0.01, '時刻で足を振る');
 });
 
-test('トンネルのないコースでは、トンネル用の前を照らす光を使わない（どの形も光の計算が軽くなる）', () => {
-  const tunnels = COURSES.map((c) => needsHeadlight(buildTrack(c)));
-  assert.deepEqual(tunnels, [false, false, false, true, true]);
+test('トンネルの中の前を照らす明かりは、光の計算を使わない（道の上の明るい楕円）。富士山のトンネルが 40fps（2026-10-22）', async () => {
+  const { createWorld, setDarkness } = await import('../src/render/scene.js');
+  const { tunnelLook } = await import('../src/render/snow/tunnel.js');
+  const { scene } = createWorld();
+  let spots = 0;
+  scene.traverse((o) => { if (o.isSpotLight || o.isPointLight) spots++; });
+  assert.equal(spots, 0, '前を照らす光（SpotLight）はない');
+  const pool = scene.userData.light.headPool;
+  const kart = { x: 10, z: 20, y: 3, move: 0 };
+  setDarkness(scene, 1, tunnelLook(true), kart);
+  assert.ok(pool.visible && pool.material.opacity > 0.2, '暗いトンネルの中では見える');
+  assert.ok(pool.position.x > 12 && Math.abs(pool.position.z - 20) < 0.01 && pool.position.y > 3, '車の前の道の上');
+  setDarkness(scene, 0, tunnelLook(true), kart);
+  assert.equal(pool.visible, false, 'トンネルの外では消す');
 });

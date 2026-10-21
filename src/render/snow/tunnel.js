@@ -110,7 +110,8 @@ export function buildTunnel(track) {
     gg.setAttribute('position', new THREE.Float32BufferAttribute(gpos, 3));
     gg.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3));
     gg.computeVertexNormals();
-    const glass = new THREE.Mesh(gg, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }));
+    // 光の計算はしない（うすいガラスなので見た目はほとんど同じ。画面いっぱいに重なるので、タブレットで海の底が重かった。2026-10-22）
+    const glass = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }));
     glass.userData.keep = true;
     group.add(glass);
     // 輪の骨組み（60m ごと、白い細い半円の枠。多いとじゃまなので少なく。2026-10-20 のユーザー依頼）

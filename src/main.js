@@ -164,6 +164,7 @@ document.addEventListener('visibilitychange', () => (document.hidden ? audio.pau
 // タッチできる端末はボタン、パソコンはキーボード
 controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
 let quality = 1;
+const TOUCH_DEVICE = touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0); // 指で操作する端末（タブレット・スマホ）
 let layout;
 let game = null; // 走っているレース（タイトルなどの画面では null）
 
@@ -213,7 +214,7 @@ function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   rotate.classList.toggle('show', h > w);
-  resizeRenderer(renderer, camera, w, h, pixelRatio(window.devicePixelRatio, quality));
+  resizeRenderer(renderer, camera, w, h, pixelRatio(window.devicePixelRatio, quality, TOUCH_DEVICE ? 0.75 : 1)); // タブレット・スマホは重いときに少し粗く
   layout = computeButtonLayout(w, h, safeArea(), controls.mode);
   controls.relayout(layout);
   placeButtons();
@@ -542,7 +543,7 @@ function placeTrains(time, topSpeed) {
 
 // トンネルの暗さを画面に（dark 0 で、もとの明るさ）
 // タブレット・スマホ（指で操作する端末）は明るめ（2026-10-19）
-const TUNNEL_LOOK = tunnelLook(touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0));
+const TUNNEL_LOOK = tunnelLook(TOUCH_DEVICE);
 function showTunnel({ dark, black }, kart = null, open = 0) {
   setDarkness(scene, dark, TUNNEL_LOOK, kart, open);
   const v = $('vignette');
