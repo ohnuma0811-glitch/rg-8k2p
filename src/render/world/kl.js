@@ -100,6 +100,18 @@ export function buildKL(track) {
     b.box(2 * w + 2, 30 + (k % 4) * 6, 6.5, ROCK, 0, p.y + TUNNEL_HEIGHT + 0.6, 0); // 天井の上の岩
     b.pop();
   }
+  // 入口の上の名前（2026-10-22 のユーザー依頼「ジャンプで入る際に、洞窟の入口の上に名前を英語で」）: 一番手前の岩の前に、走ってくる方へ向けて
+  {
+    const p = pointAt(track, c0 - 4);
+    const w = 2 * p.wall + 6;
+    const y = p.y + TUNNEL_HEIGHT + 4.2;
+    const o = landmark(g, 'batuCavesSign', p.x - Math.cos(p.h) * 3.6, y, p.z - Math.sin(p.h) * 3.6);
+    o.userData.banner = 'BATU CAVES';
+    b.push(p.x, 0, p.z, ryAlong(p.h));
+    b.box(w + 1.2, 7, 0.4, 0x5a1a12, 0, y - 3.5, -3.45); // 看板の板
+    b.label(textSign('BATU CAVES', { bg: '#7a1f14', fg: '#ffd34a', font: 'bold 130px sans-serif' }), [1024, 192], 0, y, -3.7, Math.PI, w, 6);
+    b.pop();
+  }
   // 奥の大きな岩山（高さ 100m）。道からはなして
   const mt = away(track, ...Object.values(worldAt(track, S.batuCaves.at)), 70);
   for (let j = 0; j < 7; j++) {

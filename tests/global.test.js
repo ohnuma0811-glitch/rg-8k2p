@@ -1776,3 +1776,16 @@ test('大ジャンプ台（お台場・クアラルンプール）は階段に�
     }
   }
 });
+
+import { TUNNEL_HEIGHT } from '../src/render/snow/tunnel.js';
+
+test('バトゥ洞窟の入口の上に、英語の名前「BATU CAVES」（ジャンプで入るときに見える。2026-10-22 のユーザー依頼）', () => {
+  const g = buildKL(t);
+  let sign = null;
+  g.traverse((o) => { if (o.userData.banner === 'BATU CAVES') sign = o; });
+  assert.ok(sign, '名前の看板がある');
+  const pos = sign.getWorldPosition(sign.position.clone());
+  const bc = at('BC');
+  assert.ok(Math.hypot(pos.x - bc.x, pos.z - bc.z) < 14, '入口のところ');
+  assert.ok(pos.y > bc.y + TUNNEL_HEIGHT && pos.y < bc.y + TUNNEL_HEIGHT + 8, `入口の上 ${(pos.y - bc.y).toFixed(1)}m`);
+});
