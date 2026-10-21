@@ -13,7 +13,7 @@ const at = (m) => t.samples[Math.round(t.marks[m]) % L];
 test('Global City は5つ目・最後のコース。大会は5レース（2026-10-20 のユーザー依頼）', () => {
   assert.equal(COURSES.length, 5);
   assert.equal(COURSES[4], COURSE5);
-  assert.equal(COURSE5.name, 'Global City');
+  assert.equal(COURSE5.name, 'World Cities'); // 2026-10-22 のユーザー依頼で Global City から変更
 });
 
 test('点は m（全体を scale 倍）: 全長は点から自動。走る道は 12km まで（2026-10-20 のユーザー依頼「目安 12km・5〜6分まで」）。東京駅と東京タワーの間の距離が地図のとおり', () => {

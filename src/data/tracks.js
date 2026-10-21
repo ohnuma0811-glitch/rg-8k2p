@@ -311,7 +311,7 @@ export const COURSE4 = {
 // Global City（2026-10-20 のユーザー依頼）: 東京から富士山・京都・香港・海の底・ニューヨークを通って、クアラルンプールへ。片道を1回。
 // 点は m（x は東、z は南）。各都市の中は実際の方角のとおり。設計書 docs/superpowers/specs/2026-10-20-global-city-design.md
 export const COURSE5 = {
-  name: 'Global City',
+  name: 'World Cities', // 2026-10-22 のユーザー依頼で Global City から変更（前の記録は src/sharedTimes.js で引き継ぐ）
   music: 'city',
   theme: 'world',
   meters: true,

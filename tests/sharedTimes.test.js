@@ -80,3 +80,11 @@ test('送る所がないとき（手元の確かめ）は送らず、その端�
   assert.equal(a.view()[COURSE].length, TIME_RANK);
   assert.equal(a.pending.length, TIME_RANK); // たまり続けない
 });
+
+test('コース名を変えても前の記録は引き継ぐ（Global City → World Cities。2026-10-22 のユーザー依頼）', () => {
+  const old = { ...entry('a', 300), course: 'Global City' };
+  const now = { ...entry('b', 290), course: 'World Cities' };
+  const view = mergeTimes({ 'Global City': [old] }, [now]);
+  assert.equal(view['Global City'], undefined);
+  assert.deepEqual(view['World Cities'].map((e) => e.time), [290, 300]);
+});

@@ -49,12 +49,16 @@ function clean(r) {
   return out;
 }
 
+// 名前を変えたコースの、前の名前（前の名前の記録も、新しい名前の記録として出す）
+const RENAMED = { 'Global City': 'World Cities' }; // 2026-10-22 のユーザー依頼
+const courseOf = (c) => RENAMED[c] ?? c;
+
 // みんなの記録に、まだ送っていない記録を合わせて、コースごとに速い順の上位 TIME_RANK 人（同じタイムは先にあった方が上）
 export function mergeTimes(cache, pending) {
   const all = {};
-  for (const [course, list] of Object.entries(cache)) all[course] = [...list];
+  for (const [course, list] of Object.entries(cache)) (all[courseOf(course)] ??= []).push(...list);
   for (const p of pending) {
-    const list = (all[p.course] ??= []);
+    const list = (all[courseOf(p.course)] ??= []);
     if (!list.some((e) => e.id === p.id)) list.push(pick(p));
   }
   const out = {};
