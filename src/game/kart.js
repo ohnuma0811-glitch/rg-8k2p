@@ -123,7 +123,10 @@ function startAuto(kart, track, params, id) {
   const a = track.autos.find((x) => x.id === id);
   // ワープのあとは、最高速度のまま走りだす（2026-10-21 のユーザー依頼「最高速度を維持したまま」）
   const speedIn = id === 'warp' ? Math.max(kart.speed, params?.topSpeed ?? kart.speed) : kart.speed;
-  kart.auto = { id, leg: 0, t: 0, from: a.from, speedIn };
+  // 入ったときの、道の真ん中からの横のずれ（ワープは、3つ目の輪っかまでに、だんだん真ん中へ寄せる。急に真ん中へとんで見えた。2026-10-22 のユーザー依頼）
+  const p = track.samples[kart.seg];
+  const lat0 = id === 'warp' ? -(kart.x - p.x) * Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h) : 0;
+  kart.auto = { id, leg: 0, t: 0, from: a.from, speedIn, lat0, sinceIn: 0 };
   kart.autoError = false;
   kart.airborne = false;
   kart.vy = 0;
@@ -137,6 +140,7 @@ function stepAuto(kart, track, dt) {
   const a = track.autos.find((x) => x.id === kart.auto.id);
   const st = kart.auto;
   st.t += dt;
+  st.sinceIn = (st.sinceIn ?? 0) + dt;
   let leg = a.legs[st.leg];
   while (st.t >= leg.time && st.leg < a.legs.length - 1) {
     st.t -= leg.time;
@@ -152,8 +156,12 @@ function stepAuto(kart, track, dt) {
   const ease = (a.id === 'jump' || a.id === 'goalJump' || a.id === 'batuJump' || a.id === 'caveDrop') && st.leg === 0 ? Math.min(1, Math.max(0.15, (st.speedIn * leg.time) / D)) : 1;
   const s = done ? leg.to : st.from + D * (ease * u + (1 - ease) * u * u);
   const p = sampleAt(track, s);
-  kart.x = p.x;
-  kart.z = p.z;
+  // 横のずれ: 3つ目の輪っか（最後の区間の始まり）までに、なめらかに 0 へ
+  const toCenter = a.legs.slice(0, -1).reduce((x, l) => x + l.time, 0);
+  const k = st.lat0 ? Math.min(1, st.sinceIn / (toCenter || 1)) : 1;
+  const lat = (st.lat0 ?? 0) * (1 - k * k * (3 - 2 * k));
+  kart.x = p.x - Math.sin(p.h) * lat;
+  kart.z = p.z + Math.cos(p.h) * lat;
   kart.y = p.y;
   kart.seg = p.i;
   kart.heading = p.h;

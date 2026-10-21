@@ -1828,3 +1828,28 @@ test('香港から海にもぐるトンネルの中に、香港の物（ビク�
   }
   assert.ok(tried > 30);
 });
+
+test('ワープの輪っか: 横にずれて入っても、急に真ん中へとばない。3つ目の輪っかまでに、だんだん真ん中へ寄る（2026-10-22 のユーザー依頼）', () => {
+  const a = t.autos.find((x) => x.id === 'warp');
+  const kart = createKart(t, Math.round(a.from - 20), 6);
+  kart.speed = 30;
+  const latOf = () => {
+    const p = t.samples[kart.seg];
+    return -(kart.x - p.x) * Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h);
+  };
+  let prev = null;
+  let maxStep = 0;
+  let atR3 = null;
+  for (let f = 0; f < 60 * 4; f++) {
+    stepKart(kart, full, t, params, 1 / 60);
+    const lat = latOf();
+    if (kart.auto && prev !== null) maxStep = Math.max(maxStep, Math.abs(lat - prev));
+    if (kart.auto) {
+      if (prev !== null) assert.ok(Math.abs(lat) <= Math.abs(prev) + 0.05, '真ん中から離れない');
+      if (kart.auto.leg === 2 && atR3 === null) atR3 = lat;
+    }
+    prev = lat;
+  }
+  assert.ok(maxStep < 0.5, `1コマで ${maxStep.toFixed(2)}m とんだ`);
+  assert.ok(atR3 !== null && Math.abs(atR3) < 0.2, `3つ目の輪っかで真ん中（${atR3}）`);
+});
