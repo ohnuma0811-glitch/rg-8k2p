@@ -1808,3 +1808,23 @@ test('富士山のあとの新幹線は、山のトンネルから出てくる�
   assert.equal(cars[0].visible, true, '出口から出かけた先頭');
   assert.equal(cars[1].visible, false, 'まだ山の中の両');
 });
+
+test('香港から海にもぐるトンネルの中に、香港の物（ビクトリア湾の水など）がつき出ない（2026-10-22 のユーザー依頼「オブジェクトのかけらで先が見えない」）', async () => {
+  const THREE = await import('../vendor/three.module.min.js');
+  const hk = buildHongKong(t);
+  hk.updateMatrixWorld(true);
+  let tried = 0;
+  for (let i = t.marks.SD - 60; i < t.marks.LIB; i += 3) {
+    const p = t.samples[i];
+    if (p.y === null || p.y > -0.3) continue; // 地面より下の所（トンネルの中）
+    for (const lat of [-(p.wall - 1), 0, p.wall - 1]) {
+      const x = p.x - Math.sin(p.h) * lat;
+      const z = p.z + Math.cos(p.h) * lat;
+      const ray = new THREE.Raycaster(new THREE.Vector3(x, p.y + 0.3, z), new THREE.Vector3(0, 1, 0), 0, 6);
+      const hit = ray.intersectObject(hk, true)[0];
+      assert.ok(!hit, `点 ${i} 横 ${lat}: 道の上 ${hit && (hit.point.y - p.y).toFixed(1)}m に香港の物`);
+      tried++;
+    }
+  }
+  assert.ok(tried > 30);
+});
