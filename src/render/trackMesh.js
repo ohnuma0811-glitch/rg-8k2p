@@ -667,6 +667,12 @@ function splitMesh(mesh, size = 250) {
 
 // 形を、三角ごとに、いちばん近い道の点（高さもみる）のステージで分け、さらに size m のます目ごとに分ける（Global City）。
 // 地図の上で重なる所（富士山の着地点の近くを通るニューヨークの道など）でも、その道のステージだけで見せる（2026-10-21 のユーザー依頼「途切れた道」）
+// 道の点のステージ。スタートの後ろ（片道のコースの点の並びの最後、GB より先）は、スタートの東京（ステージ 0）
+// （点の並びでは最後なので、クアラルンプールと数えて、東京でスタート地点の道が欠けた。2026-10-21 のユーザー依頼）
+function sampleStage(track, p) {
+  if (track.open && track.marks.GB !== undefined && p.s >= track.marks.GB) return 0;
+  return stageAt(track, p.s);
+}
 const stageGrids = new WeakMap();
 function stageGridOf(track) {
   if (!stageGrids.has(track)) {
@@ -675,7 +681,7 @@ function stageGridOf(track) {
       if (p.y === null || p.void) continue;
       const key = `${Math.floor(p.x / 30)},${Math.floor(p.z / 30)}`;
       if (!grid.has(key)) grid.set(key, []);
-      grid.get(key).push({ x: p.x, y: p.y, z: p.z, st: stageAt(track, p.s) });
+      grid.get(key).push({ x: p.x, y: p.y, z: p.z, st: sampleStage(track, p) });
     }
     stageGrids.set(track, grid);
   }
@@ -729,7 +735,7 @@ export function chunkStages(track, x0, x1, z0, z1, pad = 20) {
   for (const p of track.samples) {
     if (p.y === null || p.void) continue;
     if (p.x < x0 - pad || p.x > x1 + pad || p.z < z0 - pad || p.z > z1 + pad) continue;
-    st.add(stageAt(track, p.s));
+    st.add(sampleStage(track, p));
   }
   return [...st].sort((a, b) => a - b);
 }

@@ -206,7 +206,6 @@ export function buildTokyo(track) {
     b.pop();
     landmark(city, 'stationSign', x, 17, z);
   }
-  roadBanner(city, b, track, sOf(track, 'TS') - 20, 'TOKYO STATION', 'bannerTokyoStation', { bg: '#6a2a1f', fg: '#ffffff' }); // 横断幕（駅の名前が見にくかった。2026-10-21 のユーザー依頼）
   cityBlocks(b, track, 'MRN', 'TT', { avoid: [{ ...st, r: 190 }, { ...shin, r: 60 }] });
 
   // ---- 東京タワー（赤と白のしま、高さ 333m）----

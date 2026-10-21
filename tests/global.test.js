@@ -997,11 +997,11 @@ test('道や柵も、ステージごとに分けて見せる（遠くのステ�
   assert.deepEqual(chunkStages(t, 1e6, 1e6 + 10, 1e6, 1e6 + 10), [], '道のない所');
 });
 
-test('名所の名前は、道をまたぐ横断幕（京都・東京駅・セントラルパーク。2026-10-21 のユーザー依頼「全く読めない」「Central Parkとわかるように」）', () => {
+test('名所の名前は、道をまたぐ横断幕（京都・セントラルパーク。2026-10-21 のユーザー依頼「全く読めない」「Central Parkとわかるように」）', () => {
   const banners = (g) => { const n = []; g.traverse((o) => { if (o.userData.banner) n.push(o.userData.banner); }); return n; };
   const k = banners(buildKyoto(t));
   for (const name of ['FUSHIMI INARI', 'KIYOMIZU-DERA', 'GINKAKU-JI', 'KINKAKU-JI', 'ARASHIYAMA']) assert.ok(k.includes(name), name);
-  assert.ok(banners(buildTokyo(t)).includes('TOKYO STATION'));
+  assert.ok(!banners(buildTokyo(t)).includes('TOKYO STATION'), '東京駅は高い看板だけ（2枚目の横断幕は撤去。2026-10-21 のユーザー依頼）');
   assert.ok(banners(buildNewYork(t)).includes('CENTRAL PARK'));
 });
 
@@ -1454,4 +1454,15 @@ test('金閣寺は道の近く（池は建物のすぐ前、松は池の両わ�
   const gap = Math.abs(loc.lateral) - t.samples[loc.i].wall;
   assert.ok(gap > 30 && gap < 50, `道から ${Math.round(gap)}m`);
   assert.equal(intrusions(buildKyoto(t), t.marks.GK, t.marks.AR), 0);
+});
+
+test('スタートの後ろ（車が並ぶ所）の道は、東京のステージとして見せる（スタート地点のアスファルトが欠けた。2026-10-21 のユーザー依頼）', async () => {
+  const THREE = await import('../vendor/three.module.min.js');
+  const back = t.samples[(L - 25) % L];
+  const tri = [back.x, back.y + 0.02, back.z, back.x + 1, back.y + 0.02, back.z, back.x, back.y + 0.02, back.z + 1];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3));
+  const pieces = splitByStage(new THREE.Mesh(geo, new THREE.MeshBasicMaterial()), t);
+  assert.deepEqual(pieces.map((m) => m.userData.stages), [[0]]);
+  assert.deepEqual(chunkStages(t, back.x - 5, back.x + 5, back.z - 5, back.z + 5), [0]);
 });
