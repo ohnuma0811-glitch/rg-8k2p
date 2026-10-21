@@ -1071,16 +1071,18 @@ test('locate（ヒントなし）は、点を全部調べたときと同じ点�
     const y = k % 3 ? null : rnd() * 60;
     assert.equal(locate(t, x, z, null, 40, y).i, brute(x, z, y), `${x},${z},${y}`);
   }
-  const t0 = performance.now();
+  const c0 = process.cpuUsage();
   for (let k = 0; k < 2000; k++) locate(t, x0 + rnd() * (x1 - x0), z0 + rnd() * (z1 - z0), null, 40);
-  assert.ok(performance.now() - t0 < 400, `2000回で ${Math.round(performance.now() - t0)}ms`);
+  const ms = process.cpuUsage(c0).user / 1000; // このテストが使った CPU の時間（テストを全部いっしょに流すと、時計の時間はのびる）
+  assert.ok(ms < 400, `2000回で ${Math.round(ms)}ms`);
 });
 
 test('コース選びの背景（クアラルンプールだけ）は軽く作れる（名前・コース選びの画面が重かった。2026-10-21 のユーザー依頼）', async () => {
   const { buildShowcase } = await import('../src/render/trackMesh.js');
-  const t0 = performance.now();
+  const c0 = process.cpuUsage();
   const g = buildShowcase(t);
-  assert.ok(performance.now() - t0 < 1500, `${Math.round(performance.now() - t0)}ms`);
+  const ms = process.cpuUsage(c0).user / 1000; // このテストが使った CPU の時間
+  assert.ok(ms < 1500, `${Math.round(ms)}ms`);
   const m = landmarks(g);
   assert.ok(m.has('petronas') && m.has('pinkMosque'));
 });
@@ -1465,4 +1467,47 @@ test('スタートの後ろ（車が並ぶ所）の道は、東京のステー�
   const pieces = splitByStage(new THREE.Mesh(geo, new THREE.MeshBasicMaterial()), t);
   assert.deepEqual(pieces.map((m) => m.userData.stages), [[0]]);
   assert.deepEqual(chunkStages(t, back.x - 5, back.x + 5, back.z - 5, back.z + 5), [0]);
+});
+
+test('芝浦のループの柱は、下を通る道の上に立てない（道の上に橋脚があった。2026-10-21 のユーザー依頼）', async () => {
+  const { loopPillars } = await import('../src/render/world/tokyo.js');
+  const ps = loopPillars(t);
+  assert.ok(ps.length > 0, '柱はある');
+  for (const c of ps) {
+    for (const q of t.samples) {
+      if (q.y === null || q.void || q.auto || q.y >= c.top - 1) continue;
+      assert.ok(Math.hypot(q.x - c.x, q.z - c.z) > q.wall + 2.5, `柱 (${Math.round(c.x)}, ${Math.round(c.z)}) の下に道 s ${Math.round(q.s)}`);
+    }
+  }
+});
+
+test('皇居の宮殿は、道ばたの石垣（10m）より高い台の上（見えなかった。2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildTokyo(t));
+  assert.ok(m.get('palace').y >= 10, `宮殿の床の高さ ${m.get('palace').y}`);
+});
+
+test('フジテレビ: 看板は橋から見える1枚、前のビルはなし、球体は少し下げ、左右の建物をはなす（2026-10-21 のユーザー依頼）', () => {
+  const g = buildTokyo(t);
+  const m = landmarks(g);
+  const f = m.get('fujiTV');
+  let signs = 0;
+  g.traverse((o) => { if (o.userData.landmark === 'fujiTVSign') signs++; });
+  assert.equal(signs, 1);
+  const towers = [];
+  g.traverse((o) => { if (o.userData.landmark === 'fujiTVTower') towers.push(o.position); });
+  assert.ok(Math.hypot(towers[0].x - towers[1].x, towers[0].z - towers[1].z) >= 76, '左右をはなす');
+  assert.ok(m.get('fujiTVSphere').y < 100, '球体を少し下げる');
+  // 橋の真ん中から球体までの間（道の外）に、ビルがない
+  const rb = t.samples[Math.round((t.marks.RB + t.marks.RBE) / 2)];
+  let blocking = 0;
+  g.traverse((o) => {
+    if (o.userData.landmark !== 'cityTower') return;
+    const ax = f.x - rb.x;
+    const az = f.z - rb.z;
+    const len = Math.hypot(ax, az);
+    const u = ((o.position.x - rb.x) * ax + (o.position.z - rb.z) * az) / (len * len);
+    const d = Math.abs((o.position.x - rb.x) * az - (o.position.z - rb.z) * ax) / len;
+    if (u > 0.2 && u < 0.95 && d < 50) blocking++;
+  });
+  assert.equal(blocking, 0, '前のビル');
 });
