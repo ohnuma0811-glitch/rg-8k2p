@@ -241,9 +241,9 @@
 | 2 | Kampar Town | できている（設計書: `docs/superpowers/specs/2026-10-15-kampar-town-design.md`。2026-10-16 にユーザーが完成とした） |
 | 3 | Soki Forest | できている（設計書: `docs/superpowers/specs/2026-10-16-soki-forest-design.md`） |
 | 4 | Kyugo Mountain | できている（設計書: `docs/superpowers/specs/2026-10-18-kyugo-mountain-design.md`） |
-| 5 | Global City | 作っている（設計書: `docs/superpowers/specs/2026-10-20-global-city-design.md`。はじめの名前は World Travel） |
+| 5 | World Cities | できている（設計書: `docs/superpowers/specs/2026-10-20-global-city-design.md`。はじめの名前は World Travel → Global City。2026-10-22 のユーザー依頼で World Cities に変え、同じ日にユーザーが完成とした） |
 
-- 3〜5 の名前は 2026-10-15 のユーザー依頼。3 と 4 の順番は 2026-10-16 のユーザー依頼で入れかえ（3 Soki Forest、4 Kyugo Mountain）。5 は「Grobal City」と依頼されたが、英語のつづりの Global City にした。
+- 3〜5 の名前は 2026-10-15 のユーザー依頼（5 は 2026-10-22 に World Cities へ）。3 と 4 の順番は 2026-10-16 のユーザー依頼で入れかえ（3 Soki Forest、4 Kyugo Mountain）。5 は「Grobal City」と依頼されたが、英語のつづりの Global City にした。
 
 - 大会では、1レース目から順に 1〜5 のコースを1回ずつ走る（2026-10-14 に KENTA が OK）。
 - 大会のレースの数は、できているコースの数にする（2026-10-15 のユーザー依頼）。Kampar Town ができたら2レース（Kenta Circuit → Kampar Town）の大会にし、コースが1つできるたびに1レースずつ増やして、最後は5レースにする。同じコースをくり返しては走らない。画面の「RACE 1/2」なども、その数に合わせる。
