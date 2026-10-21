@@ -1108,6 +1108,8 @@ export function buildTrackMesh(track) {
   if (hasTunnels(track)) group.add(buildTunnel(track));
   // Global City: 暗いトンネル（富士山の中・バトゥ洞窟）のカーブに矢印の板（Kyugo Mountain と同じ。2026-10-21 のユーザー依頼）
   if (world) group.add(buildSigns(track));
+  // 逆走を止める柵（ジャンプの着地側。2026-10-22 のユーザー依頼）
+  if (track.oneWays?.length) group.add(oneWayFences(track));
   // Global City の景色（ステージごとの群れ）
   if (world) {
     for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL, buildClouds]) {
@@ -1528,4 +1530,25 @@ function junctionMesh(track, mouths, corners, asphalt) {
   if (curbPos.length) group.add(mesh(curbPos, { colors: curbCol }));
   if (box.length) group.add(mesh(box, { color: 0xffffff, uv: boxUv, map: asphalt }));
   return group;
+}
+
+// 逆走を止める柵の見た目: 道の幅いっぱいの低い板（赤と白のしま。高さ約 0.9m）と、両はしの柱。前（ジャンプで来る側）から見ると低いので、飛んでくる車の上にはかからない
+export function oneWayFences(track) {
+  const b = createBuilder();
+  const STRIPE = 2; // しまの幅（m）
+  for (const g of track.oneWays) {
+    const w = g.vwall;
+    b.push(g.vx, g.y, g.vz, Math.atan2(Math.cos(g.vh), Math.sin(g.vh)));
+    const n = Math.max(1, Math.round((2 * w) / STRIPE));
+    for (let k = 0; k < n; k++) {
+      const x = -w + ((k + 0.5) * 2 * w) / n;
+      b.box((2 * w) / n, 0.45, 0.25, k % 2 ? 0xffffff : 0xd8262b, x, 0.4, 0);
+    }
+    for (const x of [-w, w]) b.box(0.3, 1.2, 0.3, 0x333333, x, 0, 0); // 両はしの柱
+    for (let x = -w + 4; x < w - 2; x += 4) b.box(0.15, 0.4, 0.15, 0x555555, x, 0, 0); // 板の足
+    b.pop();
+  }
+  const g = b.build();
+  g.traverse((o) => { o.userData.oneWayFence = true; });
+  return g;
 }

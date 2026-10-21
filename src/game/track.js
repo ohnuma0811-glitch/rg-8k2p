@@ -626,7 +626,34 @@ export function buildTrack(def) {
     const d = p.wall + 3;
     return { i, path: p.path, side: m.side, x: p.x - Math.sin(p.h) * m.side * d, z: p.z + Math.cos(p.h) * m.side * d, y: p.y ?? 0 };
   });
+  t.oneWays = oneWayGates(t);
   return t;
+}
+
+// 逆走を止める柵（2026-10-22 のユーザー依頼「特にジャンプ台の後に逆走できないように道をふさいで」）: ジャンプの穴の向こう側（地面のない所が終わる点）と、
+// 自動の区間の着地点。当たりは src/game/hazards.js の oneWayContact（逆向きに走る車だけ止める）。
+// 見た目（v〜）は、自動の区間では着地点の 4m 手前（飛んでくる車が柵の上を通るように）
+const GATE_SHOW_BACK = 4;
+function oneWayGates(t) {
+  const { samples } = t;
+  const out = [];
+  const add = (i, vi) => {
+    const p = samples[i];
+    if (p.y === null || out.some((g) => g.i === i)) return;
+    const v = samples[vi];
+    out.push({ i, s: p.s, x: p.x, z: p.z, y: p.y, h: p.h, wall: p.wall, vx: v.x, vz: v.z, vh: v.h, vwall: v.wall });
+  };
+  for (let i = 0; i < samples.length; i++) {
+    const p = samples[i];
+    if (p.y !== null && samples[p.prev]?.y === null) add(i, i);
+  }
+  for (const a of t.autos ?? []) {
+    const land = ((Math.round(a.legs[a.legs.length - 1].to) % t.length) + t.length) % t.length;
+    let vi = land;
+    for (let k = 0; k < GATE_SHOW_BACK; k++) vi = samples[vi].prev;
+    add(land, vi);
+  }
+  return out;
 }
 
 // 道の上の木の場所: 決まった乱数（seed）で、本線と分かれ道の点からばらばらに選ぶ。置かない所:

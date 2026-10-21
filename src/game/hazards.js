@@ -580,3 +580,25 @@ export function busNear(track, pos, time) {
     return Math.hypot(b.x - pos.x, b.z - pos.z) < BUS_NEAR;
   });
 }
+
+// 逆走を止める柵（2026-10-22 のユーザー依頼）: 柵の手前（前向きに GATE_MIN m より近い所）へ、逆向きに走ってきた車を押し戻して止める。
+// 前向きに走る車（ジャンプで飛んでくる車も、手前に着地した車も）は当たらない
+export const GATE_MIN = 0.8;
+export function oneWayContact(kart, track) {
+  if (kart.auto || !track.oneWays?.length) return null;
+  for (const g of track.oneWays) {
+    const dx = kart.x - g.x;
+    const dz = kart.z - g.z;
+    const fwd = dx * Math.cos(g.h) + dz * Math.sin(g.h);
+    if (fwd >= GATE_MIN || fwd < -4) continue;
+    const lat = -dx * Math.sin(g.h) + dz * Math.cos(g.h);
+    if (Math.abs(lat) > g.wall + 1 || Math.abs((kart.y ?? g.y) - g.y) > 4) continue;
+    if (kart.speed * Math.cos(kart.move - g.h) >= 0) continue; // 前向き（または止まっている）
+    kart.x += Math.cos(g.h) * (GATE_MIN - fwd);
+    kart.z += Math.sin(g.h) * (GATE_MIN - fwd);
+    kart.speed = 0;
+    cancelDrift(kart);
+    return 'stop';
+  }
+  return null;
+}
