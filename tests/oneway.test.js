@@ -135,3 +135,22 @@ test('柵のそばを横切るほかの道（Kenta Circuit の交わる道）の
   }
   assert.ok(tried > 0, 'Kenta Circuit の交わる道を調べた');
 });
+
+import { Raycaster, Vector3 } from '../vendor/three.module.min.js';
+
+test('柵は下まで板でふさぐ: 逆走する側から見て、道の幅のどこにも、地面すれすれから 0.8m まですき間がない（2026-10-22 のユーザー依頼「通れるような隙間が見える」）', () => {
+  for (const t of built.filter((x) => x.oneWays.length)) {
+    const fence = oneWayFences(t);
+    fence.updateMatrixWorld(true);
+    for (const g of t.oneWays) {
+      const fx = Math.cos(g.vh), fz = Math.sin(g.vh);
+      for (let lat = -g.vwall + 0.5; lat <= g.vwall - 0.5; lat += 0.5) {
+        for (const up of [0.1, 0.3, 0.6, 0.8]) {
+          const o = new Vector3(g.vx - fz * lat + fx * 3, g.y + up, g.vz + fx * lat + fz * 3);
+          const ray = new Raycaster(o, new Vector3(-fx, 0, -fz), 0, 6);
+          assert.ok(ray.intersectObject(fence, true).length, `${t.def.name} ${g.i}: 横 ${lat} 高さ ${up} にすき間`);
+        }
+      }
+    }
+  }
+});

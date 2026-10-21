@@ -1532,7 +1532,8 @@ function junctionMesh(track, mouths, corners, asphalt) {
   return group;
 }
 
-// 逆走を止める柵の見た目: 道の幅いっぱいの低い板（赤と白のしま。高さ約 0.9m）と、両はしの柱。前（ジャンプで来る側）から見ると低いので、飛んでくる車の上にはかからない
+// 逆走を止める柵の見た目: 道の幅いっぱいの低い板（赤と白のしま。高さ約 0.9m）と、両はしの柱。前（ジャンプで来る側）から見ると低いので、飛んでくる車の上にはかからない。
+// 板は地面までとどかせて、下にすき間を作らない（2026-10-22 のユーザー依頼「通れるような隙間が見える」）
 export function oneWayFences(track) {
   const b = createBuilder();
   const STRIPE = 2; // しまの幅（m）
@@ -1542,10 +1543,9 @@ export function oneWayFences(track) {
     const n = Math.max(1, Math.round((2 * w) / STRIPE));
     for (let k = 0; k < n; k++) {
       const x = -w + ((k + 0.5) * 2 * w) / n;
-      b.box((2 * w) / n, 0.45, 0.25, k % 2 ? 0xffffff : 0xd8262b, x, 0.4, 0);
+      b.box((2 * w) / n, 0.9, 0.25, k % 2 ? 0xffffff : 0xd8262b, x, 0, 0);
     }
     for (const x of [-w, w]) b.box(0.3, 1.2, 0.3, 0x333333, x, 0, 0); // 両はしの柱
-    for (let x = -w + 4; x < w - 2; x += 4) b.box(0.15, 0.4, 0.15, 0x555555, x, 0, 0); // 板の足
     b.pop();
   }
   const g = b.build();
