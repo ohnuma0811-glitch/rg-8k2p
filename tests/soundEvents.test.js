@@ -170,6 +170,12 @@ test('スクールバスとすれちがうとき（近づいたとき）に busP
   assert.deepEqual(soundEvents(st({}, { busHits: 0 }), st({}, { busHits: 1 }), 3), ['busHit']);
 });
 
+test('香港の路面電車とすれちがうときは tramPass（電車のクラクション。2026-10-22 のユーザー依頼）', () => {
+  assert.deepEqual(soundEvents(st({ busNear: false }), st({ busNear: 'tram' }), 3), ['tramPass']);
+  assert.deepEqual(soundEvents(st({ busNear: 'tram' }), st({ busNear: 'tram' }), 3), [], '近くにいる間は1回だけ');
+  assert.deepEqual(soundEvents(st({ busNear: false }), st({ busNear: 'taxi' }), 3), ['busPass']);
+});
+
 test('イノシシが飛び出す前（予告）に boarWarn（ブヒッ）。ぶつかったら bump', () => {
   assert.deepEqual(soundEvents(st({ boarWarn: false }), st({ boarWarn: true }), 3), ['boarWarn']);
   assert.deepEqual(soundEvents(st({}, { boarHits: 0 }), st({}, { boarHits: 1 }), 3), ['bump']);

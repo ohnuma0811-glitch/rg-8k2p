@@ -574,11 +574,14 @@ export function busContact(kart, track, time, phys) {
 }
 
 // 近くにバスがいるか（すれちがいの音）
+// 近くの乗り物の種類（'bus' スクールバス・'tram' 香港の路面電車・'taxi'）を返す。近くになければ false。
+// 種類で、すれちがう音を変える（路面電車は電車のクラクション。2026-10-22 のユーザー依頼）
 export function busNear(track, pos, time) {
-  return (track.buses ?? []).some((bus) => {
+  const bus = (track.buses ?? []).find((bus) => {
     const b = busPose(track, bus, time);
     return Math.hypot(b.x - pos.x, b.z - pos.z) < BUS_NEAR;
   });
+  return bus ? bus.kind ?? 'bus' : false;
 }
 
 // 逆走を止める柵（2026-10-22 のユーザー依頼）: 柵の手前（前向きに GATE_MIN m より近い所）へ、逆向きに走ってきた車を押し戻して止める。

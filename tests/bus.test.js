@@ -58,9 +58,21 @@ test('カートがバスに触れると、速さに関係なくスピンする�
 
 test('すれちがいの音: バスが近い（20m 以内）ときだけ busNear', () => {
   const p = busPose(t, t.buses[0], 3);
-  assert.equal(busNear(t, { x: p.x + 5, z: p.z }, 3), true);
+  assert.ok(busNear(t, { x: p.x + 5, z: p.z }, 3));
   assert.equal(busNear(t, { x: p.x + 60, z: p.z }, 3), false);
   assert.ok(BUS_LENGTH > 5);
+});
+
+test('すれちがいの音の種類: 近くの乗り物の種類（香港の路面電車は tram）。遠ければ false（2026-10-22 のユーザー依頼）', async () => {
+  const { COURSES } = await import('../src/data/tracks.js');
+  const w = buildTrack(COURSES.find((c) => c.theme === 'world'));
+  const tram = w.buses.find((b) => b.kind === 'tram');
+  const time = 5;
+  const p = busPose(w, tram, time);
+  assert.equal(busNear(w, { x: p.x + 1, z: p.z }, time), 'tram');
+  assert.equal(busNear(w, { x: p.x + 5000, z: p.z }, time), false);
+  const q = busPose(t, t.buses[0], 3);
+  assert.equal(busNear(t, { x: q.x + 5, z: q.z }, 3), 'bus', 'スクールバス');
 });
 
 test('スタートの前後（うしろ 200m〜前 300m）には、スタートの前からスタートして3秒まで、バスがいない（2026-10-16 のユーザー依頼）', async () => {
