@@ -13,7 +13,7 @@ import {
 } from './game/race.js';
 import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js';
 import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js';
-import { applyStageVisibility } from './render/world/stages.js';
+import { applyStageVisibility, attachStage } from './render/world/stages.js';
 import { skyFor } from './render/world/sky.js';
 import { updateSpace, spaceLook } from './render/world/space.js';
 import { updateSea } from './render/world/sea.js';
@@ -320,7 +320,7 @@ function placeCows(time) {
   if (!track.cows.length) return;
   if (!track.cowModels) {
     track.cowModels = track.cows.map((cow, k) => mergeStatic(cow.kind === 'turtle' ? createTurtleModel(k) : createCowModel(k)));
-    track.cowModels.forEach((m) => track.mesh.add(m));
+    track.cowModels.forEach((m, k) => { track.mesh.add(m); attachStage(track.mesh, track, m, track.cows[k].s); }); // 海の亀は海のステージの近くだけ
   }
   track.cows.forEach((cow, k) => {
     const p = cowPose(track, cow, time);
@@ -492,7 +492,7 @@ function placeBuses(time) {
   if (!track.buses.length) return;
   if (!track.busModels) {
     track.busModels = track.buses.map((bus) => (bus.kind === 'tram' ? createTramModel() : bus.kind === 'taxi' ? createTaxiModel() : mergeStatic(createBusModel())));
-    track.busModels.forEach((m) => track.mesh.add(m));
+    track.busModels.forEach((m, k) => { track.mesh.add(m); attachStage(track.mesh, track, m, track.buses[k].from ?? track.buses[k].s0); }); // NY のタクシーは NY の近くだけ
   }
   track.buses.forEach((bus, k) => {
     const p = busPose(track, bus, time);

@@ -1667,3 +1667,40 @@ test('バトゥ洞窟の出口と入口には、壁のような岩のかたま�
   assert.equal(batu, 0);
   assert.ok(fuji > 0, '富士山のトンネルの岩のふたはそのまま');
 });
+
+import { attachStage, applyStageVisibility as applyVis } from '../src/render/world/stages.js';
+import { stageWindow as winAt } from '../src/game/world.js';
+import { Group as TGroup } from '../vendor/three.module.min.js';
+
+test('動く乗り物（NY のタクシー・香港の電車・海の亀）は、そのステージの近くでだけ見える（お台場から NY のタクシーが見えた。2026-10-22 のユーザー依頼）', () => {
+  const root = new TGroup();
+  root.userData.stageGroups = [];
+  const taxis = t.buses.filter((b) => b.kind === 'taxi').map((b) => { const m = new TGroup(); attachStage(root, t, m, b.from); root.add(m); return m; });
+  const turtles = t.cows.map((c) => { const m = new TGroup(); attachStage(root, t, m, c.s); root.add(m); return m; });
+  const look = (mark) => {
+    const rel = t.marks[mark] + 1;
+    const w = winAt(t, rel);
+    applyVis(root, w.cur, null, w);
+  };
+  look('ODA');
+  assert.ok(taxis.every((m) => !m.visible), 'お台場から NY のタクシーは見えない');
+  assert.ok(turtles.every((m) => !m.visible), 'お台場から海の亀は見えない');
+  look('TSQ');
+  assert.ok(taxis.every((m) => m.visible), 'NY ではタクシーが見える');
+  look('SD');
+  assert.ok(turtles.every((m) => m.visible), '海の底では亀が見える');
+});
+
+test('皇居の道に加速板3枚（加速が落ち着くくらいあける）、東京の新幹線と並ぶ道に2枚（2026-10-22 のユーザー依頼）', () => {
+  const runs = (a, b) => {
+    const out = [];
+    for (let s = Math.round(t.marks[a]); s < t.marks[b]; s++) if (t.samples[s].boost && !t.samples[s - 1].boost) out.push(s);
+    return out;
+  };
+  const palace = runs('NJ', 'MRN');
+  assert.equal(palace.length, 3, `${palace}`);
+  for (let k = 1; k < palace.length; k++) assert.ok(palace[k] - palace[k - 1] >= 120, `間 ${palace[k] - palace[k - 1]}m`);
+  const train = runs('TS', 'SL');
+  assert.equal(train.length, 2, `${train}`);
+  assert.ok(train[1] - train[0] >= 120, `間 ${train[1] - train[0]}m`);
+});
