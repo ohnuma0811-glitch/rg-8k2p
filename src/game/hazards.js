@@ -502,6 +502,17 @@ export const BUS_WIDTH = 2.6; // バスの幅（m）
 export const BUS_NEAR = 20; // すれちがいの音を鳴らす近さ（m）
 
 // 時刻 time のバスの場所: s はコースの上の場所（逆に進む）、lateral は右へ
+// 前と後ろの車輪の、真ん中からの距離（m）。坂では、両方の車輪が道にのるように、高さと傾きを決める
+// （ジョージ・ワシントン・ブリッジの坂で、タクシーが道にめり込んでいた。2026-10-22 のユーザー依頼）
+export const WHEEL_HALF = { taxi: 2.9, tram: 3.5, bus: 3 };
+function roadYAt(track, s) {
+  const n = track.length;
+  const k = ((s % n) + n) % n;
+  const i = Math.floor(k);
+  const p = track.samples[i];
+  const q = track.samples[(i + 1) % n];
+  return (p.y ?? 0) + ((q.y ?? p.y ?? 0) - (p.y ?? 0)) * (k - i);
+}
 export function busPose(track, bus, time) {
   const L = track.length;
   const n = track.length; // バスは本線だけを走る（分かれ道の点は本線の点のあとにある）
@@ -519,11 +530,15 @@ export function busPose(track, bus, time) {
   const px = p.x + (q.x - p.x) * f;
   const pz = p.z + (q.z - p.z) * f;
   // 高さは道の高さ（高い橋やらせんの上で、地面の高さを走って見えた。2026-10-21 のユーザー依頼）
-  const y = (p.y ?? 0) + ((q.y ?? p.y ?? 0) - (p.y ?? 0)) * f;
+  // 坂では、前と後ろの車輪の所の道の高さから、高さと傾き（pitch。車の前が上がると +）を決める
+  const half = WHEEL_HALF[bus.kind ?? 'bus'] ?? WHEEL_HALF.bus;
+  const yFront = roadYAt(track, s + dir * half);
+  const yBack = roadYAt(track, s - dir * half);
   return {
     s,
     x: px - Math.sin(p.h) * lateral,
-    y,
+    y: (yFront + yBack) / 2,
+    pitch: Math.atan2(yFront - yBack, 2 * half),
     z: pz + Math.cos(p.h) * lateral,
     lateral,
     heading: dir < 0 ? p.h + Math.PI : p.h, // 向かってくる車はコースと逆向き

@@ -510,7 +510,7 @@ function placeBuses(time) {
     const p = busPose(track, bus, time);
     const m = track.busModels[k];
     m.position.set(p.x, p.y ?? 0, p.z); // 道の高さ
-    m.rotation.y = -p.heading;
+    m.rotation.set(0, -p.heading, p.pitch, 'YZX'); // 坂にそって傾ける
   });
 }
 

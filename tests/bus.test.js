@@ -97,3 +97,30 @@ test('ドリフト中にバスに触れると、ドリフトが解除される�
   assert.equal(kart.drift.active, false);
   assert.equal(kart.boost, 0);
 });
+
+test('坂を走るタクシーは、坂にそって傾く: 前と後ろの車輪が、どちらも道の上にのる（ジョージ・ワシントン・ブリッジ。2026-10-22 のユーザー依頼「地面にめり込んでいる」）', async () => {
+  const { COURSES } = await import('../src/data/tracks.js');
+  const { WHEEL_HALF } = await import('../src/game/hazards.js');
+  const w = buildTrack(COURSES.find((c) => c.theme === 'world'));
+  const roadY = (x, z, hint, y) => w.samples[locate(w, x, z, hint, 40, y).i].y;
+  let sloped = 0;
+  for (const taxi of w.buses.filter((b) => b.kind === 'taxi')) {
+    for (let time = 0; time < 60; time += 0.7) {
+      const p = busPose(w, taxi, time);
+      const half = WHEEL_HALF.taxi;
+      const fx = Math.cos(p.heading) * Math.cos(p.pitch);
+      const fz = Math.sin(p.heading) * Math.cos(p.pitch);
+      const i = Math.floor(p.s);
+      for (const k of [-1, 1]) {
+        const x = p.x + fx * half * k;
+        const z = p.z + fz * half * k;
+        const y = p.y + Math.sin(p.pitch) * half * k;
+        const ry = roadY(x, z, i, y);
+        if (ry === null) continue;
+        assert.ok(Math.abs(y - ry) < 0.25, `タクシーの${k > 0 ? '前' : '後ろ'}の車輪 ${(y - ry).toFixed(2)}m（s ${p.s.toFixed(0)}）`);
+      }
+      if (Math.abs(p.pitch) > 0.03) sloped++;
+    }
+  }
+  assert.ok(sloped > 5, '坂の上のタクシーを調べた');
+});
