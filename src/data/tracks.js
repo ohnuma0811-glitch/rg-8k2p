@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=0e78471';
-import { SOKI_SCENERY } from './soki.js?v=0e78471';
+import { KAMPAR_SCENERY } from './kampar.js?v=767ac96';
+import { SOKI_SCENERY } from './soki.js?v=767ac96';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -375,22 +375,28 @@ export const COURSE5 = {
   // dir: -1 は向かってくる、1 は同じ向き。side: 1 は右、-1 は左（2026-10-21 のユーザー依頼）。香港は左側通行、ニューヨークは右側通行
   vehicles: [
     { kind: 'tram', from: 'HL', to: 'SD', count: 3, dir: -1, side: 1 }, { kind: 'tram', from: 'HL', to: 'SD', count: 2, dir: 1, side: -1 },
-    { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 5, dir: -1, side: -1 }, { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 4, dir: 1, side: 1 },
+    { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 25, dir: -1, side: -1 }, { kind: 'taxi', from: 'NY1', to: ['GWB', 'IG', 0.85], count: 20, dir: 1, side: 1 }, // 5倍（2026-10-21 のユーザー依頼）
   ], // 香港の路面電車、ニューヨークのタクシー（ぶつかるとスピン）
+  cows: { kind: 'turtle', from: ['SD', 'LIB', 0.2], to: ['SD', 'LIB', 0.8], count: 7, period: 60 }, // 海の底の道をゆっくり歩く亀7匹。当たりは Kampar の牛と同じ（2026-10-21 のユーザー依頼）
   fenceStyles: [{ from: 'RB', to: 'RBE', style: 'rail' }, { from: 'AR', to: 'LP', style: 'bamboo' }, { from: 'NY', to: 'R1', style: 'curb' }, { from: ['GX1', 'GWB', 0.3], to: ['GWB', 'IG', 0.6], style: 'rail' }], // 場所ごとの柵（あとの Task で足していく）
   // 新幹線と並走する道の加速板（2026-10-20 のユーザー依頼「加速板を置いて、新幹線の速度よりも早く」）
   pads: [
     ...Array.from({ length: 5 }, (_, k) => ({ at: ['SK', 'KT', 0.1 + k * 0.17], len: 8, time: 1.2 })),
     // 宇宙へ行く発射台の手前の加速板3つ（2026-10-21 のユーザー依頼）
     ...[0.33, 0.51, 0.69].map((f) => ({ at: ['AR', 'LP', f], len: 8, time: 1.2 })),
-    { at: ['RB', 'RBE', 0.35], len: 8, time: 1.2 }, // レインボーブリッジの上（2026-10-21 のユーザー依頼）
+    ...[0.25, 0.45, 0.65].map((f) => ({ at: ['RB', 'RBE', f], len: 8, time: 1.2 })), // レインボーブリッジの上に3枚（2026-10-21 のユーザー依頼）
+    { at: ['FTV', 'JP', 0.25], len: 8, time: 1.2 }, // フジテレビを過ぎた所
+    { at: ['FL', 'SK', 0.68], len: 8, time: 1.2 }, // 富士山のトンネルの出口の近く
+    { at: ['FL', 'SK', 0.77], len: 8, time: 1.2 }, // トンネルを出た所（このあと小さなジャンプ台）
+    { at: ['CEN', 'SD', 0.488], len: 8, time: 1.2 }, // 香港のカーブを曲がった直後（2026-10-21 のユーザー依頼）
+    ...[0.3, 0.6].map((f) => ({ at: ['GK', 'KK', f], len: 8, time: 1.2 })), // 銀閣寺と金閣寺の間に2枚（奥の方のあとに小さなジャンプ台。2026-10-21 のユーザー依頼）
     // 富士山へ飛ぶ巨大ジャンプ台と、最後の大ジャンプ台の上は、乗った所から加速（2026-10-21 のユーザー依頼「飛び出す瞬間に急に加速」）
     { at: ['JP', 'AJ', 0], len: 62, time: 1.5 },
     { at: ['R0', 'GJ', 0], len: 110, time: 1.5 },
     { at: ['BR', 'BJ', 0], len: 48, time: 1.5 },
   ],
   // 清水の舞台（2026-10-20 のユーザー依頼「清水の舞台からジャンプしたい」）: 舞台のはしから、下の谷の道へ
-  jumps: [{ at: 'KM', boost: [-46, -40], ramp: [-14, -2, 1.5], gap: [-2, 24] }, { at: 'BX', boost: [-30, -24], ramp: [-12, -2, 1.2], gap: [-2, 26] }], // バトゥ洞窟の出口から元の道へ飛び降りる（2026-10-21 のユーザー依頼）
+  jumps: [{ at: 'KM', boost: [-46, -40], ramp: [-14, -2, 1.5], gap: [-2, 24] }, { at: 'BX', boost: [-30, -24], ramp: [-12, -2, 1.2], gap: [-2, 26] }, { at: ['FL', 'SK', 0.82], boost: [-30, -24], ramp: [-14, -2, 1.5], gap: [-2, 14] }, { at: ['GK', 'KK', 0.68], boost: [-30, -24], ramp: [-14, -2, 1.5], gap: [-2, 14] }], // バトゥ洞窟の出口から元の道へ飛び降りる（2026-10-21 のユーザー依頼）
   tunnels: [
     { from: ['FL', 'SK', 0.1], to: ['FL', 'SK', 0.72], look: 'rock', dark: true }, // 富士山の中のトンネル（2026-10-21 のユーザー依頼「そのまま富士山の中のトンネルに入る」）
     { from: ['SK', 'KT', 0.85], to: ['KT', 'KY', 0.9], look: 'rock', dark: false }, // 京都へ抜ける山のトンネル
@@ -429,7 +435,7 @@ export const COURSE5 = {
   // ステージ（2026-10-20 のユーザー依頼「ステージの切り替えごとに、現在の場所を大きく表示」）
   stages: [
     { name: 'TOKYO', at: 'S' }, { name: 'MT. FUJI', at: 'FL' }, { name: 'KYOTO', at: 'KY' }, { name: 'HONG KONG', at: 'HL' },
-    { name: 'UNDER THE SEA', at: 'SD' }, { name: 'NEW YORK', at: 'NY' }, { name: 'KUALA LUMPUR', at: 'KL' },
+    { name: 'UNDER THE SEA', at: 'SD' }, { name: 'NEW YORK', at: 'NY', banner: ['LIB', 'NY', 0.1] }, { name: 'KUALA LUMPUR', at: 'KL' },
   ],
   roadHalf: 11,
   dirt: 2,

@@ -1,10 +1,10 @@
 // Global City の京都（2026-10-20）: 外国の人が見ても京都だと分かるように、日本らしさ・京都らしさを前に出す
 // 東から入るので、実際の位置のとおり時計回り: 伏見稲荷 → 清水寺（舞台からジャンプ）→ 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林
-import * as THREE from '../../../vendor/three.module.min.js?v=0e78471';
-import { createBuilder } from '../town/builder.js?v=0e78471';
-import { locate } from '../../game/track.js?v=0e78471';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e78471';
-import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=0e78471';
+import * as THREE from '../../../vendor/three.module.min.js?v=767ac96';
+import { createBuilder } from '../town/builder.js?v=767ac96';
+import { locate } from '../../game/track.js?v=767ac96';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=767ac96';
+import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=767ac96';
 
 const VERMILION = 0xe0441c; // 朱色
 const DARK_WOOD = 0x3a2a22;
@@ -206,19 +206,28 @@ export function buildKyoto(track) {
   landmark(g, 'gion', gi.x, 0, gi.z);
 
   // ---- 銀閣寺（2階建て、黒っぽい木と白い壁、砂の庭と向月台）----
-  const gk = worldAt(track, S.ginkaku.at);
+  // 道の近くに、道の方へ向けて大きく（1.7倍）。前（道の方）に白い砂の庭（どれか分からなかった。2026-10-21 のユーザー依頼）
+  const gw = worldAt(track, S.ginkaku.at);
+  const gl = locate(track, gw.x, gw.z, null, 40);
+  const gp = pointAt(track, gl.s);
+  const gside = Math.sign(gl.lateral) || 1;
+  const gk = beside(gp, gside * (gp.wall + 34));
   landmark(g, 'ginkaku', gk.x, 0, gk.z);
-  b.push(gk.x, 0, gk.z, ryOf(S.ginkaku.ry));
-  b.box(14, 4.5, 12, DARK_WOOD, 0, 0, 0);
-  b.box(13, 0.6, 11, 0xf0ece0, 0, 1.5, 6.05);
-  roof(b, 14, 12, 4.5, 0x4a4a50);
-  b.box(10, 3.5, 9, 0x4a3a30, 0, 6.6, 0);
-  roof(b, 10, 9, 10.1, 0x4a4a50);
-  b.cyl(0.2, 0.4, 1.4, 6, 0x9a8a4a, 0, 12.4, 0); // 鳳凰
-  b.box(36, 0.5, 20, 0xf2efe6, 0, 0, 22); // 銀沙灘（白い砂）
-  for (let x = -16; x <= 16; x += 2) b.box(0.4, 0.55, 20, 0xe4e0d4, x, 0, 22); // 砂の波もよう
-  b.cyl(3, 6, 1.8, 16, 0xf2efe6, 10, 0.5, 26); // 向月台
-  b.pop();
+  const gb = createBuilder();
+  gb.box(14, 4.5, 12, DARK_WOOD, 0, 0, 0);
+  gb.box(13, 0.6, 11, 0xf0ece0, 0, 1.5, 6.05);
+  roof(gb, 14, 12, 4.5, 0x4a4a50);
+  gb.box(10, 3.5, 9, 0x4a3a30, 0, 6.6, 0);
+  roof(gb, 10, 9, 10.1, 0x4a4a50);
+  gb.cyl(0.2, 0.4, 1.4, 6, 0x9a8a4a, 0, 12.4, 0); // 鳳凰
+  gb.box(30, 0.5, 11, 0xf2efe6, 0, 0, 13); // 銀沙灘（白い砂。建物のすぐ前、道の方）
+  for (let x = -14; x <= 14; x += 2) gb.box(0.4, 0.55, 11, 0xe4e0d4, x, 0, 13); // 砂の波もよう
+  gb.cyl(2.5, 4.5, 1.8, 16, 0xf2efe6, 9, 0.5, 14); // 向月台
+  const ggroup = gb.build();
+  ggroup.position.set(gk.x, 0, gk.z);
+  ggroup.rotation.y = Math.atan2(gp.x - gk.x, gp.z - gk.z); // +z が道の方
+  ggroup.scale.setScalar(1.7);
+  g.add(ggroup);
 
   // ---- 金閣寺（3階建て、2・3階が金色、池に映る）----
   // 道からはなして、池を道の方に向ける。大きく（1.8倍）して分かりやすく（2026-10-21 のユーザー依頼「金閣寺も良くわからない」）

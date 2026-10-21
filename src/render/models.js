@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=0e78471';
-import { PHYS } from '../game/kart.js?v=0e78471';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=0e78471';
+import * as THREE from '../../vendor/three.module.min.js?v=767ac96';
+import { PHYS } from '../game/kart.js?v=767ac96';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=767ac96';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -418,6 +418,45 @@ export function createCowModel(k = 0) {
       leg.rotation.z = Math.sin(time * 4 + (i % 2) * Math.PI + k) * 0.35;
     });
   };
+  return g;
+}
+
+// 亀（Global City の海の底。2026-10-21 のユーザー依頼「ゆっくり歩く亀」）: 緑のこうらに六角のもよう、黄緑の頭と4本のひれ足。前は +x
+export function createTurtleModel(k = 0) {
+  const g = new THREE.Group();
+  const shell = k % 2 ? 0x5fb04a : 0x3fa37a; // 暗い海の底でも見えるように明るい緑
+  const skin = 0xc8e07a;
+  g.add(box(2.6, 0.5, 2.0, shell, 0, 0.75, 0)); // こうら（下の段）
+  g.add(box(2.0, 0.45, 1.5, shell, 0, 1.2, 0)); // こうら（まん中の段）
+  g.add(box(1.2, 0.3, 0.9, 0xa8d860, 0, 1.55, 0)); // こうらのてっぺん（明るいもよう）
+  for (const [x, z] of [[0.75, 0.55], [0.75, -0.55], [-0.75, 0.55], [-0.75, -0.55]]) g.add(box(0.5, 0.06, 0.5, 0xa8d860, x, 1.44, z)); // もよう
+  g.add(box(2.7, 0.15, 2.1, 0xd8c27a, 0, 0.45, 0)); // おなか（黄色いふち）
+  const head = new THREE.Group();
+  head.add(box(0.8, 0.6, 0.7, skin, 0, 0, 0));
+  for (const z of [-0.36, 0.36]) {
+    head.add(box(0.2, 0.2, 0.05, 0xffffff, 0.2, 0.12, z)); // 白目
+    head.add(box(0.1, 0.12, 0.06, 0x111111, 0.26, 0.12, z)); // 黒目
+  }
+  head.add(box(0.06, 0.06, 0.4, 0x3b2a1a, 0.41, -0.12, 0)); // 口
+  head.position.set(1.65, 0.9, 0);
+  g.add(head);
+  const legs = [];
+  for (const [x, z] of [[0.9, 1.1], [0.9, -1.1], [-0.9, 1.0], [-0.9, -1.0]]) {
+    const leg = new THREE.Group();
+    leg.add(box(0.7, 0.25, 0.55, skin, 0, -0.1, 0));
+    leg.position.set(x, 0.5, z);
+    g.add(leg);
+    legs.push(leg);
+  }
+  g.add(box(0.4, 0.2, 0.25, skin, -1.45, 0.55, 0)); // しっぽ
+  // ゆっくり歩く: ひれ足を前後に、頭を少し上下に
+  g.userData.walk = (time) => {
+    legs.forEach((leg, i) => {
+      leg.rotation.y = Math.sin(time * 1.6 + (i % 2) * Math.PI + k) * 0.35;
+    });
+    head.position.y = 0.9 + Math.sin(time * 0.8 + k) * 0.06;
+  };
+  g.scale.setScalar(1.3); // 遠くからでも亀とわかる大きさ（長さ 約3.5m）
   return g;
 }
 

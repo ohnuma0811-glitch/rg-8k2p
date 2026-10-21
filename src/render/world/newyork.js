@@ -1,11 +1,11 @@
 // Global City のニューヨーク（2026-10-20）: 碁盤の目の街を直角に曲がって北へ。タイムズスクエア、マディソン街の Jefferies 本社とユニクロ、
 // 五番街のティファニー、セントラルパークの中を通って、ジョージ・ワシントン・ブリッジでハドソン川をわたる。NY育英学園の門をくぐると輪っか
-import * as THREE from '../../../vendor/three.module.min.js?v=0e78471';
-import { createBuilder } from '../town/builder.js?v=0e78471';
-import { locate } from '../../game/track.js?v=0e78471';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=0e78471';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner, trafficLight } from './kit.js?v=0e78471';
-import { cityBlocks } from './tokyo.js?v=0e78471';
+import * as THREE from '../../../vendor/three.module.min.js?v=767ac96';
+import { createBuilder } from '../town/builder.js?v=767ac96';
+import { locate } from '../../game/track.js?v=767ac96';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=767ac96';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner, trafficLight } from './kit.js?v=767ac96';
+import { cityBlocks } from './tokyo.js?v=767ac96';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const BOARD = [0xff2d3a, 0x2d7dff, 0xffd21a, 0x2de07a, 0xff7a1a, 0xffffff];

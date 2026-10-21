@@ -1,9 +1,9 @@
 // 置き場所のデータから、コースの景色を作る（部品の前が道を向くように、道ぞいに置く）
-import * as kit from './kit.js?v=0e78471';
-import * as landmarks from './landmarks.js?v=0e78471';
-import * as forestKit from '../forest/kit.js?v=0e78471';
-import { createBuilder } from './builder.js?v=0e78471';
-import { markS, span, cornerCenter, locate } from '../../game/track.js?v=0e78471';
+import * as kit from './kit.js?v=767ac96';
+import * as landmarks from './landmarks.js?v=767ac96';
+import * as forestKit from '../forest/kit.js?v=767ac96';
+import { createBuilder } from './builder.js?v=767ac96';
+import { markS, span, cornerCenter, locate } from '../../game/track.js?v=767ac96';
 
 const PARTS = { ...kit, ...landmarks.PARTS };
 // 森のコースは、森の部品を使う（しげみ bush などは森の形）

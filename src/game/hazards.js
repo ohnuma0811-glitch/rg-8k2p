@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=0e78471';
-import { span, locate, ahead, behind } from './track.js?v=0e78471';
+import { SPEED_SHOW } from '../hud.js?v=767ac96';
+import { span, locate, ahead, behind } from './track.js?v=767ac96';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -41,6 +41,7 @@ export function cowPose(track, cow, time) {
   return {
     x: p.x - Math.sin(p.h) * lateral,
     z: p.z + Math.cos(p.h) * lateral,
+    y: p.y ?? 0, // 道の高さ（海の底の亀）
     lateral,
     heading: p.h + (dir * Math.PI) / 2, // 動いている向き（道を横切る向き）
   };
@@ -74,7 +75,8 @@ export function cowContact(kart, track, time, phys) {
     kart.x = c.x + (dx / d) * min;
     kart.z = c.z + (dz / d) * min;
     if (kart.onCow) continue;
-    kart.cowHits = (kart.cowHits || 0) + 1;
+    if (cow.kind === 'turtle') kart.turtleHits = (kart.turtleHits || 0) + 1; // 亀は「モー」と鳴かない
+    else kart.cowHits = (kart.cowHits || 0) + 1;
     cancelDrift(kart);
     if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
       kart.spin = phys.SPIN_TIME;
