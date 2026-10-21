@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=fd408eb';
-import { span, locate, ahead, behind } from './track.js?v=fd408eb';
+import { SPEED_SHOW } from '../hud.js?v=396317d';
+import { span, locate, ahead, behind } from './track.js?v=396317d';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -579,4 +579,26 @@ export function busNear(track, pos, time) {
     const b = busPose(track, bus, time);
     return Math.hypot(b.x - pos.x, b.z - pos.z) < BUS_NEAR;
   });
+}
+
+// 逆走を止める柵（2026-10-22 のユーザー依頼）: 柵の手前（前向きに GATE_MIN m より近い所）へ、逆向きに走ってきた車を押し戻して止める。
+// 前向きに走る車（ジャンプで飛んでくる車も、手前に着地した車も）は当たらない
+export const GATE_MIN = 0.8;
+export function oneWayContact(kart, track) {
+  if (kart.auto || !track.oneWays?.length) return null;
+  for (const g of track.oneWays) {
+    const dx = kart.x - g.x;
+    const dz = kart.z - g.z;
+    const fwd = dx * Math.cos(g.h) + dz * Math.sin(g.h);
+    if (fwd >= GATE_MIN || fwd < -4) continue;
+    const lat = -dx * Math.sin(g.h) + dz * Math.cos(g.h);
+    if (Math.abs(lat) > g.wall + 1 || Math.abs((kart.y ?? g.y) - g.y) > 4) continue;
+    if (kart.speed * Math.cos(kart.move - g.h) >= 0) continue; // 前向き（または止まっている）
+    kart.x += Math.cos(g.h) * (GATE_MIN - fwd);
+    kart.z += Math.sin(g.h) * (GATE_MIN - fwd);
+    kart.speed = 0;
+    cancelDrift(kart);
+    return 'stop';
+  }
+  return null;
 }

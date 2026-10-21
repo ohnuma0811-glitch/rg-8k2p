@@ -1,6 +1,6 @@
 // 曲: 楽譜のデータから音の並びを作り（テストできる）、OfflineAudioContext で一度だけ音にして、ループで流す
-import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=fd408eb';
-import { SONGS } from './songs.js?v=fd408eb';
+import { parseTrack, chordNotes, chordSteps, midiToHz } from './notes.js?v=396317d';
+import { SONGS } from './songs.js?v=396317d';
 
 // 16分音符1つの秒数と、曲1回分の秒数
 export const stepSec = (song) => 60 / song.bpm / 4;

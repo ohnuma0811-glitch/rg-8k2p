@@ -1,7 +1,7 @@
 // Global City のワープ（2026-10-20）: 3つ目の輪っかを過ぎると、光のトンネル。星が線になって、前から後ろへ速く流れる
 // カメラについていく（userData.followCamera）。見えるのはワープの間だけ（userData.stages = ['warp']）
-import * as THREE from '../../../vendor/three.module.min.js?v=fd408eb';
-import { landmark } from './kit.js?v=fd408eb';
+import * as THREE from '../../../vendor/three.module.min.js?v=396317d';
+import { landmark } from './kit.js?v=396317d';
 
 const STREAKS = 400;
 const DEPTH = 700; // 線が流れてくる奥行き（m）
@@ -73,7 +73,10 @@ export function updateWarp(group, camera, time, p = 0) {
   const lines = group.userData.lines;
   const pos = lines.geometry.attributes.position;
   const a = pos.array;
-  const run = (group.userData.run = (group.userData.run ?? 0) + (time - (group.userData.last ?? time)) * look.speed);
+  // 前のフレームからの秒。時刻が戻ったとき（同じコースの次のレース）や、とんだときは進めない
+  // （コースの形は次のレースでも使い回すので、前のレースの時刻が残り、線と輪が遠くへ消えていた。2026-10-22 のユーザー依頼）
+  const step = time - (group.userData.last ?? time);
+  const run = (group.userData.run = ((group.userData.run ?? 0) + (step > 0 && step < 0.5 ? step : 0) * look.speed) % (DEPTH * 1000));
   group.userData.last = time;
   lines.userData.lanes.forEach((l, k) => {
     const z = -DEPTH + ((l.z0 + run) % DEPTH); // 奥（-DEPTH）から手前（0）へ

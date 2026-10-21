@@ -1,29 +1,29 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=fd408eb';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=fd408eb';
-import { buildJungle } from './town/jungle.js?v=fd408eb';
-import { buildWater } from './town/water.js?v=fd408eb';
-import { buildBridge } from './forest/bridge.js?v=fd408eb';
-import { buildTunnel } from './snow/tunnel.js?v=fd408eb';
-import { buildSnowScenery } from './snow/kit.js?v=fd408eb';
-import { buildSigns } from './snow/signs.js?v=fd408eb';
-import { buildTokyo } from './world/tokyo.js?v=fd408eb';
-import { buildFuji } from './world/fuji.js?v=fd408eb';
-import { buildKyoto } from './world/kyoto.js?v=fd408eb';
-import { buildSpace, buildLaunchRail } from './world/space.js?v=fd408eb';
-import { buildHongKong } from './world/hongkong.js?v=fd408eb';
-import { buildSea } from './world/sea.js?v=fd408eb';
-import { buildNewYork } from './world/newyork.js?v=fd408eb';
-import { buildWarp } from './world/warp.js?v=fd408eb';
-import { buildKL } from './world/kl.js?v=fd408eb';
-import { buildClouds } from './world/clouds.js?v=fd408eb';
-import * as forestKit from './forest/kit.js?v=fd408eb';
-import { createBuilder } from './town/builder.js?v=fd408eb';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=fd408eb';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=fd408eb';
-import { mergeMeshes } from './mergeMeshes.js?v=fd408eb';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=fd408eb';
-import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=fd408eb';
+import * as THREE from '../../vendor/three.module.min.js?v=396317d';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=396317d';
+import { buildJungle } from './town/jungle.js?v=396317d';
+import { buildWater } from './town/water.js?v=396317d';
+import { buildBridge } from './forest/bridge.js?v=396317d';
+import { buildTunnel } from './snow/tunnel.js?v=396317d';
+import { buildSnowScenery } from './snow/kit.js?v=396317d';
+import { buildSigns } from './snow/signs.js?v=396317d';
+import { buildTokyo } from './world/tokyo.js?v=396317d';
+import { buildFuji } from './world/fuji.js?v=396317d';
+import { buildKyoto } from './world/kyoto.js?v=396317d';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=396317d';
+import { buildHongKong } from './world/hongkong.js?v=396317d';
+import { buildSea } from './world/sea.js?v=396317d';
+import { buildNewYork } from './world/newyork.js?v=396317d';
+import { buildWarp } from './world/warp.js?v=396317d';
+import { buildKL } from './world/kl.js?v=396317d';
+import { buildClouds } from './world/clouds.js?v=396317d';
+import * as forestKit from './forest/kit.js?v=396317d';
+import { createBuilder } from './town/builder.js?v=396317d';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=396317d';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=396317d';
+import { mergeMeshes } from './mergeMeshes.js?v=396317d';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=396317d';
+import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=396317d';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -1083,6 +1083,7 @@ export function buildTrackMesh(track) {
     group.add(mergeArrows(track));
     // 道の上の動かない木（2026-10-18 のユーザー依頼）: 茶色の幹に、高い所の丸い葉（車の上の高さ）
     for (const tr of track.trees ?? []) {
+      if (tr.scenery) continue; // 分離帯の木（Kampar）は景色の方で描く
       hide.push(tr.x, tr.y, tr.z, tr.k);
       forestKit.broccoliTree(hide, { size: 1.15, k: tr.k });
       hide.pop();
@@ -1107,6 +1108,8 @@ export function buildTrackMesh(track) {
   if (hasTunnels(track)) group.add(buildTunnel(track));
   // Global City: 暗いトンネル（富士山の中・バトゥ洞窟）のカーブに矢印の板（Kyugo Mountain と同じ。2026-10-21 のユーザー依頼）
   if (world) group.add(buildSigns(track));
+  // 逆走を止める柵（ジャンプの着地側。2026-10-22 のユーザー依頼）
+  if (track.oneWays?.length) group.add(oneWayFences(track));
   // Global City の景色（ステージごとの群れ）
   if (world) {
     for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL, buildClouds]) {
@@ -1527,4 +1530,25 @@ function junctionMesh(track, mouths, corners, asphalt) {
   if (curbPos.length) group.add(mesh(curbPos, { colors: curbCol }));
   if (box.length) group.add(mesh(box, { color: 0xffffff, uv: boxUv, map: asphalt }));
   return group;
+}
+
+// 逆走を止める柵の見た目: 道の幅いっぱいの低い板（赤と白のしま。高さ約 0.9m）と、両はしの柱。前（ジャンプで来る側）から見ると低いので、飛んでくる車の上にはかからない
+export function oneWayFences(track) {
+  const b = createBuilder();
+  const STRIPE = 2; // しまの幅（m）
+  for (const g of track.oneWays) {
+    const w = g.vwall;
+    b.push(g.vx, g.y, g.vz, Math.atan2(Math.cos(g.vh), Math.sin(g.vh)));
+    const n = Math.max(1, Math.round((2 * w) / STRIPE));
+    for (let k = 0; k < n; k++) {
+      const x = -w + ((k + 0.5) * 2 * w) / n;
+      b.box((2 * w) / n, 0.45, 0.25, k % 2 ? 0xffffff : 0xd8262b, x, 0.4, 0);
+    }
+    for (const x of [-w, w]) b.box(0.3, 1.2, 0.3, 0x333333, x, 0, 0); // 両はしの柱
+    for (let x = -w + 4; x < w - 2; x += 4) b.box(0.15, 0.4, 0.15, 0x555555, x, 0, 0); // 板の足
+    b.pop();
+  }
+  const g = b.build();
+  g.traverse((o) => { o.userData.oneWayFence = true; });
+  return g;
 }
