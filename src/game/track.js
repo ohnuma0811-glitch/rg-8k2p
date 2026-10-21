@@ -768,6 +768,32 @@ function applyKicks(t, def) {
 // 本線の道の高さ（2026-10-16 のユーザー依頼「上下に波打つ」）と、でこぼこ
 function applyHeights(t, def) {
   if (!def.heights && !def.bumpy) return;
+  applyHeightsBase(t, def);
+  // 大ジャンプ（def.arcs。Global City）: ジャンプ台（ramp〜takeoff）は一定の角度のまっすぐな坂、飛んだあと（takeoff〜land）は、
+  // その角度のまま飛び出す放物線（ジャンプ台のてっぺんが平らで、そこから急に空へ上がって見えた。2026-10-21 のユーザー依頼）
+  for (const arc of def.arcs ?? []) {
+    const r = refS(t, arc.ramp);
+    const o = refS(t, arc.takeoff);
+    const l = refS(t, arc.land);
+    const at = (s) => t.samples[Math.round(s) % t.length];
+    const y0 = at(r).y;
+    const y1 = at(o).y;
+    const y2 = at(l).y;
+    const slope = (y1 - y0) / (o - r);
+    const D = l - o;
+    const c = slope * D - (y2 - y1); // y(u) = y1 + (y2 − y1)·u + c·u·(1 − u)。はじめの傾きがジャンプ台と同じ
+    for (let i = 0; i < t.length; i++) {
+      const p = t.samples[i];
+      if (p.y === null) continue;
+      if (p.s >= r && p.s <= o) p.y = y0 + slope * (p.s - r);
+      else if (p.s > o && p.s < l) {
+        const u = (p.s - o) / D;
+        p.y = y1 + (y2 - y1) * u + c * u * (1 - u);
+      }
+    }
+  }
+}
+function applyHeightsBase(t, def) {
   const keys = (def.heights ?? []).map(([ref, y]) => [refS(t, ref) % t.length, y]).sort((a, b) => a[0] - b[0]);
   const bumps = (def.bumpy ?? []).filter((b) => b.path === 'main').map((b) => ({ ...b, a: refS(t, b.from), b: refS(t, b.to) }));
   for (let i = 0; i < t.length; i++) {

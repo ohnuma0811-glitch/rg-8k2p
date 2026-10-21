@@ -1,4 +1,4 @@
-import { sampleAt, stageAt } from './track.js?v=9c29d4f';
+import { sampleAt, stageAt } from './track.js?v=996c4bd';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ
@@ -28,6 +28,16 @@ export function autoViewOf(kart) {
   if (a.id === 'space') return kart.y >= 150 || a.t > 2 ? 'space' : null;
   if (a.id === 'warp') return a.leg >= 2 ? 'warp' : null;
   return a.id;
+}
+
+// 平らな地面（世界にしいてある灰色の板）を見せるか（Global City）。宇宙・ワープの間と、海の底の区間（SD〜LIB）では見せない
+// （海の底へもぐる道が、地面の板の下にもぐって、板が道をふさいで見えた。2026-10-21 のユーザー依頼）
+export function groundShown(track, rel, mode) {
+  if (mode === 'space' || mode === 'warp') return false;
+  const sd = track.marks.SD;
+  const lib = track.marks.LIB;
+  if (sd !== undefined && lib !== undefined && rel > sd && rel < lib) return false;
+  return true;
 }
 
 // 夜のステージ（Global City の香港・クアラルンプール）。カートのライトを点ける（2026-10-21 のユーザー依頼）
@@ -72,8 +82,11 @@ export const SHINKANSEN_GAP = 25.5; // 両と両の間かく（m）
 // train.t0: 走り出した時刻（自分が線路の始まりに近づいた時。null ならまだ走らず、見せない）。lead: 走り出した時の先頭の s（from から）。
 // 線路の終わり（to）まで行っても始まりへ戻らない（戻ると、横を走っているときに急に消えた。2026-10-21 のユーザー依頼）
 export function shinkansenCars(track, train, time, topSpeed, cars = 16) {
-  if (train.t0 === null || train.t0 === undefined) return Array.from({ length: cars }, () => ({ x: 0, y: train.y, z: 0, heading: 0, visible: false }));
-  const head = train.from + (train.lead ?? 0) + topSpeed * SHINKANSEN_FACTOR * Math.max(0, time - train.t0);
+  // wait: 走り出す前は、始まりの所で止まって待つ（東京駅。2026-10-21 のユーザー依頼「発見できなかった」）
+  const waiting = train.t0 === null || train.t0 === undefined;
+  if (waiting && !train.wait) return Array.from({ length: cars }, () => ({ x: 0, y: train.y, z: 0, heading: 0, visible: false }));
+  const elapsed = waiting ? 0 : Math.max(0, time - train.t0);
+  const head = train.from + (train.lead ?? 0) + topSpeed * (train.speed ?? SHINKANSEN_FACTOR) * elapsed;
   const rail = (s) => {
     const p = sampleAt(track, s);
     return { x: p.x - Math.sin(p.h) * train.off, z: p.z + Math.cos(p.h) * train.off };

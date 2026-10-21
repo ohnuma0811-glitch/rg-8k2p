@@ -1,11 +1,11 @@
 // Global City の海の底（2026-10-20）: 香港の港から坂を下って海にもぐり、透明なガラスのトンネルを走る。
 // クジラ・サメ・魚の群れ・しずんだ船が見える。坂を上って、自由の女神の足もとから地上に出る
-import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
-import { createBuilder } from '../town/builder.js?v=9c29d4f';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
-import { locate } from '../../game/track.js?v=9c29d4f';
-import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js?v=9c29d4f';
-import { createDinoModel } from '../models.js?v=9c29d4f';
+import * as THREE from '../../../vendor/three.module.min.js?v=996c4bd';
+import { createBuilder } from '../town/builder.js?v=996c4bd';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=996c4bd';
+import { locate } from '../../game/track.js?v=996c4bd';
+import { landmark, worldAt, sOf, pointAt, ryOf, beside, textSign } from './kit.js?v=996c4bd';
+import { createDinoModel } from '../models.js?v=996c4bd';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 

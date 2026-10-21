@@ -1,6 +1,6 @@
 // Global City の部品（2026-10-20）: 箱・円柱・球・棒だけで作る。名所は src/render/world/<都市>.js
-import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
-import { markS, sampleAt } from '../../game/track.js?v=9c29d4f';
+import * as THREE from '../../../vendor/three.module.min.js?v=996c4bd';
+import { markS, sampleAt } from '../../game/track.js?v=996c4bd';
 
 // 名所の印（テストと確かめ用。見えない）
 export function landmark(group, name, x, y, z) {
@@ -209,6 +209,6 @@ export function trafficLight(group, b, glow, track, s, side, color) {
   // 灯（左から青・黄・赤）。点いている灯は明るく、ほかは暗い色
   const colors = [color === 'green' ? 0x2de07a : 0x123a22, 0x3a3a14, color === 'red' ? 0xff3a2a : 0x3a1414];
   glow.push(c.x, y, c.z, ry);
-  [-0.8, 0, 0.8].forEach((dx, k) => glow.sphere(0.3, colors[k], side * -2.6 - dx * side, 6.2, -0.35, 8));
+  [-0.8, 0, 0.8].forEach((dx, k) => glow.sphere(0.3, colors[k], side * -2.6 - dx * side, 6.2, 0.35, 8)); // 箱の、走ってくるカートの方の面（反対を向いていた。2026-10-21 のユーザー依頼）
   glow.pop();
 }

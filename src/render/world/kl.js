@@ -1,11 +1,11 @@
 // Global City のクアラルンプール（2026-10-20）: 夕方から夜。南のプトラジャヤのピンクモスクの中の回廊を通り、
 // 北西のバトゥ洞窟（金色の像・虹色の階段）の中を通って、ペトロナスツインタワーの前でゴール
-import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
-import { createBuilder } from '../town/builder.js?v=9c29d4f';
-import { locate } from '../../game/track.js?v=9c29d4f';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=9c29d4f';
-import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=9c29d4f';
+import * as THREE from '../../../vendor/three.module.min.js?v=996c4bd';
+import { createBuilder } from '../town/builder.js?v=996c4bd';
+import { locate } from '../../game/track.js?v=996c4bd';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=996c4bd';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign } from './kit.js?v=996c4bd';
+import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=996c4bd';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const PINK = 0xd9a0a8;
@@ -83,7 +83,7 @@ export function buildKL(track) {
 
   // ---- バトゥ洞窟: 石灰岩の岩山。道は洞窟の中（暗い）。入口の前に金色の像と虹色の階段 ----
   const c0 = sOf(track, 'BC');
-  const c1 = sOf(track, ['BC', 'M', 0.5]);
+  const c1 = sOf(track, ['BC', 'BX', 0.95]);
   const bc = pointAt(track, c0);
   landmark(g, 'batuCaves', bc.x, bc.y, bc.z);
   // 洞窟の上と両がわを、岩でおおう（道の上は、トンネルの天井の上から）
@@ -122,15 +122,24 @@ export function buildKL(track) {
   glow.cyl(0, 1.2, 3, 4, GOLD, 7.5, 49, 3.5);
   b.pop();
   glow.pop();
-  // 虹色の階段（像の横から、洞窟の入口の高さまで上がる）
+  // 虹色の階段（2026-10-21 のユーザー依頼「洞窟前にカラフルな階段を設置し、ジャンプ台で一気に飛び越える」）:
+  // ジャンプ（BJ〜BCL）の下の道の上に、洞窟の入口の高さまで上る階段。赤・橙・黄・緑・青・紫の帯
   const COLORS = [0xe8403a, 0xf08a2a, 0xf0d23a, 0x4ab04a, 0x3a7ae0, 0x8a4ac8];
-  const up = pointAt(track, c0 - 45);
-  const sideSt = Math.sign(locate(track, st.x, st.z, null, 40).lateral) || 1; // 像と同じ側
-  const sb = beside(up, sideSt * (up.wall + 12));
-  landmark(g, 'rainbowStairs', sb.x, 0, sb.z);
-  b.push(sb.x, 0, sb.z, ryAlong(up.h));
-  for (let j = 0; j < 30; j++) b.box(10, (bc.y + 2) * ((j + 1) / 30), 1.5, COLORS[j % COLORS.length], 0, 0, j * 1.5);
-  b.pop();
+  {
+    const s0 = sOf(track, 'BJ') + 6;
+    const s1 = sOf(track, 'BCL');
+    const top = pointAt(track, s1).y;
+    let j = 0;
+    for (let s = s0; s < s1; s += 1.5, j++) {
+      const p = pointAt(track, s);
+      const h = Math.max(0.3, (top * (s - s0)) / (s1 - s0) - 0.6); // 飛ぶ道すじより低く
+      b.push(p.x, 0, p.z, ryAlong(p.h));
+      b.box(2 * p.half + 2, h, 1.6, COLORS[j % COLORS.length], 0, 0, 0);
+      b.pop();
+    }
+    const sm = pointAt(track, (s0 + s1) / 2);
+    landmark(g, 'rainbowStairs', sm.x, 0, sm.z);
+  }
 
   // ---- ペトロナスツインタワー: 8角を段々に細く、銀色に光る窓のしま。2本の間に空中の橋。ゴールはその前 ----
   // ゴールはツインタワーの2本の間（2026-10-21 のユーザー依頼）: ゴールの道の両がわに1本ずつ。空中の橋の下をくぐってゴール
@@ -194,10 +203,26 @@ export function buildKL(track) {
     b.pop();
     landmark(g, 'finishBanner', mx, 159, mz);
   }
+  // ゴールライン（道を横切る白黒の線。2026-10-21 のユーザー依頼）
+  {
+    b.push(fin.x, fin.y, fin.z, ryAlong(fin.h));
+    const n = Math.round(fin.half);
+    for (let row = 0; row < 2; row++) for (let k = -n; k < n; k++) b.box(1, 0.03, 1, (k + row) % 2 ? 0x111111 : 0xffffff, k + 0.5, 0.005, row - 0.5);
+    b.pop();
+    landmark(g, 'finishLine', fin.x, fin.y, fin.z);
+  }
   // 最後の大ジャンプ台（オレンジと黄色の光る矢印、赤白の柱）
   {
     const r0 = sOf(track, 'R0');
     const gj = sOf(track, 'GJ');
+  // ジャンプ台の下の台（高いジャンプ台が宙に浮いて見えないように）
+  for (let s = r0; s <= gj; s += 4) {
+    const p = pointAt(track, s);
+    if (p.y < 1) continue;
+    b.push(p.x, 0, p.z, ryAlong(p.h));
+    b.box(2 * p.wall, p.y - 0.3, 4.4, Math.round(s / 4) % 2 ? 0xd8d4cc : 0xc8c4bc, 0, 0, 0);
+    b.pop();
+  }
     for (let s = r0; s <= gj; s += 6) {
       const p = pointAt(track, s);
       glow.push(p.x, p.y + 0.08, p.z, ryAlong(p.h));

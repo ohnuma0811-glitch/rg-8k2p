@@ -1,10 +1,10 @@
 // Global City の京都（2026-10-20）: 外国の人が見ても京都だと分かるように、日本らしさ・京都らしさを前に出す
 // 東から入るので、実際の位置のとおり時計回り: 伏見稲荷 → 清水寺（舞台からジャンプ）→ 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林
-import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
-import { createBuilder } from '../town/builder.js?v=9c29d4f';
-import { locate } from '../../game/track.js?v=9c29d4f';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
-import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=9c29d4f';
+import * as THREE from '../../../vendor/three.module.min.js?v=996c4bd';
+import { createBuilder } from '../town/builder.js?v=996c4bd';
+import { locate } from '../../game/track.js?v=996c4bd';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=996c4bd';
+import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=996c4bd';
 
 const VERMILION = 0xe0441c; // 朱色
 const DARK_WOOD = 0x3a2a22;
@@ -125,6 +125,35 @@ export function buildKyoto(track) {
     glow.pop();
     b.pop();
   }
+  // 清水の舞台（2026-10-21 のユーザー依頼「一目で舞台だとわかるように。飛び降りるところ以外に手すり」）:
+  // 本堂を出てから飛び降りる所まで、道に板張りの床。両わきに木の手すり。飛び降りる所（前のはし）は開けておく
+  {
+    const d0 = km - 24;
+    const d1 = km - 2;
+    for (let s = d0; s <= d1; s += 1.2) {
+      const p = pointAt(track, s);
+      b.push(p.x, p.y, p.z, ryAlong(p.h));
+      b.box(2 * p.half + 2, 0.02, 1.1, Math.round(s / 1.2) % 2 ? 0x9a6a3a : 0x8a5a30, 0, 0.005, 0); // 板
+      b.pop();
+    }
+    const dm = pointAt(track, (d0 + d1) / 2);
+    landmark(g, 'kiyomizuDeck', dm.x, dm.y, dm.z);
+    for (let s = d0; s <= km - 3; s += 2) {
+      const p = pointAt(track, s);
+      const q = pointAt(track, Math.min(s + 2, km - 3));
+      for (const side of [-1, 1]) {
+        const c = beside(p, side * (p.half + 0.8));
+        const e = beside(q, side * (q.half + 0.8));
+        b.cyl(0.16, 0.16, 1.2, 6, 0x6a4026, c.x, p.y, c.z); // 手すりの柱
+        const post = landmark(g, 'kiyomizuRailPost', c.x, p.y, c.z);
+        post.userData.s = s;
+        b.rod(c.x, p.y + 1.15, c.z, e.x, q.y + 1.15, e.z, 0.1, 0x7a4a2a, 4); // 上の木
+        b.rod(c.x, p.y + 0.6, c.z, e.x, q.y + 0.6, e.z, 0.07, 0x7a4a2a, 4); // 中の木
+      }
+    }
+    landmark(g, 'kiyomizuRail', dm.x, dm.y, dm.z);
+    roadBanner(g, b, track, h1 + 3, 'KIYOMIZU STAGE', 'bannerKiyomizuStage', { bg: '#7a1a10', fg: '#ffe14a' });
+  }
   const hm = pointAt(track, (h0 + h1) / 2);
   landmark(g, 'kiyomizuHall', hm.x, hm.y, hm.z);
   landmark(g, 'kiyomizu', hm.x, 0, hm.z);
@@ -197,7 +226,7 @@ export function buildKyoto(track) {
   const kl = locate(track, kw.x, kw.z, null, 40);
   const kp = pointAt(track, kl.s);
   const kside = Math.sign(kl.lateral) || 1;
-  const kk = beside(kp, kside * (kp.wall + 70));
+  const kk = beside(kp, kside * (kp.wall + 40)); // 道に近く（2026-10-21 のユーザー依頼「もっと道路に近接」）
   landmark(g, 'kinkaku', kk.x, 0, kk.z);
   const kry = Math.atan2(kp.x - kk.x, kp.z - kk.z); // +z が道の方
   const GOLD = 0xd4a62a;
@@ -212,19 +241,20 @@ export function buildKyoto(track) {
   kb.box(12, 0.8, 11, TILE, 0, 13.6, 0);
   kb.box(7, 1.2, 6, TILE, 0, 14.4, 0);
   kg.cyl(0.3, 0.6, 1.8, 6, GOLD, 0, 15.6, 0); // 鳳凰
-  kb.box(44, 0.06, 26, 0x3a6f6a, 0, -0.04, 22); // 池（金閣の前、道の方）
-  kb.box(14, 0.03, 4, 0x9a8a50, 0, 0.03, 12); // 池に映る金閣
-  kb.box(9, 0.03, 3, 0x9a8a50, 0, 0.03, 16);
+  kb.box(30, 0.06, 13, 0x3a6f6a, 0, -0.04, 13.5); // 池（建物のすぐ前、道の方）
+  kb.box(14, 0.03, 3, 0x9a8a50, 0, 0.03, 9); // 池に映る金閣
+  kb.box(9, 0.03, 2.5, 0x9a8a50, 0, 0.03, 12);
   const kgroup = new THREE.Group();
   kgroup.add(kg.build(), kb.build());
   kgroup.position.set(kk.x, 0, kk.z);
   kgroup.rotation.y = kry;
   kgroup.scale.setScalar(KS);
   g.add(kgroup);
-  for (const [dx, dz] of [[-60, -30], [60, -28], [-70, 20], [70, 22], [0, -60]]) {
-    const x = kk.x + dx;
-    const z = kk.z + dz;
-    if (clear(track, x, z, 6)) coneTree(b, x, 0, z, 1.6, 0x2f5d3a);
+  // 松は、池の両わき（金閣寺の手前）に（道ばたにあった緑は、ここへ。2026-10-21 のユーザー依頼）
+  for (const [lx, lz] of [[-19, 8], [19, 8], [-21, 16], [21, 16], [-16, 22], [16, 22]]) {
+    const x = kk.x + (Math.cos(kry) * lx + Math.sin(kry) * lz) * KS;
+    const z = kk.z + (-Math.sin(kry) * lx + Math.cos(kry) * lz) * KS;
+    if (clear(track, x, z, 4)) coneTree(b, x, 0, z, 1.5, 0x2f5d3a);
   }
 
   // ---- 嵐山の竹林（背の高い竹を道の両がわにびっしり、竹の枝の茶色の垣根）----
@@ -277,7 +307,7 @@ export function buildKyoto(track) {
   }
 
   // 英語の看板（2026-10-21 のユーザー依頼「金閣寺も良くわからないので看板を立てるなりして」）
-  const sign = (s, text, name) => roadBanner(g, b, track, s, text, name);
+  const sign = (s, text, name) => roadBanner(g, b, track, s, text, name, { bg: '#7a1a10', fg: '#ffe14a' }); // 濃い赤に黄色の字（見やすく）
   sign(sOf(track, 'FI') - 30, 'FUSHIMI INARI', 'signFushimi');
   sign(km - 72, 'KIYOMIZU-DERA', 'signKiyomizu'); // 仁王門と本堂の間（鳥居のトンネルに重ならないように）
   sign(sOf(track, 'GK') - 40, 'GINKAKU-JI', 'signGinkaku');

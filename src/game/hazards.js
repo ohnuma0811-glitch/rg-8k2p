@@ -1,6 +1,6 @@
 // Kampar Town の仕掛け: バンプ（道のでっぱり）と牛（2026-10-15 のユーザー依頼）
-import { SPEED_SHOW } from '../hud.js?v=9c29d4f';
-import { span, locate, ahead, behind } from './track.js?v=9c29d4f';
+import { SPEED_SHOW } from '../hud.js?v=996c4bd';
+import { span, locate, ahead, behind } from './track.js?v=996c4bd';
 
 export const BUMP_LIMIT_KMH = 150; // スピードメーターの数字。これを超えてバンプに乗ると転がる（牛のスピンも。2026-10-15 に100から変更）
 export const TUMBLE_TIME = 2; // 転がって走れない秒数（2026-10-15 に3秒から1秒、2026-10-17 のユーザー依頼で1秒のばして2秒）
@@ -516,9 +516,12 @@ export function busPose(track, bus, time) {
   const lateral = side * (BUS_LANE + (p.half - track.roadHalf));
   const px = p.x + (q.x - p.x) * f;
   const pz = p.z + (q.z - p.z) * f;
+  // 高さは道の高さ（高い橋やらせんの上で、地面の高さを走って見えた。2026-10-21 のユーザー依頼）
+  const y = (p.y ?? 0) + ((q.y ?? p.y ?? 0) - (p.y ?? 0)) * f;
   return {
     s,
     x: px - Math.sin(p.h) * lateral,
+    y,
     z: pz + Math.cos(p.h) * lateral,
     lateral,
     heading: dir < 0 ? p.h + Math.PI : p.h, // 向かってくる車はコースと逆向き
@@ -532,6 +535,7 @@ export function busContact(kart, track, time, phys) {
   let touching = false;
   for (const bus of track.buses ?? []) {
     const b = busPose(track, bus, time);
+    if (Math.abs((kart.y ?? 0) - b.y) > 3) continue; // 高さがちがう（らせんの上と下など）
     const fx = Math.cos(b.heading);
     const fz = Math.sin(b.heading);
     const dx = kart.x - b.x;

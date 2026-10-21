@@ -1,29 +1,29 @@
 // コースの見た目: 道（白線）、縁石、ダート、柵、ジャンプ台、加速板、スタートライン、観客席、木と看板
-import * as THREE from '../../vendor/three.module.min.js?v=9c29d4f';
-import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=9c29d4f';
-import { buildJungle } from './town/jungle.js?v=9c29d4f';
-import { buildWater } from './town/water.js?v=9c29d4f';
-import { buildBridge } from './forest/bridge.js?v=9c29d4f';
-import { buildTunnel } from './snow/tunnel.js?v=9c29d4f';
-import { buildSnowScenery } from './snow/kit.js?v=9c29d4f';
-import { buildSigns } from './snow/signs.js?v=9c29d4f';
-import { buildTokyo } from './world/tokyo.js?v=9c29d4f';
-import { buildFuji } from './world/fuji.js?v=9c29d4f';
-import { buildKyoto } from './world/kyoto.js?v=9c29d4f';
-import { buildSpace, buildLaunchRail } from './world/space.js?v=9c29d4f';
-import { buildHongKong } from './world/hongkong.js?v=9c29d4f';
-import { buildSea } from './world/sea.js?v=9c29d4f';
-import { buildNewYork } from './world/newyork.js?v=9c29d4f';
-import { buildWarp } from './world/warp.js?v=9c29d4f';
-import { buildKL } from './world/kl.js?v=9c29d4f';
-import { buildClouds } from './world/clouds.js?v=9c29d4f';
-import * as forestKit from './forest/kit.js?v=9c29d4f';
-import { createBuilder } from './town/builder.js?v=9c29d4f';
-import { buildRiver, buildWaterfall } from './forest/water.js?v=9c29d4f';
-import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=9c29d4f';
-import { mergeMeshes } from './mergeMeshes.js?v=9c29d4f';
-import { BUMP_STRIPE_M } from '../game/hazards.js?v=9c29d4f';
-import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=9c29d4f';
+import * as THREE from '../../vendor/three.module.min.js?v=996c4bd';
+import { buildScenery, stubMouths, inMouth } from './town/scenery.js?v=996c4bd';
+import { buildJungle } from './town/jungle.js?v=996c4bd';
+import { buildWater } from './town/water.js?v=996c4bd';
+import { buildBridge } from './forest/bridge.js?v=996c4bd';
+import { buildTunnel } from './snow/tunnel.js?v=996c4bd';
+import { buildSnowScenery } from './snow/kit.js?v=996c4bd';
+import { buildSigns } from './snow/signs.js?v=996c4bd';
+import { buildTokyo } from './world/tokyo.js?v=996c4bd';
+import { buildFuji } from './world/fuji.js?v=996c4bd';
+import { buildKyoto } from './world/kyoto.js?v=996c4bd';
+import { buildSpace, buildLaunchRail } from './world/space.js?v=996c4bd';
+import { buildHongKong } from './world/hongkong.js?v=996c4bd';
+import { buildSea } from './world/sea.js?v=996c4bd';
+import { buildNewYork } from './world/newyork.js?v=996c4bd';
+import { buildWarp } from './world/warp.js?v=996c4bd';
+import { buildKL } from './world/kl.js?v=996c4bd';
+import { buildClouds } from './world/clouds.js?v=996c4bd';
+import * as forestKit from './forest/kit.js?v=996c4bd';
+import { createBuilder } from './town/builder.js?v=996c4bd';
+import { buildRiver, buildWaterfall } from './forest/water.js?v=996c4bd';
+import { buildTerrain, terrainHeight, GAP_DROP } from './terrain.js?v=996c4bd';
+import { mergeMeshes } from './mergeMeshes.js?v=996c4bd';
+import { BUMP_STRIPE_M } from '../game/hazards.js?v=996c4bd';
+import { cornerUW, markS, GRIP_ICE, stageAt } from '../game/track.js?v=996c4bd';
 
 const COLORS = {
   dirt: 0xb08850,
@@ -665,6 +665,63 @@ function splitMesh(mesh, size = 250) {
   });
 }
 
+// 形を、三角ごとに、いちばん近い道の点（高さもみる）のステージで分け、さらに size m のます目ごとに分ける（Global City）。
+// 地図の上で重なる所（富士山の着地点の近くを通るニューヨークの道など）でも、その道のステージだけで見せる（2026-10-21 のユーザー依頼「途切れた道」）
+const stageGrids = new WeakMap();
+function stageGridOf(track) {
+  if (!stageGrids.has(track)) {
+    const grid = new Map();
+    for (const p of track.samples) {
+      if (p.y === null || p.void) continue;
+      const key = `${Math.floor(p.x / 30)},${Math.floor(p.z / 30)}`;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push({ x: p.x, y: p.y, z: p.z, st: stageAt(track, p.s) });
+    }
+    stageGrids.set(track, grid);
+  }
+  return stageGrids.get(track);
+}
+export function splitByStage(mesh, track, size = 250) {
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+  const names = Object.keys(geo.attributes);
+  const pos = geo.attributes.position;
+  const grid = stageGridOf(track);
+  const groups = new Map();
+  for (let t = 0; t < pos.count; t += 3) {
+    const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3;
+    const cy = (pos.getY(t) + pos.getY(t + 1) + pos.getY(t + 2)) / 3;
+    const cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3;
+    const gx = Math.floor(cx / 30);
+    const gz = Math.floor(cz / 30);
+    let best = -1;
+    let bd = Infinity;
+    for (let ix = gx - 1; ix <= gx + 1; ix++) for (let iz = gz - 1; iz <= gz + 1; iz++) {
+      for (const q of grid.get(`${ix},${iz}`) ?? []) {
+        const d = (q.x - cx) ** 2 + (q.z - cz) ** 2 + (3 * (q.y - cy)) ** 2;
+        if (d < bd) { bd = d; best = q.st; }
+      }
+    }
+    const key = `${best}|${Math.floor(cx / size)},${Math.floor(cz / size)}`; // 近くに道がなければ best = -1（いつも見せる）
+    if (!groups.has(key)) groups.set(key, { st: best, tris: [] });
+    groups.get(key).tris.push(t);
+  }
+  return [...groups.values()].map(({ st, tris }) => {
+    const g = new THREE.BufferGeometry();
+    for (const n of names) {
+      const a = geo.attributes[n];
+      const out = new Float32Array(tris.length * 3 * a.itemSize);
+      let o = 0;
+      for (const t of tris) for (let v = 0; v < 3; v++) for (let c = 0; c < a.itemSize; c++) out[o++] = a.array[(t + v) * a.itemSize + c];
+      g.setAttribute(n, new THREE.BufferAttribute(out, a.itemSize));
+    }
+    const m = new THREE.Mesh(g, mesh.material);
+    m.renderOrder = mesh.renderOrder;
+    m.userData = { ...mesh.userData };
+    if (st >= 0) m.userData.stages = [st];
+    return m;
+  });
+}
+
 // 四角（x0〜x1、z0〜z1。少し広げて見る）の中の道の点のステージ（Global City）。道や柵のまとまりを、ステージごとに見せるため
 // （遠くのステージの道が見えた。2026-10-21 のユーザー依頼）。道がなければ []
 export function chunkStages(track, x0, x1, z0, z1, pad = 20) {
@@ -1042,6 +1099,8 @@ export function buildTrackMesh(track) {
     group.add(roadside(track, sides));
   }
   if (hasTunnels(track)) group.add(buildTunnel(track));
+  // Global City: 暗いトンネル（富士山の中・バトゥ洞窟）のカーブに矢印の板（Kyugo Mountain と同じ。2026-10-21 のユーザー依頼）
+  if (world) group.add(buildSigns(track));
   // Global City の景色（ステージごとの群れ）
   if (world) {
     for (const build of [buildTokyo, buildFuji, buildKyoto, buildLaunchRail, buildSpace, buildHongKong, buildSea, buildNewYork, buildWarp, buildKL, buildClouds]) {
@@ -1056,27 +1115,24 @@ export function buildTrackMesh(track) {
   // Global City: 道・柵・トンネルなどのまとまりも、ある所のステージの群れにする（遠くのステージの道を見せない）
   if (world) {
     const box = new THREE.Box3();
-    // 大きな形（400m より大きい）は、ます目ごとに切り分ける（入れ子のグループの中の形も）
-    const big = [];
-    group.traverse((o) => {
-      if (!o.isMesh || Array.isArray(o.material)) return;
-      box.setFromObject(o);
-      if (box.max.x - box.min.x > 400 || box.max.z - box.min.z > 400) big.push(o);
-    });
-    for (const m of big) {
+    // 道・柵・トンネルなどの形は、三角ごとに、近い道のステージで分ける（入れ子のグループの中の形も）
+    const meshes = [];
+    group.traverse((o) => { if (o.isMesh && !Array.isArray(o.material)) meshes.push(o); });
+    const ident = new THREE.Matrix4();
+    for (const m of meshes) {
       m.updateMatrixWorld(true);
-      if (!m.matrixWorld.equals(new THREE.Matrix4())) continue; // 動かした形はそのまま（道の形は動かしていない）
-      const parent = m.parent;
-      parent.remove(m);
-      for (const piece of splitMesh(m)) group.add(piece);
-    }
-    for (const c of group.children.slice()) {
-      box.setFromObject(c);
-      if (box.isEmpty()) continue;
-      const st = chunkStages(track, box.min.x, box.max.x, box.min.z, box.max.z);
-      if (!st.length) continue;
-      c.userData.stages = st;
-      stageGroups.push(c);
+      if (!m.matrixWorld.equals(ident)) {
+        // 動かした形（ラベルなど）は、そのまま。ある所のステージで見せる
+        box.setFromObject(m);
+        const st = chunkStages(track, box.min.x, box.max.x, box.min.z, box.max.z);
+        if (st.length && m.parent === group) { m.userData.stages = st; stageGroups.push(m); } // 入れ子の中の動かした形は、そのまま（いつも見せる）
+        continue;
+      }
+      m.parent.remove(m);
+      for (const piece of splitByStage(m, track)) {
+        group.add(piece);
+        if (piece.userData.stages) stageGroups.push(piece);
+      }
     }
   }
   for (const g of stageGroups) {

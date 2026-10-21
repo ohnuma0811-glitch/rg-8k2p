@@ -1,52 +1,52 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=9c29d4f';
-import { startLoop } from './loop.js?v=9c29d4f';
-import { COURSES } from './data/tracks.js?v=9c29d4f';
-import { buildTrack, span, locate, stageAt } from './game/track.js?v=9c29d4f';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=9c29d4f';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=9c29d4f';
-import { kartParams } from './game/stats.js?v=9c29d4f';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=9c29d4f';
-import { pushApart, newBumps } from './game/collide.js?v=9c29d4f';
+import * as THREE from '../vendor/three.module.min.js?v=996c4bd';
+import { startLoop } from './loop.js?v=996c4bd';
+import { COURSES } from './data/tracks.js?v=996c4bd';
+import { buildTrack, span, locate, stageAt } from './game/track.js?v=996c4bd';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=996c4bd';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js?v=996c4bd';
+import { kartParams } from './game/stats.js?v=996c4bd';
+import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js?v=996c4bd';
+import { pushApart, newBumps } from './game/collide.js?v=996c4bd';
 import {
   LAPS, raceLaps, raceDistance, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=9c29d4f';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=9c29d4f';
-import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=9c29d4f';
-import { applyStageVisibility } from './render/world/stages.js?v=9c29d4f';
-import { skyFor } from './render/world/sky.js?v=9c29d4f';
-import { updateSpace, spaceLook } from './render/world/space.js?v=9c29d4f';
-import { updateSea } from './render/world/sea.js?v=9c29d4f';
-import { updateWarp, warpLook } from './render/world/warp.js?v=9c29d4f';
-import { showcaseCamera } from './render/showcase.js?v=9c29d4f';
-import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=9c29d4f';
-import { createMinimap } from './render/minimap.js?v=9c29d4f';
-import { grandstandSpot } from './render/trackMesh.js?v=9c29d4f';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=9c29d4f';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage } from './game/world.js?v=9c29d4f';
-import { GLOBAL_SCENERY } from './data/global.js?v=9c29d4f';
-import { faceSvg } from './titleArt.js?v=9c29d4f';
-import { createEffects } from './render/effects.js?v=9c29d4f';
-import { nextQuality, pixelRatio } from './render/quality.js?v=9c29d4f';
-import { blendPose, poseOf } from './render/interp.js?v=9c29d4f';
-import { speedText } from './hud.js?v=9c29d4f';
-import { addRecent, cleanRecent } from './names.js?v=9c29d4f';
-import { remainingSec, addPlay, remainingText } from './playtime.js?v=9c29d4f';
-import { load, save } from './storage.js?v=9c29d4f';
-import * as screens from './screens.js?v=9c29d4f';
-import { SharedTimes, dateText } from './sharedTimes.js?v=9c29d4f';
-import { TIMES_URL } from './config.js?v=9c29d4f';
-import { createAudio } from './audio/audio.js?v=9c29d4f';
-import { createSfx } from './audio/sfx.js?v=9c29d4f';
-import { createVoices } from './audio/voice.js?v=9c29d4f';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=9c29d4f';
-import { createCrowd } from './audio/crowd.js?v=9c29d4f';
-import { crowdMix } from './audio/mix.js?v=9c29d4f';
-import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=9c29d4f';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=9c29d4f';
+} from './game/race.js?v=996c4bd';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=996c4bd';
+import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=996c4bd';
+import { applyStageVisibility } from './render/world/stages.js?v=996c4bd';
+import { skyFor } from './render/world/sky.js?v=996c4bd';
+import { updateSpace, spaceLook } from './render/world/space.js?v=996c4bd';
+import { updateSea } from './render/world/sea.js?v=996c4bd';
+import { updateWarp, warpLook } from './render/world/warp.js?v=996c4bd';
+import { showcaseCamera } from './render/showcase.js?v=996c4bd';
+import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js?v=996c4bd';
+import { createMinimap } from './render/minimap.js?v=996c4bd';
+import { grandstandSpot } from './render/trackMesh.js?v=996c4bd';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=996c4bd';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown } from './game/world.js?v=996c4bd';
+import { GLOBAL_SCENERY } from './data/global.js?v=996c4bd';
+import { faceSvg } from './titleArt.js?v=996c4bd';
+import { createEffects } from './render/effects.js?v=996c4bd';
+import { nextQuality, pixelRatio } from './render/quality.js?v=996c4bd';
+import { blendPose, poseOf } from './render/interp.js?v=996c4bd';
+import { speedText } from './hud.js?v=996c4bd';
+import { addRecent, cleanRecent } from './names.js?v=996c4bd';
+import { remainingSec, addPlay, remainingText } from './playtime.js?v=996c4bd';
+import { load, save } from './storage.js?v=996c4bd';
+import * as screens from './screens.js?v=996c4bd';
+import { SharedTimes, dateText } from './sharedTimes.js?v=996c4bd';
+import { TIMES_URL } from './config.js?v=996c4bd';
+import { createAudio } from './audio/audio.js?v=996c4bd';
+import { createSfx } from './audio/sfx.js?v=996c4bd';
+import { createVoices } from './audio/voice.js?v=996c4bd';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=996c4bd';
+import { createCrowd } from './audio/crowd.js?v=996c4bd';
+import { crowdMix } from './audio/mix.js?v=996c4bd';
+import { createMusic, FINAL_LAP_RATE } from './audio/music.js?v=996c4bd';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=996c4bd';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '9c29d4f';
+const VERSION = '996c4bd';
 // プレイヤーが選べるキャラ（M3 で8人にする）
 const PLAYER_CHARS = [
   // voice: ジャンプ台で飛ぶときの声（male: 男衆「イヤッホー！」、female: 女衆「おう！」）
@@ -496,7 +496,7 @@ function placeBuses(time) {
   track.buses.forEach((bus, k) => {
     const p = busPose(track, bus, time);
     const m = track.busModels[k];
-    m.position.set(p.x, 0, p.z);
+    m.position.set(p.x, p.y ?? 0, p.z); // 道の高さ
     m.rotation.y = -p.heading;
   });
 }
@@ -506,13 +506,13 @@ function trainsOf(t) {
   if (t.def.theme !== 'world') return [];
   const ref = (r) => (typeof r === 'string' ? t.marks[r] : null);
   // 自分が線路の始まりの near m 手前に来たら走り出す（t0）。lead: 走り出すときの先頭の位置（東京は全部の両が線路の上、富士山は始まりの手前から出てくる）
-  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: tr.lead ?? -100, near: tr.near ?? 300 }));
+  return [GLOBAL_SCENERY.tokyo.shinkansenLine, GLOBAL_SCENERY.fuji?.shinkansen].filter(Boolean).map((tr) => ({ from: ref(tr.from), to: ref(tr.to), off: tr.off, y: tr.y, t0: null, lead: tr.lead ?? -100, near: tr.near ?? 300, wait: !!tr.wait, speed: tr.speed, cars: tr.cars ?? 16 }));
 }
 function placeTrains(time, topSpeed) {
   if (!track.trains) track.trains = trainsOf(track);
   if (!track.trains.length) return;
   if (!track.trainModels) {
-    track.trainModels = track.trains.map(() => createShinkansenModel());
+    track.trainModels = track.trains.map((tr) => createShinkansenModel(tr.cars));
     track.trainModels.forEach((m) => track.mesh.add(m));
   }
   // 1両ずつ線路にそって置く（カーブで真っすぐのまま突き出ていた。2026-10-21 のユーザー依頼）
@@ -1047,7 +1047,7 @@ function renderGame(alpha, dt) {
     const look = skyFor(track, cur, me);
     setSky(scene, look);
     // 宇宙・ワープの間は、平らな地面を消す（宇宙から灰色の地面が見えた）
-    if (scene.userData.ground) scene.userData.ground.visible = look.mode !== 'space' && look.mode !== 'warp';
+    if (scene.userData.ground) scene.userData.ground.visible = groundShown(track, rel, look.mode); // 宇宙・ワープ・海の底の区間では見せない
   }
   showTunnel(g.tunnel, views[g.me], Math.max(0, Math.min(1, 1 - toExit / 120)));
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）

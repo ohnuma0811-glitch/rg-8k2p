@@ -1,11 +1,11 @@
 // Global City のニューヨーク（2026-10-20）: 碁盤の目の街を直角に曲がって北へ。タイムズスクエア、マディソン街の Jefferies 本社とユニクロ、
 // 五番街のティファニー、セントラルパークの中を通って、ジョージ・ワシントン・ブリッジでハドソン川をわたる。NY育英学園の門をくぐると輪っか
-import * as THREE from '../../../vendor/three.module.min.js?v=9c29d4f';
-import { createBuilder } from '../town/builder.js?v=9c29d4f';
-import { locate } from '../../game/track.js?v=9c29d4f';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=9c29d4f';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner, trafficLight } from './kit.js?v=9c29d4f';
-import { cityBlocks } from './tokyo.js?v=9c29d4f';
+import * as THREE from '../../../vendor/three.module.min.js?v=996c4bd';
+import { createBuilder } from '../town/builder.js?v=996c4bd';
+import { locate } from '../../game/track.js?v=996c4bd';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=996c4bd';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, roundTree, roadBanner, trafficLight } from './kit.js?v=996c4bd';
+import { cityBlocks } from './tokyo.js?v=996c4bd';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const BOARD = [0xff2d3a, 0x2d7dff, 0xffd21a, 0x2de07a, 0xff7a1a, 0xffffff];
@@ -265,6 +265,30 @@ export function buildNewYork(track) {
       b.rod(c.x, p.y + 4, c.z, p.x - Math.sin(p.h) * side * 14, p.y + 6, p.z + Math.cos(p.h) * side * 14, 0.25, 0x2a2e34, 3); // 配線
     }
   });
+
+  // ワープ地点（輪っか）のまわりの高層ビル街（殺風景だった。2026-10-21 のユーザー依頼「ビルを大量に設置」）: 道の両がわに3列
+  {
+    let k = 0;
+    const COLS = [0x8a949e, 0x6a7480, 0xa8b0b8, 0x4a5868, 0xc8c2b4];
+    along(track, ['IG', 'R1', 0.3], 'R3', 28, (p) => {
+      for (const side of [-1, 1]) {
+        for (const back of [24, 62, 104]) {
+          k++;
+          const w = 22 + (k % 3) * 6;
+          const c = beside(p, side * (p.wall + back + w / 2));
+          if (!clear(track, c.x, c.z, w * 0.75 + 4)) continue;
+          const h = 90 + ((k * 53) % 200);
+          if (back === 24) tower(b, c.x, c.z, ryAlong(p.h), w, w, h, COLS[k % COLS.length], { glow, win: k % 2 ? 0xfff0c8 : 0xcfe6ff, crown: k % 4 ? 0 : 10 });
+          else { // 奥の列は窓のしまなしの箱（軽くするため）
+            b.push(c.x, 0, c.z, ryAlong(p.h));
+            b.box(w, h, w, COLS[k % COLS.length], 0, 0, 0);
+            b.pop();
+          }
+          landmark(g, 'ringTower', c.x, 0, c.z);
+        }
+      }
+    });
+  }
 
   // 信号機（直角の角の手前の右側。ニューヨークは右側通行。2026-10-21 のユーザー依頼）
   (track.def.squareCorners ?? []).forEach(([m], k) => trafficLight(g, b, glow, track, sOf(track, m) - 14, 1, k % 2 ? 'red' : 'green'));

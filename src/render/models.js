@@ -1,8 +1,8 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=9c29d4f';
-import { PHYS } from '../game/kart.js?v=9c29d4f';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=9c29d4f';
+import * as THREE from '../../vendor/three.module.min.js?v=996c4bd';
+import { PHYS } from '../game/kart.js?v=996c4bd';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=996c4bd';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -701,7 +701,6 @@ export function createTaxiModel() {
     w.position.set(x, 0.38, z * 0.95);
     g.add(w);
   }
-  addHeadlights(g, 2.55, 0.7, 0.75, 14);
   g.scale.setScalar(1.8); // 大きく（2026-10-21 のユーザー依頼「タクシーが小さい」）
   return mergeStatic(g);
 }
