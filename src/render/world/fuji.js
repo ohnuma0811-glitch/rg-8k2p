@@ -39,6 +39,22 @@ export function buildFuji(track) {
   const mid = pointAt(track, (sOf(track, sh.from) + sOf(track, sh.to)) / 2);
   const mc = beside(mid, sh.off);
   landmark(g, 'shinkansenParallel', mc.x, sh.y, mc.z);
+  // 新幹線が出てくる山のトンネル（2026-10-22 のユーザー依頼「何もないところから出てきている。せめて山の影から出す」）:
+  // 線路の始まりに緑の小山と、コンクリートの出口。新幹線は山の中で生まれて、出口から出てくる（src/game/world.js の portal）
+  {
+    const s0 = sOf(track, sh.from);
+    const r0 = beside(pointAt(track, s0), sh.off);
+    const r1 = beside(pointAt(track, s0 + 10), sh.off);
+    landmark(g, 'shinkansenPortal', r0.x, sh.y, r0.z);
+    // z が線路の向き（出口の前が +z）。x は +x が道から遠い方
+    b.push(r0.x, 0, r0.z, Math.atan2(r1.x - r0.x, r1.z - r0.z));
+    const GREEN = [0x4f7a3a, 0x5c8a44, 0x466e34];
+    b.box(16, sh.y + 9, 40, GREEN[0], 0, 0, -20); // 線路をつつむ山のしん（両の長さより長く、屋根より高く）
+    for (const [x, z, r, h] of [[0, -18, 13, sh.y + 22], [14, -10, 16, sh.y + 26], [12, -36, 18, sh.y + 30], [-2, -46, 15, sh.y + 20], [26, -28, 18, sh.y + 18]]) b.cyl(3, r, h, 7, GREEN[(x + z) & 1 ? 1 : 2], x, 0, z);
+    b.box(12, 10, 1.2, 0xb8bcc2, 0, sh.y - 1, 0.4); // 出口のコンクリート
+    b.box(8.5, 6.5, 1.3, 0x151515, 0, sh.y + 1.2, 0.5); // 出口の穴（暗い）
+    b.pop();
+  }
 
   // 田んぼ（水のはった四角に、緑の苗の列）と茶畑（緑のかまぼこの列）
   for (const at of S.paddies) {

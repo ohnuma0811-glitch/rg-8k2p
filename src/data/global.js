@@ -19,7 +19,7 @@ export const GLOBAL_SCENERY = {
     forest: { center: [-900, 700], r: 450, count: 300 }, // すそ野の森
     paddies: [[-1400, 1330], [-1600, 1330], [-1800, 1330]], // 田んぼ（並走の道の南がわ。道がカーブしても重ならない所）
     tea: [[-1500, 1060], [-1750, 1060]], // 茶畑（並走の道の北がわ、線路のさらに北）
-    shinkansen: { from: 'SK', to: 'KT', off: -28, y: 10, cars: 16, lead: -100, near: 300 }, // 並走の新幹線（北がわの高架）
+    shinkansen: { from: 'SK', to: 'KT', off: -28, y: 10, cars: 16, lead: -100, near: 300, portal: true }, // 並走の新幹線（北がわの高架）。portal: 線路の始まりの山のトンネルから出てくる（2026-10-22 のユーザー依頼「何もないところから出てきている」）
   },
   kyoto: {
     toriiTunnel: { from: 'FI', to: ['FI', 'KM', 0.6], every: 3 }, // 伏見稲荷: 朱色の鳥居を 3m ごとに道の上へ

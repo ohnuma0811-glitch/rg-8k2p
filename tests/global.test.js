@@ -1789,3 +1789,22 @@ test('バトゥ洞窟の入口の上に、英語の名前「BATU CAVES」（ジ�
   assert.ok(Math.hypot(pos.x - bc.x, pos.z - bc.z) < 14, '入口のところ');
   assert.ok(pos.y > bc.y + TUNNEL_HEIGHT && pos.y < bc.y + TUNNEL_HEIGHT + 8, `入口の上 ${(pos.y - bc.y).toFixed(1)}m`);
 });
+
+test('富士山のあとの新幹線は、山のトンネルから出てくる（何もない所から出てこない。2026-10-22 のユーザー依頼「せめて山の影から出す」）', async () => {
+  const { buildFuji } = await import('../src/render/world/fuji.js');
+  const sh = GLOBAL_SCENERY.fuji.shinkansen;
+  assert.equal(sh.portal, true);
+  const from = t.marks[sh.from];
+  // 線路の始まりに、山のトンネルの出口
+  const m = landmarks(buildFuji(t));
+  const portal = m.get('shinkansenPortal');
+  assert.ok(portal, 'トンネルの出口がある');
+  const p = t.samples[from];
+  const rail = { x: p.x - Math.sin(p.h) * sh.off, z: p.z + Math.cos(p.h) * sh.off };
+  assert.ok(Math.hypot(portal.x - rail.x, portal.z - rail.z) < 3, '線路の始まりの所');
+  // 先頭の両は、うしろがまだトンネルの中でも、出口から顔を出したら見える（山の中で生まれて、出口から出てくる）
+  const line = { from, to: t.marks[sh.to], off: sh.off, y: sh.y, t0: 0, lead: 5, portal: true };
+  const cars = shinkansenCars(t, line, 0, 30, 4);
+  assert.equal(cars[0].visible, true, '出口から出かけた先頭');
+  assert.equal(cars[1].visible, false, 'まだ山の中の両');
+});
