@@ -149,7 +149,7 @@ function stepAuto(kart, track, dt) {
   // 進む割合 f(u) = a・u + (1 − a)・u²（はじめの速さが入ったときの速さ）
   const D = leg.to - st.from;
   const u = Math.min(1, st.t / leg.time);
-  const ease = (a.id === 'jump' || a.id === 'goalJump' || a.id === 'batuJump') && st.leg === 0 ? Math.min(1, Math.max(0.15, (st.speedIn * leg.time) / D)) : 1;
+  const ease = (a.id === 'jump' || a.id === 'goalJump' || a.id === 'batuJump' || a.id === 'caveDrop') && st.leg === 0 ? Math.min(1, Math.max(0.15, (st.speedIn * leg.time) / D)) : 1;
   const s = done ? leg.to : st.from + D * (ease * u + (1 - ease) * u * u);
   const p = sampleAt(track, s);
   kart.x = p.x;

@@ -100,8 +100,8 @@ function through(id, seconds) {
   return { kart, log };
 }
 
-test('自動の区間は5つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）、バトゥ洞窟へのジャンプ、最後の大ジャンプ', () => {
-  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp', 'batuJump', 'goalJump']);
+test('自動の区間は6つ: 大ジャンプ 4秒、宇宙 8秒、ワープ（輪っか3つ + 9秒）、バトゥ洞窟へのジャンプ、洞窟の出口からの飛び降り、最後の大ジャンプ', () => {
+  assert.deepEqual(t.autos.map((a) => a.id), ['jump', 'space', 'warp', 'batuJump', 'caveDrop', 'goalJump']);
   const time = (id) => t.autos.find((a) => a.id === id).legs.reduce((x, l) => x + l.time, 0);
   assert.equal(time('jump'), 4);
   assert.equal(time('space'), 8);
@@ -176,9 +176,9 @@ test('道のはしでは、前にもうしろにも、それより先へ行け�
   assert.ok(!t.samples[back.seg].void && !(back.respawn > 0), 'スタートの後ろの先');
 });
 
-test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（5本）', () => {
+test('コースマップ: 無い道と自動の区間は道としては描かない。自動の区間は点線（6本）', () => {
   for (const ps of minimapPaths(t)) for (const p of ps) assert.ok(!p.void && !p.auto);
-  assert.equal(minimapDashes(t).length, 5);
+  assert.equal(minimapDashes(t).length, 6);
 });
 
 import { stageVisible } from '../src/game/world.js';
@@ -351,7 +351,7 @@ test('乗り物は、その範囲の中だけを走る（香港の路面電車�
   const trams = t.buses.filter((b) => b.kind === 'tram');
   const taxis = t.buses.filter((b) => b.kind === 'taxi');
   assert.equal(trams.length, 5); // 向かってくる 3台 ＋ 同じ向き 2台（2026-10-21）
-  assert.equal(taxis.length, 45); // 向かってくる 25台 ＋ 同じ向き 20台（2026-10-21 のユーザー依頼「タクシーの台数を5倍」）
+  assert.equal(taxis.length, 27); // 向かってくる 15台 ＋ 同じ向き 12台（5倍の 45台から 3/5 に。2026-10-22 のユーザー依頼）
   for (let time = 0; time < 120; time += 0.7) {
     for (const b of trams) {
       const s = busPose(t, b, time).s;
@@ -1431,12 +1431,9 @@ test('バトゥ洞窟: ジャンプ台から虹色の階段を飛びこえて、
   const land = t.samples[Math.round(bj.legs[0].to)];
   assert.ok(land.y >= 15, `洞窟の入口の高さ ${land.y}`);
   assert.ok(at('BC').tunnel && at('BC').y >= 15, '洞窟の中は高い所');
-  // 洞窟を抜けたら、地面のない所（飛び降りる）を通って、元の道（高さ 0）へ
-  const bx = Math.round(t.marks.BX);
-  let gap = 0;
-  for (let i = bx; i < Math.round(t.marks.M); i++) if (t.samples[i].y === null) gap++;
-  assert.ok(gap > 10, `飛び降りる所 ${gap}m`);
-  assert.ok(Math.abs(at('M').y) < 0.5, '元の道の高さ');
+  // 洞窟を抜けたら、自動で元の道（高さ 0）へ飛び降りる（caveDrop。下の別のテスト）
+  const drop = t.autos.find((a) => a.id === 'caveDrop');
+  assert.ok(Math.abs(t.samples[Math.round(drop.legs[0].to)].y) < 0.5, '元の道の高さ');
   // 虹色の階段は、ジャンプの下（道の上）にあり、洞窟の入口の高さまで上る
   const m = landmarks(buildKL(t));
   const st = m.get('rainbowStairs');
@@ -1620,4 +1617,53 @@ test('NEW YORK の表示は、海の底のトンネルを抜けてすぐ（NY �
   assert.equal(bannerStageAt(t, b + 1), ny);
   assert.equal(bannerStageAt(t, b - 5), ny - 1);
   assert.equal(stageAt(t, b + 1), ny - 1, '景色の切りかえ（ステージ）はそのまま');
+});
+
+test('バトゥ洞窟の出口から飛び降りると、ふつうに走れば道の真ん中に着地する（2026-10-22 のユーザー依頼「コースをはみ出す勢い」）', () => {
+  const drop = t.autos.find((a) => a.id === 'caveDrop');
+  assert.ok(drop, '洞窟の出口からの飛び降り（自動）');
+  assert.ok(Math.abs(drop.from - t.marks.BX) < 3, '洞窟の出口から');
+  const land = drop.legs[drop.legs.length - 1].to;
+  assert.ok(land > t.marks.M + 10 && land < t.marks.MRG, '合流の少しあと');
+  // 落ちる所は、洞窟の高さから下がり続ける（途中で上がらない）
+  let prev = Infinity;
+  for (let s = Math.round(drop.from); s <= Math.round(land); s++) {
+    const y = t.samples[s].y;
+    assert.ok(y !== null && y <= prev + 1e-6, `s ${s}: ${y}`);
+    prev = y;
+  }
+  for (const steer of [0, 1, -1]) {
+    const kart = createKart(t, Math.round(t.marks.BX - 60), 0);
+    kart.speed = 30;
+    let landed = null;
+    let was = false;
+    for (let f = 0; f < 60 * 8 && !landed; f++) {
+      stepKart(kart, { ...full, steer: was ? steer : 0 }, t, params, 1 / 60);
+      if (kart.auto?.id === 'caveDrop') was = true;
+      else if (was) landed = locate(t, kart.x, kart.z, kart.seg, 40, kart.y);
+    }
+    assert.ok(landed, '着地した');
+    assert.ok(Math.abs(landed.lateral) < 3, `ハンドル ${steer}: 着地の横 ${landed.lateral.toFixed(1)}m`);
+    assert.ok(kart.speed > 25, `着地のあとの速さ ${kart.speed}`);
+  }
+});
+
+test('バトゥ洞窟の出口と入口には、壁のような岩のかたまりがない（岩のふたは山の中のトンネルだけ。2026-10-22 のユーザー依頼）', async () => {
+  const { buildTerrain } = await import('../src/render/terrain.js');
+  const g = buildTerrain(t);
+  const near = (o, m) => Math.hypot(o.x - at(m).x, o.z - at(m).z) < 60;
+  let batu = 0;
+  let fuji = 0;
+  const fl = at('FL');
+  g.traverse((o) => {
+    if (!o.isMesh || !o.userData.portal) return;
+    const pos = o.geometry.attributes.position;
+    for (let k = 0; k < pos.count; k += 24) {
+      const v = { x: pos.getX(k), z: pos.getZ(k) };
+      if (near(v, 'BX') || near(v, 'BC')) batu++;
+      if (Math.hypot(v.x - fl.x, v.z - fl.z) < 1200) fuji++;
+    }
+  });
+  assert.equal(batu, 0);
+  assert.ok(fuji > 0, '富士山のトンネルの岩のふたはそのまま');
 });
