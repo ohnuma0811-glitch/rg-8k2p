@@ -351,7 +351,7 @@ test('乗り物は、その範囲の中だけを走る（香港の路面電車�
   const trams = t.buses.filter((b) => b.kind === 'tram');
   const taxis = t.buses.filter((b) => b.kind === 'taxi');
   assert.equal(trams.length, 5); // 向かってくる 3台 ＋ 同じ向き 2台（2026-10-21）
-  assert.equal(taxis.length, 9); // 向かってくる 5台 ＋ 同じ向き 4台
+  assert.equal(taxis.length, 45); // 向かってくる 25台 ＋ 同じ向き 20台（2026-10-21 のユーザー依頼「タクシーの台数を5倍」）
   for (let time = 0; time < 120; time += 0.7) {
     for (const b of trams) {
       const s = busPose(t, b, time).s;
@@ -1026,9 +1026,13 @@ test('フジテレビは、レインボーブリッジの出口の正面に見�
 
 test('コースを作る時間は短い（ならせない急なカーブがない。名前・コース選びの画面が重かった。2026-10-21 のユーザー依頼）', () => {
   // このテストが使った CPU の時間で見る（テストを全部いっしょに流すと、パソコンが混んで、時計の時間はのびる）
-  const c0 = process.cpuUsage();
-  buildTrack(COURSE5);
-  const ms = process.cpuUsage(c0).user / 1000;
+  // 3回作っていちばん短い時間（全部いっしょに流すと、ほかのテストのごみ集めの時間が入って、たまに長くなる）
+  let ms = Infinity;
+  for (let k = 0; k < 3; k++) {
+    const c0 = process.cpuUsage();
+    buildTrack(COURSE5);
+    ms = Math.min(ms, process.cpuUsage(c0).user / 1000);
+  }
   // ひとつで約 0.3秒（前は 10秒をこえた）
   assert.ok(ms < 1500, `${Math.round(ms)}ms`);
 });
@@ -1042,11 +1046,11 @@ test('クアラルンプールの最後は大ジャンプで自動ゴール（�
   assert.ok(!t.samples[Math.round(t.finish)].auto, 'ゴールラインは走って越える');
 });
 
-test('ワープの輪っかの間隔は前の2倍。レインボーブリッジの上に加速板1枚（2026-10-21 のユーザー依頼）', () => {
+test('ワープの輪っかの間隔は前の2倍。レインボーブリッジの上に加速板3枚（2026-10-21 のユーザー依頼）', () => {
   assert.ok(t.marks.R2 - t.marks.R1 > 220 && t.marks.R3 - t.marks.R2 > 220, `${Math.round(t.marks.R2 - t.marks.R1)} ${Math.round(t.marks.R3 - t.marks.R2)}`);
   let runs = 0;
   for (let i = Math.round(t.marks.RB); i < Math.round(t.marks.RBE); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) runs++;
-  assert.equal(runs, 1);
+  assert.equal(runs, 3, 'レインボーブリッジの上に加速板3枚（2026-10-21 のユーザー依頼）');
 });
 
 test('locate（ヒントなし）は、点を全部調べたときと同じ点を返す（速くしたあとも）', () => {
@@ -1276,33 +1280,39 @@ test('大ジャンプ台は一定の角度で上り、その角度のまま放�
   }
 });
 
-test('富士山のトンネルの入口と出口は、山でふさがれない（入口の前後は地面を道の高さまで下げる。2026-10-21 のユーザー依頼）', async () => {
-  const a = Math.round(t.marks.FL);
-  const b = Math.round(t.marks.SK);
+test('富士山のトンネルの中と入口の前に、地面の面が入りこまない（描く三角で見る。2026-10-21 のユーザー依頼「山がトンネル内に突き出している」「入口が山で塞がれている」）', async () => {
+  const { buildTerrain } = await import('../src/render/terrain.js');
+  const g = buildTerrain(t);
+  const tris = [];
+  g.traverse((o) => {
+    if (!o.isMesh || !o.geometry.index || o.userData.portal) return;
+    const a = o.geometry.attributes.position;
+    const idx = o.geometry.index.array;
+    for (let k = 0; k < idx.length; k += 3) {
+      const [i0, i1, i2] = [idx[k], idx[k + 1], idx[k + 2]];
+      tris.push([(a.getX(i0) + a.getX(i1) + a.getX(i2)) / 3, (a.getY(i0) + a.getY(i1) + a.getY(i2)) / 3, (a.getZ(i0) + a.getZ(i1) + a.getZ(i2)) / 3]);
+    }
+  });
+  const grid = new Map();
+  for (const c of tris) { const key = `${Math.floor(c[0] / 20)},${Math.floor(c[2] / 20)}`; if (!grid.has(key)) grid.set(key, []); grid.get(key).push(c); }
   let start = -1;
   let end = -1;
-  for (let i = a; i < b; i++) {
-    if (t.samples[i].tunnel && start < 0) start = i;
-    if (t.samples[i].tunnel) end = i;
-  }
-  for (const [i, dir] of [[start, 1], [end, -1]]) {
-    // 入口の 5m 外から、10m 中まで: 道の上 6m より地面が高くない
-    // 地面の形（ます目の点の高さ）で見る。入口の前後の道の上と、道の両わき
-    const { meshHeightOf } = await import('../src/render/terrain.js');
-    const meshY = meshHeightOf(t);
-    for (let d = -12; d <= 4; d += 2) {
-      const p = t.samples[i - dir * d];
-      for (const lat of [-p.half, 0, p.half]) {
-        const x = p.x - Math.sin(p.h) * lat;
-        const z = p.z + Math.cos(p.h) * lat;
-        assert.ok(meshY(x, z) < p.y + 6, `s ${Math.round(p.s)} 横 ${lat}: 地面 ${meshY(x, z).toFixed(1)} / 道 ${p.y.toFixed(1)}`);
-      }
+  for (let i = Math.round(t.marks.FL); i < Math.round(t.marks.SK); i++) { if (t.samples[i].tunnel && start < 0) start = i; if (t.samples[i].tunnel) end = i; }
+  const bad = [];
+  for (let i = start - 25; i <= end + 25; i += 2) {
+    const p = t.samples[i];
+    const gx = Math.floor(p.x / 20);
+    const gz = Math.floor(p.z / 20);
+    for (let ix = gx - 1; ix <= gx + 1; ix++) for (let iz = gz - 1; iz <= gz + 1; iz++) for (const c of grid.get(`${ix},${iz}`) ?? []) {
+      const fwd = (c[0] - p.x) * Math.cos(p.h) + (c[2] - p.z) * Math.sin(p.h);
+      const lat = -(c[0] - p.x) * Math.sin(p.h) + (c[2] - p.z) * Math.cos(p.h);
+      if (Math.abs(fwd) < 1.5 && Math.abs(lat) < p.half && c[1] > p.y + 0.3 && c[1] < p.y + 8.3) bad.push(Math.round(p.s));
     }
   }
+  assert.equal(bad.length, 0, `地面が入りこむ s ${[...new Set(bad)].slice(0, 8).join(',')}`);
 });
 
 import { curveArrowSpots } from '../src/render/snow/signs.js';
-
 test('富士山のトンネルの中に、Kyugo Mountain のようなカーブの矢印（2026-10-21 のユーザー依頼）', () => {
   const spots = curveArrowSpots(t).filter((sp) => t.samples[sp.i].s > t.marks.FL && t.samples[sp.i].s < t.marks.SK);
   assert.ok(spots.length >= 6, `${spots.length}`);
@@ -1510,4 +1520,104 @@ test('フジテレビ: 看板は橋から見える1枚、前のビルはなし�
     if (u > 0.2 && u < 0.95 && d < 50) blocking++;
   });
   assert.equal(blocking, 0, '前のビル');
+});
+
+test('フジテレビを過ぎた所に加速板。富士山のトンネルの出口の近くに加速板、出た所に加速板と小さなジャンプ台（2026-10-21 のユーザー依頼）', () => {
+  const runsIn = (a, b) => { let n = 0; for (let i = Math.round(a); i < Math.round(b); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) n++; return n; };
+  assert.ok(runsIn(t.marks.FTV, t.marks.JP) >= 1, 'フジテレビの先');
+  let end = -1;
+  for (let i = Math.round(t.marks.FL); i < Math.round(t.marks.SK); i++) if (t.samples[i].tunnel) end = i;
+  assert.ok(runsIn(end - 80, end) >= 1, 'トンネルの出口の近く');
+  assert.ok(runsIn(end, end + 150) >= 1, 'トンネルを出た所');
+  let ramp = false;
+  for (let i = end; i < end + 200; i++) if (t.samples[i].ramp) ramp = true;
+  assert.ok(ramp, '小さなジャンプ台');
+});
+
+import { rushFovStep } from '../src/game/world.js';
+
+test('京都へ向かう加速板の広い角度は、なめらかに広がり、なめらかに戻る（カメラが急に変わって、カートが瞬間移動して見えた。2026-10-21 のユーザー依頼）', () => {
+  let k = 0;
+  k = rushFovStep(k, true, 1 / 60);
+  assert.ok(k > 0 && k < 0.1, `1コマで ${k.toFixed(3)}（一気に広げない）`);
+  for (let f = 0; f < 120; f++) k = rushFovStep(k, true, 1 / 60);
+  assert.ok(k > 0.95, '2秒でほぼ広がる');
+  const before = k;
+  k = rushFovStep(k, false, 1 / 60);
+  assert.ok(before - k < 0.1, '一気に戻さない');
+});
+
+test('銀閣寺は道の近くに大きく。銀閣寺と金閣寺の間に加速板2枚、奥の方に小さなジャンプ台（2026-10-21 のユーザー依頼）', () => {
+  const m = landmarks(buildKyoto(t));
+  const g = m.get('ginkaku');
+  const loc = locate(t, g.x, g.z, null, 40);
+  const gap = Math.abs(loc.lateral) - t.samples[loc.i].wall;
+  assert.ok(gap > 20 && gap < 50, `道から ${Math.round(gap)}m`);
+  let pads = 0;
+  for (let i = Math.round(t.marks.GK); i < Math.round(t.marks.KK); i++) if (t.samples[i].boost && !t.samples[i - 1].boost) pads++;
+  assert.ok(pads >= 2, `加速板 ${pads}`);
+  let ramp = -1;
+  for (let i = Math.round(t.marks.GK); i < Math.round(t.marks.KK); i++) if (t.samples[i].ramp) ramp = i;
+  assert.ok(ramp > (t.marks.GK + t.marks.KK) / 2, '奥の方に小さなジャンプ台');
+  assert.equal(intrusions(buildKyoto(t), t.marks.GI, t.marks.AR), 0);
+});
+
+test('香港のカーブを曲がった直後に加速板1枚（2026-10-21 のユーザー依頼）', () => {
+  let found = false;
+  for (let i = Math.round(t.marks.CEN); i < Math.round(t.marks.SD); i++) {
+    if (!t.samples[i].boost || t.samples[i - 1].boost) continue;
+    const d = Math.atan2(Math.sin(t.samples[i - 15].h - t.samples[i - 45].h), Math.cos(t.samples[i - 15].h - t.samples[i - 45].h));
+    if (Math.abs(d) > 0.5) found = true; // すぐ手前で大きく曲がっている
+  }
+  assert.ok(found);
+});
+
+import { cowPose as turtlePose, cowContact as turtleContact, COW_RADIUS as TURTLE_R } from '../src/game/hazards.js';
+import { createKart as makeKart, PHYS as KPHYS } from '../src/game/kart.js';
+import { bannerStageAt } from '../src/game/track.js';
+
+test('海の底の道に、ゆっくり歩く亀が7匹（2026-10-21 のユーザー依頼）', () => {
+  const turtles = t.cows.filter((c) => c.kind === 'turtle');
+  assert.equal(turtles.length, 7);
+  assert.equal(t.cows.length, 7); // 牛はいない
+  for (const c of turtles) {
+    const p = t.samples[Math.round(c.s)];
+    assert.ok(c.s > t.marks.SD && c.s < t.marks.LIB, `${c.s}`);
+    assert.ok(p.y < -20, `海の底 y=${p.y}`);
+    // ゆっくり: 横に動く速さは 1.5 m/s まで（牛より遅い）
+    let fast = 0;
+    for (let time = 0; time < 120; time += 0.25) {
+      const a = turtlePose(t, c, time).lateral;
+      const b = turtlePose(t, c, time + 0.25).lateral;
+      fast = Math.max(fast, Math.abs(b - a) / 0.25);
+    }
+    assert.ok(fast < 1.5, `${fast} m/s`);
+    assert.ok(Math.abs(turtlePose(t, c, 7).y - p.y) < 1e-6, '高さは道の高さ');
+  }
+});
+
+test('亀にぶつかったときは牛と同じ（メーター150以上でスピン、遅いと跳ね返る）', () => {
+  const c = t.cows[0];
+  const hit = (speed) => {
+    const p = turtlePose(t, c, 5);
+    const i = Math.round(c.s) - 1;
+    const kart = makeKart(t, i, p.lateral);
+    kart.x = p.x - Math.cos(kart.heading) * (TURTLE_R + 0.5);
+    kart.z = p.z - Math.sin(kart.heading) * (TURTLE_R + 0.5);
+    kart.y = p.y;
+    kart.speed = speed;
+    return turtleContact(kart, t, 5, KPHYS);
+  };
+  assert.equal(hit(30), 'spin');
+  assert.equal(hit(15), 'bounce');
+});
+
+test('NEW YORK の表示は、海の底のトンネルを抜けてすぐ（NY より3秒くらい早く。2026-10-21 のユーザー依頼）', () => {
+  const ny = t.stages.findIndex((st) => st.name === 'NEW YORK');
+  const b = t.stages[ny].bannerS;
+  assert.ok(b >= t.marks.LIB && b <= t.marks.LIB + 30, `${b} / LIB ${t.marks.LIB}`);
+  assert.ok(t.marks.NY - b >= 60, '3秒（約 60m 以上）早い');
+  assert.equal(bannerStageAt(t, b + 1), ny);
+  assert.equal(bannerStageAt(t, b - 5), ny - 1);
+  assert.equal(stageAt(t, b + 1), ny - 1, '景色の切りかえ（ステージ）はそのまま');
 });

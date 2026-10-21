@@ -466,7 +466,9 @@ export function buildTrack(def) {
     const from = markS(t, def.cows.from);
     const len = span(t, from, markS(t, def.cows.to));
     for (let k = 0; k < def.cows.count; k++) {
-      t.cows.push({ s: (from + (len * (k + 0.5)) / def.cows.count) % t.length, period: 24 + k * 5, phase: k * 2.1 });
+      // kind: 'turtle' は海の底の亀（Global City。2026-10-21 のユーザー依頼「ゆっくり歩く亀」）。period は道を1往復する秒
+      const base = def.cows.period ?? 24;
+      t.cows.push({ s: (from + (len * (k + 0.5)) / def.cows.count) % t.length, period: base + k * (base / 5), phase: k * 2.1, kind: def.cows.kind ?? 'cow' });
     }
   }
   // スクールバス（2026-10-16 のユーザー依頼）: 1周に等しい間をあけて並べる。動きは src/game/hazards.js の busPose
@@ -537,7 +539,8 @@ export function buildTrack(def) {
     }
   }
   // ステージ（Global City）: 印の所から、その名前のステージ
-  t.stages = (def.stages ?? []).map((st) => ({ name: st.name, s: refS(t, st.at) })).sort((a, b) => a.s - b.s);
+  // banner: 大きな表示を出す所（景色の切りかえ at とは別。NEW YORK はトンネルを抜けてすぐ。2026-10-21 のユーザー依頼）
+  t.stages = (def.stages ?? []).map((st) => ({ name: st.name, s: refS(t, st.at), bannerS: refS(t, st.banner ?? st.at) })).sort((a, b) => a.s - b.s);
   // 自動の区間（Global City）: from から legs の最後の to までの本線の点に p.auto
   t.autos = (def.autos ?? []).map((a) => ({ id: a.id, from: refS(t, a.from), legs: a.legs.map((l) => ({ to: refS(t, l.to), time: l.time })) }));
   for (const a of t.autos) {
@@ -706,7 +709,7 @@ function bump(amp, wave, d, len) {
 // ジャンプ（Soki Forest。2026-10-16 のユーザー依頼「川をジャンプで2回飛び越える」）: 印 at からの m で、加速板・ジャンプ台・地面のない所
 function applyJumps(t, def) {
   for (const j of def.jumps ?? []) {
-    const at = refS(t, [j.at, j.at, 0]);
+    const at = Array.isArray(j.at) ? refS(t, j.at) : refS(t, [j.at, j.at, 0]); // 印か、区間の途中の割合（[from, to, f]）
     const inSpan = (s, [a, b]) => { const d = ((s - at + t.length * 1.5) % t.length) - t.length / 2; return d >= a && d < b; };
     const rel = (s) => ((s - at + t.length * 1.5) % t.length) - t.length / 2;
     for (let i = 0; i < t.length; i++) {
@@ -743,7 +746,7 @@ function applyGrip(t, def) {
 function applyKicks(t, def) {
   t.kicks = [];
   for (const j of def.kicks ?? []) {
-    const at = refS(t, [j.at, j.at, 0]);
+    const at = Array.isArray(j.at) ? refS(t, j.at) : refS(t, [j.at, j.at, 0]); // 印か、区間の途中の割合（[from, to, f]）
     const rel = (s) => ((s - at + t.length * 1.5) % t.length) - t.length / 2;
     let top = null;
     for (let i = 0; i < t.length; i++) {
@@ -1252,5 +1255,12 @@ export function sampleAt(track, s) {
 export function stageAt(track, rel) {
   let k = 0;
   (track.stages ?? []).forEach((st, i) => { if (rel >= st.s) k = i; });
+  return k;
+}
+
+// 画面に出すステージ（STAGE 6/7 の文字と大きな表示）。banner の所で切りかわる
+export function bannerStageAt(track, rel) {
+  let k = 0;
+  (track.stages ?? []).forEach((st, i) => { if (rel >= (st.bannerS ?? st.s)) k = i; });
   return k;
 }

@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { startLoop } from './loop.js';
 import { COURSES } from './data/tracks.js';
-import { buildTrack, span, locate, stageAt } from './game/track.js';
+import { buildTrack, span, locate, stageAt, bannerStageAt } from './game/track.js';
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
 import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
@@ -22,8 +22,8 @@ import { showcaseCamera } from './render/showcase.js';
 import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { grandstandSpot } from './render/trackMesh.js';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown } from './game/world.js';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
+import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -86,6 +86,7 @@ const rotate = $('rotate');
 const speedLines = $('speed-lines');
 const spaceFlash = $('space-flash');
 let flashLevel = 0; // 宇宙・ワープの終わりの白い光（着いたあと、だんだん消す）
+let rushK = 0; // 京都へ向かう加速板の広い角度の度合い（0〜1）
 const speedo = $('speedo');
 const speedNum = speedo.querySelector('.num');
 const wrongWayEl = $('wrongway');
@@ -318,13 +319,13 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
 function placeCows(time) {
   if (!track.cows.length) return;
   if (!track.cowModels) {
-    track.cowModels = track.cows.map((_, k) => mergeStatic(createCowModel(k)));
+    track.cowModels = track.cows.map((cow, k) => mergeStatic(cow.kind === 'turtle' ? createTurtleModel(k) : createCowModel(k)));
     track.cowModels.forEach((m) => track.mesh.add(m));
   }
   track.cows.forEach((cow, k) => {
     const p = cowPose(track, cow, time);
     const m = track.cowModels[k];
-    m.position.set(p.x, 0, p.z);
+    m.position.set(p.x, cow.kind === 'turtle' ? p.y : 0, p.z); // 亀は海の底の道の高さ
     m.rotation.y = -p.heading;
     m.userData.walk(time);
   });
@@ -1080,8 +1081,9 @@ function renderGame(alpha, dt) {
   // 京都へ向かう加速板では、光の線を濃く速く回し、画面のまわりを白く光らせ、広い角度で（あっという間に京都へ。2026-10-21 のユーザー依頼）
   const rush = padRush(track, kart);
   speedLines.classList.toggle('rush', rush);
-  if (rush) {
-    camera.fov += 18; // 走るときのカメラが毎フレームもとの角度にするので、その上から広げる
+  rushK = rushFovStep(rushK, rush, dt); // なめらかに広げたり戻したり
+  if (rushK > 0.001) {
+    camera.fov += 18 * rushK; // 走るときのカメラが毎フレームもとの角度にするので、その上から広げる
     camera.updateProjectionMatrix();
   }
   // 表示
@@ -1089,7 +1091,7 @@ function renderGame(alpha, dt) {
   speedo.classList.toggle('boost', kart.boost > 0);
   speedo.classList.toggle('error', !!kart.autoError); // ワープの最後の区間はスピードメーターが ERROR（Global City）
   // Global City: 周回のかわりにステージ（STAGE 4/7 HONG KONG）。ステージが変わったら、場所を大きく出す（2026-10-20 のユーザー依頼）
-  const stageNow = track.stages.length ? stageAt(track, progress(race, g.me, track)) : 0;
+  const stageNow = track.stages.length ? bannerStageAt(track, progress(race, g.me, track)) : 0; // 表示は banner の所で切りかわる（NEW YORK はトンネルを抜けてすぐ）
   if (track.stages.length) {
     setText(lapEl, screens.stageText(track, stageNow));
     // 1/7 は GO! の 1秒後。そのあとはステージが変わったとき

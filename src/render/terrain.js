@@ -2,6 +2,7 @@
 // 地面は、近い道の高さから、道のふちから FALL m で 0 へなめらかに下がる。川の上は低くする
 import * as THREE from '../../vendor/three.module.min.js';
 import { TUNNEL_HEIGHT } from './snow/tunnel.js';
+import { createBuilder } from './town/builder.js';
 
 const FALL = 60; // 道のふちから、高さが 0 になるまで（m）
 const NEAR = 2; // 道のふちからこの距離までは、道より高くしない（m）
@@ -32,25 +33,7 @@ function prep(track) {
   // 橋の上の点、ジャンプ台、地面のない所（川の上）は、地面を引っぱらない（ジャンプ台の下も川が見えるように）
   // トンネルの中の道（Kyugo Mountain）も、地面を引っぱらない（上を山でおおう）
   // 自動の区間（Global City の大ジャンプ・宇宙・ワープの空の道すじ）と無い道も、地面を引っぱらない
-  // Global City: トンネルの入口・出口から MOUTH m の中は、トンネルとしてではなく道として地面を下げる（切り通し）。
-  // 山の面の三角が入口の前に張り出して、入口がふさがって見えた（2026-10-21 のユーザー依頼「富士山の入り口のトンネルが山で塞がれている」）
-  const mouth = new Set();
-  if (track.def.theme === 'world') {
-    const MOUTH = 35;
-    for (let i = 0; i < track.length; i++) {
-      const p = track.samples[i];
-      if (!p.tunnel) continue;
-      let a = p;
-      let b = p;
-      let near = false;
-      for (let k = 0; k < MOUTH && !near; k++) {
-        a = track.samples[a.prev];
-        b = track.samples[b.next];
-        if (!a.tunnel || !b.tunnel) near = true;
-      }
-      if (near) mouth.add(p);
-    }
-  }
+  const mouth = new Set(); // （切り通しはやめて、入口の岩のかたまりでふさぐ。buildTerrain の portalBlocks）
   const inTunnel = (p) => p.tunnel && !mouth.has(p);
   const pts = track.samples.filter((p) => p.y !== null && !p.bridge && !p.ramp && !inTunnel(p) && !p.auto && !p.void);
   for (const p of pts) {
@@ -227,14 +210,41 @@ export function buildTerrain(track) {
       pos.set([x, meshY(x, z), z], (j * (nx + 1) + i) * 3);
     }
   }
+  // Global City の暗いトンネル（富士山の中）: トンネルの上と両わき（GRID m まで）の地面の点は、天井より高く。
+  // 入口・出口のまわりで、それより低い点とつなぐ三角は描かない（ます目が粗いので、その三角がトンネルの中を横切った。
+  // 2026-10-21 のユーザー依頼「山がトンネル内に突き出している」）。描かない所は、入口の岩のかたまり（portalBlocks）でふさぐ
+  const need = new Float32Array((nx + 1) * (nz + 1)).fill(-Infinity);
+  const world = track.def.theme === 'world';
+  if (world) {
+    const { tunnel } = prep(track);
+    for (let v = 0; v < need.length; v++) {
+      const x = pos[v * 3];
+      const z = pos[v * 3 + 2];
+      const cx = Math.floor(x / CELL);
+      const cz = Math.floor(z / CELL);
+      for (let gx = cx - 2; gx <= cx + 2; gx++) for (let gz = cz - 2; gz <= cz + 2; gz++) {
+        for (const p of tunnel.get(`${gx},${gz}`) ?? []) {
+          const fwd = (x - p.x) * Math.cos(p.h) + (z - p.z) * Math.sin(p.h);
+          const lat = -(x - p.x) * Math.sin(p.h) + (z - p.z) * Math.cos(p.h);
+          if (Math.abs(fwd) <= GRID && Math.abs(lat) <= p.wall + 0.5 + GRID) need[v] = Math.max(need[v], p.y + TUNNEL_HEIGHT + 2);
+        }
+      }
+      if (need[v] > -Infinity) pos[v * 3 + 1] = Math.max(pos[v * 3 + 1], need[v]);
+    }
+  }
   const index = [];
+  const skipTri = (a, b, c) => {
+    const n = Math.max(need[a], need[b], need[c]);
+    return n > -Infinity && Math.min(pos[a * 3 + 1], pos[b * 3 + 1], pos[c * 3 + 1]) < n - 0.5;
+  };
   for (let j = 0; j < nz; j++) {
     for (let i = 0; i < nx; i++) {
       const a = j * (nx + 1) + i;
       const b = a + 1;
       const c = a + nx + 1;
       const d = c + 1;
-      index.push(a, c, b, b, c, d);
+      if (!skipTri(a, c, b)) index.push(a, c, b);
+      if (!skipTri(b, c, d)) index.push(b, c, d);
     }
   }
   const geo = new THREE.BufferGeometry();
@@ -264,7 +274,57 @@ export function buildTerrain(track) {
     group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, fog: false })));
   } else group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: track.def.theme === 'snow' ? SNOW_COLOR : COLOR })));
   group.add(buildShoulders(track));
+  if (world) {
+    const blocks = portalBlocks(track, GRID, meshY);
+    if (blocks) group.add(blocks);
+  }
   return group;
+}
+
+// 暗いトンネルの入口・出口の岩のかたまり（Global City）: 入口の外 2 × GRID m から、山が天井より高くなる所まで、
+// 道の上（天井の上）と両わき（2 × GRID m）を岩でおおう。描かない三角のすき間をふさぎ、入口の岩の顔に見える
+function portalBlocks(track, GRID, meshY) {
+  const { samples } = track;
+  const b = createBuilder();
+  const ROCK = 0x6b625a;
+  let any = false;
+  for (let i = 0; i < track.length; i++) {
+    const p = samples[i];
+    if (!p.tunnel) continue;
+    for (const dir of [1, -1]) {
+      const prev = samples[dir > 0 ? p.prev : p.next];
+      if (prev.tunnel) continue; // ここがトンネルのはし（dir 1 は入口、-1 は出口）
+      // 中へ、山が天井より十分高くなるまで（いちばん長くて 80m）
+      let q = p;
+      let inner = 0;
+      for (; inner < 80; inner++) {
+        if (meshY(q.x, q.z) > q.y + TUNNEL_HEIGHT + 2 + GRID) break;
+        const nq = samples[dir > 0 ? q.next : q.prev];
+        if (!nq.tunnel) break;
+        q = nq;
+      }
+      const from = -2 * GRID;
+      const to = inner + GRID;
+      for (let d = from; d <= to; d += 4) {
+        let r = p;
+        const steps = Math.round(Math.abs(d));
+        for (let k = 0; k < steps; k++) r = samples[(d * dir > 0) ? r.next : r.prev];
+        if (r.y === null) continue;
+        const w = r.wall + 0.5;
+        const side = 2 * GRID + 2;
+        const ry = Math.atan2(Math.cos(r.h), Math.sin(r.h));
+        b.push(r.x, r.y, r.z, ry);
+        b.box(2 * (w + side), 6, 4.4, ROCK, 0, TUNNEL_HEIGHT + 0.3, 0); // 天井の上
+        for (const sx of [-1, 1]) b.box(side, TUNNEL_HEIGHT + 6.3, 4.4, ROCK, sx * (w + side / 2), -2, 0); // 両わき
+        b.pop();
+        any = true;
+      }
+    }
+  }
+  if (!any) return null;
+  const g = b.build();
+  g.traverse((o) => { o.userData.portal = true; });
+  return g;
 }
 
 // 地面の形の、ます目の点の高さ（buildTerrain と、道のふちの土手の外のはし。2026-10-18: 土手だけが急な坂になっていた）

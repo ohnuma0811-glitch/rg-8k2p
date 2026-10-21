@@ -52,6 +52,11 @@ export function padRush(track, kart) {
   return s >= track.marks.SK && s <= track.marks.KT;
 }
 
+// 京都へ向かう加速板の広い角度の度合い（0〜1）を、なめらかに近づける（一気に変えると、カートが瞬間移動して見えた。2026-10-21 のユーザー依頼）
+export function rushFovStep(k, on, dt) {
+  return k + ((on ? 1 : 0) - k) * Math.min(1, dt * 3);
+}
+
 // 自動の区間の進み（0〜1）。宇宙・ワープの演出に使う
 export function autoProgress(track, kart) {
   const st = kart.auto;

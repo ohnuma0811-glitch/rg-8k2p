@@ -421,6 +421,45 @@ export function createCowModel(k = 0) {
   return g;
 }
 
+// 亀（Global City の海の底。2026-10-21 のユーザー依頼「ゆっくり歩く亀」）: 緑のこうらに六角のもよう、黄緑の頭と4本のひれ足。前は +x
+export function createTurtleModel(k = 0) {
+  const g = new THREE.Group();
+  const shell = k % 2 ? 0x5fb04a : 0x3fa37a; // 暗い海の底でも見えるように明るい緑
+  const skin = 0xc8e07a;
+  g.add(box(2.6, 0.5, 2.0, shell, 0, 0.75, 0)); // こうら（下の段）
+  g.add(box(2.0, 0.45, 1.5, shell, 0, 1.2, 0)); // こうら（まん中の段）
+  g.add(box(1.2, 0.3, 0.9, 0xa8d860, 0, 1.55, 0)); // こうらのてっぺん（明るいもよう）
+  for (const [x, z] of [[0.75, 0.55], [0.75, -0.55], [-0.75, 0.55], [-0.75, -0.55]]) g.add(box(0.5, 0.06, 0.5, 0xa8d860, x, 1.44, z)); // もよう
+  g.add(box(2.7, 0.15, 2.1, 0xd8c27a, 0, 0.45, 0)); // おなか（黄色いふち）
+  const head = new THREE.Group();
+  head.add(box(0.8, 0.6, 0.7, skin, 0, 0, 0));
+  for (const z of [-0.36, 0.36]) {
+    head.add(box(0.2, 0.2, 0.05, 0xffffff, 0.2, 0.12, z)); // 白目
+    head.add(box(0.1, 0.12, 0.06, 0x111111, 0.26, 0.12, z)); // 黒目
+  }
+  head.add(box(0.06, 0.06, 0.4, 0x3b2a1a, 0.41, -0.12, 0)); // 口
+  head.position.set(1.65, 0.9, 0);
+  g.add(head);
+  const legs = [];
+  for (const [x, z] of [[0.9, 1.1], [0.9, -1.1], [-0.9, 1.0], [-0.9, -1.0]]) {
+    const leg = new THREE.Group();
+    leg.add(box(0.7, 0.25, 0.55, skin, 0, -0.1, 0));
+    leg.position.set(x, 0.5, z);
+    g.add(leg);
+    legs.push(leg);
+  }
+  g.add(box(0.4, 0.2, 0.25, skin, -1.45, 0.55, 0)); // しっぽ
+  // ゆっくり歩く: ひれ足を前後に、頭を少し上下に
+  g.userData.walk = (time) => {
+    legs.forEach((leg, i) => {
+      leg.rotation.y = Math.sin(time * 1.6 + (i % 2) * Math.PI + k) * 0.35;
+    });
+    head.position.y = 0.9 + Math.sin(time * 0.8 + k) * 0.06;
+  };
+  g.scale.setScalar(1.3); // 遠くからでも亀とわかる大きさ（長さ 約3.5m）
+  return g;
+}
+
 // イノシシ（Soki Forest。2026-10-16 のユーザー依頼）: こげ茶の体、短い足4本、白い牙、小さな耳。前は +x
 export function createBoarModel(k = 0, size = 1) {
   const g = new THREE.Group();

@@ -41,6 +41,7 @@ export function cowPose(track, cow, time) {
   return {
     x: p.x - Math.sin(p.h) * lateral,
     z: p.z + Math.cos(p.h) * lateral,
+    y: p.y ?? 0, // 道の高さ（海の底の亀）
     lateral,
     heading: p.h + (dir * Math.PI) / 2, // 動いている向き（道を横切る向き）
   };
@@ -74,7 +75,8 @@ export function cowContact(kart, track, time, phys) {
     kart.x = c.x + (dx / d) * min;
     kart.z = c.z + (dz / d) * min;
     if (kart.onCow) continue;
-    kart.cowHits = (kart.cowHits || 0) + 1;
+    if (cow.kind === 'turtle') kart.turtleHits = (kart.turtleHits || 0) + 1; // 亀は「モー」と鳴かない
+    else kart.cowHits = (kart.cowHits || 0) + 1;
     cancelDrift(kart);
     if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
       kart.spin = phys.SPIN_TIME;
