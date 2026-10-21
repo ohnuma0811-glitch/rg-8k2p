@@ -26,6 +26,8 @@ function softSpot() {
   return new THREE.CanvasTexture(cv);
 }
 export const HEAD_POOL = [11, 5]; // 明るい楕円の大きさ（前後の半分・横の半分 m）。車の前 HEAD_POOL[0] m の所が真ん中
+const POOL_ROWS = 12; // 楕円の帯の、前後の列の数
+const POOL_LIFT = 0.08; // 道からの高さ
 
 export function createWorld() {
   const scene = new THREE.Scene();
@@ -38,11 +40,22 @@ export function createWorld() {
   scene.add(sun);
   // 車のライト（トンネルの中だけ）: 光（SpotLight）を置くと、どの形も、どの画素も光の計算が重くなる（タブレットで富士山のトンネルが 40fps。2026-10-22）。
   // そのかわり、車の前の道の上に、明るい楕円をうすく重ねる（光の計算なし）
+  // 道の形にそって曲げる帯（列ごとの左右の点を、毎フレーム setDarkness で道の上に置く）
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(POOL_ROWS * 2 * 3), 3));
+  const uv = [];
+  const index = [];
+  for (let k = 0; k < POOL_ROWS; k++) {
+    uv.push(0, k / (POOL_ROWS - 1), 1, k / (POOL_ROWS - 1));
+    if (k) index.push(2 * k - 2, 2 * k - 1, 2 * k, 2 * k - 1, 2 * k + 1, 2 * k);
+  }
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(index);
   const headPool = new THREE.Mesh(
-    new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xfff2d0, map: softSpot(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+    geo,
+    new THREE.MeshBasicMaterial({ color: 0xfff2d0, map: softSpot(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }),
   );
-  headPool.scale.set(HEAD_POOL[0], 1, HEAD_POOL[1]);
+  headPool.frustumCulled = false; // 毎フレーム形が変わる
   headPool.visible = false;
   headPool.renderOrder = 1;
   scene.add(headPool);
@@ -119,49 +132,41 @@ export function setDarkness(scene, dark, look, kart = null, open = 0, track = nu
   pool.visible = !!kart && dark > 0;
   if (pool.visible) {
     pool.material.opacity = Math.min(0.6, (look.headlight / 400) * dark); // 前のライトの強さ（PC 120・タブレット 200）から
-    const pose = headPoolPose(kart, track);
-    pool.position.set(pose.x, pose.y, pose.z);
-    pool.rotation.set(0, -pose.yaw, pose.pitch, 'YZX');
+    const pos = pool.geometry.attributes.position;
+    headPoolRows(kart, track).forEach((r, k) => {
+      for (const side of [0, 1]) {
+        const lat = (side ? 1 : -1) * HEAD_POOL[1];
+        pos.setXYZ(2 * k + side, r.x - Math.sin(r.h) * lat, r.y, r.z + Math.cos(r.h) * lat);
+      }
+    });
+    pos.needsUpdate = true;
   }
 }
 
-// 車のライトの楕円の置き場所: 車の前へまっすぐではなく、道にそって HEAD_POOL[0] m 先の点に、道の向きと坂の傾きで置く。
-// まっすぐ前に置くと、らせんの上り坂では道の下にもぐり、急なカーブでは壁の外へ出て、見えなくなっていた（2026-10-22 のユーザー依頼）
-const POOL_LIFT = 0.08; // 道からの高さ
-export function headPoolPose(kart, track) {
-  const fx = Math.cos(kart.move);
-  const fz = Math.sin(kart.move);
-  const flat = { x: kart.x + fx * HEAD_POOL[0], y: (kart.y ?? 0) + POOL_LIFT, z: kart.z + fz * HEAD_POOL[0], yaw: kart.move, pitch: 0, i: kart.seg };
-  const { samples } = track ?? {};
+// 車のライトの楕円: 車のすぐ前から、道にそって 2×HEAD_POOL[0] m 先までの帯。列ごとに、道の点の高さと向きで置く。
+// 平らな板だと、らせんの上り坂では道の下にもぐって消え（Kyugo Mountain）、富士山のトンネルの山と谷では、
+// はしがもぐったり浮いたりして変だった（2026-10-22 のユーザー依頼）。h はその列の横の向き（道の向き）
+export function headPoolRows(kart, track) {
+  const gap = (2 * HEAD_POOL[0]) / (POOL_ROWS - 1);
+  const flat = () => Array.from({ length: POOL_ROWS }, (_, k) => ({ x: kart.x + Math.cos(kart.move) * gap * k, y: (kart.y ?? 0) + POOL_LIFT, z: kart.z + Math.sin(kart.move) * gap * k, h: kart.move, i: kart.seg }));
+  const samples = track?.samples;
   const p = samples?.[kart.seg];
-  if (!p || p.y === null) return flat;
+  if (!p || p.y === null) return flat();
   const back = Math.cos(kart.move - p.h) < 0; // 逆向きに走っている
-  const step = (i, k) => (back ? behind(track, i, k) : ahead(track, i, k));
-  const i = step(kart.seg, HEAD_POOL[0]);
-  const c = samples[i];
-  const f = samples[step(i, HEAD_POOL[0])];
-  const b = samples[kart.seg];
-  if (c.y === null) return flat;
-  const lat0 = -(kart.x - p.x) * Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h);
-  // 横の位置は車と同じ。ただし楕円の前後のはしも道の幅に入るように（カーブでは、はしが外へずれる）
-  let lo = -c.wall + 2;
-  let hi = c.wall - 2;
-  for (const e of [b, f]) {
-    const d = -(e.x - c.x) * Math.sin(c.h) + (e.z - c.z) * Math.cos(c.h);
-    lo = Math.max(lo, d - e.wall + 1);
-    hi = Math.min(hi, d + e.wall - 1);
+  const idx = [];
+  for (let k = 0; k < POOL_ROWS; k++) {
+    const n = Math.round(gap * k);
+    idx.push(back ? behind(track, kart.seg, n) : ahead(track, kart.seg, n));
   }
-  const lat = lo <= hi ? Math.max(lo, Math.min(hi, lat0)) : (lo + hi) / 2;
-  const fy = f.y ?? c.y;
-  const run = Math.hypot(f.x - b.x, f.z - b.z) || 1;
-  return {
-    x: c.x - Math.sin(c.h) * lat,
-    y: c.y + POOL_LIFT,
-    z: c.z + Math.cos(c.h) * lat,
-    yaw: c.h + (back ? Math.PI : 0),
-    pitch: Math.atan2(fy - b.y, run),
-    i,
-  };
+  // 横の位置は車と同じ。ただし帯の幅が、どの列でも道の幅に入るように
+  const lat0 = -(kart.x - p.x) * Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h);
+  const room = Math.min(...idx.map((i) => samples[i].wall)) - HEAD_POOL[1];
+  const lat = Math.max(-room, Math.min(room, lat0));
+  return idx.map((i) => {
+    const q = samples[i];
+    const y = (q.y ?? p.y) + POOL_LIFT;
+    return { x: q.x - Math.sin(q.h) * lat, y, z: q.z + Math.cos(q.h) * lat, h: q.h, i };
+  });
 }
 
 export function resizeRenderer(renderer, camera, w, h, ratio) {

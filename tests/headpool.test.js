@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, locate } from '../src/game/track.js';
 import { COURSES } from '../src/data/tracks.js';
-import { headPoolPose, HEAD_POOL } from '../src/render/scene.js';
+import { headPoolRows, HEAD_POOL } from '../src/render/scene.js';
 
-// 車のライト（道の上の明るい楕円）は、坂やカーブでも道の上にのる（2026-10-22 のユーザー依頼「Kyugo Mountain のトンネル内のらせんでライトが消える」）。
-// 楕円が道より下にもぐると見えなくなり、カーブの外へまっすぐ出ると壁にかくれる
-test('トンネルの中（らせんも）のどこでも、ライトの楕円は道にそって置く: 真ん中は道の高さ、前後のはしも道の幅の中', () => {
+// 車のライト（道の上の明るい楕円）は、道の形にそって曲げる（2026-10-22 のユーザー依頼）:
+// 平らな板だと、らせんの上り坂では道の下にもぐって消え（Kyugo Mountain）、富士山のトンネルの山と谷では、はしがもぐったり浮いたりして変だった
+test('トンネルの中（らせん・山と谷も）のどこでも、ライトの楕円は道の上にぴったりのる（高さ ±0.3m。急カーブの内がわのはしで少しずれる。幅の中）', () => {
   for (const def of COURSES) {
     const t = buildTrack(def);
     let n = 0;
@@ -15,26 +15,33 @@ test('トンネルの中（らせんも）のどこでも、ライトの楕円�
       if (!p.tunnel || p.y === null) continue;
       for (const lat of [0, -(p.wall - 2), p.wall - 2]) {
         const kart = { x: p.x - Math.sin(p.h) * lat, z: p.z + Math.cos(p.h) * lat, y: p.y, move: p.h, seg: i };
-        const pose = headPoolPose(kart, t);
-        const dx = Math.cos(pose.yaw) * Math.cos(pose.pitch);
-        const dz = Math.sin(pose.yaw) * Math.cos(pose.pitch);
-        const dy = Math.sin(pose.pitch);
-        for (const f of [-1, 0, 1]) {
-          const x = pose.x + dx * HEAD_POOL[0] * f;
-          const z = pose.z + dz * HEAD_POOL[0] * f;
-          const y = pose.y + dy * HEAD_POOL[0] * f;
-          const loc = locate(t, x, z, pose.i, 40, y);
-          const q = t.samples[loc.i];
-          if (q.y === null) continue; // 道の終わり（トンネルの出口の先）
-          const off = Math.abs(-(x - q.x) * Math.sin(q.h) + (z - q.z) * Math.cos(q.h));
-          // 真ん中は道にぴったり。前後のはしは、坂の曲がり目で少しずれる（道の真ん中を走るときは、もぐって 0.4m・浮いて 1m まで。もぐると見えない）
-          const [down, up] = f === 0 ? [0.15, 0.15] : lat === 0 ? [0.4, 1] : [Infinity, Infinity];
-          assert.ok(y - q.y > -down && y - q.y < up, `${def.name} ${i} 横 ${lat} 先 ${f}: 高さ ${(y - q.y).toFixed(2)}`);
-          assert.ok(off < q.wall, `${def.name} ${i} 横 ${lat} 先 ${f}: 道の外 ${off.toFixed(1)}m`);
-          n++;
+        const rows = headPoolRows(kart, t);
+        assert.ok(rows.length >= 9, '前後に何列も');
+        for (const r of rows) {
+          for (const side of [-1, 1]) {
+            const x = r.x - Math.sin(r.h) * side * HEAD_POOL[1];
+            const z = r.z + Math.cos(r.h) * side * HEAD_POOL[1];
+            const loc = locate(t, x, z, r.i, 40, r.y);
+            const q = t.samples[loc.i];
+            if (q.y === null) continue; // 道の終わり
+            const off = Math.abs(-(x - q.x) * Math.sin(q.h) + (z - q.z) * Math.cos(q.h));
+            assert.ok(Math.abs(r.y - q.y) < 0.3, `${def.name} ${i} 横 ${lat}: 高さ ${(r.y - q.y).toFixed(2)}`);
+            assert.ok(off < q.wall + 0.5, `${def.name} ${i} 横 ${lat}: 道の外 ${off.toFixed(1)}m`);
+            n++;
+          }
         }
       }
     }
     if (def.name === 'Kyugo Mountain') assert.ok(n > 1000, 'らせんのトンネルを調べた');
   }
+});
+
+test('前の列ほど遠い: 車のすぐ前から、道にそって 2×HEAD_POOL[0] m 先まで', () => {
+  const t = buildTrack(COURSES.find((c) => c.theme === 'world'));
+  const i = t.samples.findIndex((p) => p.tunnel && p.y !== null);
+  const p = t.samples[i];
+  const rows = headPoolRows({ x: p.x, z: p.z, y: p.y, move: p.h, seg: i }, t);
+  const d = rows.map((r) => Math.hypot(r.x - p.x, r.z - p.z));
+  for (let k = 1; k < d.length; k++) assert.ok(d[k] > d[k - 1]);
+  assert.ok(d[0] < 1.5 && Math.abs(d[d.length - 1] - 2 * HEAD_POOL[0]) < 2);
 });

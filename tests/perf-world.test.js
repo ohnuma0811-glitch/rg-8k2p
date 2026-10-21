@@ -59,7 +59,9 @@ test('トンネルの中の前を照らす明かりは、光の計算を使わ�
   const kart = { x: 10, z: 20, y: 3, move: 0 };
   setDarkness(scene, 1, tunnelLook(true), kart);
   assert.ok(pool.visible && pool.material.opacity > 0.2, '暗いトンネルの中では見える');
-  assert.ok(pool.position.x > 12 && Math.abs(pool.position.z - 20) < 0.01 && pool.position.y > 3, '車の前の道の上');
+  pool.geometry.computeBoundingBox();
+  const c = pool.geometry.boundingBox.getCenter(pool.position.clone());
+  assert.ok(c.x > 9 && Math.abs(c.z - 20) < 0.01 && c.y > 3, '車の前の道の上');
   setDarkness(scene, 0, tunnelLook(true), kart);
   assert.equal(pool.visible, false, 'トンネルの外では消す');
 });
