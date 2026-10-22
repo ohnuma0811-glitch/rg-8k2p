@@ -67,7 +67,7 @@ function dropBanana(world, kart, k) {
   const x = kart.x - Math.cos(kart.heading) * ITEM.BANANA_DROP;
   const z = kart.z - Math.sin(kart.heading) * ITEM.BANANA_DROP;
   const loc = locate(world.track, x, z, kart.seg, 40, kart.y ?? null);
-  world.bananas.push({ id: world.nextId++, owner: k, x, z, y: loc.ground ?? kart.y, age: 0 });
+  world.bananas.push({ id: world.nextId++, owner: k, x, z, y: loc.ground ?? kart.y, age: 0, h: kart.heading }); // h: 置いた車の向き（見た目で、道に対して横向きに置く）
   if (world.bananas.length > ITEM.BANANA_MAX) world.bananas.shift();
 }
 

@@ -29,9 +29,28 @@ function questionMap() {
   return qTexture;
 }
 
+// バナナ: 弓なりに曲がった、両はしが細い黄色い実。はしは茶色（2026-10-22 のユーザー依頼「バナナぽく」）
 function bananaGeometry() {
-  const g = new THREE.TorusGeometry(0.5, 0.17, 6, 10, Math.PI); // 半分の輪（バナナの形）
-  g.translate(0, 0.15, 0);
+  const seg = 16;
+  const rad = 8;
+  const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-0.85, 0.4, 0), new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0.85, 0.4, 0));
+  const g = new THREE.TubeGeometry(curve, seg, 0.22, rad, false);
+  const pos = g.attributes.position;
+  const col = [];
+  for (let i = 0; i <= seg; i++) {
+    const u = i / seg;
+    const taper = 0.2 + 0.8 * Math.sin(Math.PI * u); // 両はしを細く
+    const c = curve.getPoint(u);
+    const tip = u < 0.05 || u > 0.95; // はしの1段だけ茶色
+    for (let j = 0; j <= rad; j++) {
+      const k = i * (rad + 1) + j;
+      pos.setXYZ(k, c.x + (pos.getX(k) - c.x) * taper, c.y + (pos.getY(k) - c.y) * taper, c.z + (pos.getZ(k) - c.z) * taper);
+      col.push(...(tip ? [0.35, 0.22, 0.06] : [1, 0.86, 0.18]));
+    }
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  g.translate(0, 0.15, 0); // いちばん低い所が地面に着く
   return g;
 }
 
@@ -72,7 +91,7 @@ export function createItemView(scene) {
     return m;
   };
   const boxes = make(new THREE.BoxGeometry(BOX_SIZE, BOX_SIZE, BOX_SIZE), new THREE.MeshBasicMaterial({ map, color: map ? 0xffffff : 0x50aaff, transparent: true, opacity: 0.9 }), MAX_BOX, 'boxes');
-  const bananas = make(bananaGeometry(), new THREE.MeshLambertMaterial({ color: 0xffd93b }), MAX_BANANA, 'bananas');
+  const bananas = make(bananaGeometry(), new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), MAX_BANANA, 'bananas');
   const greens = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0x2fb54a }), MAX_SHELL, 'greens');
   const reds = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0xe8312a }), MAX_SHELL, 'reds');
   const meshes = [boxes, bananas, greens, reds];
@@ -122,9 +141,9 @@ export function createItemView(scene) {
       }
       done(boxes, n);
       n = 0;
-      for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, b.id);
+      for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, -(b.h ?? 0) + Math.PI / 2); // 道に対して横向き（後ろから来る車に、曲がった形が見える）
       for (const k of karts) {
-        if (seen(k) && k.trailing && n < MAX_BANANA) put(bananas, n++, k.x - Math.cos(k.heading) * ITEM.TRAIL_BACK, k.y, k.z - Math.sin(k.heading) * ITEM.TRAIL_BACK, -k.heading);
+        if (seen(k) && k.trailing && n < MAX_BANANA) put(bananas, n++, k.x - Math.cos(k.heading) * ITEM.TRAIL_BACK, k.y, k.z - Math.sin(k.heading) * ITEM.TRAIL_BACK, -k.heading + Math.PI / 2);
       }
       done(bananas, n);
       let g = 0;

@@ -93,3 +93,19 @@ test('M4: 食べられている・走り直し中・hidden の車には、回る
   assert.equal(bolts.filter((a) => a.visible).length, 1);
   view.dispose();
 });
+
+test('バナナは、両はしが細く茶色い、曲がったバナナの形（2026-10-22 のユーザー依頼「バナナぽく」）', () => {
+  const scene = new THREE.Scene();
+  const view = createItemView(scene);
+  const mesh = scene.children.find((o) => o.userData.kind === 'bananas');
+  assert.ok(mesh.material.vertexColors, '色は形の点ごと');
+  const pos = mesh.geometry.attributes.position;
+  const col = mesh.geometry.attributes.color;
+  let minX = Infinity; let maxX = -Infinity;
+  for (let i = 0; i < pos.count; i++) { minX = Math.min(minX, pos.getX(i)); maxX = Math.max(maxX, pos.getX(i)); }
+  assert.ok(maxX - minX > 1.4, `長さ ${(maxX - minX).toFixed(2)}m`);
+  let brown = 0; let yellow = 0;
+  for (let i = 0; i < col.count; i++) { if (col.getX(i) < 0.5) brown++; else if (col.getY(i) > 0.7) yellow++; }
+  assert.ok(brown > 0 && yellow > brown * 4, `茶 ${brown} 黄 ${yellow}`);
+  view.dispose();
+});
