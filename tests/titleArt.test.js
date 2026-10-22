@@ -54,3 +54,17 @@ test('タイトルの絵の Soki も、レース中と同じ赤い野球帽（�
   }
   assert.ok(!faceSvg('kyugo').includes('cap-crown'), 'Kyugo は帽子なし');
 });
+
+test('新しい6人の顔のアイコンがある（丸い枠いっぱいの、平らな絵）', async () => {
+  const { CHARS } = await import('../src/data/characters.js');
+  const seen = new Set();
+  for (const c of CHARS) {
+    const svg = faceSvg(c.id);
+    assert.ok(svg.trim().startsWith('<svg') && svg.includes('class="face-svg"'), c.id);
+    seen.add(svg);
+  }
+  assert.equal(seen.size, 8, '8人ともちがう絵');
+  assert.ok(faceSvg('penguin').includes('#f5b400'), 'Penguin-man の黄色いくちばし');
+  assert.ok(faceSvg('rabbit').includes('#e0202a'), 'Rabbit Girl の赤いリボン');
+  assert.ok(faceSvg('cat').includes('#f5d020'), 'Lightning Cat の黄色い目');
+});
