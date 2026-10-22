@@ -960,14 +960,14 @@ html, body {
 #menu .lb-ready-btn.on { background: #ffd34a !important; color: #222 !important; }
 #menu .lb-gear { display: flex; gap: 8px; }
 #menu .lb-gear.hidden, #menu .lb-vote.hidden { display: none; }
-#menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px 1fr; gap: 8px; }
+#menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); /* チャットの列は画面の幅まで（定型文の列が長くても広がらない） */ gap: 8px; }
 #menu .lb-list { overflow-y: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 6px; }
 #menu .lb-list .row { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 8px; }
 #menu .lb-list .row.me { background: rgba(255, 211, 74, 0.35); }
 #menu .lb-face { display: inline-grid; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex: none; }
 #menu .lb-face .face-svg { width: 100%; height: 100%; }
 #menu .lb-ready { margin-left: auto; font-weight: bold; }
-#menu .lb-chat { display: flex; flex-direction: column; min-height: 0; gap: 6px; }
+#menu .lb-chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 6px; }
 #menu .lb-msgs { flex: 1; overflow-y: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 6px; text-align: left; }
 #menu .msg { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
 #menu .msg.mine { flex-direction: row-reverse; text-align: right; }
@@ -985,6 +985,6 @@ html, body {
 #menu .vote-faces { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
 #menu .vote-picked { font: bold 24px system-ui, sans-serif; min-height: 1.4em; }
 @media (max-height: 430px) {
-  #menu .lb-main { grid-template-columns: 170px 1fr; }
+  #menu .lb-main { grid-template-columns: 170px minmax(0, 1fr); }
   #menu .vote-course { min-height: 64px; }
 }
