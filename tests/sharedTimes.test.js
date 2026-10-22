@@ -88,3 +88,36 @@ test('コース名を変えても前の記録は引き継ぐ（Global City → W
   assert.equal(view['Global City'], undefined);
   assert.deepEqual(view['World Cities'].map((e) => e.time), [290, 300]);
 });
+
+test('8人のどのキャラの記録も受け付ける（2026-10-22。キャラ8人）', async () => {
+  const { CHARS } = await import('../src/data/characters.js');
+  for (const c of CHARS) assert.ok(validTime(entry(1, 63.21, 'KYUGO', c.id)), c.id);
+});
+
+test('サーバーが受け付けなかった（{ ok: false }）記録は消さずにためておき、ほかの記録は送る', async () => {
+  const rows = [];
+  const fetch = async (url, opt) => {
+    if (opt.method === 'POST') {
+      const e = JSON.parse(opt.body);
+      if (e.character === 'tiger') return { ok: true, json: async () => ({ ok: false, error: 'invalid' }) }; // まだ8人分にしていないサーバー
+      rows.push(e);
+      return { ok: true, json: async () => ({ ok: true }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+  let n = 0;
+  const a = new SharedTimes({ url: 'https://x', fetch, storage: memory(), makeId: () => `id-mine-000${n++}` });
+  await a.add({ course: COURSE, name: 'KYUGO', character: 'tiger', time: 60, date: '18-Oct-26' });
+  await a.add({ course: COURSE, name: 'KYUGO', character: 'kyugo', time: 63.21, date: '18-Oct-26' });
+  assert.deepEqual(rows.map((e) => e.character), ['kyugo'], 'kyugo の記録は届く');
+  assert.equal(a.pending.length, 1, 'tiger の記録は消さずにためる');
+  assert.equal(a.view()[COURSE][0].time, 60, '自分の記録は出る');
+});
+
+test('apps-script/Code.gs の受け付けるキャラは、ゲームの8人と同じ', async () => {
+  const fs = await import('node:fs');
+  const { CHARS } = await import('../src/data/characters.js');
+  const src = fs.readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8');
+  const list = JSON.parse(src.match(/var CHARACTERS = (\[[^\]]*\])/)[1].replace(/'/g, '"'));
+  assert.deepEqual(list, CHARS.map((c) => c.id));
+});

@@ -1,10 +1,12 @@
 // TIME TRIAL のみんなの記録（2026-10-18 のユーザー依頼「ソロで一番速いタイムは全ての端末で共有」）。DOM に依存しない
 // Super Kyugo＆Soki Brothers の「みんなのランキング」と同じしくみ: 置き場所は Google スプレッドシート（apps-script/Code.gs）、
 // URL は src/config.js。電波がないときは端末にためて、つながったときに送る
+import { CHARS } from './data/characters.js';
+
 export const TIME_RANK = 10; // コースごとに残す人数
 const PENDING_KEY = 'race.ttPending';
 const CACHE_KEY = 'race.ttShared';
-const CHARACTERS = ['kyugo', 'soki'];
+const CHARACTERS = CHARS.map((c) => c.id); // キャラ8人（2026-10-22）。apps-script/Code.gs の CHARACTERS も同じにする
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // 「18-Oct-26」
@@ -113,6 +115,14 @@ export class SharedTimes {
             // text/plain で送る（Google のサーバーへ、確認の通信なしで届く）
             const res = await this.fetch(this.url, { method: 'POST', body: JSON.stringify(p) });
             if (!res.ok) break;
+            // サーバーが受け付けなかった（{ ok: false }）記録は、消さずにためておき、次の記録へ（最後のレビュー: 消えていた）
+            let body = null;
+            try {
+              body = await res.json();
+            } catch {
+              // 中身が読めないときは、届いたことにする（今までどおり）
+            }
+            if (body && body.ok === false) continue;
           } catch {
             break;
           }

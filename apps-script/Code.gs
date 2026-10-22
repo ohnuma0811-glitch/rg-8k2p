@@ -3,7 +3,7 @@
 // シート「times」に 1行1記録: id, course, name, character, time（秒）, date, received（届いた時刻）
 var SHEET = 'times';
 var HEADER = ['id', 'course', 'name', 'character', 'time', 'date', 'received'];
-var CHARACTERS = ['kyugo', 'soki'];
+var CHARACTERS = ['kyugo', 'soki', 'penguin', 'rabbit', 'mouse', 'tiger', 'elephant', 'cat']; // キャラ8人（2026-10-22。src/data/characters.js と同じ）
 var RANK_SIZE = 10;
 
 function sheet_() {
