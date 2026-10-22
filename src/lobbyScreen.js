@@ -105,6 +105,7 @@ export function runLobby(root, ctx) {
       const r = state.room;
       const voting = r?.phase === 'voting' || r?.phase === 'decided';
       $('.lb-vote').classList.toggle('hidden', !voting);
+      $('.lb-ready-btn').classList.toggle('off', voting); // コースを選んでいる間は READY を出さない
       if (!voting) return;
       $('.vote-list').innerHTML = voteRows(ctx.courses, state.votes, r.voteId, state.players);
       const left = Math.max(0, Math.ceil((r.endsAt - serverNow()) / 1000));

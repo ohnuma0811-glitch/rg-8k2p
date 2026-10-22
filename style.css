@@ -958,6 +958,7 @@ html, body {
 #menu .lb-top button { padding: 6px 12px; border: 2px solid #fff; border-radius: 10px; background: #1c3c88; color: #fff; font: bold 15px system-ui, sans-serif; }
 #menu .lb-ready-btn { margin-left: auto; padding: 10px 26px !important; font-size: 20px !important; background: #2fa36b !important; }
 #menu .lb-ready-btn.on { background: #ffd34a !important; color: #222 !important; }
+#menu .lb-ready-btn.off { visibility: hidden; }
 #menu .lb-gear { display: flex; gap: 8px; }
 #menu .lb-gear.hidden, #menu .lb-vote.hidden { display: none; }
 #menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); /* チャットの列は画面の幅まで（定型文の列が長くても広がらない） */ gap: 8px; position: relative; /* 投票の覆いは、ここ（一覧とチャット）だけにかぶせる。BACK などの上の段は押せるまま */ }
