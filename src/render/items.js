@@ -1,11 +1,11 @@
 // アイテムの見た目: 「?」の箱、バナナ、甲羅（飛ぶ・回る）、Star の虹色、稲妻
 // 箱・バナナ・甲羅は、種類ごとに1回で描く（InstancedMesh。タブレットで描く回数を増やさない）
-import * as THREE from '../../vendor/three.module.min.js?v=dcfe307';
-import { BOX_SIZE } from '../game/itemBoxes.js?v=dcfe307';
-import { ITEM } from '../game/items.js?v=dcfe307';
+import * as THREE from '../../vendor/three.module.min.js?v=522d1bc';
+import { BOX_SIZE } from '../game/itemBoxes.js?v=522d1bc';
+import { ITEM } from '../game/items.js?v=522d1bc';
 
 const MAX_BOX = 40;
-const MAX_BANANA = 24;
+const MAX_BANANA = 64; // 置いたバナナ 20 個と、ぶら下げたバナナ（5個 × 8台）
 const MAX_SHELL = 48;
 
 let qTexture = null;
@@ -54,9 +54,26 @@ function bananaGeometry() {
   return g;
 }
 
-function shellGeometry() {
-  const g = new THREE.SphereGeometry(0.6, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2); // 半分の球（甲羅）
-  g.translate(0, 0.05, 0);
+// 甲羅: 半分の球の下に、少し外へはみ出す白いフチ（2026-10-22 のユーザー依頼「甲羅らしく」）。色は頂点の色（材質は白）
+export const SHELL_RIM = { R: 0.66, H: 0.16 };
+function shellGeometry(hex) {
+  const dome = new THREE.SphereGeometry(0.6, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2).toNonIndexed(); // 半分の球
+  dome.translate(0, SHELL_RIM.H * 0.7, 0); // 白いフチの上にのせる
+  const rim = new THREE.CylinderGeometry(SHELL_RIM.R, SHELL_RIM.R, SHELL_RIM.H, 16).toNonIndexed();
+  rim.translate(0, SHELL_RIM.H / 2, 0); // いちばん下が地面
+  const c = new THREE.Color(hex);
+  const pos = [];
+  const nor = [];
+  const col = [];
+  for (const [g, rgb] of [[dome, [c.r, c.g, c.b]], [rim, [1, 1, 1]]]) {
+    pos.push(...g.attributes.position.array);
+    nor.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.attributes.position.count; i++) col.push(...rgb);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return g;
 }
 
@@ -92,8 +109,8 @@ export function createItemView(scene) {
   };
   const boxes = make(new THREE.BoxGeometry(BOX_SIZE, BOX_SIZE, BOX_SIZE), new THREE.MeshBasicMaterial({ map, color: map ? 0xffffff : 0x50aaff, transparent: true, opacity: 0.9 }), MAX_BOX, 'boxes');
   const bananas = make(bananaGeometry(), new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), MAX_BANANA, 'bananas');
-  const greens = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0x2fb54a }), MAX_SHELL, 'greens');
-  const reds = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0xe8312a }), MAX_SHELL, 'reds');
+  const greens = make(shellGeometry(0x2fb54a), new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), MAX_SHELL, 'greens');
+  const reds = make(shellGeometry(0xe8312a), new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), MAX_SHELL, 'reds');
   const meshes = [boxes, bananas, greens, reds];
   // Star の虹色の光（車ごとに、使うときに作る）
   // 稲妻（空から車へ、ぎざぎざの線）
@@ -143,7 +160,11 @@ export function createItemView(scene) {
       n = 0;
       for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, -(b.h ?? 0) + Math.PI / 2); // 道に対して横向き（後ろから来る車に、曲がった形が見える）
       for (const k of karts) {
-        if (seen(k) && k.trailing && n < MAX_BANANA) put(bananas, n++, k.x - Math.cos(k.heading) * ITEM.TRAIL_BACK, k.y, k.z - Math.sin(k.heading) * ITEM.TRAIL_BACK, -k.heading + Math.PI / 2);
+        // ぶら下げたバナナ（残りの数だけ、車の後ろに1列。ジャンプ中も車についてくる）
+        for (let m = 0; seen(k) && m < (k.trailing || 0) && n < MAX_BANANA; m++) {
+          const back = ITEM.TRAIL_BACK + m * ITEM.TRAIL_GAP;
+          put(bananas, n++, k.x - Math.cos(k.heading) * back, k.y, k.z - Math.sin(k.heading) * back, -k.heading + Math.PI / 2);
+        }
       }
       done(bananas, n);
       let g = 0;

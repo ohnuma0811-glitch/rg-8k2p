@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=dcfe307';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=dcfe307';
+import { locate, respawnIndex, sampleAt } from './track.js?v=522d1bc';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=522d1bc';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -275,6 +275,11 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.hump = Math.max(0, kart.hump - dt);
   // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
   if (kart.spin > 0) {
+    // バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる（2026-10-22 のユーザー依頼）。稲妻の入れ替わり（kart.shock）とぬかるみは残す
+    if (kart.swapItem && !(kart.shock > 0)) {
+      kart.muddy = 0;
+      kart.swapItem = false;
+    }
     kart.spin -= dt;
     kart.speed = Math.max(0, kart.speed - 20 * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;

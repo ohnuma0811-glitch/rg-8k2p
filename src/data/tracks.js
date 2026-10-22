@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=dcfe307';
-import { SOKI_SCENERY } from './soki.js?v=dcfe307';
+import { KAMPAR_SCENERY } from './kampar.js?v=522d1bc';
+import { SOKI_SCENERY } from './soki.js?v=522d1bc';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -210,6 +210,7 @@ export const COURSE4 = {
   name: 'Kyugo Mountain',
   music: 'snow',
   theme: 'snow',
+  itemRows: [['X1', 'FK', 0.8], ['S', 'S', 0.5]], // アイテムの箱: 分かれ道の手前（すぐ前の加速板をよけて、分かれ道の約6m手前）と、半周の所（2026-10-22 のユーザー依頼）
   points: [
     [470, 600], [472, 540], [478, 480], [515, 443], // 0〜3: スタートから北へ、右へ曲がる（左手に川）
     [585, 443], // 4: GS（観客席の前。加速板と小さなジャンプ）
@@ -374,8 +375,12 @@ export const COURSE5 = {
     GJ: 126, LND: 127, FIN: 128, END: 140, GB: 141,
   },
   open: { finish: 'FIN', end: 'END', back: 'GB', loop: 'MRG', dup: ['M'] }, // loop: 道の終わり（END）に着くと、同じ所のつなぎ目 MRG へ（ゴールのあと周回）
-  // アイテムの「?」の箱の列（2026-10-22 のユーザー依頼「東京駅周辺、京都、富士山、海底、NY」）
-  itemRows: [['MRN', 'TS', 0.5], ['FL', 'SK', 0.3], ['GI', 'GK', 0.5], ['SD', 'LIB', 0.5], ['TSQ', 'MAD', 0.5]],
+  // アイテムの「?」の箱の列（2026-10-22 のユーザー依頼「東京駅周辺、京都、富士山、海底、NY」）。
+  // そのあと、どのステージにも1列ずつ足した（2026-10-22 のユーザー依頼。東京はお台場の手前、富士山は後半、京都は後半、香港、海底は入ってすぐ、NY はセントラルパーク、KL）
+  itemRows: [
+    ['MRN', 'TS', 0.5], ['RBE', 'ODA', 0.5], ['FL', 'SK', 0.3], ['FL', 'SK', 0.75], ['GI', 'GK', 0.5], ['AR', 'LP', 0.5],
+    ['CEN', 'SD', 0.5], ['SD', 'LIB', 0.15], ['SD', 'LIB', 0.5], ['TSQ', 'MAD', 0.5], ['CP', 'CPN', 0.5], ['PM', 'BR', 0.5],
+  ],
   squareCorners: ['NY1', 'Z1', 'Z2', 'Z3', 'Z4', 'TSQ', 'MAD', 'Z5', 'Z6', 'Z7', 'TIF', 'Z8', 'Z9', 'Z10', 'Z11', 'CPN'].map((m) => [m, m, 0]), // ニューヨークは碁盤の目（2026-10-20 のユーザー依頼「カーブは直角で」）
   // dir: -1 は向かってくる、1 は同じ向き。side: 1 は右、-1 は左（2026-10-21 のユーザー依頼）。香港は左側通行、ニューヨークは右側通行
   vehicles: [
