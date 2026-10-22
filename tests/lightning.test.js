@@ -120,10 +120,10 @@ test('稲妻: 左右は入れ替わらない（バナナは今まで通り入れ
   assert.ok(b.karts[1].muddy > 0 && b.karts[1].swapItem);
 });
 
-test('稲妻: 小さい車がまた当たると、10秒をやり直してスピンする', () => {
+test('稲妻: 小さい車がまた当たると、時間をやり直してスピンする', () => {
   const { karts, world, f } = strike(2);
   run(world, karts, f, 6);
-  assert.ok(karts[1].smallTime < 5);
+  assert.ok(karts[1].smallTime < ITEM.LIGHTNING_TIME - 5);
   assert.equal(karts[1].blast, 0);
   karts[2 - 1].held = null;
   karts[0].held = 'lightning';
@@ -223,4 +223,8 @@ test('ぺしゃんこ: スピン中・Star の車はつぶれない（Star の�
   b.respawn = 0;
   assert.equal(squashKart(b), true);
   assert.equal(squashKart(b), false, '二重にはつぶれない');
+});
+
+test('稲妻で小さくなっている時間は15秒（10秒から5秒のばした。2026-10-23 のユーザー依頼）', () => {
+  assert.equal(ITEM.LIGHTNING_TIME, 15);
 });

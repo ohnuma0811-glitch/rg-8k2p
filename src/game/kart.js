@@ -54,7 +54,7 @@ export const PHYS = {
 export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。ダートでもおそくならない
 export const STAR = { TIME: 9, TOP: 1.4, ACCEL: 2, TURN: 0.08 }; // TIME: 2026-10-22 のユーザー依頼で 6秒の 1.5倍。TOP: 同じ日の依頼「もっと速く」で 1.2 から // TURN: ハンドルの能力の数字1つ分（rad/s）
 // 稲妻（2026-10-22 のユーザー依頼）: 当たった車は35%に小さくなり、10秒間、最高速が75%
-export const LIGHTNING = { TIME: 10, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // BACK: 元の大きさにもどる秒数
+export const LIGHTNING = { TIME: 15, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // TIME: 小さい秒数（10秒から15秒に。2026-10-23 のユーザー依頼）。BACK: 元の大きさにもどる秒数
 export const SQUASH = { TIME: 2.0, LIFT: 1.0, REST: 0.5 }; // 小さい車が大きい車にぶつかってぺしゃんこ: ひらひら舞う秒数、上がる高さ m、元にもどってから走り出せない秒数（2026-10-22・23 のユーザー依頼）
 export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2, REST: 0.5 }; // REST: 着地してから走り出すまで止まっている秒数（2026-10-22 のユーザー依頼） // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
 
