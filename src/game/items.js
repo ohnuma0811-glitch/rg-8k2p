@@ -1,11 +1,11 @@
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md）: 枠・ルーレット・ITEM ボタンの順番・使ったときの効果
 // ボタンを押したことは「出来事」（{ type, k, t, ... }）にして applyItemEvent で効かせる（M4 の対戦で、ほかの端末にも同じ出来事を送るため）
-import { useMushroom, STAR, startBlast } from './kart.js?v=522d1bc';
-import { rollItem } from './itemOdds.js?v=522d1bc';
-import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js?v=522d1bc';
-import { locate } from './track.js?v=522d1bc';
-import { KART_RADIUS } from './collide.js?v=522d1bc';
-import { launchShell, stepShells, guard } from './shells.js?v=522d1bc';
+import { useMushroom, STAR, startBlast } from './kart.js?v=bdab420';
+import { rollItem } from './itemOdds.js?v=bdab420';
+import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js?v=bdab420';
+import { locate } from './track.js?v=bdab420';
+import { KART_RADIUS } from './collide.js?v=bdab420';
+import { launchShell, stepShells, guard } from './shells.js?v=bdab420';
 
 export const ITEM = {
   ROULETTE: 2, // ルーレットが回る秒数
@@ -160,7 +160,7 @@ export function applyItemEvent(world, karts, ev, f) {
   }
   if (ev.type === 'throw') {
     kart.orbit.shift();
-    fireShell(world, kart, ev.k, 'green', null, f.params.topSpeed);
+    fireShell(world, kart, ev.k, 'green', null, (f.paramsOf?.(ev.k) ?? f.params).topSpeed);
     kart.thrown = (kart.thrown || 0) + 1;
     return;
   }
@@ -178,7 +178,7 @@ export function applyItemEvent(world, karts, ev, f) {
       kart.orbit = [0, 1, 2];
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'shell') {
-      fireShell(world, kart, ev.k, 'red', ev.target, f.params.topSpeed);
+      fireShell(world, kart, ev.k, 'red', ev.target, (f.paramsOf?.(ev.k) ?? f.params).topSpeed);
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'lightning') strikeLightning(world, karts, ev.k);
   }

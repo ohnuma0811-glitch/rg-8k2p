@@ -1,6 +1,8 @@
 // タイトル画面の絵: Kyugo（赤い T シャツ、ツンツン頭）と Soki（青い T シャツ、赤い野球帽、前歯が1本ない）
 // コースが回っている前、文字のうしろに大きく出す（2026-10-14 のユーザー依頼）
 
+import { ANIMAL_FACES, animalFaceSvg } from './animalFaces.js?v=bdab420';
+
 const SKIN = '#f6cfa6';
 const LINE = '#3a1a10';
 
@@ -96,5 +98,6 @@ export const TITLE_ART = `<div class="hero" aria-hidden="true">${KYUGO('hero-kid
 
 // レース中の上位3人の、顔のアイコン（character: 'kyugo' / 'soki'）
 export function faceSvg(character) {
+  if (ANIMAL_FACES[character]) return animalFaceSvg(character);
   return character === 'soki' ? SOKI('face-svg', FACE_BOX) : KYUGO('face-svg', FACE_BOX);
 }

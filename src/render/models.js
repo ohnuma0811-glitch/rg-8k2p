@@ -1,8 +1,9 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=522d1bc';
-import { PHYS, BLAST } from '../game/kart.js?v=522d1bc';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=522d1bc';
+import * as THREE from '../../vendor/three.module.min.js?v=bdab420';
+import { PHYS, BLAST } from '../game/kart.js?v=bdab420';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=bdab420';
+import { animalHead, animalBody } from './animals.js?v=bdab420';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -118,6 +119,13 @@ export const CHARACTERS = {
   kyugo: { hair: 'spiky', shirt: 0xc11f0a, face: 'human' }, // 顔は人間らしく（2026-10-14 のユーザー依頼）
   // 赤い野球帽をかぶる。帽子の下から、こげ茶の髪が少しのぞく（2026-10-15 のユーザー依頼）
   soki: { hair: 'cap', shirt: 0x1c3c88, hairColor: 0x2b1d16, capColor: 0xd7261b },
+  // 動物たち（M3 の後半。2026-10-22）: animal は src/render/animals.js の頭、hand は手の色、size は大きさの倍率（見た目だけ）
+  penguin: { animal: 'penguin', shirt: 0x1a1a1a, hand: 0x1a1a1a },
+  rabbit: { animal: 'rabbit', shirt: 0xff7eb6, hand: 0xf7f4f0 },
+  mouse: { animal: 'mouse', shirt: 0x2fa36b, hand: 0x9a9aa6 },
+  tiger: { animal: 'tiger', shirt: 0xf08a24, hand: 0xf08a24 },
+  elephant: { animal: 'elephant', shirt: 0x8e44ad, hand: 0x8c96a0, size: 1.18 },
+  cat: { animal: 'cat', shirt: 0x3a3a48, hand: 0x26262e },
 };
 
 // 頭（顔は +x 向き）。半径 R の丸い頭に、目・口・耳・髪
@@ -168,6 +176,7 @@ function simpleFace(g, R) {
 }
 
 function head(look) {
+  if (look.animal) return animalHead(look);
   const g = new THREE.Group();
   const R = 0.42;
   const skull = ball(R, SKIN, 0, 0, 0, 16);
@@ -247,14 +256,14 @@ function driver(look) {
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.5, 10), mat(look.shirt));
   body.position.set(0, 0.25, 0);
   g.add(body);
-  g.add(box(0.02, 0.12, 0.12, WHITE, 0.28, 0.32, 0)); // 胸のマーク
+  if (!look.animal) g.add(box(0.02, 0.12, 0.12, WHITE, 0.28, 0.32, 0)); // 胸のマーク
   // 腕（そで → 手）を前に出して、ハンドルを握る
   for (const z of [-0.28, 0.28]) {
     const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.32, 8), mat(look.shirt));
     sleeve.position.set(0.12, 0.38, z);
     sleeve.rotation.z = -Math.PI / 2.6;
     g.add(sleeve);
-    g.add(ball(0.08, SKIN, 0.42, 0.3, z * 0.85, 8));
+    g.add(ball(0.08, look.hand ?? SKIN, 0.42, 0.3, z * 0.85, 8));
   }
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.04, 6, 16), mat(DARK));
   wheel.position.set(0.48, 0.3, 0);
@@ -263,6 +272,7 @@ function driver(look) {
   wheel.rotation.z = 0.5;
   g.add(wheel);
   g.add(box(0.3, 0.05, 0.05, DARK, 0.62, 0.18, 0)); // ハンドルの軸
+  if (look.animal) animalBody(g, look);
   const h = head(look);
   h.position.set(0.02, 0.92, 0);
   g.add(h);
@@ -317,7 +327,7 @@ export function createKartModel({ body = 0xc11f0a, character = 'kyugo', shirt } 
     g.add(hub);
   }
   const d = driver(shirt === undefined ? CHARACTERS[character] : { ...CHARACTERS[character], shirt });
-  d.scale.setScalar(DRIVER_SCALE);
+  d.scale.setScalar(DRIVER_SCALE * (CHARACTERS[character].size ?? 1));
   d.position.set(-0.45, 0.5, 0);
   g.add(d);
   // タイヤは無地の黒なので、回しても見た目は変わらない。車体と1つの形にまとめる（描く回数を 1台 4回へらす。2026-10-19 のユーザー依頼「重たい」）
