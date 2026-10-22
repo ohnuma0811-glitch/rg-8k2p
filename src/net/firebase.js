@@ -77,6 +77,7 @@ export function storeOf(f) {
     newKey: (path) => push(r(path)).key, // 書かずに、新しいキー（時刻の順に並ぶ）だけ作る
     SERVER_TIME: serverTimestamp(), // 書くときにサーバーの時刻に置きかわる
     onDisconnectRemove: (path) => wrap(onDisconnect(r(path)).remove()), // 電波が切れた・アプリを閉じたら、サーバーが消す
+    cancelOnDisconnect: (path) => wrap(onDisconnect(r(path)).cancel()),
     watch: (path, cb, { last } = {}) => onValue(last ? query(r(path), limitToLast(last)) : r(path), (s) => cb(val(s))), // やめる関数を返す
     serverOffset: (cb) => onValue(ref(f.db, '.info/serverTimeOffset'), (s) => cb(s.val() ?? 0)),
   };

@@ -11,8 +11,11 @@ export async function enterLobby(db, me) {
   await db.set(`lobby/${me.uid}`, { name: me.name, char: me.char, codeId: me.codeId, ready: false, at: db.SERVER_TIME });
 }
 
-export function leaveLobby(db, uid) {
-  return db.remove(`lobby/${uid}`);
+// 出る。アプリを閉じたときの自動の削除も取り消す（あとで電波がもどったとき、入り直した新しい行を消さないように）
+export async function leaveLobby(db, uid) {
+  const cancel = db.cancelOnDisconnect ? db.cancelOnDisconnect(`lobby/${uid}`).catch(() => {}) : null;
+  await db.remove(`lobby/${uid}`);
+  await cancel;
 }
 
 export function setReady(db, uid, ready) {

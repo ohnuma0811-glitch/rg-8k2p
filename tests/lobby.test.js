@@ -21,6 +21,7 @@ function fakeDb() {
     async set(path, v) { const [o, k] = at(path); o[k] = JSON.parse(JSON.stringify(v)); calls.push(['set', path]); },
     async remove(path) { const [o, k] = at(path); delete o[k]; calls.push(['remove', path]); },
     async onDisconnectRemove(path) { calls.push(['onDisconnectRemove', path]); },
+    async cancelOnDisconnect(path) { calls.push(['cancelOnDisconnect', path]); },
     async transaction(path, fn) { const next = fn(JSON.parse(JSON.stringify(read(path)))); if (next === undefined) return false; const [o, k] = at(path); o[k] = next; return true; },
   };
 }
@@ -40,6 +41,7 @@ test('だれもいない待合室に入ると、チャットを消して部屋�
   assert.deepEqual(playersOf(db.data.lobby).map((p) => p.name), ['KYUGO', 'SOKI']);
   await leaveLobby(db, 'u1');
   assert.deepEqual(playersOf(db.data.lobby).map((p) => p.name), ['SOKI']);
+  assert.ok(db.calls.some((c) => c[0] === 'cancelOnDisconnect' && c[1] === 'lobby/u1'), '出たら、アプリを閉じたときの自動の削除も取り消す（あとで入り直した行を消さないように）');
 });
 
 test('全員 READY（2人以上）で投票が始まる。1人では始まらない', () => {

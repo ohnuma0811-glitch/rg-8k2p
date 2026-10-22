@@ -78,25 +78,30 @@ export function runLobby(root, ctx) {
       resolve(why);
     };
     const drawGear = () => {
+      if (!$('[data-act="sound"]')) return; // 知らせが出ている間は、待合室の HTML がない
       $('[data-act="sound"]').textContent = ctx.sound.isOn() ? '🔊 Sound ON' : '🔇 Sound OFF';
       $('[data-act="controls"]').textContent = ctx.controls.mode() === 'keyboard' ? '⌨ Keyboard' : '👆 Buttons';
       $('[data-act="lang"]').textContent = lang === 'ja' ? 'Chat: 日本語' : 'Chat: English';
     };
     const drawPresets = () => {
+      if (!$('.lb-presets')) return;
       $('.lb-presets').innerHTML = PHRASES.map((_, i) => `<button type="button" data-preset="${i}">${esc(phrase(i, lang))}</button>`).join('');
     };
     const drawMsgs = () => {
+      if (!$('.lb-msgs')) return;
       const box = $('.lb-msgs');
       box.innerHTML = messageRows(state.msgs, me.uid, lang);
       box.scrollTop = box.scrollHeight;
     };
     const drawList = () => {
+      if (!$('.lb-list')) return;
       $('.lb-list').innerHTML = lobbyRows(state.players, me.uid);
       const mine = state.players.find((p) => p.uid === me.uid);
       $('.lb-ready-btn').classList.toggle('on', !!mine?.ready);
       $('.lb-ready-btn').textContent = mine?.ready ? 'READY ✓' : 'READY';
     };
     const drawVote = () => {
+      if (!$('.lb-vote')) return;
       const r = state.room;
       const voting = r?.phase === 'voting' || r?.phase === 'decided';
       $('.lb-vote').classList.toggle('hidden', !voting);
@@ -108,9 +113,11 @@ export function runLobby(root, ctx) {
     };
     const send = async (body) => {
       if (!canSend(lastSent, serverNow(), 'preset' in body ? 'preset' : 'text')) return false;
+      const prev = lastSent;
       lastSent = serverNow();
-      await sendChat(db, me.codeId, me, body).catch(() => {});
-      return true;
+      const ok = await sendChat(db, me.codeId, me, body).then(() => true, () => false);
+      if (!ok) lastSent = prev; // 送れなかったら、打った文は残して、すぐ送り直せる
+      return ok;
     };
     root.onclick = async (e) => {
       const b = e.target.closest('button');
@@ -170,13 +177,16 @@ export function runLobby(root, ctx) {
       drawMsgs();
     }, { last: CHAT_SHOW }));
     offs.push(db.watch('room', async (v) => {
+      if (finished) return; // 待合室を出たあとは、何もしない
       const prev = state.room;
       state.room = v;
       drawVote();
       // コースが決まった: 2秒知らせてから（M4-B では）coming soon。そのあと待合室に戻す・自分の READY を外す
       if (v?.phase === 'decided' && prev?.phase !== 'decided' && v.racers?.[me.uid]) {
         await new Promise((r) => setTimeout(r, 2000));
+        if (finished) return;
         await ctx.onDecided(v.course);
+        if (finished) return;
         await resetRoom(db, v.voteId).catch(() => {});
       }
       // 投票が始まったら、自分の READY を外す（決まって待合室に戻ったとき、READY が残っていて、すぐ次の投票が始まらないように）
