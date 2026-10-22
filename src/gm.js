@@ -2,13 +2,15 @@
 // 縦に並べる: Code（数字ボタンで4けた → Set、Stop）、Players、Locked（Unlock）、Play time（Reset）、Daily limit
 import { connect, signInGoogle, gmRedirectResult, signOut, storeOf, firebaseReady } from './net/firebase.js';
 import { dayKey, LIMITED_NAMES, DEFAULT_LIMIT_MIN } from './playtime.js';
+import { lastMessages, displayText } from './net/chat.js';
+import { playersOf as lobbyPlayersOf } from './net/lobby.js';
 
 export function newCodeId(now, rand = Math.random) {
   return `${now.toString(36)}${Math.floor(rand() * 1e8).toString(36)}`;
 }
-export function setCodeUpdates(code, codeId) {
+export function setCodeUpdates(code, codeId, oldCodeId = null) {
   if (!/^[0-9]{4}$/.test(code)) throw new Error('4けたの数字');
-  return { secret: { code, codeId, active: true }, status: { codeId, active: true } };
+  return { secret: { code, codeId, active: true }, status: { codeId, active: true }, ...(oldCodeId ? { [`chat/${oldCodeId}`]: null } : {}) };
 }
 export function stopUpdates(codeId) {
   return { 'secret/active': false, status: { codeId, active: false } };
@@ -60,8 +62,11 @@ export async function gmScreen(root) {
   }
   let digits = '';
   const draw = async () => {
-    const [secret, access, attempts, ...rest] = await Promise.all([
-      db.get('secret'), db.get('access'), db.get('attempts'),
+    const secret = await db.get('secret');
+    const [access, attempts, chat, lobby, ...rest] = await Promise.all([
+      db.get('access'), db.get('attempts'),
+      db.get(secret?.codeId ? `chat/${secret.codeId}` : 'chat/none').catch(() => null),
+      db.get('lobby').catch(() => null),
       ...LIMITED_NAMES.flatMap((n) => [db.get(`playtime/${n}/${dayKey(Date.now())}`), db.get(`limits/${n}`)]),
     ]);
     const codeId = secret?.codeId ?? null;
@@ -74,6 +79,9 @@ export async function gmScreen(root) {
         <p class="gm-new">${digits.padEnd(4, '·')}</p>
         <div class="code-pad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'set'].map((k) => `<button type="button" data-key="${k}">${k === 'del' ? '⌫' : k === 'set' ? 'Set' : k}</button>`).join('')}</div>
         <div class="choices"><button type="button" data-act="stop">Stop</button></div></section>
+      <section><h2>Lobby</h2>${lobbyPlayersOf(lobby).map((p) => `<p>${esc(p.name)} · ${esc(p.char)}${p.ready ? ' ✓' : ''}</p>`).join('') || '<p class="note">No one</p>'}</section>
+      <section><h2>Chat</h2>${lastMessages(chat, 50).reverse().map((m) => `<p>${esc(m.name)}: ${esc(displayText(m, 'en'))} · ${time(m.at)} <button type="button" data-delmsg="${esc(m.id)}">Delete</button></p>`).join('') || '<p class="note">No messages</p>'}
+        <div class="choices"><button type="button" data-act="delall">Delete all</button></div></section>
       <section><h2>Players</h2>${players.map((p) => `<p>${esc(p.name)} · ${time(p.at)}</p>`).join('') || '<p class="note">No one yet</p>'}</section>
       <section><h2>Locked</h2>${locked.map((l) => `<p>${esc(l.device)} · ${time(l.at)} <button type="button" data-unlock="${esc(l.uid)}">Unlock</button></p>`).join('') || '<p class="note">None</p>'}</section>
       <section><h2>Play time (today)</h2>${LIMITED_NAMES.map((n, i) => `<p>${n}: ${Math.floor(playedSec(rest[i * 2]) / 60)}m ${Math.round(playedSec(rest[i * 2]) % 60)}s <button type="button" data-reset="${n}">Reset</button></p>`).join('')}</section>
@@ -86,10 +94,12 @@ export async function gmScreen(root) {
         if (k === 'del') digits = digits.slice(0, -1);
         else if (k === 'set') {
           if (digits.length !== 4) return;
-          await db.update('', setCodeUpdates(digits, newCodeId(Date.now())));
+          await db.update('', setCodeUpdates(digits, newCodeId(Date.now()), codeId));
           digits = '';
         } else if (digits.length < 4) digits += k;
       } else if (b.dataset.act === 'stop' && codeId) await db.update('', stopUpdates(codeId));
+      else if (b.dataset.delmsg && codeId) await db.remove(`chat/${codeId}/${b.dataset.delmsg}`);
+      else if (b.dataset.act === 'delall' && codeId) await db.remove(`chat/${codeId}`);
       else if (b.dataset.unlock) await db.remove(`attempts/${b.dataset.unlock}`);
       else if (b.dataset.reset) await db.set(`playtime/${b.dataset.reset}/${dayKey(Date.now())}`, resetValue(Date.now()));
       else if (b.dataset.limit) {

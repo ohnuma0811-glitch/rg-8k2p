@@ -34,3 +34,8 @@ test('Play time: 端末ごとの数字の合計（reset は数えない）。Res
   assert.equal(playedSec(60), 0, '古い形（数字ひとつ）は数えない');
   assert.deepEqual(resetValue(1234), { reset: 1234 });
 });
+
+test('Set: 前のコードのチャットも一緒に消す', () => {
+  assert.deepEqual(setCodeUpdates('0811', 'c2', 'c1'), { secret: { code: '0811', codeId: 'c2', active: true }, status: { codeId: 'c2', active: true }, 'chat/c1': null });
+  assert.deepEqual(setCodeUpdates('0811', 'c2', null), { secret: { code: '0811', codeId: 'c2', active: true }, status: { codeId: 'c2', active: true } });
+});

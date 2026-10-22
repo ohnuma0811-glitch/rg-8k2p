@@ -39,6 +39,8 @@ import { createPlaytimeSync, safeStorage, waitUpTo } from './net/playtimeSync.js
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
+import { runLobby } from './lobbyScreen.js';
+import { defaultLang } from './chatPhrases.js';
 import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js';
 import { codeState, tryCode, setName, deviceKind } from './net/gamecode.js';
 import { SharedTimes, dateText } from './sharedTimes.js';
@@ -159,7 +161,7 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
 // 画面が見えなくなったら音を止める
 document.addEventListener('visibilitychange', () => (document.hidden ? audio.pause() : audio.resume()));
 // タッチできる端末はボタン、パソコンはキーボード
-controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
+controls.setMode(load('controlMode', hasTouch() ? 'buttons' : 'keyboard'));
 let quality = 1;
 const TOUCH_DEVICE = touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0); // 指で操作する端末（タブレット・スマホ）
 let layout;
@@ -949,6 +951,40 @@ async function gameCodeStep() {
   if (r === 'in') save('netMember', true);
   return r === 'in';
 }
+// 待合室（M4-B）。'back' / 'chars' / 'recode' を返す
+async function versusLobby(name, charId) {
+  let db;
+  try {
+    db = await netStore();
+  } catch {
+    await screens.notice(menu, screens.codeMessage({ kind: 'offline' }));
+    return 'back';
+  }
+  const status = await db.get('status').catch(() => null);
+  if (!status?.active) return 'recode';
+  return runLobby(menu, {
+    db,
+    me: { uid: netUid, name, char: charId, codeId: status.codeId },
+    lang: load('chatLang', defaultLang(navigator.language)),
+    setLang: (l) => save('chatLang', l),
+    sound: { isOn: () => audio.isOn(), setOn: (on) => audio.setOn(on) },
+    controls: { mode: () => controls.mode, setMode: (m) => { controls.setMode(m); save('controlMode', m); placeButtons(); } },
+    courses: COURSES.map((c) => c.name),
+    // 通知は待合室の画面を上書きするので、HTML と onclick/onsubmit を取っておいて戻す
+    onDecided: async () => {
+      const keep = menu.innerHTML;
+      const cls = menu.className;
+      const oc = menu.onclick;
+      const os = menu.onsubmit;
+      await screens.notice(menu, 'The race is coming soon.');
+      menu.className = cls;
+      menu.innerHTML = keep;
+      menu.onclick = oc;
+      menu.onsubmit = os;
+    },
+    chime: () => sfx.play('select'),
+  });
+}
 async function setVersusName(name) {
   try {
     await setName(await netStore(), netUid, name, Date.now());
@@ -996,9 +1032,11 @@ async function flow() {
         }
         if (mode === 'versus' || mode === 'battle') {
           await setVersusName(name);
-          await screens.notice(menu, 'The waiting room is coming soon.');
-          screen = 'title';
-          continue;
+          if (mode === 'battle') {
+            await screens.notice(menu, 'BATTLE is coming soon.');
+            screen = 'title';
+            continue;
+          }
         }
         screen = mode === 'timetrial' ? 'course' : 'character';
       } else if (screen === 'course') {
@@ -1029,8 +1067,12 @@ async function flow() {
           charId = pick;
           save('char', charId); // 次に開いたとき光らせる
           if (mode === 'timetrial') ready = true;
+          else if (mode === 'versus') screen = 'lobby';
           else screen = 'level';
         }
+      } else if (screen === 'lobby') {
+        const why = await versusLobby(name, charId);
+        screen = why === 'chars' ? 'character' : why === 'recode' ? 'code' : 'title';
       } else {
         // レースの画面: CPU の速さを選ぶ（前に選んだ Level を覚えておく）
         const pick = await screens.chooseLevel(menu, load('level', 2), { onSelect: () => sfx.play('select') });
