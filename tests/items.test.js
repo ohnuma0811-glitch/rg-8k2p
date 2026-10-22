@@ -324,3 +324,21 @@ test('M6: キノコは、使った車自身のパラメーター（f.paramsOf）
   itemPress(g.world, g.karts, 2, g.f);
   assert.ok(Math.abs(g.karts[2].speed - karts[0].speed) < 1e-9);
 });
+
+test('ジャンプ台で飛んでいる間に投げた甲羅は、消さずに、着地したら発射する（2026-10-22 のユーザー依頼）', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.airborne = true;
+  k.held = 'shell';
+  itemPress(world, karts, 0, f);
+  k.orbit = [0, 1, 2];
+  itemPress(world, karts, 0, f); // 緑の甲羅も1つ投げる
+  assert.equal(world.shells.length, 0, '空中ではまだ出さない');
+  assert.equal(k.held, null);
+  stepItems(world, karts, f, DT);
+  assert.equal(world.shells.length, 0, '着地するまで待つ');
+  k.airborne = false;
+  stepItems(world, karts, f, DT);
+  assert.deepEqual(world.shells.map((s) => s.kind).sort(), ['green', 'red'], '着地したら発射');
+  assert.equal(world.shells.find((s) => s.kind === 'red').target, 1);
+});

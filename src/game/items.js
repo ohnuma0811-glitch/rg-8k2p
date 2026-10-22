@@ -29,7 +29,7 @@ export function initItems(kart) {
 
 // レースのアイテムの世界（箱・置かれたバナナ・飛んでいる甲羅）
 export function createItemWorld(track) {
-  return { track, boxes: createBoxes(track), bananas: [], shells: [], nextId: 1, flash: 0, thunder: 0 };
+  return { track, boxes: createBoxes(track), bananas: [], shells: [], pending: [], nextId: 1, flash: 0, thunder: 0 };
 }
 
 // 新しいアイテムを取れるか（緑の甲羅を回している・バナナをぶら下げているのは、空として扱う）
@@ -118,6 +118,28 @@ export function itemPress(world, karts, k, f) {
   return ev;
 }
 
+// ジャンプ台の上・飛んでいる間か（甲羅はジャンプ台を越えられないので、ここで投げた甲羅は着地してから出す）
+function onJump(world, kart) {
+  const p = world.track.samples[kart.seg];
+  return kart.airborne || p.y === null || p.ramp || p.kick;
+}
+
+// 甲羅を出す。ジャンプ台で投げたときは消さずにとっておき、着地したら出す（2026-10-22 のユーザー依頼）
+function fireShell(world, kart, k, kind, target, topSpeed) {
+  if (onJump(world, kart)) world.pending.push({ k, kind, target, topSpeed });
+  else launchShell(world, kart, k, kind, target, topSpeed);
+}
+
+// とっておいた甲羅: 投げた車が着地したら出す（自動の区間・コースに戻る途中は待つ）
+function firePending(world, karts) {
+  world.pending = world.pending.filter((q) => {
+    const kart = karts[q.k];
+    if (kart.auto || kart.respawn > 0 || onJump(world, kart)) return true;
+    launchShell(world, kart, q.k, q.kind, q.target, q.topSpeed);
+    return false;
+  });
+}
+
 // 出来事を効かせる（どの端末でも、同じ出来事から同じように動く）
 export function applyItemEvent(world, karts, ev, f) {
   const kart = karts[ev.k];
@@ -128,7 +150,7 @@ export function applyItemEvent(world, karts, ev, f) {
   }
   if (ev.type === 'throw') {
     kart.orbit.shift();
-    launchShell(world, kart, ev.k, 'green', null, f.params.topSpeed);
+    fireShell(world, kart, ev.k, 'green', null, f.params.topSpeed);
     kart.thrown = (kart.thrown || 0) + 1;
     return;
   }
@@ -145,7 +167,7 @@ export function applyItemEvent(world, karts, ev, f) {
       kart.orbit = [0, 1, 2];
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'shell') {
-      launchShell(world, kart, ev.k, 'red', ev.target, f.params.topSpeed);
+      fireShell(world, kart, ev.k, 'red', ev.target, f.params.topSpeed);
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'lightning') strikeLightning(world, karts, ev.k);
   }
@@ -155,6 +177,7 @@ export function applyItemEvent(world, karts, ev, f) {
 export function stepItems(world, karts, f, dt) {
   const out = [];
   stepBoxes(world.boxes, dt);
+  firePending(world, karts);
   world.flash = Math.max(0, world.flash - ITEM.FLASH_FADE * dt);
   karts.forEach((kart, k) => {
     if (kart.shock > 0) kart.shock = Math.max(0, kart.shock - dt);
