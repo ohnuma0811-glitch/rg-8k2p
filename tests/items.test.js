@@ -271,26 +271,6 @@ test('Star の車は、障害物に当たってもスピン・転がり・入れ
   assert.equal(plain.muddy, 4);
 });
 
-test('Lightning: 自分以外の全員が10秒左右入れ替わる（Star・自動の区間の車は効かない）。白い光と稲妻', () => {
-  const { karts, world, f } = setup(4);
-  karts[2].star = 3;
-  karts[3].auto = { id: 'jump' };
-  karts[0].held = 'lightning';
-  itemPress(world, karts, 0, f);
-  assert.equal(karts[0].muddy ?? 0, 0);
-  assert.equal(karts[1].muddy, ITEM.LIGHTNING_SWAP);
-  assert.equal(karts[1].shock, ITEM.LIGHTNING_SWAP);
-  assert.equal(karts[1].zap, ITEM.ZAP_SHOW);
-  assert.equal(karts[2].muddy ?? 0, 0);
-  assert.equal(karts[3].muddy ?? 0, 0);
-  assert.equal(world.flash, 1);
-  assert.equal(world.thunder, 1);
-  frames(world, karts, f, 1);
-  assert.equal(world.flash, 0, '白い光はすぐ消える');
-  assert.equal(karts[1].zap, 0);
-  assert.ok(karts[1].shock > 8.9 && karts[1].shock < 9.1);
-});
-
 test('I2: swapSteer は swapItem の目印をつけ、muddy が 0 になったら stepItems が消す（ぬかるみだけの muddy には付かない）', () => {
   const { karts, world, f } = setup();
   karts[1].muddy = 3; // ぬかるみ
@@ -399,14 +379,6 @@ test('バナナのふらふら（左右の入れ替わり）は、何かでス�
   stepKart(k, ctl, t, params, 1 / 60);
   assert.equal(k.muddy, 0);
   assert.equal(k.swapItem, false);
-  // 稲妻のときは、スピンしても入れ替わりのまま
-  const z = createKart(t, 10, 0);
-  initItems(z);
-  swapSteer(z, ITEM.LIGHTNING_SWAP);
-  z.shock = ITEM.LIGHTNING_SWAP;
-  z.spin = PHYS.SPIN_TIME;
-  stepKart(z, ctl, t, params, 1 / 60);
-  assert.ok(z.muddy > 9);
 });
 
 test('甲羅の速さは、使った車のキャラの最高速の2倍（paramsOf）', () => {

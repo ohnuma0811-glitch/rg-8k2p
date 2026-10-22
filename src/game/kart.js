@@ -53,6 +53,8 @@ export const PHYS = {
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4・7章）
 export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。ダートでもおそくならない
 export const STAR = { TIME: 9, TOP: 1.4, ACCEL: 2, TURN: 0.08 }; // TIME: 2026-10-22 のユーザー依頼で 6秒の 1.5倍。TOP: 同じ日の依頼「もっと速く」で 1.2 から // TURN: ハンドルの能力の数字1つ分（rad/s）
+// 稲妻（2026-10-22 のユーザー依頼）: 当たった車は35%に小さくなり、10秒間、最高速が75%
+export const LIGHTNING = { TIME: 10, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // BACK: 元の大きさにもどる秒数
 export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2, REST: 0.5 }; // REST: 着地してから走り出すまで止まっている秒数（2026-10-22 のユーザー依頼） // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
 
 function wrapAngle(a) {
@@ -125,7 +127,7 @@ function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
   if (going && factor < kart.boostFactor) return;
   kart.boost = going && factor === kart.boostFactor ? Math.max(kart.boost, time) : time;
   kart.boostFactor = factor;
-  kart.speed = Math.max(kart.speed, params.topSpeed * factor);
+  kart.speed = Math.max(kart.speed, params.topSpeed * (kart.smallTime > 0 ? LIGHTNING.SPEED : 1) * factor);
 }
 
 // Mushroom（アイテム）: 加速板と同じ加速を 1.5秒。その間はダートでもおそくならない
@@ -283,8 +285,8 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.hump = Math.max(0, kart.hump - dt);
   // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
   if (kart.spin > 0) {
-    // バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる（2026-10-22 のユーザー依頼）。稲妻の入れ替わり（kart.shock）とぬかるみは残す
-    if (kart.swapItem && !(kart.shock > 0)) {
+    // バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる（2026-10-22 のユーザー依頼）。ぬかるみは残す
+    if (kart.swapItem) {
       kart.muddy = 0;
       kart.swapItem = false;
     }
@@ -311,7 +313,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   if (!kart.airborne) {
     if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
     const starOn = kart.star > 0;
-    let maxV = params.topSpeed * (starOn ? STAR.TOP : 1);
+    let maxV = params.topSpeed * (starOn ? STAR.TOP : 1) * (kart.smallTime > 0 ? LIGHTNING.SPEED : 1); // 稲妻で小さい間は75%
     if (here.surface !== 'road' && !(kart.mushroom > 0) && !starOn) maxV *= PHYS.DIRT_FACTOR; // キノコと Star はダートでもおそくならない
     if (kart.boost > 0) maxV *= kart.boostFactor;
     // ハンドルを切ったりドリフトしたりすると、少し遅くなる

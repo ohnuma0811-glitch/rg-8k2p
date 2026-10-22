@@ -95,7 +95,6 @@ const timeEl = $('race-time');
 const rankEl = $('rank');
 const countEl = $('countdown');
 const itemIconEl = document.querySelector('#item-slot .icon');
-const zapGlow = $('zap-glow');
 const itemFlash = $('item-flash');
 const leftEl = $('time-left');
 const pauseBtn = $('btn-pause');
@@ -568,7 +567,6 @@ function removeGame() {
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
   game.itemView?.dispose();
   itemIconEl.innerHTML = '';
-  zapGlow.style.opacity = '0';
   itemFlash.style.opacity = '0';
   sfx.stopAll();
   crowd.stop();
@@ -637,7 +635,7 @@ function stepGame(dt) {
   if (track.oneWays.length) karts.forEach((kart) => oneWayContact(kart, track));
   // 橋の下の橋脚（Soki Forest）: ぶつかるとスピン
   if (track.bridgePiers?.length) karts.forEach((kart) => pierContact(kart, track, race.t, PHYS));
-  // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆。アイテムの入れ替わり（Banana・Lightning）も同じ kart.muddy なので、どのコースでも時間を減らす
+  // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆。アイテムの入れ替わり（Banana）も同じ kart.muddy なので、どのコースでも時間を減らす
   karts.forEach((kart) => mudContact(kart, track, dt));
   if (track.slows.length) karts.forEach((kart) => slowContact(kart, track, dt));
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
@@ -1192,7 +1190,7 @@ function renderGame(alpha, dt) {
     const ground = loc.ground ?? (track.def.theme === 'forest' ? -1.15 : 0);
     const h = Math.max(0, v.y - ground);
     sh.position.set(v.x, ground + 0.12, v.z);
-    sh.scale.setScalar(0.7 * Math.max(0.6, 1.4 - h * 0.06)); // 2026-10-17 のユーザー依頼で 7割の大きさに
+    sh.scale.setScalar(0.7 * (v.small ?? 1) * Math.max(0.6, 1.4 - h * 0.06)); // 2026-10-17 のユーザー依頼で 7割の大きさに
     sh.material.opacity = Math.max(0.12, 0.45 - h * 0.025);
   });
   placeCows(g.race.t);
@@ -1253,10 +1251,8 @@ function renderGame(alpha, dt) {
   // アイテム: 箱・バナナ・甲羅の見た目と、上の真ん中の枠
   if (g.items) {
     g.itemView.update(g.items, views, g.race.t);
-    // 稲妻: 落ちた瞬間の白い光。自分の左右が稲妻で入れ替わっている間は、画面の端が黄色く光る
-    itemFlash.style.opacity = String(g.items.flash * 0.9);
-    const meK2 = g.karts[g.me];
-    zapGlow.style.opacity = meK2.shock > 0 && meK2.muddy > 0 ? '1' : '0';
+    // 稲妻: 落ちた瞬間の白い光（約0.4秒で消える。2026-10-22 のユーザー依頼）
+    itemFlash.style.opacity = String(Math.min(1, g.items.flash));
     // ほかの車の入れ替わりの煙（近くの車だけ）
     views.forEach((v, k) => {
       if (k !== g.me && v.muddy > 0 && Math.hypot(v.x - mine.x, v.z - mine.z) < 80) effects.mud(v);
@@ -1293,7 +1289,7 @@ function renderGame(alpha, dt) {
     if (suck >= 1) meModel.visible = false;
   } else if (g.suckFrom) {
     g.suckFrom = null;
-    meModel.scale.setScalar(1);
+    meModel.scale.setScalar(kart.small ?? 1);
   }
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.swimmers && sg.visible) updateSea(sg, race.t, camera);
   speedLines.style.opacity = kart.boost > 0 ? 1 : 0;

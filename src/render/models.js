@@ -363,6 +363,7 @@ export function syncKartModel(model, kart) {
     stars.visible = tumbling && !flying;
     if (stars.visible) stars.rotation.y = since * 5;
   }
+  model.scale.setScalar(kart.small ?? 1); // 稲妻で小さくなる（2026-10-22 のユーザー依頼）。名前の札も子なので、いっしょに小さくなる
   // ドリフト中は内側を向き、進む向きと車の向きのずれが見える
   model.visible = !kart.swallowed && (kart.respawn <= 0 || Math.floor(kart.respawn * 8) % 2 === 0); // 恐竜に食べられている間は見えない
   // ハンドルを切る向きに、頭を少しかたむける

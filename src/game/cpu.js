@@ -287,7 +287,7 @@ export function cpuControl(cpu, kart, track, t, topSpeed = null) {
   // コブゾーン（Kyugo Mountain）: 手前から中まで、速すぎれば落とす（速いまま当たると跳ねて、すべる雪の上で向きを失う）
   const mogulBrake = (track.moguls ?? []).some((m) => samples[m.i].path === samples[loc.i].path && span(track, loc.s, samples[m.i].s) < 45) && kart.speed > 30;
   const slipBrake = grip < 1 && bend > CPU.BRAKE_BEND * 0.7 && kart.speed > CPU.CORNER_SPEED * (0.55 + 0.45 * grip);
-  // アイテムの入れ替わり（Banana・Lightning。kart.swapItem）: ふらふらと走る（ハンドルをゆらし、最高速の ITEM_SWAP_SPEED 倍まで）。ぬかるみは今まで通り
+  // アイテムの入れ替わり（Banana。kart.swapItem）: ふらふらと走る（ハンドルをゆらし、最高速の ITEM_SWAP_SPEED 倍まで）。ぬかるみは今まで通り
   const swapped = kart.swapItem && kart.muddy > 0;
   const swapSlow = swapped && topSpeed !== null && kart.speed > topSpeed * CPU.ITEM_SWAP_SPEED;
   const brake = lost || swapSlow || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||

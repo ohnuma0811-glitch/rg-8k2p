@@ -912,15 +912,6 @@ html, body {
 }
 #item-slot .icon svg { width: 68px; height: 68px; display: block; }
 #race-hud.solo-tt #item-slot { display: none; }
-/* 稲妻で左右が入れ替わっている間の、画面の端の黄色い光 */
-#zap-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  box-shadow: inset 0 0 60px 24px rgba(255, 220, 40, 0.85);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
 /* 稲妻が落ちた瞬間の白い光 */
 #item-flash {
   position: fixed;
@@ -928,6 +919,7 @@ html, body {
   pointer-events: none;
   background: #fff;
   opacity: 0;
+  z-index: 60;
 }
 
 /* GAME CODE の画面（M4-A） */

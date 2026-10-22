@@ -1,6 +1,6 @@
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md）: 枠・ルーレット・ITEM ボタンの順番・使ったときの効果
 // ボタンを押したことは「出来事」（{ type, k, t, ... }）にして applyItemEvent で効かせる（M4 の対戦で、ほかの端末にも同じ出来事を送るため）
-import { useMushroom, STAR, startBlast } from './kart.js';
+import { useMushroom, STAR, startBlast, LIGHTNING, BLAST } from './kart.js';
 import { rollItem } from './itemOdds.js';
 import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js';
 import { locate } from './track.js';
@@ -10,7 +10,9 @@ import { launchShell, stepShells, guard, SHELL } from './shells.js';
 export const ITEM = {
   ROULETTE: 2, // ルーレットが回る秒数
   BANANA_SWAP: 5, // バナナを踏むと、ハンドルの左右が入れ替わる秒数
-  LIGHTNING_SWAP: 10, // 稲妻の入れ替わりの秒数
+  LIGHTNING_TIME: LIGHTNING.TIME, // 稲妻で小さくなっている秒数（当たってから）
+  LIGHTNING_SCALE: LIGHTNING.SCALE, // そのときの大きさ
+  LIGHTNING_SPEED: LIGHTNING.SPEED, // そのときの最高速の倍率
   BANANA_DROP: 3, // バナナを置く所（車の後ろ m）
   BANANA_SET: 5, // バナナは5個セット。1回目の ITEM で5個を後ろにぶら下げ、そのあと1回ごとに1個置く（2026-10-22 のユーザー依頼）
   BANANA_MAX: 20, // コース全体のバナナの数（超えたら古い物から消える。5個セットにしたので10から20へ）
@@ -21,12 +23,12 @@ export const ITEM = {
   ORBIT_R: 2.4, // 回る緑の甲羅の、車の中心からの距離（m）
   ORBIT_SPIN: 5, // 回る速さ（rad/s）
   ZAP_SHOW: 0.5, // 稲妻が見えている秒数
-  FLASH_FADE: 4, // 稲妻の白い光が消える速さ（1秒に）
+  FLASH_FADE: 2.5, // 稲妻の白い光が消える速さ（1秒に。約0.4秒で消える）
 };
 
 // 車にアイテムの性質を足す（レースの最初に1回。コースに戻っても消さない）
 export function initItems(kart) {
-  Object.assign(kart, { held: null, roulette: 0, rouletteItem: null, orbit: [], orbitAngle: 0, trailing: 0, shock: 0, zap: 0 });
+  Object.assign(kart, { held: null, roulette: 0, rouletteItem: null, orbit: [], orbitAngle: 0, trailing: 0, zap: 0, small: 1, smallTime: 0 });
 }
 
 // レースのアイテムの世界（箱・置かれたバナナ・飛んでいる甲羅）
@@ -53,15 +55,31 @@ export function swapSteer(kart, time) {
   return true;
 }
 
-// 稲妻: 自分以外の全員の左右を10秒入れ替える（効いた車に稲妻が見える）。画面は一瞬白く光る
+// 稲妻（2026-10-22 のユーザー依頼）: 自分以外の全員が、赤甲羅と同じようにスピンしながら35%に小さくなり、10秒間、最高速が75%。
+// 効いた車に稲妻が見える。画面は白く光る。Star の車と自動の区間の車には効かない。すでに小さい車は、10秒をやり直してスピンする
 function strikeLightning(world, karts, k) {
   karts.forEach((o, j) => {
-    if (j === k || !swapSteer(o, ITEM.LIGHTNING_SWAP)) return;
-    o.shock = Math.max(o.shock ?? 0, ITEM.LIGHTNING_SWAP);
+    if (j === k || o.star > 0 || o.auto) return;
+    o.smallTime = ITEM.LIGHTNING_TIME;
+    startBlast(o, world.track); // スピン中ならそのまま（false）
     o.zap = ITEM.ZAP_SHOW;
   });
   world.flash = 1;
   world.thunder += 1;
+}
+
+// 小さくなっている車の大きさ（kart.small）を進める: スピンの間に1→0.35、そのあと0.35、終わりの BACK 秒で1にもどる
+function stepSmall(kart, dt) {
+  if (kart.smallTime > 0) {
+    kart.smallTime = Math.max(0, kart.smallTime - dt);
+    const down = kart.blast > 0 ? 1 - kart.blast / BLAST.TIME : 1; // スピンの進み 0 → 1
+    const shrink = 1 - (1 - ITEM.LIGHTNING_SCALE) * down;
+    const back = Math.min(1, kart.smallTime / LIGHTNING.BACK); // 1 → 0
+    const target = 1 - (1 - shrink) * back;
+    kart.small = kart.blast > 0 ? Math.min(kart.small, target) : target; // スピン中は、もう小さい車がまた大きくならない
+  } else if (kart.small !== 1) {
+    kart.small = 1;
+  }
 }
 
 // バナナを置く（車の 3m 後ろの地面）。コース全体で10個まで
@@ -194,7 +212,7 @@ export function stepItems(world, karts, f, dt) {
   firePending(world, karts);
   world.flash = Math.max(0, world.flash - ITEM.FLASH_FADE * dt);
   karts.forEach((kart, k) => {
-    if (kart.shock > 0) kart.shock = Math.max(0, kart.shock - dt);
+    stepSmall(kart, dt);
     if (kart.swapItem && !(kart.muddy > 0)) kart.swapItem = false;
     if (kart.zap > 0) kart.zap = Math.max(0, kart.zap - dt);
     kart.orbitAngle = (kart.orbitAngle + ITEM.ORBIT_SPIN * dt) % (2 * Math.PI);
