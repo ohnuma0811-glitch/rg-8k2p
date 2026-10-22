@@ -1,6 +1,6 @@
 // ゲームマスター（KENTA）の画面（URL の後ろに #gm。設計書 docs/superpowers/specs/2026-10-22-gamecode-design.md の 5章）
 // 縦に並べる: Code（数字ボタンで4けた → Set、Stop）、Players、Locked（Unlock）、Play time（Reset）、Daily limit
-import { connect, signInGoogle, gmRedirectResult, signOut, storeOf } from './net/firebase.js';
+import { connect, signInGoogle, gmRedirectResult, signOut, storeOf, firebaseReady } from './net/firebase.js';
 import { dayKey, LIMITED_NAMES, DEFAULT_LIMIT_MIN } from './playtime.js';
 
 export function newCodeId(now, rand = Math.random) {
@@ -30,6 +30,10 @@ export async function gmScreen(root) {
   root.classList.add('show', 'gm');
   root.innerHTML = '<div class="panel gm-panel"><h1>Game Master</h1><p class="note">...</p></div>';
   const panel = root.querySelector('.gm-panel');
+  if (!firebaseReady()) {
+    panel.innerHTML = '<h1>Game Master</h1><p class="note">Not set up yet</p>'; // Firebase の設定がまだ空（docs/firebase-setup.md）
+    return;
+  }
   let uid = await gmRedirectResult().catch(() => null);
   if (!uid) {
     panel.innerHTML = '<h1>Game Master</h1><div class="choices"><button type="button" class="gm-signin">Sign in with Google</button></div>';
