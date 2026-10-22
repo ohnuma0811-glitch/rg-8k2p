@@ -296,3 +296,11 @@ test('I3: 赤の甲羅は、ゴール済みの車をねらわない（その前�
   assert.equal(ev.target, null);
   assert.equal(world.shells[1].target, null);
 });
+
+test('M1: main.js の stepGame は、starGuard → 障害物 → 木の実（nutContact）→ starRestore の順（Star の車が木の実でスピンしない）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const at = (s) => src.indexOf(s);
+  assert.ok(at('starGuard(karts)') > 0 && at('starGuard(karts)') < at('cowContact(kart'));
+  assert.ok(at('nutContact(kart') > 0 && at('starRestore(karts') > at('nutContact(kart'));
+});

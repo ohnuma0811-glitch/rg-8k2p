@@ -644,7 +644,6 @@ function stepGame(dt) {
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆。アイテムの入れ替わり（Banana・Lightning）も同じ kart.muddy なので、どのコースでも時間を減らす
   karts.forEach((kart) => mudContact(kart, track, dt));
   if (track.slows.length) karts.forEach((kart) => slowContact(kart, track, dt));
-  starRestore(karts, starSaved);
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
   // 悲鳴は自分が食べられたときだけ（2026-10-16 のユーザー依頼）
   if (track.dino) karts.forEach((kart) => {
@@ -659,6 +658,7 @@ function stepGame(dt) {
     karts.forEach((kart) => nutContact(kart, g.nuts, race.t, PHYS, { keep: true }));
     dropFallen(g.nuts, race.t);
   }
+  starRestore(karts, starSaved); // 木の実のあとで元にもどす（Star の車は木の実でもスピンしない）
   // アイテム（M3-A）: ITEM ボタン → 箱・ルーレット・バナナ・甲羅・Star の当たり
   if (g.items) {
     karts.forEach((kart, k) => {
