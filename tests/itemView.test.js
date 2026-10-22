@@ -56,3 +56,23 @@ test('稲妻が落ちた車の上に、稲妻が見える（zap の間だけ）'
   view.update(world, [kart], 0.1);
   assert.equal(bolt.visible, false);
 });
+
+test('M2: 稲妻は、幅 0.5m ほどの太いぎざぎざの帯で、高さ 30m（1px の線ではない）', () => {
+  const scene = new THREE.Scene();
+  const world = createItemWorld(buildTrack(COURSES[0]));
+  const view = createItemView(scene);
+  view.update(world, [{ x: 0, y: 0, z: 0, heading: 0, star: 0, orbit: [], zap: 0.3 }], 0);
+  const bolt = scene.children.find((o) => o.userData.kind === 'bolt');
+  assert.ok(bolt.isMesh && !bolt.isLine, 'メッシュ');
+  assert.ok(bolt.material.isMeshBasicMaterial);
+  assert.equal(bolt.material.color.getHex(), 0xfff27a);
+  bolt.geometry.computeBoundingBox();
+  const bb = bolt.geometry.boundingBox;
+  assert.ok(bb.max.y - bb.min.y >= 29.9, '高さ');
+  assert.ok(bb.max.x - bb.min.x >= 2, 'ぎざぎざ');
+  const pos = bolt.geometry.attributes.position;
+  assert.ok(pos.count >= 6 * 8, '帯の三角形');
+  assert.ok(Math.abs(pos.getX(1) - pos.getX(0) - 0.5) < 1e-6, '幅 0.5m');
+  view.dispose();
+  assert.equal(scene.children.length, 0);
+});

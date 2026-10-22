@@ -41,6 +41,25 @@ function shellGeometry() {
   return g;
 }
 
+// 稲妻: 空（30m）から車までの、ぎざぎざの太い線（幅 0.5m の平らな帯を、前後と左右の2枚、十字に。どの向きからも見える）
+export const BOLT = { HEIGHT: 30, WIDTH: 0.5, STEPS: 8 };
+function boltGeometry() {
+  const pos = [];
+  const w = BOLT.WIDTH / 2;
+  const pts = [];
+  for (let n = 0; n <= BOLT.STEPS; n++) pts.push({ y: BOLT.HEIGHT * (1 - n / BOLT.STEPS), off: n === 0 || n === BOLT.STEPS ? 0 : n % 2 ? 1.2 : -1.2 });
+  for (let n = 0; n < BOLT.STEPS; n++) {
+    const a = pts[n];
+    const b = pts[n + 1];
+    // 平らな帯（xy 面と zy 面）。帯の幅は水平方向に w ずつ
+    pos.push(a.off - w, a.y, 0, a.off + w, a.y, 0, b.off + w, b.y, 0, a.off - w, a.y, 0, b.off + w, b.y, 0, b.off - w, b.y, 0);
+    pos.push(0, a.y, a.off - w, 0, a.y, a.off + w, 0, b.y, b.off + w, 0, a.y, a.off - w, 0, b.y, b.off + w, 0, b.y, b.off - w);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return g;
+}
+
 export function createItemView(scene) {
   const dummy = new THREE.Object3D();
   const map = questionMap();
@@ -62,9 +81,7 @@ export function createItemView(scene) {
   const bolts = [];
   const bolt = (i) => {
     if (!bolts[i]) {
-      const pts = [];
-      for (let n = 0; n <= 8; n++) pts.push(new THREE.Vector3(n % 2 ? 1.2 : -1.2, 30 - n * 3.6, n % 3 ? 0.8 : -0.8));
-      const m = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xfff27a }));
+      const m = new THREE.Mesh(boltGeometry(), new THREE.MeshBasicMaterial({ color: 0xfff27a, side: THREE.DoubleSide }));
       m.userData.kind = 'bolt';
       m.visible = false;
       scene.add(m);
