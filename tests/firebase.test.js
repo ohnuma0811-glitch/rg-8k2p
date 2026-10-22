@@ -23,3 +23,10 @@ test('「Client is offline.」のメッセージは offline として扱う', ()
   assert.equal(normalizeError(new Error('network is offline now')).offline, true);
   assert.equal(normalizeError(new Error('other')).offline, undefined);
 });
+
+test('GM のログインは iPhone でも signInWithPopup（リダイレクトは第三者ストレージの分離で戻ってこない）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/net/firebase.js', import.meta.url), 'utf8');
+  assert.ok(!/signInWithRedirect/.test(src));
+  assert.ok(/signInWithPopup/.test(src));
+});

@@ -39,24 +39,18 @@ export async function signInAnon() {
   return f.auth.currentUser.uid;
 }
 
-const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
-
-// GM の Google ログイン。iPhone・iPad は Google の画面へ移って戻ってくる（戻ったら gmRedirectResult）
+// GM の Google ログイン。iPhone・iPad でも、ボタンを押したときのポップアップ（リダイレクトは、第三者ストレージの分離で戻ってこないことがある）
 export async function signInGoogle() {
   const f = await connect();
   const provider = new f.mods.auth.GoogleAuthProvider();
-  if (isIOS()) {
-    await f.mods.auth.signInWithRedirect(f.auth, provider);
-    return null;
-  }
   const r = await f.mods.auth.signInWithPopup(f.auth, provider);
   return r.user.uid;
 }
 
+// 前の画面の名残。Google でログインしていれば、その uid を返すだけ
 export async function gmRedirectResult() {
   const f = await connect();
-  const r = await f.mods.auth.getRedirectResult(f.auth).catch(() => null);
-  return r?.user?.uid ?? (f.auth.currentUser && !f.auth.currentUser.isAnonymous ? f.auth.currentUser.uid : null);
+  return (f.auth.currentUser && !f.auth.currentUser.isAnonymous ? f.auth.currentUser.uid : null);
 }
 
 export async function signOut() {
