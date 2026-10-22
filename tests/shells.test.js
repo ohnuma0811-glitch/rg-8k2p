@@ -219,3 +219,14 @@ test('I1: 赤の甲羅は、本道から撃っても、入れ子の分かれ道�
   const out = fly(world, [me, target], 12);
   assert.ok(out.some((e) => e.type === 'blast' && e.k === 1), JSON.stringify(out));
 });
+
+test('回っている甲羅で守ったら orbitBlocked も数える（爆発の音のため。2026-10-23 のユーザー依頼）', async () => {
+  const { guard } = await import('../src/game/shells.js');
+  const k = { heading: 0, orbit: [0, 1, 2], orbitAngle: 0, trailing: 0 };
+  assert.equal(guard(k, 0, false), 'orbit');
+  assert.equal(k.blocked, 1);
+  assert.equal(k.orbitBlocked, 1);
+  const t = { heading: 0, orbit: [], orbitAngle: 0, trailing: 2 };
+  assert.equal(guard(t, Math.PI, true), 'trail');
+  assert.equal(t.orbitBlocked ?? 0, 0);
+});

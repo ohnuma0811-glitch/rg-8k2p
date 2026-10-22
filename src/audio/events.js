@@ -72,6 +72,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     thrown: kart.thrown || 0, // 甲羅を出した回数
     bananaHits: kart.bananaHits || 0,
     blocked: kart.blocked || 0, // 回る甲羅・ぶら下げたバナナで守った回数
+    orbitBlocked: kart.orbitBlocked || 0, // そのうち、回る甲羅で守った回数
     star: (kart.star || 0) > 0,
     thunder, // 稲妻が落ちた回数（だれが使っても）
     blastsHeard, // 聞こえた爆発の数（自分か、近くの車が吹き飛んだ）
@@ -145,8 +146,10 @@ export function soundEvents(prev, cur, laps) {
   if (!cur.roulette && prev.roulette && cur.held) ev.push('itemGet');
   if (cur.thrown > prev.thrown) ev.push('shellOut');
   if (cur.bananaHits > prev.bananaHits) ev.push('bananaHit');
-  if (cur.blocked > prev.blocked) ev.push('guard');
-  if (cur.blastsHeard > prev.blastsHeard) ev.push('explosion');
+  // 回る甲羅でバナナや甲羅をこわしたら爆発の音、ぶら下げたバナナで守ったら今の音（2026-10-23 のユーザー依頼）
+  const boom = cur.orbitBlocked > prev.orbitBlocked;
+  if (cur.blocked > prev.blocked && !boom) ev.push('guard');
+  if (cur.blastsHeard > prev.blastsHeard || boom) ev.push('explosion');
   if (cur.squashesHeard > prev.squashesHeard) ev.push('squash');
   if (cur.thunder > prev.thunder) ev.push('thunder');
   if (cur.star && !prev.star) ev.push('starOn'); // Star のメロディは、自分の車が Star のときだけ（2026-10-22 のユーザー依頼）

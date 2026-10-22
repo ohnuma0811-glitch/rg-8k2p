@@ -32,6 +32,7 @@ export function guard(kart, ang, shell) {
     if (Math.cos(ang - a) >= 0.5 - 1e-9) {
       kart.orbit.splice(n, 1);
       kart.blocked = (kart.blocked || 0) + 1;
+      kart.orbitBlocked = (kart.orbitBlocked || 0) + 1; // 回る甲羅でこわした（爆発の音。2026-10-23 のユーザー依頼）
       return 'orbit';
     }
   }

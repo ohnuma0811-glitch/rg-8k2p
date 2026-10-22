@@ -282,3 +282,13 @@ test('アイテムの音: 爆発（自分か近くの車が吹き飛んだ）、
   const c = itemSt(itemKart({ star: 0 }), { thunder: 1, blastsHeard: 1 });
   assert.deepEqual(soundEvents(b, c, 3).filter((e) => e.startsWith('star')), ['starOff']);
 });
+
+test('アイテムの音: 回っている甲羅でバナナや甲羅をこわしたら爆発の音（2026-10-23 のユーザー依頼）。ぶら下げたバナナで守ったときは今の音', () => {
+  const a = itemSt(itemKart());
+  const orbit = soundEvents(a, itemSt(itemKart({ blocked: 1, orbitBlocked: 1 })), 3);
+  assert.ok(orbit.includes('explosion'));
+  assert.ok(!orbit.includes('guard'));
+  const trail = soundEvents(a, itemSt(itemKart({ blocked: 1 })), 3);
+  assert.ok(trail.includes('guard'));
+  assert.ok(!trail.includes('explosion'));
+});
