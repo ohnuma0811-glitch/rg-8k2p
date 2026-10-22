@@ -11,6 +11,13 @@ export async function enterLobby(db, me) {
   await db.set(`lobby/${me.uid}`, { name: me.name, char: me.char, codeId: me.codeId, ready: false, at: db.SERVER_TIME });
 }
 
+// 電波がもどったとき（スマホを裏にした・ほかのアプリで通話した など）。切れたときにサーバーが自分の行を消しているので、
+// 行を書き直し、削除の予約もかけ直す。チャットと部屋はさわらない（2026-10-22 READY が黄色にならなかった不具合）
+export async function rejoinLobby(db, me) {
+  await db.onDisconnectRemove(`lobby/${me.uid}`);
+  await db.set(`lobby/${me.uid}`, { name: me.name, char: me.char, codeId: me.codeId, ready: false, at: db.SERVER_TIME });
+}
+
 // 出る。アプリを閉じたときの自動の削除も取り消す（あとで電波がもどったとき、入り直した新しい行を消さないように）
 export async function leaveLobby(db, uid) {
   const cancel = db.cancelOnDisconnect ? db.cancelOnDisconnect(`lobby/${uid}`).catch(() => {}) : null;

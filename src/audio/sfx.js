@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=3562af2';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=3562af2';
+import { midiToHz } from './notes.js?v=fe31b32';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=fe31b32';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -169,6 +169,13 @@ export function createSfx(audio) {
       burst('lowpass', 1600, 70, 0.6, 1.0);
       tone('sine', 90, 0.5, 0.6, { to: 35 });
       burst('highpass', 3000, 1500, 0.15, 0.25);
+    },
+    // 小さい車がぺしゃんこ「ぷちゅっ」: 高い音がすっと下がり、短い雑音のはじける音が重なる（2026-10-22 のユーザー依頼）
+    squash: () => {
+      tone('sine', 900, 0.28, 0.55, { to: 90 });
+      tone('square', 420, 0.14, 0.18, { to: 70 });
+      burst('bandpass', 2800, 500, 0.12, 0.7);
+      burst('lowpass', 700, 150, 0.25, 0.5);
     },
     // ドリフトのボタンで跳ねたとき「ピヨン」: 高く上がって、少し戻る（2026-10-15 のユーザー依頼）
     hop: () => boing(),

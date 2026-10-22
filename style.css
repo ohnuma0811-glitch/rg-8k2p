@@ -912,15 +912,6 @@ html, body {
 }
 #item-slot .icon svg { width: 68px; height: 68px; display: block; }
 #race-hud.solo-tt #item-slot { display: none; }
-/* 稲妻で左右が入れ替わっている間の、画面の端の黄色い光 */
-#zap-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  box-shadow: inset 0 0 60px 24px rgba(255, 220, 40, 0.85);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
 /* 稲妻が落ちた瞬間の白い光 */
 #item-flash {
   position: fixed;
@@ -928,6 +919,7 @@ html, body {
   pointer-events: none;
   background: #fff;
   opacity: 0;
+  z-index: 60;
 }
 
 /* GAME CODE の画面（M4-A） */
@@ -955,9 +947,11 @@ html, body {
 #menu .lobby { width: min(980px, 100%); height: 100%; display: flex; flex-direction: column; gap: 8px; padding: 8px; box-sizing: border-box; }
 #menu .lb-top { display: flex; gap: 8px; align-items: center; }
 #menu .lb-top .back-btn { position: static; }
-#menu .lb-top button { padding: 6px 12px; border: 2px solid #fff; border-radius: 10px; background: #1c3c88; color: #fff; font: bold 15px system-ui, sans-serif; }
+#menu .lb-top button { white-space: nowrap; padding: 6px 12px; border: 2px solid #fff; border-radius: 10px; background: #1c3c88; color: #fff; font: bold 15px system-ui, sans-serif; }
 #menu .lb-ready-btn { margin-left: auto; padding: 10px 26px !important; font-size: 20px !important; background: #2fa36b !important; }
 #menu .lb-ready-btn.on { background: #ffd34a !important; color: #222 !important; }
+#menu .lb-ready-btn.off { visibility: hidden; }
+#menu .lb-presets button.used { opacity: 0.4; } /* 今送った定型文（続けては送れない） */
 #menu .lb-gear { display: flex; gap: 8px; }
 #menu .lb-gear.hidden, #menu .lb-vote.hidden { display: none; }
 #menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); /* チャットの列は画面の幅まで（定型文の列が長くても広がらない） */ gap: 8px; position: relative; /* 投票の覆いは、ここ（一覧とチャット）だけにかぶせる。BACK などの上の段は押せるまま */ }
@@ -986,5 +980,9 @@ html, body {
 #menu .vote-picked { font: bold 24px system-ui, sans-serif; min-height: 1.4em; }
 @media (max-height: 430px) {
   #menu .lb-main { grid-template-columns: 170px minmax(0, 1fr); }
+  #menu .lb-top, #menu .lb-gear { gap: 5px; }
+  #menu .lb-top button { padding: 5px 8px; font-size: 13px; }
+  #menu .lb-top .wide { display: none; }
+  #menu .lb-ready-btn { padding: 8px 16px !important; font-size: 17px !important; }
   #menu .vote-course { min-height: 64px; }
 }

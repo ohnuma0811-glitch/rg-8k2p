@@ -1,6 +1,6 @@
 // Firebase を読み込んでつなぐ（対戦か GM 画面を開いたときだけ。SOLO では読み込まない）
 // 読み書きは storeOf(f) の形にまとめる（src/net/gamecode.js などは、この形だけを使う）
-import { FIREBASE } from '../config.js?v=3562af2';
+import { FIREBASE } from '../config.js?v=fe31b32';
 
 const VER = '10.14.1';
 const BASE = `https://www.gstatic.com/firebasejs/${VER}`;
@@ -79,6 +79,7 @@ export function storeOf(f) {
     onDisconnectRemove: (path) => wrap(onDisconnect(r(path)).remove()), // 電波が切れた・アプリを閉じたら、サーバーが消す
     cancelOnDisconnect: (path) => wrap(onDisconnect(r(path)).cancel()),
     watch: (path, cb, { last } = {}) => onValue(last ? query(r(path), limitToLast(last)) : r(path), (s) => cb(val(s))), // やめる関数を返す
+    connected: (cb) => onValue(ref(f.db, '.info/connected'), (s) => cb(s.val() === true)), // つながっているか（やめる関数を返す）
     serverOffset: (cb) => onValue(ref(f.db, '.info/serverTimeOffset'), (s) => cb(s.val() ?? 0)),
   };
 }

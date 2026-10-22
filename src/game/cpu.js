@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=3562af2';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=3562af2';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=fe31b32';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=fe31b32';
 
 export const CPU = {
   ITEM_SWAP_SPEED: 0.75, // アイテムで左右が入れ替わっている間の、最高速に対する上限
@@ -287,7 +287,7 @@ export function cpuControl(cpu, kart, track, t, topSpeed = null) {
   // コブゾーン（Kyugo Mountain）: 手前から中まで、速すぎれば落とす（速いまま当たると跳ねて、すべる雪の上で向きを失う）
   const mogulBrake = (track.moguls ?? []).some((m) => samples[m.i].path === samples[loc.i].path && span(track, loc.s, samples[m.i].s) < 45) && kart.speed > 30;
   const slipBrake = grip < 1 && bend > CPU.BRAKE_BEND * 0.7 && kart.speed > CPU.CORNER_SPEED * (0.55 + 0.45 * grip);
-  // アイテムの入れ替わり（Banana・Lightning。kart.swapItem）: ふらふらと走る（ハンドルをゆらし、最高速の ITEM_SWAP_SPEED 倍まで）。ぬかるみは今まで通り
+  // アイテムの入れ替わり（Banana。kart.swapItem）: ふらふらと走る（ハンドルをゆらし、最高速の ITEM_SWAP_SPEED 倍まで）。ぬかるみは今まで通り
   const swapped = kart.swapItem && kart.muddy > 0;
   const swapSlow = swapped && topSpeed !== null && kart.speed > topSpeed * CPU.ITEM_SWAP_SPEED;
   const brake = lost || swapSlow || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||

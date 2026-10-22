@@ -1,9 +1,11 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=3562af2';
-import { PHYS, BLAST } from '../game/kart.js?v=3562af2';
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=3562af2';
-import { animalHead, animalBody } from './animals.js?v=3562af2';
+import * as THREE from '../../vendor/three.module.min.js?v=fe31b32';
+import { PHYS, BLAST, SQUASH } from '../game/kart.js?v=fe31b32';
+const SQUASH_FLAT = 0.06; // ぺしゃんこの厚み（元の大きさに対して）
+const SQUASH_WIDE = 1.4; // ぺしゃんこで横に広がる倍率
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=fe31b32';
+import { animalHead, animalBody } from './animals.js?v=fe31b32';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
@@ -120,11 +122,11 @@ export const CHARACTERS = {
   // 赤い野球帽をかぶる。帽子の下から、こげ茶の髪が少しのぞく（2026-10-15 のユーザー依頼）
   soki: { hair: 'cap', shirt: 0x1c3c88, hairColor: 0x2b1d16, capColor: 0xd7261b },
   // 動物たち（M3 の後半。2026-10-22）: animal は src/render/animals.js の頭、hand は手の色、size は大きさの倍率（見た目だけ）
-  penguin: { animal: 'penguin', shirt: 0x1a1a1a, hand: 0x1a1a1a },
+  penguin: { animal: 'penguin', shirt: 0x1a1a1a, hand: 0x1a1a1a, build: 1.3 },
   rabbit: { animal: 'rabbit', shirt: 0xff7eb6, hand: 0xf7f4f0 },
   mouse: { animal: 'mouse', shirt: 0x2fa36b, hand: 0x9a9aa6 },
-  tiger: { animal: 'tiger', shirt: 0xf08a24, hand: 0xf08a24 },
-  elephant: { animal: 'elephant', shirt: 0x8e44ad, hand: 0x8c96a0, size: 1.18 },
+  tiger: { animal: 'tiger', shirt: 0xf08a24, hand: 0xf08a24, build: 1.3 },
+  elephant: { animal: 'elephant', shirt: 0x8e44ad, hand: 0x8c96a0, size: 1.18, build: 1.3 },
   cat: { animal: 'cat', shirt: 0x3a3a48, hand: 0x26262e },
 };
 
@@ -250,20 +252,22 @@ function head(look) {
   return g;
 }
 
-// 座った体（シャツと胸の白いマーク）、腕、ハンドル
+// 座った体（シャツと胸の白いマーク）、腕、ハンドル。look.build で体の太さ（Penguin-man・Tiger・Elephant は体格がよい。2026-10-22 のユーザー依頼）
 function driver(look) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.5, 10), mat(look.shirt));
-  body.position.set(0, 0.25, 0);
+  const bw = look.build ?? 1; // 横の太さ
+  const bh = 1 + (bw - 1) * 0.4; // 高さは少しだけ
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * bw, 0.3 * bw, 0.5 * bh, 10), mat(look.shirt));
+  body.position.set(0, 0.25 * bh, 0);
   g.add(body);
   if (!look.animal) g.add(box(0.02, 0.12, 0.12, WHITE, 0.28, 0.32, 0)); // 胸のマーク
   // 腕（そで → 手）を前に出して、ハンドルを握る
-  for (const z of [-0.28, 0.28]) {
-    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.32, 8), mat(look.shirt));
-    sleeve.position.set(0.12, 0.38, z);
+  for (const z of [-0.28 * bw, 0.28 * bw]) {
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * bw, 0.09 * bw, 0.32, 8), mat(look.shirt));
+    sleeve.position.set(0.12, 0.38 * bh, z);
     sleeve.rotation.z = -Math.PI / 2.6;
     g.add(sleeve);
-    g.add(ball(0.08, look.hand ?? SKIN, 0.42, 0.3, z * 0.85, 8));
+    g.add(ball(0.08 * bw, look.hand ?? SKIN, 0.42, 0.3, z * 0.85, 8));
   }
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.04, 6, 16), mat(DARK));
   wheel.position.set(0.48, 0.3, 0);
@@ -272,9 +276,14 @@ function driver(look) {
   wheel.rotation.z = 0.5;
   g.add(wheel);
   g.add(box(0.3, 0.05, 0.05, DARK, 0.62, 0.18, 0)); // ハンドルの軸
-  if (look.animal) animalBody(g, look);
+  if (look.animal) {
+    const deco = new THREE.Group(); // 体の飾りも体の太さに合わせる
+    animalBody(deco, look);
+    deco.scale.set(bw, bh, bw);
+    g.add(deco);
+  }
   const h = head(look);
-  h.position.set(0.02, 0.92, 0);
+  h.position.set(0.02, 0.92 + 0.5 * (bh - 1), 0);
   g.add(h);
   g.userData.head = h;
   return g;
@@ -356,8 +365,30 @@ export function syncKartModel(model, kart) {
   const blastLift = kart.blast > 0 ? 4 * BLAST.HEIGHT * bu * (1 - bu) : 0;
   model.position.set(kart.x, kart.y + hop + lift + fly + blastLift, kart.z);
   model.rotation.y = -(kart.heading + (kart.blast > 0 ? BLAST.TURNS * 2 * Math.PI * bu : 0));
+  model.scale.setScalar(kart.small ?? 1); // 稲妻で小さくなる（2026-10-22 のユーザー依頼）。名前の札も子なので、いっしょに小さくなる
   model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.2 : 0;
   model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
+  // ぺしゃんこ（小さい車が大きい車にぶつかった。2026-10-22 のユーザー依頼）: 平らで少し広がり、紙のようにひらひら舞い上がって、ゆらゆら落ちる
+  if (kart.squash > 0) {
+    const q = 1 - kart.squash / SQUASH.TIME; // 0 → 1
+    const w = (kart.small ?? 1) * SQUASH_WIDE;
+    model.scale.set(w, SQUASH_FLAT, w);
+    model.position.y += SQUASH.LIFT * Math.sin(q * Math.PI) * (1 - 0.3 * q);
+    model.rotation.z = Math.sin(q * Math.PI * 6) * 0.5 * (1 - 0.5 * q);
+    model.rotation.x = Math.sin(q * Math.PI * 4 + 1) * 0.35 * (1 - 0.5 * q);
+  }
+  // 名前の札は、ぺしゃんこでも平らにならず、小さい車の頭の上あたりに見えるまま
+  const tag = model.children.find((c) => c.isSprite);
+  if (tag) {
+    if (kart.squash > 0) {
+      const w = (kart.small ?? 1) * SQUASH_WIDE;
+      tag.scale.set((TAG_SCREEN * 4) / w, TAG_SCREEN / SQUASH_FLAT, 1);
+      tag.position.set(-0.45, (4.3 * (kart.small ?? 1)) / SQUASH_FLAT, 0);
+    } else {
+      tag.scale.set(TAG_SCREEN * 4, TAG_SCREEN, 1);
+      tag.position.set(-0.45, 4.3, 0);
+    }
+  }
   const stars = model.userData.stars;
   if (stars) {
     stars.visible = tumbling && !flying;

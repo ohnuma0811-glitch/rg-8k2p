@@ -1,8 +1,8 @@
 // アイテムの見た目: 「?」の箱、バナナ、甲羅（飛ぶ・回る）、Star の虹色、稲妻
 // 箱・バナナ・甲羅は、種類ごとに1回で描く（InstancedMesh。タブレットで描く回数を増やさない）
-import * as THREE from '../../vendor/three.module.min.js?v=3562af2';
-import { BOX_SIZE } from '../game/itemBoxes.js?v=3562af2';
-import { ITEM } from '../game/items.js?v=3562af2';
+import * as THREE from '../../vendor/three.module.min.js?v=fe31b32';
+import { BOX_SIZE } from '../game/itemBoxes.js?v=fe31b32';
+import { ITEM } from '../game/items.js?v=fe31b32';
 
 const MAX_BOX = 40;
 const MAX_BANANA = 64; // 置いたバナナ 20 個と、ぶら下げたバナナ（5個 × 8台）
@@ -29,28 +29,50 @@ function questionMap() {
   return qTexture;
 }
 
-// バナナ: 弓なりに曲がった、両はしが細い黄色い実。はしは茶色（2026-10-22 のユーザー依頼「バナナぽく」）
+// バナナ: むいたバナナが縦に立っている形（2026-10-22 のユーザー依頼）。まん中にクリーム色の実、
+// 下の黄色い皮から4枚の皮が外へ開いて垂れ下がる。いちばん下に茶色の軸。色は頂点の色（材質は白）
 function bananaGeometry() {
-  const seg = 16;
-  const rad = 8;
-  const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-0.85, 0.4, 0), new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0.85, 0.4, 0));
-  const g = new THREE.TubeGeometry(curve, seg, 0.22, rad, false);
-  const pos = g.attributes.position;
-  const col = [];
-  for (let i = 0; i <= seg; i++) {
-    const u = i / seg;
-    const taper = 0.2 + 0.8 * Math.sin(Math.PI * u); // 両はしを細く
-    const c = curve.getPoint(u);
-    const tip = u < 0.05 || u > 0.95; // はしの1段だけ茶色
-    for (let j = 0; j <= rad; j++) {
-      const k = i * (rad + 1) + j;
-      pos.setXYZ(k, c.x + (pos.getX(k) - c.x) * taper, c.y + (pos.getY(k) - c.y) * taper, c.z + (pos.getZ(k) - c.z) * taper);
-      col.push(...(tip ? [0.35, 0.22, 0.06] : [1, 0.86, 0.18]));
+  const parts = [];
+  const add = (g, rgb) => parts.push([g.index ? g.toNonIndexed() : g, rgb]);
+  // 下の皮（つつ）と茶色の軸
+  add(new THREE.CylinderGeometry(0.2, 0.13, 0.4, 10).translate(0, 0.3, 0), [1, 0.86, 0.18]);
+  add(new THREE.CylinderGeometry(0.08, 0.08, 0.12, 8).translate(0, 0.06, 0), [0.35, 0.22, 0.06]);
+  // 実: 上へ少し細くなり、先は丸い
+  add(new THREE.CylinderGeometry(0.13, 0.17, 0.6, 10).translate(0, 0.8, 0), [1, 0.96, 0.78]);
+  add(new THREE.SphereGeometry(0.13, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 1.1, 0), [1, 0.96, 0.78]);
+  // 4枚の皮: 皮のつつのふちから、上へ出てから外へ開き、地面近くまで垂れる。先は細く
+  for (let f = 0; f < 4; f++) {
+    const a = (f / 4) * Math.PI * 2 + Math.PI / 4;
+    const c = Math.cos(a);
+    const z = Math.sin(a);
+    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0.17 * c, 0.48, 0.17 * z), new THREE.Vector3(0.55 * c, 0.85, 0.55 * z), new THREE.Vector3(0.75 * c, 0.15, 0.75 * z));
+    const seg = 10;
+    const rad = 6;
+    const g = new THREE.TubeGeometry(curve, seg, 0.1, rad, false);
+    const pos = g.attributes.position;
+    for (let i = 0; i <= seg; i++) {
+      const taper = 1 - 0.6 * (i / seg);
+      const p = curve.getPoint(i / seg);
+      for (let j = 0; j <= rad; j++) {
+        const k = i * (rad + 1) + j;
+        pos.setXYZ(k, p.x + (pos.getX(k) - p.x) * taper, p.y + (pos.getY(k) - p.y) * taper, p.z + (pos.getZ(k) - p.z) * taper);
+      }
     }
+    g.computeVertexNormals();
+    add(g, [1, 0.86, 0.18]);
   }
+  const pos = [];
+  const nor = [];
+  const col = [];
+  for (const [g, rgb] of parts) {
+    pos.push(...g.attributes.position.array);
+    nor.push(...g.attributes.normal.array);
+    for (let i = 0; i < g.attributes.position.count; i++) col.push(...rgb);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  g.computeVertexNormals();
-  g.translate(0, 0.15, 0); // いちばん低い所が地面に着く
   return g;
 }
 
@@ -154,11 +176,11 @@ export function createItemView(scene) {
       let n = 0;
       for (const b of world.boxes) {
         if (b.gone > 0 || n >= MAX_BOX) continue;
-        put(boxes, n++, b.x, b.y + 1.4 + Math.sin(t * 3 + b.x) * 0.15, b.z, t * 1.5);
+        put(boxes, n++, b.x, b.y + 1.6 + Math.sin(t * 3 + b.x) * 0.15, b.z, t * 1.5);
       }
       done(boxes, n);
       n = 0;
-      for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, -(b.h ?? 0) + Math.PI / 2); // 道に対して横向き（後ろから来る車に、曲がった形が見える）
+      for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, -(b.h ?? 0) + Math.PI / 2); // 縦に立っているので、向きはどれでもよい（皮の向きだけ道に合わせる）
       for (const k of karts) {
         // ぶら下げたバナナ（残りの数だけ、車の後ろに1列。ジャンプ中も車についてくる）
         for (let m = 0; seen(k) && m < (k.trailing || 0) && n < MAX_BANANA; m++) {

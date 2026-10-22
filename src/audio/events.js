@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=3562af2';
+import { locate } from '../game/track.js?v=fe31b32';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -23,7 +23,7 @@ export function jumpAhead(track, kart, lead = JUMP_LEAD) {
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
 // jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null, snowmanHop = 0, thunder = 0, blastsHeard = 0 }) {
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null, snowmanHop = 0, thunder = 0, blastsHeard = 0, squashesHeard = 0 }) {
   return {
     count,
     lap,
@@ -75,6 +75,7 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     star: (kart.star || 0) > 0,
     thunder, // 稲妻が落ちた回数（だれが使っても）
     blastsHeard, // 聞こえた爆発の数（自分か、近くの車が吹き飛んだ）
+    squashesHeard, // 聞こえた「ぺしゃんこ」の数（自分か、近くの車がつぶれた）
   };
 }
 
@@ -146,6 +147,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.bananaHits > prev.bananaHits) ev.push('bananaHit');
   if (cur.blocked > prev.blocked) ev.push('guard');
   if (cur.blastsHeard > prev.blastsHeard) ev.push('explosion');
+  if (cur.squashesHeard > prev.squashesHeard) ev.push('squash');
   if (cur.thunder > prev.thunder) ev.push('thunder');
   if (cur.star && !prev.star) ev.push('starOn'); // Star のメロディは、自分の車が Star のときだけ（2026-10-22 のユーザー依頼）
   if (!cur.star && prev.star) ev.push('starOff');

@@ -1,10 +1,10 @@
 // 待合室とコースの投票の画面（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 2.1・4章）
-import { faceSvg } from './titleArt.js?v=3562af2';
-import { charOf } from './data/characters.js?v=3562af2';
-import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=3562af2';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=3562af2';
-import { enterLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=3562af2';
-import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js?v=3562af2';
+import { faceSvg } from './titleArt.js?v=fe31b32';
+import { charOf } from './data/characters.js?v=fe31b32';
+import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=fe31b32';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=fe31b32';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=fe31b32';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js?v=fe31b32';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;
@@ -38,21 +38,22 @@ export function runLobby(root, ctx) {
   const state = { players: [], room: null, votes: null, msgs: [], status: null };
   const offs = [];
   let lastSent = null;
+  let lastPreset = null; // 最後に送った定型文（同じものは続けて送れない）
   let chimeState = { loaded: false, lastId: null };
   let finished = false;
   return new Promise((resolve) => {
     root.classList.add('show');
     root.innerHTML = `<div class="panel lobby">
       <div class="lb-top">
-        <button type="button" class="back-btn" data-act="back">◀ BACK</button>
+        <button type="button" class="back-btn" data-act="back">◀ TITLE</button>
         <button type="button" data-act="chars">Character</button>
         <button type="button" data-act="gear" aria-label="Settings">⚙</button>
+        <div class="lb-gear hidden">
+          <button type="button" data-act="sound"></button>
+          <button type="button" data-act="controls"></button>
+          <button type="button" data-act="lang"></button>
+        </div>
         <button type="button" class="lb-ready-btn" data-act="ready">READY</button>
-      </div>
-      <div class="lb-gear hidden">
-        <button type="button" data-act="sound"></button>
-        <button type="button" data-act="controls"></button>
-        <button type="button" data-act="lang"></button>
       </div>
       <div class="lb-main">
         <div class="lb-list"></div>
@@ -79,13 +80,14 @@ export function runLobby(root, ctx) {
     };
     const drawGear = () => {
       if (!$('[data-act="sound"]')) return; // 知らせが出ている間は、待合室の HTML がない
-      $('[data-act="sound"]').textContent = ctx.sound.isOn() ? '🔊 Sound ON' : '🔇 Sound OFF';
-      $('[data-act="controls"]').textContent = ctx.controls.mode() === 'keyboard' ? '⌨ Keyboard' : '👆 Buttons';
-      $('[data-act="lang"]').textContent = lang === 'ja' ? 'Chat: 日本語' : 'Chat: English';
+      // 小さい画面では、絵と短い文字だけ（.wide は CSS で隠す）
+      $('[data-act="sound"]').innerHTML = ctx.sound.isOn() ? '🔊<span class="wide"> Sound ON</span>' : '🔇<span class="wide"> Sound OFF</span>';
+      $('[data-act="controls"]').innerHTML = ctx.controls.mode() === 'keyboard' ? '⌨<span class="wide"> Keyboard</span>' : '👆<span class="wide"> Buttons</span>';
+      $('[data-act="lang"]').innerHTML = lang === 'ja' ? '<span class="wide">Chat: </span>日本語' : '<span class="wide">Chat: </span>English';
     };
     const drawPresets = () => {
       if (!$('.lb-presets')) return;
-      $('.lb-presets').innerHTML = PHRASES.map((_, i) => `<button type="button" data-preset="${i}">${esc(phrase(i, lang))}</button>`).join('');
+      $('.lb-presets').innerHTML = PHRASES.map((_, i) => `<button type="button" data-preset="${i}"${i === lastPreset ? ' class="used"' : ''}>${esc(phrase(i, lang))}</button>`).join('');
     };
     const drawMsgs = () => {
       if (!$('.lb-msgs')) return;
@@ -105,18 +107,25 @@ export function runLobby(root, ctx) {
       const r = state.room;
       const voting = r?.phase === 'voting' || r?.phase === 'decided';
       $('.lb-vote').classList.toggle('hidden', !voting);
+      $('.lb-ready-btn').classList.toggle('off', voting); // コースを選んでいる間は READY を出さない
       if (!voting) return;
       $('.vote-list').innerHTML = voteRows(ctx.courses, state.votes, r.voteId, state.players);
       const left = Math.max(0, Math.ceil((r.endsAt - serverNow()) / 1000));
       $('.vote-left').textContent = r.phase === 'voting' ? `${left}` : '';
-      $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], r.picks ?? 0, lang) : '';
+      $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], lang) : '';
     };
     const send = async (body) => {
+      if (samePreset(lastPreset, body)) return false;
       if (!canSend(lastSent, serverNow(), 'preset' in body ? 'preset' : 'text')) return false;
       const prev = lastSent;
       lastSent = serverNow();
       const ok = await sendChat(db, me.codeId, me, body).then(() => true, () => false);
       if (!ok) lastSent = prev; // 送れなかったら、打った文は残して、すぐ送り直せる
+      if (ok) {
+        lastPreset = 'preset' in body ? body.preset : null;
+        // 送った定型文のボタンを薄くする（並びは描き直さない。横にずらした位置がもどらないように）
+        root.querySelectorAll('.lb-presets button').forEach((x) => x.classList.toggle('used', Number(x.dataset.preset) === lastPreset));
+      }
       return ok;
     };
     root.onclick = async (e) => {
@@ -181,9 +190,11 @@ export function runLobby(root, ctx) {
       const prev = state.room;
       state.room = v;
       drawVote();
-      // コースが決まった: 2秒知らせてから（M4-B では）coming soon。そのあと待合室に戻す・自分の READY を外す
+      // コースが決まった: 「〇〇が選ばれました！」を3秒、観客の歓声と一緒に（2026-10-22 のユーザー依頼）。
+      // そのあと（M4-B では）coming soon。待合室に戻す・自分の READY を外す
+      if (v?.phase === 'decided' && prev?.phase !== 'decided') ctx.cheer?.(3);
       if (v?.phase === 'decided' && prev?.phase !== 'decided' && v.racers?.[me.uid]) {
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 3000));
         if (finished) return;
         await ctx.onDecided(v.course);
         if (finished) return;
@@ -194,6 +205,12 @@ export function runLobby(root, ctx) {
     }));
     offs.push(db.watch('status', (s) => {
       if (!s?.active || s.codeId !== me.codeId) finish('recode');
+    }));
+    // 電波が切れてもどったら入り直す（切れた間にサーバーが自分の行を消しているため。READY を押しても何も起きなくなっていた）
+    let wasOnline = null;
+    if (db.connected) offs.push(db.connected((on) => {
+      if (on && wasOnline === false && !finished) rejoinLobby(db, me).catch(() => {});
+      wasOnline = on;
     }));
     enterLobby(db, me).catch(() => finish('recode'));
   });

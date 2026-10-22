@@ -27,7 +27,7 @@ export function defaultLang(navLang) {
 }
 
 // コースが決まったときの知らせ
-export function pickedText(courseName, count, lang) {
-  if (lang === 'ja') return `${courseName} — ${count}人がえらびました！`;
-  return `${courseName} — ${count} ${count === 1 ? 'player' : 'players'} picked!`;
+// コースが決まったときの知らせ（2026-10-22 のユーザー依頼）
+export function pickedText(courseName, lang) {
+  return lang === 'ja' ? `${courseName}が選ばれました！` : `${courseName} was selected!`;
 }

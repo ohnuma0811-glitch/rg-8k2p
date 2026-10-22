@@ -1,9 +1,9 @@
 // 「?」の箱（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 2章）: 道を横切る1列。取ったら消えて2秒で戻る
-import { markS, span } from './track.js?v=3562af2';
+import { markS, span } from './track.js?v=fe31b32';
 
 export const BOX_RESPAWN = 2; // 取ってから戻るまで（秒）
-export const BOX_REACH = 2.2; // 車の中心と箱の中心がこれより近いと取る（m）
-export const BOX_SIZE = 1.6; // 箱の一辺（見た目、m）
+export const BOX_REACH = 2.4; // 車の中心と箱の中心がこれより近いと取る（m。箱を大きくした分、少し広く）
+export const BOX_SIZE = 2; // 箱の一辺（見た目、m。1.6m から約1.25倍に。2026-10-22 のユーザー依頼）
 export const ROW_CLEAR = 15; // 列の前後この m は、ふつうの道（ジャンプ台・加速板などでない）
 
 // 点 i の前後 ROW_CLEAR m が、ふつうの道か

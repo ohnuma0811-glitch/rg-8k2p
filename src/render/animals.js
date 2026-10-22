@@ -1,6 +1,6 @@
 // 動物のキャラの頭と体の飾り（設計書 docs/superpowers/specs/2026-10-22-characters-design.md の 4章）
 // 頭は +x が前、半径 R の丸い頭（src/render/models.js の head と同じ大きさ）。体の飾りは driver のグループに足す
-import * as THREE from '../../vendor/three.module.min.js?v=3562af2';
+import * as THREE from '../../vendor/three.module.min.js?v=fe31b32';
 
 const mats = new Map();
 function M(color) {

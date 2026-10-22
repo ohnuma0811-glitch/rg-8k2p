@@ -6,8 +6,9 @@ export const CHARS = [
   { id: 'penguin', name: 'Penguin-man', stats: { accel: 3, top: 3, handling: 3 }, body: 0x4aa3df, voice: 'male' },
   { id: 'rabbit', name: 'Rabbit Girl', stats: { accel: 5, top: 2, handling: 3 }, body: 0xff7eb6, voice: 'female' },
   { id: 'mouse', name: 'Mouse Boy', stats: { accel: 5, top: 2, handling: 3 }, body: 0x2fa36b, voice: 'male' },
-  { id: 'tiger', name: 'Big Tiger', stats: { accel: 2, top: 5, handling: 2 }, body: 0xe67e22, voice: 'male' },
-  { id: 'elephant', name: 'Rampage Elephant', stats: { accel: 2, top: 5, handling: 2 }, body: 0x8e44ad, voice: 'male' },
+  // Tiger と Elephant は速いので、曲がりにくく（handling 2 → 1。2026-10-22 のユーザー依頼）
+  { id: 'tiger', name: 'Big Tiger', stats: { accel: 2, top: 5, handling: 1 }, body: 0xe67e22, voice: 'male' },
+  { id: 'elephant', name: 'Rampage Elephant', stats: { accel: 2, top: 5, handling: 1 }, body: 0x8e44ad, voice: 'male' },
   { id: 'cat', name: 'Lightning Cat', stats: { accel: 3, top: 2, handling: 5 }, body: 0xf5c400, voice: 'female' },
 ];
 

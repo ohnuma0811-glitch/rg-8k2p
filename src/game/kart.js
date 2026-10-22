@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=3562af2';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=3562af2';
+import { locate, respawnIndex, sampleAt } from './track.js?v=fe31b32';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=fe31b32';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -53,6 +53,9 @@ export const PHYS = {
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4・7章）
 export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。ダートでもおそくならない
 export const STAR = { TIME: 9, TOP: 1.4, ACCEL: 2, TURN: 0.08 }; // TIME: 2026-10-22 のユーザー依頼で 6秒の 1.5倍。TOP: 同じ日の依頼「もっと速く」で 1.2 から // TURN: ハンドルの能力の数字1つ分（rad/s）
+// 稲妻（2026-10-22 のユーザー依頼）: 当たった車は35%に小さくなり、10秒間、最高速が75%
+export const LIGHTNING = { TIME: 10, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // BACK: 元の大きさにもどる秒数
+export const SQUASH = { TIME: 1.0, LIFT: 1.0 }; // 小さい車が大きい車にぶつかってぺしゃんこ: ひらひら舞う秒数と、上がる高さ m（2026-10-22 のユーザー依頼）
 export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2, REST: 0.5 }; // REST: 着地してから走り出すまで止まっている秒数（2026-10-22 のユーザー依頼） // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
 
 function wrapAngle(a) {
@@ -94,6 +97,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.spinTo = p.h; // スピンのあとに向く向き
   kart.mushroom = 0; // キノコでダートでもおそくならない残りの秒数
   kart.star = 0; // Star の残りの秒数
+  kart.squash = 0; // ぺしゃんこの残りの秒数
   kart.blast = 0; // 吹き飛ぶスピンの残りの秒数
   kart.blastRest = 0; // 吹き飛んで着地したあと、止まっている残りの秒数
   kart.blastTo = p.h; // 吹き飛んだあとに向く向き
@@ -125,7 +129,7 @@ function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
   if (going && factor < kart.boostFactor) return;
   kart.boost = going && factor === kart.boostFactor ? Math.max(kart.boost, time) : time;
   kart.boostFactor = factor;
-  kart.speed = Math.max(kart.speed, params.topSpeed * factor);
+  kart.speed = Math.max(kart.speed, params.topSpeed * (kart.smallTime > 0 ? LIGHTNING.SPEED : 1) * factor);
 }
 
 // Mushroom（アイテム）: 加速板と同じ加速を 1.5秒。その間はダートでもおそくならない
@@ -136,8 +140,18 @@ export function useMushroom(kart, params) {
 }
 
 // 吹き飛ぶスピン（甲羅に当たった・Star の車にぶつかられた）: その場で止まり、上に飛んで2回転して落ちる。着いたら道の向き
+// 小さい車（稲妻）が大きい車にぶつかった: ぺしゃんこになってひらひら舞う。始まったら true（どの端末でも同じ関数で始められる）
+export function squashKart(kart) {
+  if (!(kart.smallTime > 0) || kart.squash > 0 || kart.star > 0) return false;
+  if (kart.blast > 0 || kart.tumble > 0 || kart.respawn > 0 || kart.auto) return false;
+  kart.squash = SQUASH.TIME;
+  kart.speed = 0;
+  return true;
+}
+
 export function startBlast(kart, track) {
   if (kart.blast > 0) return false;
+  kart.squash = 0; // ぺしゃんこの途中で吹き飛んだら、そちらを優先
   kart.blast = BLAST.TIME;
   kart.blastTo = track.samples[kart.seg].h;
   kart.blasts = (kart.blasts || 0) + 1;
@@ -236,6 +250,16 @@ export function stepKart(kart, ctl, track, params, dt) {
     stepAuto(kart, track, dt);
     return;
   }
+  // ぺしゃんこ: 操作は効かず止まったまま。終わったら、稲妻の残りに関係なく元の大きさと速さにもどる
+  if (kart.squash > 0) {
+    kart.squash = Math.max(0, kart.squash - dt);
+    kart.speed = 0;
+    if (kart.squash === 0) {
+      kart.small = 1;
+      kart.smallTime = 0;
+    }
+    return;
+  }
   // アイテムの時間
   if (kart.star > 0) kart.star = Math.max(0, kart.star - dt);
   if (kart.mushroom > 0) kart.mushroom = Math.max(0, kart.mushroom - dt);
@@ -283,8 +307,8 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.hump = Math.max(0, kart.hump - dt);
   // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
   if (kart.spin > 0) {
-    // バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる（2026-10-22 のユーザー依頼）。稲妻の入れ替わり（kart.shock）とぬかるみは残す
-    if (kart.swapItem && !(kart.shock > 0)) {
+    // バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる（2026-10-22 のユーザー依頼）。ぬかるみは残す
+    if (kart.swapItem) {
       kart.muddy = 0;
       kart.swapItem = false;
     }
@@ -311,7 +335,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   if (!kart.airborne) {
     if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
     const starOn = kart.star > 0;
-    let maxV = params.topSpeed * (starOn ? STAR.TOP : 1);
+    let maxV = params.topSpeed * (starOn ? STAR.TOP : 1) * (kart.smallTime > 0 ? LIGHTNING.SPEED : 1); // 稲妻で小さい間は75%
     if (here.surface !== 'road' && !(kart.mushroom > 0) && !starOn) maxV *= PHYS.DIRT_FACTOR; // キノコと Star はダートでもおそくならない
     if (kart.boost > 0) maxV *= kart.boostFactor;
     // ハンドルを切ったりドリフトしたりすると、少し遅くなる
