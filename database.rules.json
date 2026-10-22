@@ -105,15 +105,15 @@
     },
     "room": {
       ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
-      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
-      ".validate": "newData.hasChild('phase')",
+      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (newData.exists() && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
+      ".validate": "newData.hasChild('phase') && (auth.uid === 'GM_UID_HERE' || (newData.child('phase').val() === 'lobby' && !newData.hasChildren(['voteId']) && !newData.hasChildren(['endsAt']) && !newData.hasChildren(['seed']) && !newData.hasChildren(['course']) && !newData.hasChildren(['picks']) && !newData.hasChildren(['racers'])) || (newData.child('phase').val() === 'voting' && (!data.exists() || data.child('phase').val() === 'lobby') && newData.hasChildren(['voteId', 'endsAt', 'seed', 'racers']) && !newData.hasChildren(['course']) && !newData.hasChildren(['picks']) && newData.child('endsAt').val() >= now + 9000 && newData.child('endsAt').val() <= now + 11000) || (newData.child('phase').val() === 'decided' && data.child('phase').val() === 'voting' && now >= data.child('endsAt').val() && newData.child('voteId').val() === data.child('voteId').val() && newData.child('endsAt').val() === data.child('endsAt').val() && newData.child('seed').val() === data.child('seed').val() && newData.hasChildren(['course', 'picks', 'racers'])))",
       "phase": { ".validate": "newData.isString() && newData.val().matches(/^(lobby|voting|decided|racing)$/)" },
       "voteId": { ".validate": "newData.isString() && newData.val().length <= 40" },
       "endsAt": { ".validate": "newData.isNumber()" },
       "seed": { ".validate": "newData.isNumber()" },
-      "course": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+      "course": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4 && newData.val() % 1 === 0" },
       "picks": { ".validate": "newData.isNumber()" },
-      "racers": { "$r": { ".validate": "newData.val() === true" } },
+      "racers": { "$r": { ".validate": "newData.val() === true && (auth.uid === 'GM_UID_HERE' || (newData.parent().parent().child('phase').val() === 'voting' ? root.child('lobby/' + $r).exists() : data.exists()))" } },
       "$other": { ".validate": false }
     },
     "votes": {
