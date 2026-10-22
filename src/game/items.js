@@ -138,7 +138,7 @@ export function applyItemEvent(world, karts, ev, f) {
     kart.rouletteItem = null;
   } else if (ev.type === 'use') {
     kart.held = null;
-    if (ev.item === 'mushroom') useMushroom(kart, f.params);
+    if (ev.item === 'mushroom') useMushroom(kart, f.paramsOf?.(ev.k) ?? f.params); // その車自身のパラメーターで（CPU は自分の最高速で）
     else if (ev.item === 'star') kart.star = STAR.TIME;
     else if (ev.item === 'banana') kart.trailing = true;
     else if (ev.item === 'green') {

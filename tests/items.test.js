@@ -304,3 +304,23 @@ test('M1: main.js の stepGame は、starGuard → 障害物 → 木の実（nut
   assert.ok(at('starGuard(karts)') > 0 && at('starGuard(karts)') < at('cowContact(kart'));
   assert.ok(at('nutContact(kart') > 0 && at('starRestore(karts') > at('nutContact(kart'));
 });
+
+test('M6: キノコは、使った車自身のパラメーター（f.paramsOf）で加速する。CPU が自分の最高速の2倍にならない', () => {
+  const { karts, world, f } = setup();
+  const slow = { ...params, topSpeed: params.topSpeed * 0.5 };
+  f.paramsOf = (k) => (k === 1 ? slow : params);
+  karts[1].held = 'mushroom';
+  karts[0].held = 'mushroom';
+  karts[1].speed = 0;
+  karts[0].speed = 0;
+  itemPress(world, karts, 1, { ...f, ranks: [0, 1, 2] });
+  itemPress(world, karts, 0, f);
+  assert.ok(karts[1].speed > 0);
+  assert.ok(karts[1].speed < karts[0].speed * 0.6, `${karts[1].speed} vs ${karts[0].speed}`);
+  // paramsOf がなければ f.params（今まで通り）
+  const g = setup();
+  g.karts[2].held = 'mushroom';
+  g.karts[2].speed = 0;
+  itemPress(g.world, g.karts, 2, g.f);
+  assert.ok(Math.abs(g.karts[2].speed - karts[0].speed) < 1e-9);
+});

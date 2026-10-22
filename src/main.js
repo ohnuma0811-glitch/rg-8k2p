@@ -616,14 +616,15 @@ function stepGame(dt) {
   if (went) karts.forEach((kart, k) => k !== me && g.cpus[k].dash && startDash(kart, g.base, 3));
   const L = track.length;
   const myProgress = progress(race, me, track);
+  // CPU（ゴールしたプレイヤーの車も）のパラメーター。アイテムのキノコも、その車自身のものを使う
+  const cpuParamsOf = (k) => cpuParams(g.base, k === me ? 1 : rubberFactor(progress(race, k, track), myProgress, L), k === me ? 2 : g.level);
   karts.forEach((kart, k) => {
     const done = race.entries[k].finished;
     if (k === me && !done) {
       stepKart(kart, controls, track, g.base, dt);
     } else {
       // CPU（ゴールしたプレイヤーの車も CPU が運転する）
-      const rubber = k === me ? 1 : rubberFactor(progress(race, k, track), myProgress, L);
-      const params = cpuParams(g.base, rubber, k === me ? 2 : g.level);
+      const params = cpuParamsOf(k);
       stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t, params.topSpeed), track, params, dt);
     }
   });
@@ -664,7 +665,7 @@ function stepGame(dt) {
     karts.forEach((kart, k) => {
       kart.finished = race.entries[k].finished; // 赤の甲羅は、相手がゴールしたら消える
     });
-    const f = { me, press: controls.itemPressed, cpuPress: (k) => !race.entries[k].finished && cpuItem(g.cpus[k], karts[k], karts, track, race.t), t: race.t, ranks: ranking(race, track), finished: race.entries.map((e) => e.finished), params: g.base, rand: Math.random };
+    const f = { me, press: controls.itemPressed, cpuPress: (k) => !race.entries[k].finished && cpuItem(g.cpus[k], karts[k], karts, track, race.t), t: race.t, ranks: ranking(race, track), finished: race.entries.map((e) => e.finished), params: g.base, paramsOf: (k) => (k === me && !race.entries[k].finished ? g.base : cpuParamsOf(k)), rand: Math.random };
     const out = itemFrame(g.items, karts, f, dt);
     for (const h of out.hits) {
       if (h.type === 'blast' && (h.k === me || Math.hypot(karts[h.k].x - karts[me].x, karts[h.k].z - karts[me].z) < 60)) g.blastsHeard++;
