@@ -282,8 +282,9 @@ export function dinoContact(kart, track, time) {
 }
 
 // 橋の下の橋脚（Soki Forest。2026-10-17）: 下の道の車が、橋のはばいっぱいの石の壁にぶつかる。壁は通りぬけられない
-// 入り口のはしに正面からぶつかったときだけスピン。壁の横をこすったときは、はね返されるだけ（柵と同じ。2026-10-19 のユーザー依頼）
-// スピンのあと BOAR_PASS 秒は、続けてスピンしない（押し出すだけ）
+// 入り口のはしに正面からぶつかったときは、牛と同じ判定（メーター150以上でスピン、遅いと跳ね返る。2026-10-22 のユーザー依頼）。
+// 壁の横をこすったときは、はね返されるだけ（柵と同じ。2026-10-19 のユーザー依頼）
+// 正面からぶつかったあと BOAR_PASS 秒は、続けてスピンしない（押し出すだけ）
 const KART_PAD = 1.1; // 車の大きさ（半径 m）
 const PIER_SCRAPE_KEEP = 0.85; // 横をこすりはじめたときに残る速さの割合
 export function pierContact(kart, track, time, phys) {
@@ -326,11 +327,16 @@ export function pierContact(kart, track, time, phys) {
     if (time < (kart.pierPassUntil ?? -Infinity) || kart.airborne || kart.spin > 0) continue;
     kart.pierPassUntil = time + BOAR_PASS;
     kart.pierHits = (kart.pierHits || 0) + 1;
-    kart.spin = phys.SPIN_TIME;
-    kart.spinTo = track.samples[kart.seg].h;
-    kart.speed *= 0.5;
     cancelDrift(kart);
-    hit = 'spin';
+    if (meterKmh(kart.speed) >= BUMP_LIMIT_KMH) {
+      kart.spin = phys.SPIN_TIME;
+      kart.spinTo = track.samples[kart.seg].h;
+      kart.speed *= 0.5;
+      hit = 'spin';
+    } else {
+      kart.speed *= phys.WALL_KEEP;
+      hit = 'bounce';
+    }
   }
   kart.pierTouch = touching;
   if (touching) kart.onWall = true; // 柵と同じ、ぶつかる音

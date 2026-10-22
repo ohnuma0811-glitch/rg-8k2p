@@ -275,6 +275,11 @@ export function stepKart(kart, ctl, track, params, dt) {
   kart.hump = Math.max(0, kart.hump - dt);
   // スピン中: ハンドルは効かず、くるくる回りながら遅くなり、終わると正しい向きを向く
   if (kart.spin > 0) {
+    // バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる（2026-10-22 のユーザー依頼）。稲妻の入れ替わり（kart.shock）とぬかるみは残す
+    if (kart.swapItem && !(kart.shock > 0)) {
+      kart.muddy = 0;
+      kart.swapItem = false;
+    }
     kart.spin -= dt;
     kart.speed = Math.max(0, kart.speed - 20 * dt);
     kart.x += Math.cos(kart.move) * kart.speed * dt;

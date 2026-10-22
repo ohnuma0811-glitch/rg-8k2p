@@ -540,7 +540,7 @@ test('橋の下（内の道の上）にも橋脚が並ぶ。すき間は車が�
   }
 });
 
-test('橋の下の壁（橋脚）: 入り口のはしに正面からぶつかるとスピン。すぐあとは続けてスピンしないが、通りぬけられない（2026-10-19 のユーザー依頼）', async () => {
+test('橋の下の壁（橋脚）: 入り口のはしに正面から、メーター150以上でぶつかるとスピン。すぐあとは続けてスピンしないが、通りぬけられない（2026-10-19・10-22 のユーザー依頼）', async () => {
   const { pierContact } = await import('../src/game/hazards.js');
   const pier = t.bridgePiers[1];
   const c = Math.cos(pier.h);
@@ -552,7 +552,7 @@ test('橋の下の壁（橋脚）: 入り口のはしに正面からぶつかる
     k.y = 0;
     k.move = Math.atan2(c * dirW, -sn * dirW);
     k.heading = k.move;
-    k.speed = 15;
+    k.speed = 30; // メーター162
   };
   const wOf = (k) => -(k.x - pier.x) * sn + (k.z - pier.z) * c;
   const aOf = (k) => (k.x - pier.x) * c + (k.z - pier.z) * sn;
@@ -569,6 +569,26 @@ test('橋の下の壁（橋脚）: 入り口のはしに正面からぶつかる
   const top = createKart(t, pier.i, 0);
   top.y = t.samples[pier.i].y;
   assert.equal(pierContact(top, t, 5, PHYS), null);
+});
+
+test('橋の下の壁（橋脚）: 入り口のはしに正面からでも、メーター150より遅ければ、スピンせず跳ね返る（牛と同じ。2026-10-22 のユーザー依頼）', async () => {
+  const { pierContact } = await import('../src/game/hazards.js');
+  const pier = t.bridgePiers[1];
+  const c = Math.cos(pier.h);
+  const sn = Math.sin(pier.h);
+  const kart = createKart(t, t.bridges[0].under, 0);
+  const w = -(pier.halfLen + 1.1 - 0.3);
+  kart.x = pier.x - sn * w;
+  kart.z = pier.z + c * w;
+  kart.y = 0;
+  kart.move = Math.atan2(c, -sn);
+  kart.heading = kart.move;
+  kart.speed = 20; // メーター108
+  assert.equal(pierContact(kart, t, 1, PHYS), 'bounce');
+  assert.equal(kart.spin, 0);
+  assert.ok(Math.abs(kart.speed - 20 * PHYS.WALL_KEEP) < 1e-9, `${kart.speed}`);
+  const wNow = -(kart.x - pier.x) * sn + (kart.z - pier.z) * c;
+  assert.ok(Math.abs(wNow) >= pier.halfLen + 1.1 - 1e-6, '壁のはしの中にいる');
 });
 
 test('橋の下の壁（橋脚）の横をこすったときは、スピンせず、はね返されるだけ（2026-10-19 のユーザー依頼）', async () => {

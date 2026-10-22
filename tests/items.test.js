@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack } from '../src/game/track.js';
 import { COURSES } from '../src/data/tracks.js';
-import { createKart } from '../src/game/kart.js';
+import { createKart, stepKart, PHYS } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 import { ITEM, initItems, createItemWorld, canTake, itemPress, stepItems, itemFrame, swapSteer, starGuard, starRestore } from '../src/game/items.js';
 
@@ -367,4 +367,23 @@ test('ルーレットが自然に止まってキノコになっても3個', () =
   karts[0].rouletteItem = 'mushroom';
   stepItems(world, karts, f, DT);
   assert.equal(karts[0].heldUses, 3);
+});
+
+test('バナナのふらふら（左右の入れ替わり）は、何かでスピンしたら終わる。稲妻の入れ替わりは残る（2026-10-22 のユーザー依頼）', () => {
+  const ctl = { steer: 0, throttle: 1, brake: false, drift: false };
+  const k = createKart(t, 10, 0);
+  initItems(k);
+  swapSteer(k, ITEM.BANANA_SWAP);
+  k.spin = PHYS.SPIN_TIME;
+  stepKart(k, ctl, t, params, 1 / 60);
+  assert.equal(k.muddy, 0);
+  assert.equal(k.swapItem, false);
+  // 稲妻のときは、スピンしても入れ替わりのまま
+  const z = createKart(t, 10, 0);
+  initItems(z);
+  swapSteer(z, ITEM.LIGHTNING_SWAP);
+  z.shock = ITEM.LIGHTNING_SWAP;
+  z.spin = PHYS.SPIN_TIME;
+  stepKart(z, ctl, t, params, 1 / 60);
+  assert.ok(z.muddy > 9);
 });
