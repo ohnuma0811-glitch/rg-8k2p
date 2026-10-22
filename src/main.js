@@ -30,7 +30,9 @@ import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
 import { blendPose, poseOf } from './render/interp.js';
-import { speedText } from './hud.js';
+import { speedText, slotItem, ITEM_ICONS } from './hud.js';
+import { initItems, createItemWorld, itemFrame } from './game/items.js';
+import { createItemView } from './render/items.js';
 import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
@@ -98,6 +100,9 @@ const lapEl = $('lap');
 const timeEl = $('race-time');
 const rankEl = $('rank');
 const countEl = $('countdown');
+const itemIconEl = document.querySelector('#item-slot .icon');
+const zapGlow = $('zap-glow');
+const itemFlash = $('item-flash');
 const leftEl = $('time-left');
 const pauseBtn = $('btn-pause');
 const lapBox = $('lap-box');
@@ -260,6 +265,7 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
     models.push(mergeStatic(createKartModel(look))); // 動かない部品は1つの形に（タブレットで描く回数を減らす）
     if (!isMe) cpuNo++;
   }
+  karts.forEach(initItems);
   models.forEach((m) => scene.add(m));
   // 浮いているときの、車の下の地面の影（2026-10-17 のユーザー依頼「丘からジャンプしているとき」）
   const shadows = models.map(() => {
@@ -290,6 +296,9 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
     cpus,
     names,
     tags,
+    items: solo ? null : createItemWorld(track), // アイテム（TIME TRIAL にはない）
+    itemView: solo ? null : createItemView(scene),
+    slotShown: undefined, // 枠に出している絵（変わったときだけ書きかえる）
     // マップの点と、上位3人のアイコン（体の色と、キャラのしるし）
     faces: karts.map((_, k) => {
       const look = k === mySlot ? { body: me.body, character: me.id } : CPU_LOOKS[k < mySlot ? k : k - 1];
@@ -561,6 +570,10 @@ function removeGame() {
   spaceFlash.style.opacity = '0';
   if (track?.mesh) for (const c of track.mesh.children) c.visible = true; // 宇宙・ワープの途中でやめても、コースを見せる
   showTunnel({ dark: 0, black: 0 }); // トンネルの中でやめても、明るさを戻す
+  game.itemView?.dispose();
+  itemIconEl.innerHTML = '';
+  zapGlow.style.opacity = '0';
+  itemFlash.style.opacity = '0';
   sfx.stopAll();
   crowd.stop();
   game.shadows.forEach((sh) => scene.remove(sh));
@@ -641,6 +654,11 @@ function stepGame(dt) {
     g.monkeyThrows += thrown.filter((k) => Math.hypot(track.monkeys[k].x - mine.x, track.monkeys[k].z - mine.z) < 60).length;
     karts.forEach((kart) => nutContact(kart, g.nuts, race.t, PHYS, { keep: true }));
     dropFallen(g.nuts, race.t);
+  }
+  // アイテム（M3-A）: ITEM ボタン → 箱・ルーレット・バナナ・甲羅・Star の当たり
+  if (g.items) {
+    const f = { me, press: controls.itemPressed, cpuPress: () => false, t: race.t, ranks: ranking(race, track), finished: race.entries.map((e) => e.finished), params: g.base, rand: Math.random };
+    const out = itemFrame(g.items, karts, f, dt);
   }
   // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）
   karts.forEach((kart) => {
@@ -1089,6 +1107,15 @@ function renderGame(alpha, dt) {
   const mine = views[g.me];
   const kart = g.karts[g.me];
   effects.update(mine, dt);
+  // アイテム: 箱・バナナ・甲羅の見た目と、上の真ん中の枠
+  if (g.items) {
+    g.itemView.update(g.items, views, g.race.t);
+    const show = slotItem(g.karts[g.me]);
+    if (show !== g.slotShown) {
+      g.slotShown = show;
+      itemIconEl.innerHTML = show ? ITEM_ICONS[show] : '';
+    }
+  }
   const { race } = g;
   const e = race.entries[g.me];
   const flying = g.flyT < START_FLY_TIME;
