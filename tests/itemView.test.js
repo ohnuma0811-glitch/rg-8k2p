@@ -109,3 +109,30 @@ test('バナナは、両はしが細く茶色い、曲がったバナナの形�
   assert.ok(brown > 0 && yellow > brown * 4, `茶 ${brown} 黄 ${yellow}`);
   view.dispose();
 });
+
+test('甲羅は、半分の球の下に白いフチ（2026-10-22 のユーザー依頼「甲羅らしく」）。緑と赤の上は、その色', () => {
+  const scene = new THREE.Scene();
+  createItemView(scene);
+  for (const [kind, hex] of [['greens', 0x2fb54a], ['reds', 0xe8312a]]) {
+    const geo = scene.children.find((o) => o.userData.kind === kind).geometry;
+    const pos = geo.attributes.position;
+    const col = geo.attributes.color;
+    const want = new THREE.Color(hex);
+    let white = 0;
+    let top = 0;
+    let lowY = Infinity;
+    for (let i = 0; i < pos.count; i++) {
+      const isWhite = col.getX(i) === 1 && col.getY(i) === 1 && col.getZ(i) === 1;
+      if (isWhite) {
+        white++;
+        lowY = Math.min(lowY, pos.getY(i));
+      }
+      if (pos.getY(i) > 0.6) {
+        top++;
+        assert.ok(Math.abs(col.getX(i) - want.r) < 1e-6 && Math.abs(col.getY(i) - want.g) < 1e-6, kind);
+      }
+    }
+    assert.ok(white > 0 && top > 0, kind);
+    assert.ok(Math.abs(lowY) < 1e-6, '白いフチのいちばん下が地面');
+  }
+});
