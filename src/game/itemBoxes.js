@@ -1,5 +1,5 @@
 // 「?」の箱（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 2章）: 道を横切る1列。取ったら消えて2秒で戻る
-import { markS, span } from './track.js?v=bdab420';
+import { markS, span } from './track.js?v=bfc0648';
 
 export const BOX_RESPAWN = 2; // 取ってから戻るまで（秒）
 export const BOX_REACH = 2.2; // 車の中心と箱の中心がこれより近いと取る（m）
