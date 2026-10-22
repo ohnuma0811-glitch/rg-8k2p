@@ -94,27 +94,25 @@ test('M4: 食べられている・走り直し中・hidden の車には、回る
   view.dispose();
 });
 
-test('バナナは、むいて縦に立っている形: 上にクリーム色の実、黄色い皮が外へ開いて垂れる、下に茶色の軸（2026-10-22 のユーザー依頼）', () => {
+test('バナナは、皮だけを逆さにして立てた形: 上に茶色の軸、黄色い皮が下へ開いて地面に着く。白い実はない（2026-10-23 のユーザー依頼）', () => {
   const scene = new THREE.Scene();
   const view = createItemView(scene);
   const mesh = scene.children.find((o) => o.userData.kind === 'bananas');
   assert.ok(mesh.material.vertexColors, '色は形の点ごと');
   const pos = mesh.geometry.attributes.position;
   const col = mesh.geometry.attributes.color;
-  let minY = Infinity; let maxY = -Infinity; let wide = 0; let topCream = 0; let cream = 0; let yellow = 0; let brown = 0;
+  let minY = Infinity; let maxY = -Infinity; let cream = 0; let brownTop = Infinity; let lowWide = 0;
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
     minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-    wide = Math.max(wide, Math.hypot(pos.getX(i), pos.getZ(i)));
-    const isCream = col.getZ(i) > 0.7;
-    if (isCream) cream++; else if (col.getX(i) < 0.5) brown++; else yellow++;
-    if (y > 1.0 && isCream) topCream++;
+    if (col.getZ(i) > 0.5) cream++;
+    if (col.getX(i) < 0.5) brownTop = Math.min(brownTop, y);
+    if (y < 0.15) lowWide = Math.max(lowWide, Math.hypot(pos.getX(i), pos.getZ(i)));
   }
+  assert.equal(cream, 0, '白い実はない');
   assert.ok(minY > -0.01 && minY < 0.05, `地面に立つ（下 ${minY.toFixed(2)}）`);
-  assert.ok(maxY - minY > 1.0, `縦に高い（${(maxY - minY).toFixed(2)}m）`);
-  assert.ok(topCream > 0, 'いちばん上はクリーム色の実');
-  assert.ok(wide > 0.6, `皮が外へ開く（${wide.toFixed(2)}m）`);
-  assert.ok(cream > 0 && yellow > 0 && brown > 0, `実 ${cream} 皮 ${yellow} 軸 ${brown}`);
+  assert.ok(brownTop > maxY - 0.2, `茶色の軸はいちばん上（${brownTop.toFixed(2)} / ${maxY.toFixed(2)}）`);
+  assert.ok(lowWide > 0.55, `皮の先は外へ開いて地面の近く（${lowWide.toFixed(2)}m）`);
   view.dispose();
 });
 
