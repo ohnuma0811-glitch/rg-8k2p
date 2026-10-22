@@ -413,6 +413,7 @@ export function enterCode(root, onTry) {
   return new Promise((resolve) => {
     let digits = '';
     let busy = false;
+    let done = false; // 終わったあとに遅れて返ってきた結果で、いまの画面を消さない
     show(root, `
       ${BACK_BUTTON}
       <h1>GAME CODE</h1>
@@ -423,20 +424,23 @@ export function enterCode(root, onTry) {
     const note = root.querySelector('.code-note');
     const draw = () => dots.forEach((d, i) => d.classList.toggle('on', i < digits.length));
     const finish = (v) => {
+      if (done) return;
+      done = true;
       window.removeEventListener('keydown', onKey);
       root.onclick = null;
       hide(root);
       resolve(v);
     };
     const press = async (k) => {
-      if (busy) return;
+      if (busy || done) return;
       if (k === 'del') digits = digits.slice(0, -1);
       else if (k === 'ok') {
         if (digits.length !== 4) return;
         busy = true;
         note.textContent = '...';
-        const r = await onTry(digits);
+        const r = await onTry(digits).catch(() => ({ kind: 'offline', left: 0 }));
         busy = false;
+        if (done) return;
         if (r.kind === 'in') return finish('in');
         digits = '';
         note.textContent = codeMessage(r);

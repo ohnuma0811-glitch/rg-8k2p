@@ -144,3 +144,49 @@ test('VS RACE と BATTLE は選べる（GAME CODE が要る）', async () => {
     assert.equal(m.code, true);
   }
 });
+
+// GAME CODE の画面を、ごく簡単な偽の DOM で動かす
+function fakeCodeRoot() {
+  const note = { textContent: '' };
+  const dots = [0, 1, 2, 3].map(() => ({ classList: { toggle() {} } }));
+  const root = {
+    innerHTML: '',
+    onclick: null,
+    classList: { add() {}, remove() {} },
+    querySelectorAll: () => dots,
+    querySelector: () => note,
+  };
+  const click = (data) => root.onclick?.({ target: { closest: () => ({ dataset: data }) } });
+  return { root, note, click };
+}
+
+test('GAME CODE: 確かめている途中で BACK を押したら、あとで「入れた」と返ってきても、画面を消さず BACK のまま（I-1）', async () => {
+  const listeners = new Set();
+  globalThis.window = { addEventListener: (t, f) => listeners.add(f), removeEventListener: (t, f) => listeners.delete(f) };
+  try {
+    const { enterCode, BACK } = await import('../src/screens.js');
+    const { root, click } = fakeCodeRoot();
+    let release;
+    const slow = new Promise((r) => {
+      release = r;
+    });
+    let calls = 0;
+    const p = enterCode(root, async () => {
+      calls += 1;
+      return slow;
+    });
+    for (const k of ['1', '2', '3', '4']) click({ key: k });
+    click({ key: 'ok' });
+    click({ back: '1' });
+    assert.equal(await p, BACK);
+    root.innerHTML = 'タイトル';
+    release({ kind: 'in', left: 0 });
+    await new Promise((r) => setImmediate(r));
+    assert.equal(root.innerHTML, 'タイトル', '遅れて返ってきた結果で、いまの画面を消さない');
+    click({ key: 'ok' });
+    assert.equal(calls, 1, '終わったあとのボタンは効かない');
+    assert.equal(listeners.size, 0);
+  } finally {
+    delete globalThis.window;
+  }
+});
