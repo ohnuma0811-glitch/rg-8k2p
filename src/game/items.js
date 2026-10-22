@@ -12,10 +12,12 @@ export const ITEM = {
   BANANA_SWAP: 5, // バナナを踏むと、ハンドルの左右が入れ替わる秒数
   LIGHTNING_SWAP: 10, // 稲妻の入れ替わりの秒数
   BANANA_DROP: 3, // バナナを置く所（車の後ろ m）
-  BANANA_MAX: 10, // コース全体のバナナの数（超えたら古い物から消える）
+  BANANA_SET: 5, // バナナは5個セット。1回目の ITEM で5個を後ろにぶら下げ、そのあと1回ごとに1個置く（2026-10-22 のユーザー依頼）
+  BANANA_MAX: 20, // コース全体のバナナの数（超えたら古い物から消える。5個セットにしたので10から20へ）
   BANANA_R: 0.8, // バナナの大きさ（半径 m）
   BANANA_OWNER_SAFE: 1, // 置いてすぐは、自分では踏まない（秒）
-  TRAIL_BACK: 2.4, // ぶら下げたバナナの場所（車の後ろ m）
+  TRAIL_BACK: 2.4, // ぶら下げたバナナの場所（車の後ろ m。いちばん前の1個）
+  TRAIL_GAP: 1.2, // ぶら下げたバナナどうしの間（m）
   ORBIT_R: 2.4, // 回る緑の甲羅の、車の中心からの距離（m）
   ORBIT_SPIN: 5, // 回る速さ（rad/s）
   ZAP_SHOW: 0.5, // 稲妻が見えている秒数
@@ -24,7 +26,7 @@ export const ITEM = {
 
 // 車にアイテムの性質を足す（レースの最初に1回。コースに戻っても消さない）
 export function initItems(kart) {
-  Object.assign(kart, { held: null, roulette: 0, rouletteItem: null, orbit: [], orbitAngle: 0, trailing: false, shock: 0, zap: 0 });
+  Object.assign(kart, { held: null, roulette: 0, rouletteItem: null, orbit: [], orbitAngle: 0, trailing: 0, shock: 0, zap: 0 });
 }
 
 // レースのアイテムの世界（箱・置かれたバナナ・飛んでいる甲羅）
@@ -152,7 +154,7 @@ function takeItem(kart, item) {
 export function applyItemEvent(world, karts, ev, f) {
   const kart = karts[ev.k];
   if (ev.type === 'drop') {
-    kart.trailing = false;
+    kart.trailing = Math.max(0, kart.trailing - 1); // 残りの数（0 になったら、ぶら下げていない）
     dropBanana(world, kart, ev.k);
     return;
   }
@@ -171,7 +173,7 @@ export function applyItemEvent(world, karts, ev, f) {
     if (kart.heldUses === 0) kart.held = null; // キノコは3回使うまで枠に残る
     if (ev.item === 'mushroom') useMushroom(kart, f.paramsOf?.(ev.k) ?? f.params); // その車自身のパラメーターで（CPU は自分の最高速で）
     else if (ev.item === 'star') kart.star = STAR.TIME;
-    else if (ev.item === 'banana') kart.trailing = true;
+    else if (ev.item === 'banana') kart.trailing = ITEM.BANANA_SET;
     else if (ev.item === 'green') {
       kart.orbit = [0, 1, 2];
       kart.thrown = (kart.thrown || 0) + 1;

@@ -120,20 +120,27 @@ test('itemFrame: 自分は press、CPU は cpuPress で ITEM を押す', () => {
   assert.equal(karts[2].mushrooms ?? 0, 0);
 });
 
-test('Banana: 1回目の ITEM で後ろにぶら下げ（枠は空）、2回目で 3m 後ろに置く', () => {
+test('Banana: 1回目の ITEM で5個を後ろにぶら下げ（枠は空）、そのあと1回ごとに 3m 後ろに1個置く（2026-10-22 のユーザー依頼）', () => {
   const { karts, world, f } = setup();
   const k = karts[0];
   k.held = 'banana';
   itemPress(world, karts, 0, f);
-  assert.equal(k.trailing, true);
+  assert.equal(k.trailing, 5);
   assert.equal(k.held, null);
   assert.equal(canTake(k), true, 'ぶら下げている間は、次のアイテムを取れる');
   k.held = 'mushroom';
   const ev = itemPress(world, karts, 0, f);
   assert.equal(ev.type, 'drop', 'ぶら下げたバナナを置くのが先');
   assert.equal(k.held, 'mushroom');
-  assert.equal(k.trailing, false);
+  assert.equal(k.trailing, 4);
   assert.equal(world.bananas.length, 1);
+  for (let n = 3; n >= 0; n--) {
+    assert.equal(itemPress(world, karts, 0, f).type, 'drop');
+    assert.equal(k.trailing, n);
+  }
+  assert.equal(world.bananas.length, 5);
+  assert.equal(itemPress(world, karts, 0, f).item, 'mushroom', '5個置いたら、枠のアイテム');
+  world.bananas.length = 1;
   const b = world.bananas[0];
   assert.ok(Math.abs(Math.hypot(b.x - k.x, b.z - k.z) - ITEM.BANANA_DROP) < 1e-6);
   assert.ok(Math.cos(Math.atan2(b.z - k.z, b.x - k.x) - k.heading) < -0.99, '後ろ');
@@ -157,11 +164,10 @@ test('置いてすぐ（1秒）は、自分では踏まない', () => {
   assert.equal(world.bananas.length, 1);
 });
 
-test('バナナはコース全体で10個まで。超えたら古い物から消える', () => {
+test('バナナはコース全体で20個まで。超えたら古い物から消える', () => {
   const { karts, world, f } = setup();
-  for (let n = 0; n < 12; n++) {
-    karts[0].held = 'banana';
-    itemPress(world, karts, 0, f);
+  for (let n = 0; n < 22; n++) {
+    karts[0].trailing = 1;
     itemPress(world, karts, 0, f);
     karts[0].x += 20;
   }
@@ -222,7 +228,7 @@ test('Shell（赤）: 使った時点のひとつ前の順位の車をねらう�
 test('ITEM の順番: ぶら下げたバナナ → 回る甲羅 → 枠', () => {
   const { karts, world, f } = setup();
   const k = karts[0];
-  k.trailing = true;
+  k.trailing = 1;
   k.orbit = [0, 1];
   k.held = 'mushroom';
   assert.deepEqual([itemPress(world, karts, 0, f).type, itemPress(world, karts, 0, f).type, itemPress(world, karts, 0, f).type, itemPress(world, karts, 0, f).type], ['drop', 'throw', 'throw', 'use']);

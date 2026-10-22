@@ -8,20 +8,22 @@ export const SHELL = {
   SPEED: 2, // 使ったキャラの最高速の何倍
   LIFE: 5, // 緑・相手のいない赤が消えるまで（秒）
   RED_LIFE: 20, // 相手のいる赤の、いちばん長い時間（秒。追いつけないときのため）
-  BOUNCES: 3, // 緑が柵ではね返る回数（4回目に当たったら消える）
+  BOUNCES: 20, // 緑が柵ではね返る回数（21回目に当たったら消える。2026-10-22 のユーザー依頼で3から20へ）
   OWNER_SAFE: 0.5, // 投げてすぐは自分に当たらない（秒）
   R: 0.6, // 甲羅の大きさ（半径 m）
   HOME: 25, // 赤が相手へまっすぐ向かう近さ（m）
 };
 const ORBIT_R = 2.4; // 回る甲羅・ぶら下げたバナナの、車の中心からの距離（src/game/items.js の ITEM と同じ）
 const BANANA_R = 0.8;
+const TRAIL_BACK = 2.4; // ぶら下げたバナナの場所（src/game/items.js の ITEM と同じ）
+const BANANA_MAX = 20; // コース全体のバナナの数（src/game/items.js の ITEM と同じ）
+const SCATTER_R = 2; // 散らばったバナナの、ぶら下げていた所からの距離（m）
 
 // 守り: ang（車の中心から見た、ぶつかってきた物の向き。世界の角度）を、回っている甲羅か、ぶら下げたバナナがふせぐか
 // 回る甲羅は1つが 120度（その甲羅の向きの ±60度）を受け持つ。ぶら下げたバナナは、後ろ ±60度から来た甲羅だけ
-// ふせいだら、その甲羅（かバナナ）を1つ消す
+// ふせいだら、その甲羅を1つ消す。ぶら下げたバナナでふせいだときは、残りのバナナがその場に全部散らばる（散らばらせるのは hitShell。2026-10-22 のユーザー依頼）
 export function guard(kart, ang, shell) {
-  if (shell && kart.trailing && Math.cos(ang - kart.heading) <= -0.5) {
-    kart.trailing = false;
+  if (shell && kart.trailing > 0 && Math.cos(ang - kart.heading) <= -0.5) {
     kart.blocked = (kart.blocked || 0) + 1;
     return 'trail';
   }
@@ -122,6 +124,29 @@ function stepStraight(world, s, dt) {
   s.z -= Math.cos(loc.heading) * ex;
 }
 
+// ぶら下げていたバナナ（kart.trailing 個）を、ぶら下げていた所のまわりに散らばらせる。乱数は使わない（どの端末でも同じ所に）
+// 柵の外に出たものは、道の中へもどす
+function scatterBananas(world, kart, k) {
+  const n = kart.trailing;
+  kart.trailing = 0;
+  const cx = kart.x - Math.cos(kart.heading) * TRAIL_BACK;
+  const cz = kart.z - Math.sin(kart.heading) * TRAIL_BACK;
+  for (let m = 0; m < n; m++) {
+    const a = kart.heading + Math.PI + ((m - (n - 1) / 2) * 2 * Math.PI) / Math.max(n, 1);
+    let x = cx + Math.cos(a) * SCATTER_R;
+    let z = cz + Math.sin(a) * SCATTER_R;
+    const loc = locate(world.track, x, z, kart.seg, 40, kart.y ?? null);
+    const wall = loc.wall - BANANA_R;
+    if (Math.abs(loc.lateral) > wall) {
+      const ex = loc.lateral - Math.sign(loc.lateral) * wall;
+      x -= -Math.sin(loc.heading) * ex;
+      z -= Math.cos(loc.heading) * ex;
+    }
+    world.bananas.push({ id: world.nextId++, owner: k, x, z, y: loc.ground ?? kart.y ?? 0, age: 0, h: a });
+    if (world.bananas.length > BANANA_MAX) world.bananas.shift();
+  }
+}
+
 // 車・置かれたバナナとの当たり。回る甲羅・ぶら下げたバナナのある車は、その所で1回だけ守りを見る
 function hitShell(world, s, karts, out) {
   for (const b of world.bananas) {
@@ -141,6 +166,7 @@ function hitShell(world, s, karts, out) {
       const by = guard(o, Math.atan2(s.z - o.z, s.x - o.x), true);
       if (by) {
         s.done = true;
+        if (by === 'trail') scatterBananas(world, o, j); // スピンしない。残りのバナナはその場に散らばる
         out.push({ type: 'blocked', k: j, by });
         return;
       }

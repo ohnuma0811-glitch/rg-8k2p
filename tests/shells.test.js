@@ -53,18 +53,18 @@ test('前に車がいない赤の甲羅は、前にまっすぐ飛び、5秒か�
   assert.equal(world.shells.length, 0);
 });
 
-test('緑の甲羅: まっすぐ飛び、柵ではね返る。4回目に当たるか5秒で消える', () => {
+test('緑の甲羅: まっすぐ飛び、柵ではね返る。21回目に当たるか5秒で消える（2026-10-22 に20回まで）', () => {
   const t = kampar;
   const me = kartAt(t, 100);
   me.heading += 1.2; // 柵へ向けて投げる
   const world = createItemWorld(t);
   const s = launchShell(world, me, 0, 'green', null, params.topSpeed);
   let maxB = 0;
-  for (let k = 0; k < 5 / DT && world.shells.length; k++) {
+  for (let k = 0; k < 5.2 / DT && world.shells.length; k++) {
     stepShells(world, [me], DT);
     maxB = Math.max(maxB, s.bounces);
   }
-  assert.ok(maxB >= 1, 'はね返った');
+  assert.ok(maxB >= 4, `はね返った（${maxB}回）`);
   assert.ok(maxB <= SHELL.BOUNCES);
   assert.equal(world.shells.length, 0);
 });
@@ -164,11 +164,33 @@ test('守り: 回る甲羅は向きで決まる（3つは必ず、2つは 2/3、
 });
 
 test('守り: ぶら下げたバナナは、後ろから来た甲羅を必ずふせぐ（前からは、ふせがない。バナナにはきかない）', () => {
-  const k = { heading: 0, orbitAngle: 0, orbit: [], trailing: true };
+  const k = { heading: 0, orbitAngle: 0, orbit: [], trailing: 5 };
   assert.equal(guard(k, 0, true), null);
   assert.equal(guard(k, Math.PI, false), null);
   assert.equal(guard(k, Math.PI, true), 'trail');
-  assert.equal(k.trailing, false);
+  assert.equal(k.blocked, 1);
+});
+
+test('バナナを5個ぶら下げた車に、後ろから甲羅が当たると、スピンせず、残りのバナナがその場に全部散らばる（2026-10-22 のユーザー依頼）', () => {
+  for (const kind of ['green', 'red']) {
+    const t = kampar;
+    const me = kartAt(t, 300);
+    me.trailing = 3;
+    const thrower = kartAt(t, 280);
+    const world = createItemWorld(t);
+    launchShell(world, thrower, 1, kind, kind === 'red' ? 0 : null, params.topSpeed);
+    let out = [];
+    for (let k = 0; k < 120 && world.shells.length; k++) out = out.concat(stepShells(world, [me, thrower], DT));
+    assert.ok(out.some((e) => e.type === 'blocked' && e.k === 0 && e.by === 'trail'), kind);
+    assert.ok(!(me.blast > 0) && !(me.spin > 0), 'スピンしない');
+    assert.equal(me.trailing, 0);
+    assert.equal(world.bananas.length, 3, '残りの3個が散らばる');
+    for (const b of world.bananas) {
+      assert.equal(b.owner, 0);
+      assert.ok(Math.hypot(b.x - me.x, b.z - me.z) < 6, 'その場');
+    }
+    assert.equal(new Set(world.bananas.map((b) => `${b.x.toFixed(2)},${b.z.toFixed(2)}`)).size, 3, '別々の所');
+  }
 });
 
 test('回る甲羅がある車へ飛んできた甲羅は、回る甲羅の所で、向きが合えばふせがれる', () => {

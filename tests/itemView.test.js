@@ -81,12 +81,12 @@ test('M4: 食べられている・走り直し中・hidden の車には、回る
   const scene = new THREE.Scene();
   const world = createItemWorld(buildTrack(COURSES[0]));
   const view = createItemView(scene);
-  const base = { x: 0, y: 0, z: 0, heading: 0, star: 3, orbit: [0, 1, 2], orbitAngle: 0, trailing: true, zap: 0.3 };
+  const base = { x: 0, y: 0, z: 0, heading: 0, star: 3, orbit: [0, 1, 2], orbitAngle: 0, trailing: 5, zap: 0.3 };
   const karts = [{ ...base }, { ...base, swallowed: true }, { ...base, respawn: 1 }, { ...base, hidden: true }];
   view.update(world, karts, 0);
   const find = (kind) => scene.children.find((o) => o.userData.kind === kind);
   assert.equal(find('greens').count, 3, '見えている1台の分だけ');
-  assert.equal(find('bananas').count, 1);
+  assert.equal(find('bananas').count, 5, 'ぶら下げた5個（見えている1台の分だけ）');
   const auras = scene.children.filter((o) => o.userData.kind === 'aura');
   const bolts = scene.children.filter((o) => o.userData.kind === 'bolt');
   assert.equal(auras.filter((a) => a.visible).length, 1);

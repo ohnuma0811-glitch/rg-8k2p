@@ -5,7 +5,7 @@ import { BOX_SIZE } from '../game/itemBoxes.js';
 import { ITEM } from '../game/items.js';
 
 const MAX_BOX = 40;
-const MAX_BANANA = 24;
+const MAX_BANANA = 64; // 置いたバナナ 20 個と、ぶら下げたバナナ（5個 × 8台）
 const MAX_SHELL = 48;
 
 let qTexture = null;
@@ -160,7 +160,11 @@ export function createItemView(scene) {
       n = 0;
       for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, -(b.h ?? 0) + Math.PI / 2); // 道に対して横向き（後ろから来る車に、曲がった形が見える）
       for (const k of karts) {
-        if (seen(k) && k.trailing && n < MAX_BANANA) put(bananas, n++, k.x - Math.cos(k.heading) * ITEM.TRAIL_BACK, k.y, k.z - Math.sin(k.heading) * ITEM.TRAIL_BACK, -k.heading + Math.PI / 2);
+        // ぶら下げたバナナ（残りの数だけ、車の後ろに1列。ジャンプ中も車についてくる）
+        for (let m = 0; seen(k) && m < (k.trailing || 0) && n < MAX_BANANA; m++) {
+          const back = ITEM.TRAIL_BACK + m * ITEM.TRAIL_GAP;
+          put(bananas, n++, k.x - Math.cos(k.heading) * back, k.y, k.z - Math.sin(k.heading) * back, -k.heading + Math.PI / 2);
+        }
       }
       done(bananas, n);
       let g = 0;

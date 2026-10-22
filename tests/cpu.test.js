@@ -171,14 +171,14 @@ test('CPU のアイテム: Banana はぶら下げて、後ろ 20m 以内に車�
   cpuItem(cpu, kart, [kart, other], t, 0);
   assert.equal(cpuItem(cpu, kart, [kart, other], t, 0.6), true, 'ぶら下げる');
   kart.held = null;
-  kart.trailing = true;
+  kart.trailing = 5;
   assert.equal(cpuItem(cpu, kart, [kart, other], t, 0.7), false);
   assert.equal(cpuItem(cpu, kart, [kart, other], t, 1.5), false, '後ろの車は 100m 先');
   Object.assign(other, createKart(t, 285));
   assert.equal(cpuItem(cpu, kart, [kart, other], t, 2), true, '後ろ 15m に来た');
   const c2 = createCpu(1, 1);
   const k2 = createKart(t, 600);
-  k2.trailing = true;
+  k2.trailing = 5;
   assert.equal(cpuItem(c2, k2, [k2], t, 0), false);
   assert.equal(cpuItem(c2, k2, [k2], t, 7.9), false);
   assert.equal(cpuItem(c2, k2, [k2], t, 8.1), true);
