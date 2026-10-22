@@ -417,3 +417,45 @@ test('甲羅の速さは、使った車のキャラの最高速の2倍（paramsO
   itemPress(world, karts, 0, f);
   assert.equal(world.shells[0].speed, 92);
 });
+
+test('空中では、ぶら下げたバナナを置けない（空中にバナナが置かれていた。2026-10-22 のユーザー依頼）', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.trailing = 3;
+  k.airborne = true;
+  assert.equal(itemPress(world, karts, 0, f), null);
+  assert.equal(world.bananas.length, 0);
+  assert.equal(k.trailing, 3);
+  k.airborne = false;
+  assert.equal(itemPress(world, karts, 0, f).type, 'drop');
+  assert.equal(world.bananas.length, 1);
+});
+
+test('回っている緑の甲羅にふれた車は、甲羅に当たったのと同じく吹き飛ぶ（甲羅は1つ消える。2026-10-22 のユーザー依頼）', () => {
+  const { karts, world, f } = setup();
+  const a = karts[0];
+  const b = karts[1];
+  a.orbit = [0, 1, 2];
+  a.orbitAngle = 0;
+  const ang = ITEM.ORBIT_SPIN * DT; // stepItems の中で、先に回る
+  Object.assign(b, { x: a.x + Math.cos(ang) * (ITEM.ORBIT_R + 1), z: a.z + Math.sin(ang) * (ITEM.ORBIT_R + 1), y: a.y });
+  const out = stepItems(world, karts, f, DT);
+  assert.ok(out.some((e) => e.type === 'blast' && e.k === 1 && e.by === 0), JSON.stringify(out));
+  assert.ok(b.blast > 0);
+  assert.equal(a.orbit.length, 2);
+  assert.equal(a.blast, 0, '自分は吹き飛ばない');
+});
+
+test('回っている緑の甲羅に Star の車がふれたら、甲羅だけ消える', () => {
+  const { karts, world, f } = setup();
+  const a = karts[0];
+  const b = karts[1];
+  a.orbit = [0];
+  a.orbitAngle = 0;
+  b.star = 3;
+  const ang = ITEM.ORBIT_SPIN * DT;
+  Object.assign(b, { x: a.x + Math.cos(ang) * ITEM.ORBIT_R, z: a.z + Math.sin(ang) * ITEM.ORBIT_R, y: a.y });
+  stepItems(world, karts, f, DT);
+  assert.equal(b.blast, 0);
+  assert.equal(a.orbit.length, 0);
+});

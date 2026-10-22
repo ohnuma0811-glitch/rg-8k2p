@@ -661,3 +661,13 @@ test('Star の車は、バンプに速く乗っても転がらない（Kampar To
     assert.equal(rolled, star === 0, `star ${star}`);
   }
 });
+
+test('吹き飛ぶスピンのあと、0.5秒止まってから走り出す（2026-10-22 のユーザー依頼）', () => {
+  const k = createKart(OVAL, 100);
+  k.speed = 30;
+  startBlast(k, OVAL);
+  run(OVAL, k, roadCtl, BLAST.TIME + 0.45);
+  assert.equal(k.speed, 0, 'まだ止まっている');
+  run(OVAL, k, roadCtl, 0.2);
+  assert.ok(k.speed > 0, '走り出す');
+});

@@ -5,7 +5,7 @@ import { rollItem } from './itemOdds.js';
 import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js';
 import { locate } from './track.js';
 import { KART_RADIUS } from './collide.js';
-import { launchShell, stepShells, guard } from './shells.js';
+import { launchShell, stepShells, guard, SHELL } from './shells.js';
 
 export const ITEM = {
   ROULETTE: 2, // ルーレットが回る秒数
@@ -112,7 +112,10 @@ export function itemPress(world, karts, k, f) {
   const kart = karts[k];
   if (!canUse(kart, f.finished[k])) return null;
   let ev = null;
-  if (kart.trailing) ev = { type: 'drop', k, t: f.t };
+  if (kart.trailing) {
+    if (kart.airborne) return null; // 空中では置けない（空中にバナナが置かれていた。2026-10-22 のユーザー依頼）
+    ev = { type: 'drop', k, t: f.t };
+  }
   else if (kart.orbit.length) ev = { type: 'throw', k, t: f.t };
   else if (kart.roulette > 0) ev = { type: 'stop', k, t: f.t };
   else if (kart.held === 'mushroom' && kart.mushroom > 0) return null; // キノコの加速が効いている間は、次のキノコを使えない（連打できない。2026-10-22 のユーザー依頼）
@@ -221,6 +224,26 @@ export function stepItems(world, karts, f, dt) {
       if (Math.abs((a.y ?? 0) - (b.y ?? 0)) > 1.5 || Math.hypot(a.x - b.x, a.z - b.z) >= KART_RADIUS * 2 + 0.2) return;
       if (startBlast(b, world.track)) out.push({ type: 'blast', k: j, by: i });
     });
+  });
+  // 回っている緑の甲羅に、ほかの車がふれたら、甲羅に当たったのと同じ（吹き飛ぶ。甲羅は1つ消える。2026-10-22 のユーザー依頼）
+  karts.forEach((a, i) => {
+    if (!a.orbit?.length || a.auto || a.respawn > 0) return;
+    for (let n = a.orbit.length - 1; n >= 0; n--) {
+      const ang = a.orbitAngle + (a.orbit[n] * 2 * Math.PI) / 3;
+      const sx = a.x + Math.cos(ang) * ITEM.ORBIT_R;
+      const sz = a.z + Math.sin(ang) * ITEM.ORBIT_R;
+      const j = karts.findIndex((b, jj) => jj !== i && !b.auto && !(b.respawn > 0) && !b.swallowed && !(b.blast > 0) && Math.abs((a.y ?? 0) - (b.y ?? 0)) < 2 && Math.hypot(b.x - sx, b.z - sz) < KART_RADIUS + SHELL.R);
+      if (j < 0) continue;
+      const b = karts[j];
+      a.orbit.splice(n, 1);
+      if (b.star > 0) {
+        out.push({ type: 'starBlock', k: j });
+        continue;
+      }
+      const by = guard(b, Math.atan2(sz - b.z, sx - b.x), true);
+      if (by) out.push({ type: 'blocked', k: j, by });
+      else if (startBlast(b, world.track)) out.push({ type: 'blast', k: j, by: i });
+    }
   });
   return out;
 }
