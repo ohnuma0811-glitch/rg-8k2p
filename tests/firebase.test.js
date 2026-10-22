@@ -30,3 +30,7 @@ test('GM のログインは iPhone でも signInWithPopup（リダイレクト�
   assert.ok(!/signInWithRedirect/.test(src));
   assert.ok(/signInWithPopup/.test(src));
 });
+
+test('読みこみ（get）で断られたときの「Permission denied」（code なし）も denied（実際の Firebase 10.14.1 で確かめた形）', () => {
+  assert.equal(normalizeError(new Error('Permission denied')).denied, true);
+});
