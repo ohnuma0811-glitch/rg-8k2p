@@ -41,19 +41,19 @@ function smile(g, y = -0.14) {
 // Penguin-man（docs/reference/penguin-man.webp）: 黒い頭に白い顔、黒いサングラス（白い2本線の光）、黄色いくちばし、頭のツンツンの毛
 function penguin(g) {
   g.add(ball(R, BLACK, 0, 0, 0, 16));
-  const face = ball(R * 0.78, WHITE, R * 0.3, -0.04, 0, 14);
+  const face = ball(R * 0.78, WHITE, R * 0.55, -0.04, 0, 14); // 白い顔は、黒い頭より前に出す（うまって見えなかった。2026-10-22）
   face.scale.set(0.7, 0.9, 1);
   g.add(face);
   for (const z of [-0.13, 0.13]) {
-    g.add(box(0.05, 0.13, 0.2, BLACK, R * 0.92, 0.07, z));
+    g.add(box(0.05, 0.13, 0.2, BLACK, R * 1.05, 0.07, z));
     for (const dy of [0.025, -0.025]) {
-      const l = box(0.06, 0.018, 0.12, WHITE, R * 0.92 + 0.01, 0.07 + dy, z);
+      const l = box(0.06, 0.018, 0.12, WHITE, R * 1.05 + 0.03, 0.07 + dy, z);
       l.rotation.x = 0.5;
       g.add(l);
     }
   }
-  g.add(box(0.05, 0.03, 0.08, BLACK, R * 0.95, 0.09, 0));
-  const beak = cone(0.08, 0.2, 0xf5b400, R * 1.02, -0.08, 0);
+  g.add(box(0.05, 0.03, 0.08, BLACK, R * 1.07, 0.09, 0));
+  const beak = cone(0.08, 0.2, 0xf5b400, R * 1.18, -0.08, 0);
   beak.rotation.z = -Math.PI / 2;
   g.add(beak);
   for (const [x, z, r] of [[0, 0, 0], [-0.08, 0.09, 0.4], [-0.08, -0.09, -0.4]]) {
