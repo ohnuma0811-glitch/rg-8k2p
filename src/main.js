@@ -50,7 +50,7 @@ import { createSfx } from './audio/sfx.js';
 import { createVoices } from './audio/voice.js';
 import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js';
 import { createCrowd } from './audio/crowd.js';
-import { crowdMix } from './audio/mix.js';
+import { crowdMix, CROWD_MAX } from './audio/mix.js';
 import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js';
 import { CHARS, charOf, colorOf, pickCpus, lineupOf } from './data/characters.js';
 import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js';
@@ -983,6 +983,13 @@ async function versusLobby(name, charId) {
       menu.onsubmit = os;
     },
     chime: () => sfx.play('select'),
+    // コースが決まったときの歓声（3秒）
+    cheer: (sec) => {
+      crowd.start();
+      crowd.excite(sec);
+      crowd.update({ gain: CROWD_MAX, pan: 0 });
+      setTimeout(() => crowd.stop(), sec * 1000);
+    },
   });
 }
 async function setVersusName(name) {

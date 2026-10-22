@@ -3,7 +3,7 @@ import { faceSvg } from './titleArt.js';
 import { charOf } from './data/characters.js';
 import { PHRASES, phrase, pickedText } from './chatPhrases.js';
 import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js';
-import { enterLobby, leaveLobby, setReady, playersOf } from './net/lobby.js';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js';
 import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -45,7 +45,7 @@ export function runLobby(root, ctx) {
     root.classList.add('show');
     root.innerHTML = `<div class="panel lobby">
       <div class="lb-top">
-        <button type="button" class="back-btn" data-act="back">◀ BACK</button>
+        <button type="button" class="back-btn" data-act="back">◀ TITLE</button>
         <button type="button" data-act="chars">Character</button>
         <button type="button" data-act="gear" aria-label="Settings">⚙</button>
         <div class="lb-gear hidden">
@@ -112,7 +112,7 @@ export function runLobby(root, ctx) {
       $('.vote-list').innerHTML = voteRows(ctx.courses, state.votes, r.voteId, state.players);
       const left = Math.max(0, Math.ceil((r.endsAt - serverNow()) / 1000));
       $('.vote-left').textContent = r.phase === 'voting' ? `${left}` : '';
-      $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], r.picks ?? 0, lang) : '';
+      $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], lang) : '';
     };
     const send = async (body) => {
       if (samePreset(lastPreset, body)) return false;
@@ -190,9 +190,11 @@ export function runLobby(root, ctx) {
       const prev = state.room;
       state.room = v;
       drawVote();
-      // コースが決まった: 2秒知らせてから（M4-B では）coming soon。そのあと待合室に戻す・自分の READY を外す
+      // コースが決まった: 「〇〇が選ばれました！」を3秒、観客の歓声と一緒に（2026-10-22 のユーザー依頼）。
+      // そのあと（M4-B では）coming soon。待合室に戻す・自分の READY を外す
+      if (v?.phase === 'decided' && prev?.phase !== 'decided') ctx.cheer?.(3);
       if (v?.phase === 'decided' && prev?.phase !== 'decided' && v.racers?.[me.uid]) {
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 3000));
         if (finished) return;
         await ctx.onDecided(v.course);
         if (finished) return;
@@ -203,6 +205,12 @@ export function runLobby(root, ctx) {
     }));
     offs.push(db.watch('status', (s) => {
       if (!s?.active || s.codeId !== me.codeId) finish('recode');
+    }));
+    // 電波が切れてもどったら入り直す（切れた間にサーバーが自分の行を消しているため。READY を押しても何も起きなくなっていた）
+    let wasOnline = null;
+    if (db.connected) offs.push(db.connected((on) => {
+      if (on && wasOnline === false && !finished) rejoinLobby(db, me).catch(() => {});
+      wasOnline = on;
     }));
     enterLobby(db, me).catch(() => finish('recode'));
   });

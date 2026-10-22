@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { enterLobby, leaveLobby, setReady, playersOf } from '../src/net/lobby.js';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from '../src/net/lobby.js';
 import { VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft, resetRoom, roomStale, STALE_MS } from '../src/net/room.js';
 
 // メモリのサーバー（パスで読み書き。transaction も）
@@ -115,4 +115,15 @@ test('止まった部屋: decided・voting が締め切りの15秒あとを過�
   assert.equal(roomStale({ phase: 'voting', endsAt: 1000 }, 5000), false);
   assert.equal(roomStale({ phase: 'lobby' }, 1e12), false);
   assert.equal(roomStale(null, 1e12), false);
+});
+
+test('電波がもどったら入り直す: 消えた自分の行を書き直し、アプリを閉じたときの削除もかけ直す。チャットと部屋はそのまま（2026-10-22 READY が黄色にならなかった不具合）', async () => {
+  const db = fakeDb();
+  db.data.chat = { c1: { m1: { preset: 0 } } };
+  db.data.room = { phase: 'voting' };
+  await rejoinLobby(db, me('u1', 'KYUGO'));
+  assert.deepEqual(db.data.lobby.u1, { name: 'KYUGO', char: 'cat', codeId: 'c1', ready: false, at: 777 });
+  assert.deepEqual(db.data.chat, { c1: { m1: { preset: 0 } } });
+  assert.deepEqual(db.data.room, { phase: 'voting' });
+  assert.deepEqual(db.calls.slice(0, 1), [['onDisconnectRemove', 'lobby/u1']]);
 });

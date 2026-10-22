@@ -26,7 +26,7 @@ test('最初の言語は端末の言語（ja で始まれば日本語）', () =>
 });
 
 test('コースが決まったときの知らせ', () => {
-  assert.equal(pickedText('Kampar Town', 3, 'en'), 'Kampar Town — 3 players picked!');
-  assert.equal(pickedText('Kampar Town', 1, 'en'), 'Kampar Town — 1 player picked!');
-  assert.equal(pickedText('Kampar Town', 3, 'ja'), 'Kampar Town — 3人がえらびました！');
+  // 2026-10-22 のユーザー依頼:「●●が選ばれました！」「〇〇 was selected!」
+  assert.equal(pickedText('Kampar Town', 'en'), 'Kampar Town was selected!');
+  assert.equal(pickedText('Kampar Town', 'ja'), 'Kampar Townが選ばれました！');
 });
