@@ -1,5 +1,5 @@
 // コースの外観のカメラ（2026-10-20）: コースの一部（def.showcase の印のまわり）だけを映すコース（Global City のクアラルンプール）
-import { pointAt, sOf } from './world/kit.js?v=187c0cd';
+import { pointAt, sOf } from './world/kit.js?v=3562af2';
 
 // 印 at のまわりを、半径 r・高さ h でゆっくり回る（orbitCamera と同じ速さ）
 export function showcaseCamera(camera, track, time) {
