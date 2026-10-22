@@ -113,6 +113,7 @@ export function itemPress(world, karts, k, f) {
   if (kart.trailing) ev = { type: 'drop', k, t: f.t };
   else if (kart.orbit.length) ev = { type: 'throw', k, t: f.t };
   else if (kart.roulette > 0) ev = { type: 'stop', k, t: f.t };
+  else if (kart.held === 'mushroom' && kart.mushroom > 0) return null; // キノコの加速が効いている間は、次のキノコを使えない（連打できない。2026-10-22 のユーザー依頼）
   else if (kart.held) ev = { type: 'use', k, t: f.t, item: kart.held, target: kart.held === 'shell' ? targetOf(f.ranks, k, f.finished) : null };
   if (ev) applyItemEvent(world, karts, ev, f);
   return ev;

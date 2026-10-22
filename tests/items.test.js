@@ -77,6 +77,20 @@ test('Mushroom を使う: 加速して、枠が空になる。出来事が返る
   assert.equal(itemPress(world, karts, 0, f), null, '空の枠では何もしない');
 });
 
+test('キノコの加速が効いている間は、次のキノコを使えない（連打できない。2026-10-22 のユーザー依頼）', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.held = 'mushroom';
+  k.heldUses = 3;
+  assert.equal(itemPress(world, karts, 0, f).item, 'mushroom');
+  assert.equal(itemPress(world, karts, 0, f), null, '加速中はもう一度押しても何もしない');
+  assert.equal(k.heldUses, 2);
+  for (let i = 0; i < 100; i++) stepKart(k, { steer: 0, throttle: 1, brake: false, drift: false }, t, params, DT);
+  assert.equal(k.mushroom, 0);
+  assert.equal(itemPress(world, karts, 0, f).item, 'mushroom', '加速が終われば使える');
+  assert.equal(k.heldUses, 1);
+});
+
 test('Star を使う: 9秒の無敵', () => {
   const { karts, world, f } = setup();
   karts[0].held = 'star';
@@ -356,6 +370,7 @@ test('Mushroom は3個セット: 3回使える。使い切るまで枠はキノ�
     assert.equal(itemPress(world, karts, 0, f).item, 'mushroom');
     assert.equal(k.heldUses, n);
     assert.equal(k.held, n > 0 ? 'mushroom' : null);
+    k.mushroom = 0; // 加速が終わってから次を使う
   }
   assert.equal(k.mushrooms, 3);
   assert.equal(canTake(k), true);
