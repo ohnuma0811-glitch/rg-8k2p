@@ -40,3 +40,31 @@ test('今の4コースのコースマップの線は、Global City の直し（2
   const want = [[1300], [2500], [2500, 523, 559], [2800, 1002]];
   COURSES.slice(0, 4).forEach((c, k) => assert.deepEqual(minimapPaths(buildTrack(c)).map((p) => p.length), want[k], c.name));
 });
+
+test('World Cities: コースマップはステージごと。どの点も、ちょうど1つのステージの地図に入る（2026-10-22 のユーザー依頼）', async () => {
+  const { buildTrack, stageAt } = await import('../src/game/track.js');
+  const { COURSES } = await import('../src/data/tracks.js');
+  const { minimapPaths, stagePaths } = await import('../src/render/minimap.js');
+  const t = buildTrack(COURSES[4]);
+  const all = minimapPaths(t).reduce((n, ps) => n + ps.length, 0);
+  let sum = 0;
+  t.stages.forEach((st, k) => {
+    const ps = stagePaths(t, k);
+    assert.ok(ps.length > 0, `${st.name} に道がある`);
+    for (const list of ps) {
+      sum += list.length;
+      for (const q of list) {
+        const rel = q.s > t.marks.END ? q.s - t.length : q.s;
+        assert.equal(stageAt(t, rel), k, `${st.name}: s ${q.s}`);
+      }
+    }
+  });
+  assert.equal(sum, all);
+});
+
+test('World Cities: ほかのステージにいる車の点は出さない', async () => {
+  const { mapDots } = await import('../src/render/minimap.js');
+  const dots = [{ x: 0, z: 0, stage: 2, me: true }, { x: 1, z: 1, stage: 2 }, { x: 2, z: 2, stage: 3 }];
+  assert.deepEqual(mapDots(dots, 2).map((d) => d.x), [0, 1]);
+  assert.equal(mapDots([{ x: 0, z: 0 }], undefined).length, 1, 'ステージのないコースは全部');
+});
