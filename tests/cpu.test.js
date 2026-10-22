@@ -255,3 +255,16 @@ test('I2: ぬかるみ（swapItem なしの muddy）の CPU は今まで通り�
   const b = cpuControl(createCpu(0), { ...kart, muddy: 0 }, track, 1, 30);
   assert.equal(a.steer, -b.steer);
 });
+
+test('CPU のキノコ（3個セット）: 前のキノコの加速が終わってから、次を使う', () => {
+  const OVAL = buildTrack({ points: [[0, 0], [200, 0], [400, 0], [600, 0], [800, 0], [1000, 100], [800, 200], [600, 200], [400, 200], [200, 200], [0, 200], [-200, 100]], length: 2400, roadHalf: 9, dirt: 4 });
+  const kart = createKart(OVAL, 0);
+  const cpu = createCpu(0, 1);
+  kart.held = 'mushroom';
+  kart.heldUses = 2;
+  cpuItem(cpu, kart, [kart], OVAL, 0);
+  kart.mushroom = 1; // 1個目の加速の途中
+  assert.equal(cpuItem(cpu, kart, [kart], OVAL, 20), false);
+  kart.mushroom = 0;
+  assert.equal(cpuItem(cpu, kart, [kart], OVAL, 20), true);
+});

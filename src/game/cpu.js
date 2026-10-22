@@ -398,7 +398,8 @@ export function cpuItem(cpu, kart, karts, track, t, rand = Math.random) {
   const since = t - cpu.heldAt;
   if (since < CPU_ITEM.MIN_WAIT) return false;
   if (kart.held === 'banana') return true;
-  if (kart.held === 'mushroom') return since >= CPU_ITEM.MUSHROOM_LATEST || straightAhead(kart, track);
+  // キノコ（3個セット）: 前のキノコの加速が終わってから、次を使う
+  if (kart.held === 'mushroom') return !(kart.mushroom > 0) && (since >= CPU_ITEM.MUSHROOM_LATEST || straightAhead(kart, track));
   if (kart.held === 'star' || kart.held === 'lightning') return since >= cpu.wait;
   return false;
 }

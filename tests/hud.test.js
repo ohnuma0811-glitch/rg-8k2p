@@ -27,3 +27,12 @@ test('6つのアイテムに、それぞれ絵がある（自分たちで描い�
   for (const it of ITEMS) assert.ok(ITEM_ICONS[it]?.startsWith('<svg'), it);
   assert.deepEqual([...ROULETTE_ORDER].sort(), [...ITEMS].sort());
 });
+
+test('キノコの枠の絵は、残りの数だけキノコが並ぶ（3個セット）', () => {
+  assert.equal((ITEM_ICONS.mushroom.match(/<g /g) ?? []).length, 3, 'ルーレットと、3個持っているときの絵');
+  assert.equal(slotItem({ held: 'mushroom', heldUses: 3, roulette: 0 }), 'mushroom');
+  assert.equal(slotItem({ held: 'mushroom', heldUses: 2, roulette: 0 }), 'mushroom2');
+  assert.equal(slotItem({ held: 'mushroom', heldUses: 1, roulette: 0 }), 'mushroom1');
+  assert.equal((ITEM_ICONS.mushroom2.match(/<g /g) ?? []).length, 2);
+  assert.equal((ITEM_ICONS.mushroom1.match(/<g /g) ?? []).length, 1);
+});

@@ -140,6 +140,13 @@ function firePending(world, karts) {
   });
 }
 
+// ルーレットで決まったアイテムを枠に入れる。キノコは3個セット（3回使える。2026-10-22 のユーザー依頼）
+export const MUSHROOM_SET = 3;
+function takeItem(kart, item) {
+  kart.held = item;
+  kart.heldUses = item === 'mushroom' ? MUSHROOM_SET : 1;
+}
+
 // 出来事を効かせる（どの端末でも、同じ出来事から同じように動く）
 export function applyItemEvent(world, karts, ev, f) {
   const kart = karts[ev.k];
@@ -156,10 +163,11 @@ export function applyItemEvent(world, karts, ev, f) {
   }
   if (ev.type === 'stop') {
     kart.roulette = 0;
-    kart.held = kart.rouletteItem;
+    takeItem(kart, kart.rouletteItem);
     kart.rouletteItem = null;
   } else if (ev.type === 'use') {
-    kart.held = null;
+    kart.heldUses = Math.max(0, (kart.heldUses ?? 1) - 1);
+    if (kart.heldUses === 0) kart.held = null; // キノコは3回使うまで枠に残る
     if (ev.item === 'mushroom') useMushroom(kart, f.paramsOf?.(ev.k) ?? f.params); // その車自身のパラメーターで（CPU は自分の最高速で）
     else if (ev.item === 'star') kart.star = STAR.TIME;
     else if (ev.item === 'banana') kart.trailing = true;
@@ -187,7 +195,7 @@ export function stepItems(world, karts, f, dt) {
     if (kart.roulette > 0) {
       kart.roulette = Math.max(0, kart.roulette - dt);
       if (kart.roulette === 0) {
-        kart.held = kart.rouletteItem;
+        takeItem(kart, kart.rouletteItem);
         kart.rouletteItem = null;
         out.push({ type: 'decided', k });
       }

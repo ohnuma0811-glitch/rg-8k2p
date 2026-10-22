@@ -342,3 +342,29 @@ test('ジャンプ台で飛んでいる間に投げた甲羅は、消さずに�
   assert.deepEqual(world.shells.map((s) => s.kind).sort(), ['green', 'red'], '着地したら発射');
   assert.equal(world.shells.find((s) => s.kind === 'red').target, 1);
 });
+
+test('Mushroom は3個セット: 3回使える。使い切るまで枠はキノコのまま（次の箱は取れない）（2026-10-22 のユーザー依頼）', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.roulette = 1;
+  k.rouletteItem = 'mushroom';
+  itemPress(world, karts, 0, f); // ルーレットを止める
+  assert.equal(k.held, 'mushroom');
+  assert.equal(k.heldUses, 3);
+  for (let n = 2; n >= 0; n--) {
+    assert.equal(canTake(k), false);
+    assert.equal(itemPress(world, karts, 0, f).item, 'mushroom');
+    assert.equal(k.heldUses, n);
+    assert.equal(k.held, n > 0 ? 'mushroom' : null);
+  }
+  assert.equal(k.mushrooms, 3);
+  assert.equal(canTake(k), true);
+});
+
+test('ルーレットが自然に止まってキノコになっても3個', () => {
+  const { karts, world, f } = setup();
+  karts[0].roulette = 0.01;
+  karts[0].rouletteItem = 'mushroom';
+  stepItems(world, karts, f, DT);
+  assert.equal(karts[0].heldUses, 3);
+});
