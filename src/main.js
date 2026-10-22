@@ -933,10 +933,11 @@ async function flow() {
         save('ttCourse', courseNo);
         screen = 'character';
       } else if (screen === 'character') {
-        const pick = await screens.chooseCharacter(menu, CHARS.map((c) => ({ ...c, color: colorOf(c) })), remainingText(remainingSec(playStore(), name, Date.now())));
+        const pick = await screens.chooseCharacter(menu, CHARS, remainingText(remainingSec(playStore(), name, Date.now())), load('char', null));
         if (pick === screens.BACK) screen = screens.prevScreen('character', mode);
         else {
           charId = pick;
+          save('char', charId); // 次に開いたとき光らせる
           if (mode === 'timetrial') ready = true;
           else screen = 'level';
         }

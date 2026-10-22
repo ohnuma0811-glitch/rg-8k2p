@@ -411,6 +411,36 @@ html, body {
   width: 100%;
   height: 100%;
 }
+/* キャラ選び（8人）: 横4人×2段。前に選んだキャラは黄色いふち（2026-10-22） */
+#menu .choices.racers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: min(720px, 100%);
+}
+#menu .choices.racers button {
+  min-width: 0;
+  padding: 10px 6px;
+  font-size: 15px;
+}
+#menu .choices.racers button.last {
+  box-shadow: 0 0 0 4px #ffd34a, 0 0 18px #ffd34a;
+}
+#menu .choices.racers .racer-face {
+  width: 64px;
+  height: 64px;
+}
+@media (max-height: 430px) {
+  #menu .choices.racers button {
+    padding: 4px 4px;
+    font-size: 13px;
+    gap: 2px;
+  }
+  #menu .choices.racers .racer-face {
+    width: 44px;
+    height: 44px;
+  }
+}
 /* CPU の速さ（Level）のボタン。前に選んだ Level は黄色いふち */
 #menu .choices.levels button {
   min-width: 140px;

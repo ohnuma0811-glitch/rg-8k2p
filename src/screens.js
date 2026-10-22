@@ -1,6 +1,7 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
 import { typeLetter, isValidName } from './names.js';
 import { TITLE_ART, faceSvg } from './titleArt.js';
+import { colorOf } from './data/characters.js';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -147,17 +148,18 @@ export function askName(root, recent) {
   });
 }
 
-// キャラのボタン: 名前の上に顔（2026-10-17 のユーザー依頼。炎と星はなし）
-export function characterButton(c) {
-  return `<button type="button" data-pick="${c.id}" style="background:${c.color}"><span class="racer-face">${faceSvg(c.id)}</span><span>${c.name}</span></button>`;
+// キャラのボタン: 名前の上に顔（2026-10-17 のユーザー依頼）。色はカートの色。能力は出さない（2026-10-22 のユーザーの判断）
+// last: 前に選んだキャラの id（光らせる）
+export function characterButton(c, last = null) {
+  return `<button type="button" data-pick="${c.id}"${c.id === last ? ' class="last"' : ''} style="background:${colorOf(c)}"><span class="racer-face">${faceSvg(c.id)}</span><span>${c.name}</span></button>`;
 }
 
 // キャラ選び（M2 は Kyugo と Soki。M3 で8人）。note は残り時間など
-export async function chooseCharacter(root, chars, note) {
+export async function chooseCharacter(root, chars, note, last = null) {
   show(root, `
     ${BACK_BUTTON}
     <h1>Choose your racer</h1>
-    <div class="choices">${chars.map(characterButton).join('')}</div>
+    <div class="choices racers">${chars.map((c) => characterButton(c, last)).join('')}</div>
     <p class="note">${note}</p>`);
   // パソコンでは Esc でも戻る
   let onKey;

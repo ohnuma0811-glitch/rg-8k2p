@@ -46,7 +46,7 @@ test('SOLO では、キャラ選びのあとに CPU の速さ（Level 1〜3）�
 
 test('キャラ選びのボタンは、名前の上に Kyugo と Soki の顔（炎と星はなし。2026-10-17 のユーザー依頼）', async () => {
   const { characterButton } = await import('../src/screens.js');
-  const html = characterButton({ id: 'soki', name: 'Soki', color: '#1c3c88', icon: '⭐' });
+  const html = characterButton({ id: 'soki', name: 'Soki', body: 0x1c3c88, icon: '⭐' });
   assert.ok(html.includes('face-svg'), '顔の絵');
   assert.ok(!html.includes('⭐'), '星はなし');
   assert.ok(html.indexOf('face-svg') < html.indexOf('Soki</'), '顔が名前の上');
@@ -111,4 +111,16 @@ test('コース選び: ボタンの並びと OK ボタンの間をあける（Gl
   const m = css.match(/#menu \.choices\.courses \{[^}]*margin-bottom:\s*(\d+)px/);
   assert.ok(m && Number(m[1]) >= 28, '下のすき間');
   assert.match(css, /#menu \.choices\.courses button\.picked \{[^}]*box-shadow/);
+});
+
+test('キャラ選び: 8人のボタン。色はカートの色、能力は出さない。前に選んだキャラは光る（知らない id なら光らない）', async () => {
+  const { characterButton } = await import('../src/screens.js');
+  const { CHARS } = await import('../src/data/characters.js');
+  const html = CHARS.map((c) => characterButton(c, 'tiger')).join('');
+  assert.equal((html.match(/data-pick=/g) ?? []).length, 8);
+  assert.ok(html.includes('background:#e67e22'), 'Big Tiger のオレンジ');
+  assert.ok(!/SPEED|ACCEL|HANDL|●/.test(html), '能力は出さない');
+  assert.equal((html.match(/class="last"/g) ?? []).length, 1);
+  assert.ok(characterButton(CHARS[5], 'tiger').includes('class="last"'));
+  assert.equal(CHARS.map((c) => characterButton(c, 'nobody')).join('').includes('class="last"'), false);
 });
