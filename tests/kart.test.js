@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack, locate, span } from '../src/game/track.js';
 import { COURSE1 } from '../src/data/tracks.js';
-import { createKart, stepKart, driftLevel, startDash, PHYS, DASH_BASE, DASH_PER_ACCEL } from '../src/game/kart.js';
+import { createKart, stepKart, driftLevel, startDash, PHYS, DASH_BASE, DASH_PER_ACCEL, useMushroom, startBlast, STAR, BLAST, MUSHROOM } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
 
 // 動きを確かめるための、長い直線がある楕円のコース（ジャンプなし）
@@ -572,5 +572,91 @@ test('柵にぶつかると、車の端（中心ではなく）が柵の所で�
         }
       }
     }
+  }
+});
+
+// --- アイテム（M3-A）---
+const roadCtl = { steer: 0, brake: false, drift: false };
+
+test('Mushroom: 1.5秒、最高速の 1.3倍。ダートでもおそくならない', () => {
+  const k = createKart(OVAL, 100, 11); // 道の外（ダート）
+  k.speed = params.topSpeed;
+  useMushroom(k, params);
+  assert.ok(k.speed >= params.topSpeed * 1.3 - 1e-9);
+  assert.equal(k.mushroom, MUSHROOM.TIME);
+  assert.equal(k.mushrooms, 1);
+  run(OVAL, k, roadCtl, 1);
+  assert.ok(k.speed > params.topSpeed * 1.25, `ダートでも速いまま: ${k.speed}`);
+  // くらべる: キノコでない加速（加速板と同じ）は、ダートでおそくなる
+  const d = createKart(OVAL, 100, 11);
+  d.speed = params.topSpeed * 1.3;
+  d.boost = 1.5;
+  d.boostFactor = PHYS.BOOST_FACTOR;
+  run(OVAL, d, roadCtl, 1);
+  assert.ok(d.speed < params.topSpeed * 1.1, `ダートでおそくなる: ${d.speed}`);
+  run(OVAL, k, roadCtl, 1);
+  assert.equal(k.mushroom, 0, '1.5秒で終わる');
+});
+
+test('Star: 6秒。最高速 1.2倍・加速2倍・よく曲がる。終わったらもとどおり', () => {
+  const s = createKart(OVAL, 100);
+  const n = createKart(OVAL, 100);
+  s.star = STAR.TIME;
+  run(OVAL, s, roadCtl, 1);
+  run(OVAL, n, roadCtl, 1);
+  assert.ok(s.speed > n.speed * 1.6, `加速: ${s.speed} / ${n.speed}`);
+  run(OVAL, s, roadCtl, 4.5);
+  assert.ok(s.speed > params.topSpeed * 1.15, `最高速: ${s.speed}`);
+  assert.ok(s.star > 0 && s.star < 1);
+  run(OVAL, s, roadCtl, 1);
+  assert.equal(s.star, 0);
+  // 曲がる速さ: 同じ速さでハンドルいっぱい
+  const a = createKart(OVAL, 100);
+  const b = createKart(OVAL, 100);
+  a.speed = b.speed = 30;
+  a.star = STAR.TIME;
+  const h0 = a.heading;
+  stepKart(a, { steer: 1, brake: false, drift: false }, OVAL, params, 0.1);
+  stepKart(b, { steer: 1, brake: false, drift: false }, OVAL, params, 0.1);
+  assert.ok(wrap(a.heading - h0) > wrap(b.heading - h0));
+});
+
+test('吹き飛ぶスピン: 1.5秒、その間は動かずハンドルも効かない。終わると道の向き・速さ 0 から', () => {
+  const k = createKart(OVAL, 100);
+  k.speed = 40;
+  k.heading += 0.5;
+  k.move = k.heading;
+  assert.equal(startBlast(k, OVAL), true);
+  assert.equal(startBlast(k, OVAL), false, '吹き飛んでいる間は、もう一度は起きない');
+  assert.equal(k.speed, 0);
+  assert.equal(k.blasts, 1);
+  const x = k.x;
+  const z = k.z;
+  run(OVAL, k, { steer: 1, brake: false, drift: true }, BLAST.TIME - 0.05);
+  assert.ok(k.blast > 0);
+  assert.equal(k.x, x);
+  assert.equal(k.z, z);
+  run(OVAL, k, roadCtl, 0.1);
+  assert.equal(k.blast, 0);
+  assert.ok(Math.abs(wrap(k.heading - OVAL.samples[k.seg].h)) < 1e-9);
+  assert.ok(k.speed < 3, `止まった所から走り出す: ${k.speed}`);
+});
+
+test('Star の車は、バンプに速く乗っても転がらない（Kampar Town）', async () => {
+  const { COURSES } = await import('../src/data/tracks.js');
+  const t2 = buildTrack(COURSES[1]);
+  const bs = t2.bumps[0];
+  for (const star of [0, STAR.TIME]) {
+    const k = createKart(t2, Math.round(bs - 20 + t2.length) % t2.length);
+    k.speed = 45;
+    k.star = star;
+    let rolled = false;
+    for (let f = 0; f < 60; f++) {
+      if (k.star > 0) k.star = STAR.TIME;
+      k.speed = Math.max(k.speed, 45);
+      stepKart(k, roadCtl, t2, params, DT);
+      if (k.tumble > 0) rolled = true;
+    }
+    assert.equal(rolled, star === 0, `star ${star}`);
   }
 });

@@ -50,6 +50,11 @@ export const PHYS = {
   RESPAWN_DELAY: 2, // コースに戻すまでの時間（秒）
 };
 
+// アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4・7章）
+export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。ダートでもおそくならない
+export const STAR = { TIME: 6, TOP: 1.2, ACCEL: 2, TURN: 0.08 }; // TURN: ハンドルの能力の数字1つ分（rad/s）
+export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2 }; // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
+
 function wrapAngle(a) {
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;
@@ -87,6 +92,10 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.rightTime = 0; // 前向きに走っている秒数
   kart.spin = 0; // スピンの残り秒数
   kart.spinTo = p.h; // スピンのあとに向く向き
+  kart.mushroom = 0; // キノコでダートでもおそくならない残りの秒数
+  kart.star = 0; // Star の残りの秒数
+  kart.blast = 0; // 吹き飛ぶスピンの残りの秒数
+  kart.blastTo = p.h; // 吹き飛んだあとに向く向き
 }
 
 export function createKart(track, i, lateral = 0) {
@@ -116,6 +125,29 @@ function startBoost(kart, params, time, factor = PHYS.BOOST_FACTOR) {
   kart.boost = going && factor === kart.boostFactor ? Math.max(kart.boost, time) : time;
   kart.boostFactor = factor;
   kart.speed = Math.max(kart.speed, params.topSpeed * factor);
+}
+
+// Mushroom（アイテム）: 加速板と同じ加速を 1.5秒。その間はダートでもおそくならない
+export function useMushroom(kart, params) {
+  startBoost(kart, params, MUSHROOM.TIME, PHYS.BOOST_FACTOR);
+  kart.mushroom = MUSHROOM.TIME;
+  kart.mushrooms = (kart.mushrooms || 0) + 1;
+}
+
+// 吹き飛ぶスピン（甲羅に当たった・Star の車にぶつかられた）: その場で止まり、上に飛んで2回転して落ちる。着いたら道の向き
+export function startBlast(kart, track) {
+  if (kart.blast > 0) return false;
+  kart.blast = BLAST.TIME;
+  kart.blastTo = track.samples[kart.seg].h;
+  kart.blasts = (kart.blasts || 0) + 1;
+  kart.speed = 0;
+  kart.boost = 0;
+  kart.mushroom = 0;
+  kart.hop = 0;
+  kart.spin = 0;
+  kart.tumble = 0;
+  kart.drift = { active: false, dir: 0, stage: 0, counter: false, flicks: 0, time: 0 };
+  return true;
 }
 
 // 自動の区間に入る（本線の点 p.auto の所に来た）
@@ -203,6 +235,19 @@ export function stepKart(kart, ctl, track, params, dt) {
     stepAuto(kart, track, dt);
     return;
   }
+  // アイテムの時間
+  if (kart.star > 0) kart.star = Math.max(0, kart.star - dt);
+  if (kart.mushroom > 0) kart.mushroom = Math.max(0, kart.mushroom - dt);
+  // 吹き飛ぶスピン: その場で止まったまま（高さと回る見た目は src/render/models.js）。終わったら道の向きで、速さ 0 から
+  if (kart.blast > 0) {
+    kart.blast = Math.max(0, kart.blast - dt);
+    kart.speed = 0;
+    if (kart.blast === 0) {
+      kart.heading = kart.blastTo;
+      kart.move = kart.blastTo;
+    }
+    return;
+  }
   // バンプで転がっている間: 操作は効かず、すぐに止まる（その場で転がる）。終わったら、止まった状態からコースの向きで走り出す
   if (kart.tumble > 0) {
     kart.tumble = Math.max(0, kart.tumble - dt);
@@ -252,8 +297,9 @@ export function stepKart(kart, ctl, track, params, dt) {
 
   if (!kart.airborne) {
     if (here.boost) startBoost(kart, params, here.boostTime || PHYS.PAD_BOOST);
-    let maxV = params.topSpeed;
-    if (here.surface !== 'road') maxV *= PHYS.DIRT_FACTOR;
+    const starOn = kart.star > 0;
+    let maxV = params.topSpeed * (starOn ? STAR.TOP : 1);
+    if (here.surface !== 'road' && !(kart.mushroom > 0) && !starOn) maxV *= PHYS.DIRT_FACTOR; // キノコと Star はダートでもおそくならない
     if (kart.boost > 0) maxV *= kart.boostFactor;
     // ハンドルを切ったりドリフトしたりすると、少し遅くなる
     maxV *= 1 - (kart.drift.active ? PHYS.DRIFT_DRAG : PHYS.STEER_DRAG * Math.abs(steer));
@@ -265,7 +311,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     } else if (kart.speed < maxV) {
       // 最高速に近いほど、加速が弱くなる
       const taper = Math.max(0.3, 1 - PHYS.ACCEL_TAPER * (Math.max(0, kart.speed) / maxV) ** 3);
-      kart.speed = Math.min(maxV, kart.speed + params.accel * taper * dt);
+      kart.speed = Math.min(maxV, kart.speed + params.accel * (starOn ? STAR.ACCEL : 1) * taper * dt);
     } else {
       kart.speed = Math.max(maxV, kart.speed - PHYS.DRAG * dt);
     }
@@ -312,7 +358,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     const grip = Math.min(1, Math.abs(kart.speed) / PHYS.TURN_FULL_SPEED) * Math.sign(kart.speed);
     const slow = 1 + PHYS.LOW_SPEED_BONUS * (1 - Math.min(1, Math.abs(kart.speed) / params.topSpeed));
     const turn = kart.drift.active ? kart.drift.dir * PHYS.DRIFT_BASE + steer * PHYS.DRIFT_ADJ : steer * slow;
-    kart.heading += turn * params.turnRate * grip * dt;
+    kart.heading += turn * (params.turnRate + (starOn ? STAR.TURN : 0)) * grip * dt;
   } else {
     kart.heading += steer * params.turnRate * PHYS.AIR_TURN * dt;
   }
@@ -368,7 +414,7 @@ export function stepKart(kart, ctl, track, params, dt) {
   if (!kart.airborne && kart.speed > 0) {
     for (const b of track.bumps ?? []) {
       if (!crossed(track, here.s, loc.s, b)) continue;
-      if (meterKmh(kart.speed) > BUMP_LIMIT_KMH) {
+      if (meterKmh(kart.speed) > BUMP_LIMIT_KMH && !(kart.star > 0)) {
         kart.tumble = TUMBLE_TIME;
         if (kart.drift.active) endDrift(kart, params, false);
         kart.hop = 0;

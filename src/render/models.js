@@ -1,7 +1,7 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
 import * as THREE from '../../vendor/three.module.min.js';
-import { PHYS } from '../game/kart.js';
+import { PHYS, BLAST } from '../game/kart.js';
 import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
@@ -341,8 +341,11 @@ export function syncKartModel(model, kart) {
   const since = tumbling ? TUMBLE_TIME - kart.tumble : 0;
   const flying = tumbling && since < TUMBLE_FLY;
   const fly = flying ? Math.sin((since / TUMBLE_FLY) * Math.PI) * TUMBLE_HEIGHT : 0;
-  model.position.set(kart.x, kart.y + hop + lift + fly, kart.z);
-  model.rotation.y = -kart.heading;
+  // 吹き飛ぶスピン（アイテム）: 上に飛び、横に2回転して落ちる
+  const bu = kart.blast > 0 ? 1 - kart.blast / BLAST.TIME : 0;
+  const blastLift = kart.blast > 0 ? 4 * BLAST.HEIGHT * bu * (1 - bu) : 0;
+  model.position.set(kart.x, kart.y + hop + lift + fly + blastLift, kart.z);
+  model.rotation.y = -(kart.heading + (kart.blast > 0 ? BLAST.TURNS * 2 * Math.PI * bu : 0));
   model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.2 : 0;
   model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
   const stars = model.userData.stars;
