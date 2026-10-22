@@ -249,3 +249,36 @@ test('ワープのあとは着地の音なし。輪っかを通るときは ring
 test('最後の大ジャンプ（goalJump）でも大ジャンプの音（2026-10-21）', () => {
   assert.ok(soundEvents(st(), st({}, { auto: { id: 'goalJump', leg: 0 } }), 1).includes('bigJump'));
 });
+
+const itemKart = (extra = {}) => ({ drift: { active: false, stage: 0 }, airborne: false, onWall: false, ...extra });
+const itemSt = (kart, extra = {}) => soundState({ count: '', lap: 0, finished: false, kart, bumps: 0, ...extra });
+
+test('アイテムの音: ルーレットのカラカラ、決まったときのピンピンピン', () => {
+  const a = itemSt(itemKart({ roulette: 1.95 }));
+  const b = itemSt(itemKart({ roulette: 1.8 }));
+  assert.ok(soundEvents(a, b, 3).includes('rouletteTick'));
+  const done = itemSt(itemKart({ roulette: 0, held: 'star' }));
+  assert.ok(soundEvents(b, done, 3).includes('itemGet'));
+});
+
+test('アイテムの音: キノコ（加速の音のかわり）、甲羅を出す、バナナを踏む、守った', () => {
+  const a = itemSt(itemKart());
+  const b = itemSt(itemKart({ mushrooms: 1, boost: 1, thrown: 1, bananaHits: 1, blocked: 1 }));
+  const ev = soundEvents(a, b, 3);
+  assert.ok(ev.includes('mushroom'));
+  assert.ok(!ev.includes('boost'));
+  assert.ok(ev.includes('shellOut'));
+  assert.ok(ev.includes('bananaHit'));
+  assert.ok(ev.includes('guard'));
+});
+
+test('アイテムの音: 爆発（自分か近くの車が吹き飛んだ）、稲妻、Star のメロディの始まりと終わり', () => {
+  const a = itemSt(itemKart(), { thunder: 0, blastsHeard: 0 });
+  const b = itemSt(itemKart({ star: 6 }), { thunder: 1, blastsHeard: 1 });
+  const ev = soundEvents(a, b, 3);
+  assert.ok(ev.includes('explosion'));
+  assert.ok(ev.includes('thunder'));
+  assert.ok(ev.includes('starOn'));
+  const c = itemSt(itemKart({ star: 0 }), { thunder: 1, blastsHeard: 1 });
+  assert.deepEqual(soundEvents(b, c, 3).filter((e) => e.startsWith('star')), ['starOff']);
+});

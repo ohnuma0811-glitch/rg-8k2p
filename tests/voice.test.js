@@ -16,7 +16,7 @@ function fakeAudio() {
 const fakeFetch = async (url) => ({ ok: true, arrayBuffer: async () => ({ name: url }) });
 
 test('声のファイルは男の子用と女の子用（男衆「イヤッホー！」・女衆「おう！」、フリー素材）と、恐竜に食べられたときの「ぎゃーーー」', () => {
-  assert.deepEqual(VOICE_FILES, { male: 'sounds/yahoo-male.mp3', female: 'sounds/yahoo-female.mp3', scream: 'sounds/dino-scream.mp3', roar: 'sounds/dino-roar.mp3', rocket: 'sounds/rocket-start.mp3', horn: 'sounds/horn.mp3', warp: 'sounds/Shortbridge16-2.mp3', launch: 'sounds/49053354-rocket-launch-306441.mp3', ring: 'sounds/Onoma-Impact10-1(High).mp3', tram: 'sounds/電車のクラクション1.mp3' }); // tram: 香港の路面電車とすれちがう音（2026-10-22 にユーザーが用意） // ring: ワープの輪っかを通る音（2026-10-22 にユーザーが用意） // launch: 宇宙へ行く発射台の急な坂（2026-10-21 にユーザーが用意） // warp: ワープの音（2026-10-21 にユーザーが用意）
+  assert.deepEqual(VOICE_FILES, { male: 'sounds/yahoo-male.mp3', female: 'sounds/yahoo-female.mp3', scream: 'sounds/dino-scream.mp3', roar: 'sounds/dino-roar.mp3', rocket: 'sounds/rocket-start.mp3', horn: 'sounds/horn.mp3', warp: 'sounds/Shortbridge16-2.mp3', launch: 'sounds/49053354-rocket-launch-306441.mp3', ring: 'sounds/Onoma-Impact10-1(High).mp3', tram: 'sounds/電車のクラクション1.mp3', explosion: 'sounds/Explosion04-1(Short).mp3', thunder: 'sounds/Thunder-Synthetic01-1.mp3' }); // explosion・thunder: アイテムの爆発と稲妻（2026-10-22 にユーザーが用意） // tram: 香港の路面電車とすれちがう音（2026-10-22 にユーザーが用意） // ring: ワープの輪っかを通る音（2026-10-22 にユーザーが用意） // launch: 宇宙へ行く発射台の急な坂（2026-10-21 にユーザーが用意） // warp: ワープの音（2026-10-21 にユーザーが用意）
   assert.ok(VOICE_GAIN.female > VOICE_GAIN.male); // 女の子の声のファイルは少し小さいので、大きめに鳴らす
 });
 

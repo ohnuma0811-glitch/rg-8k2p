@@ -7,6 +7,7 @@ export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
   let engine = null; // { oscs, filter, gain }
   let squeal = null; // { src, filter, gain }
+  let starTimer = null; // Star のメロディをくり返すタイマー
 
   function noiseBuffer(ctx) {
     if (!noise) {
@@ -65,6 +66,11 @@ export function createSfx(audio) {
     const at = rise.length * 0.07;
     tone('square', midiToHz(top), hold, 0.12, { at });
     tone('triangle', midiToHz(top) * 1.004, hold, 0.08, { at });
+  }
+
+  // Star のメロディ（明るく短い。くり返す）
+  function starPhrase() {
+    [72, 76, 79, 84, 79, 76, 72, 76].forEach((m, i) => tone('square', midiToHz(m), 0.1, 0.07, { at: i * 0.11 }));
   }
 
   // 「ピヨン」: 高さを一気に上げて、少し戻す
@@ -166,6 +172,15 @@ export function createSfx(audio) {
     },
     // ドリフトのボタンで跳ねたとき「ピヨン」: 高く上がって、少し戻る（2026-10-15 のユーザー依頼）
     hop: () => boing(),
+    rouletteTick: () => tone('square', 1320, 0.04, 0.06), // ルーレットのカラカラ
+    itemGet: () => [0, 0.09, 0.18].forEach((at) => tone('square', 1760, 0.07, 0.12, { at })), // ピンピンピン
+    mushroom: () => tone('sawtooth', 300, 0.5, 0.15, { to: 1400 }), // しゅいーん
+    shellOut: () => tone('square', 700, 0.15, 0.12, { to: 300 }),
+    bananaHit: () => {
+      tone('sine', 900, 0.3, 0.18, { to: 200 });
+      burst('bandpass', 2000, 400, 0.25, 0.2);
+    },
+    guard: () => tone('triangle', 1200, 0.12, 0.15, { to: 600 }),
     // メニューで選んだ「ピロン」（Level を選んだとき。2026-10-18 のユーザー依頼）
     select: () => pirorin([76, 83], 88, 0.25),
     // コブに当たった「ぼよん」（Kyugo Mountain）: 低く、上がって下がる、ゆれる音
@@ -485,10 +500,21 @@ export function createSfx(audio) {
         setTimeout(() => s.gain.disconnect(), 300);
       }
     },
+    // Star のメロディ（on で始めてくり返す、off で止める）
+    star(on) {
+      if (on && !starTimer && audio.ctx) {
+        starPhrase();
+        starTimer = setInterval(() => audio.ctx && starPhrase(), 880);
+      } else if (!on && starTimer) {
+        clearInterval(starTimer);
+        starTimer = null;
+      }
+    },
     // タイトルへ戻る・一時停止・次のレースのとき: 鳴りつづける音を全部止める
     stopAll() {
       this.engine.stop();
       this.drift(false);
+      this.star(false);
       if (piyo) {
         piyo.disconnect();
         piyo = null;
