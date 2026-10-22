@@ -905,7 +905,19 @@ async function memberStore() {
   }
   return memberDb;
 }
-const playSync = createPlaytimeSync({ storage: localStorage, getDb: memberStore });
+const playSync = createPlaytimeSync({
+  storage: browserStorage ?? memoryStorage,
+  getDb: memberStore,
+  getUid: () => signInAnon(),
+  // GM のリセットを見たら、この端末の記録（名前・日付）も0にする
+  onReset: (name, day) => {
+    const store = playStore();
+    if (store?.[day]?.[name] !== undefined) {
+      store[day][name] = 0;
+      save('playtime', store);
+    }
+  },
+});
 // 残りの秒数（端末とサーバーの多い方。サーバーが読めないときは端末だけ）
 function leftSec(name) {
   return playSync.remaining(name, Date.now(), usedSec(playStore(), name, Date.now()));

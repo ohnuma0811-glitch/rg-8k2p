@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newCodeId, setCodeUpdates, stopUpdates, playersOf, lockedOf, clampLimit } from '../src/gm.js';
+import { newCodeId, setCodeUpdates, stopUpdates, playersOf, lockedOf, clampLimit, playedSec, resetValue } from '../src/gm.js';
 
 test('Set: コードとコードの番号（毎回新しい）を、/secret と /status に（/status にはコードを入れない）', () => {
   const id = newCodeId(1000, () => 0.5);
@@ -26,4 +26,11 @@ test('Daily limit は 5〜120分', () => {
   assert.equal(clampLimit(0), 5);
   assert.equal(clampLimit(25), 25);
   assert.equal(clampLimit(999), 120);
+});
+
+test('Play time: 端末ごとの数字の合計（reset は数えない）。Reset は { reset: 今 } を書く', () => {
+  assert.equal(playedSec({ u1: 300, u2: 120.5, reset: 1700000000000 }), 420.5);
+  assert.equal(playedSec(null), 0);
+  assert.equal(playedSec(60), 0, '古い形（数字ひとつ）は数えない');
+  assert.deepEqual(resetValue(1234), { reset: 1234 });
 });

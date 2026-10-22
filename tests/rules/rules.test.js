@@ -1,4 +1,5 @@
 import { test, before, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 
@@ -77,16 +78,33 @@ test('GM だけがコード・上限を書け、Unlock（/attempts を消す）�
   await assertFails(as('u1').ref('access').once('value'));
 });
 
-test('遊んだ時間: 入ったことのある端末だけ、増やすだけ。GM は0にできる。だれでも読める', async () => {
+test('遊んだ時間: 入ったことのある端末は、自分の uid の下だけ、増やすだけ。GM が reset を書く。だれでも読める', async () => {
   const day = 'playtime/KYUGO/2026-10-22';
-  await assertFails(as('u1').ref(day).set(60), 'まだ入っていない');
+  await assertFails(as('u1').ref(`${day}/u1`).set(60), 'まだ入っていない');
   await assertSucceeds(as('u1').ref('attempts/u1').set(attempt(1, '0811')));
   await assertSucceeds(as('u1').ref('access/u1').set({ codeId: 'c1', name: 'KYUGO', at: 1 }));
-  await assertSucceeds(as('u1').ref(day).set(60));
-  await assertSucceeds(as('u1').ref(day).set(65));
-  await assertFails(as('u1').ref(day).set(10), '減らせない');
-  await assertFails(as('u1').ref('playtime/kyugo/2026-10-22').set(70), '名前は大文字');
-  await assertSucceeds(as(GM).ref(day).set(0));
+  await assertSucceeds(as('u1').ref(`${day}/u1`).set(60));
+  await assertSucceeds(as('u1').ref(`${day}/u1`).set(60), '同じ数字を何度送ってもよい');
+  await assertSucceeds(as('u1').ref(`${day}/u1`).set(65));
+  await assertFails(as('u1').ref(`${day}/u1`).set(10), '減らせない');
+  await assertFails(as('u1').ref(`${day}/u1`).set(86401), '上限');
+  await assertFails(as('u1').ref(`${day}/u1`).set('x'), '数字だけ');
+  await assertFails(as('u1').ref(`${day}/u2`).set(10), '他の端末の分は書けない');
+  await assertFails(as('u1').ref(`${day}/reset`).set(1), 'reset は GM だけ');
+  await assertFails(as('u1').ref(day).set({ u1: 1 }), '日のまとまりは GM だけ');
+  await assertFails(as('u1').ref('playtime/kyugo/2026-10-22/u1').set(70), '名前は大文字');
+  await assertFails(as('u1').ref('playtime/KYUGO/xxxx/u1').set(70), '日付の形');
+  await assertSucceeds(as(GM).ref(day).set({ reset: 1234567890 }));
+  const snap = await as('u1').ref(day).once('value');
+  assert.deepEqual(snap.val(), { reset: 1234567890 }, 'GM のリセットで各端末の分は消える');
+  await assertSucceeds(as('u1').ref(`${day}/u1`).set(5), 'リセット後は 0 から増やせる');
   await assertSucceeds(env.unauthenticatedContext().database().ref(day).once('value'));
   await assertSucceeds(env.unauthenticatedContext().database().ref('limits').once('value'));
+});
+
+test('遊んだ時間: 入ったことのある別の端末（u1）は、u2 の分を書けない', async () => {
+  const day = 'playtime/KYUGO/2026-10-22';
+  await assertSucceeds(as('u1').ref('attempts/u1').set(attempt(1, '0811')));
+  await assertSucceeds(as('u1').ref('access/u1').set({ codeId: 'c1', name: 'KYUGO', at: 1 }));
+  await assertFails(as('u1').ref(`${day}/u2`).set(86400));
 });

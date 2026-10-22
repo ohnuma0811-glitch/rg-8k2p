@@ -19,6 +19,15 @@ export function playersOf(access, codeId) {
 export function lockedOf(attempts, codeId) {
   return Object.entries(attempts ?? {}).filter(([, a]) => a.codeId === codeId && a.count >= 5).map(([uid, a]) => ({ uid, device: a.device, at: a.at }));
 }
+// その日の遊んだ秒: 端末ごとの数字（/playtime/{名前}/{日付}/{uid}）の合計。reset（リセットの時刻）は数えない
+export function playedSec(node) {
+  if (!node || typeof node !== 'object') return 0;
+  return Object.entries(node).reduce((sum, [k, v]) => (k !== 'reset' && typeof v === 'number' ? sum + v : sum), 0);
+}
+// Reset: その日のまとまりを { reset: 今 } にする（各端末の数字は消え、端末は reset の時刻を見て自分の分を0にする）
+export function resetValue(now) {
+  return { reset: now };
+}
 export function clampLimit(min) {
   return Math.max(5, Math.min(120, min));
 }
@@ -67,7 +76,7 @@ export async function gmScreen(root) {
         <div class="choices"><button type="button" data-act="stop">Stop</button></div></section>
       <section><h2>Players</h2>${players.map((p) => `<p>${esc(p.name)} · ${time(p.at)}</p>`).join('') || '<p class="note">No one yet</p>'}</section>
       <section><h2>Locked</h2>${locked.map((l) => `<p>${esc(l.device)} · ${time(l.at)} <button type="button" data-unlock="${esc(l.uid)}">Unlock</button></p>`).join('') || '<p class="note">None</p>'}</section>
-      <section><h2>Play time (today)</h2>${LIMITED_NAMES.map((n, i) => `<p>${n}: ${Math.floor((rest[i * 2] ?? 0) / 60)}m ${Math.round((rest[i * 2] ?? 0) % 60)}s <button type="button" data-reset="${n}">Reset</button></p>`).join('')}</section>
+      <section><h2>Play time (today)</h2>${LIMITED_NAMES.map((n, i) => `<p>${n}: ${Math.floor(playedSec(rest[i * 2]) / 60)}m ${Math.round(playedSec(rest[i * 2]) % 60)}s <button type="button" data-reset="${n}">Reset</button></p>`).join('')}</section>
       <section><h2>Daily limit</h2>${LIMITED_NAMES.map((n, i) => `<p>${n}: ${rest[i * 2 + 1] ?? DEFAULT_LIMIT_MIN} min <button type="button" data-limit="${n}" data-d="-5">−5</button> <button type="button" data-limit="${n}" data-d="5">+5</button></p>`).join('')}</section>`;
     panel.onclick = async (e) => {
       const b = e.target.closest('button');
@@ -82,7 +91,7 @@ export async function gmScreen(root) {
         } else if (digits.length < 4) digits += k;
       } else if (b.dataset.act === 'stop' && codeId) await db.update('', stopUpdates(codeId));
       else if (b.dataset.unlock) await db.remove(`attempts/${b.dataset.unlock}`);
-      else if (b.dataset.reset) await db.set(`playtime/${b.dataset.reset}/${dayKey(Date.now())}`, 0);
+      else if (b.dataset.reset) await db.set(`playtime/${b.dataset.reset}/${dayKey(Date.now())}`, resetValue(Date.now()));
       else if (b.dataset.limit) {
         const n = b.dataset.limit;
         const cur = (await db.get(`limits/${n}`)) ?? DEFAULT_LIMIT_MIN;

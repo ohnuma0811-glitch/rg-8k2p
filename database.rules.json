@@ -48,8 +48,12 @@
       "$name": {
         ".validate": "$name.matches(/^[A-Z]{1,12}$/)",
         "$day": {
-          ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || root.child('access/' + auth.uid).exists())",
-          ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400 && (auth.uid === 'GM_UID_HERE' || newData.val() >= (data.exists() ? data.val() : 0))"
+          ".write": "auth != null && auth.uid === 'GM_UID_HERE'",
+          ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && $uid !== 'reset' && root.child('access/' + auth.uid).exists()",
+            ".validate": "newData.isNumber() && (($uid === 'reset' && auth.uid === 'GM_UID_HERE') || ($uid !== 'reset' && newData.val() >= 0 && newData.val() <= 86400 && newData.val() >= (data.exists() ? data.val() : 0)))"
+          }
         }
       }
     },
