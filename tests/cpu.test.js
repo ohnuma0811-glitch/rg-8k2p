@@ -213,3 +213,45 @@ test('CPU のアイテム: ルーレットの間は押さない', () => {
   kart.held = null;
   assert.equal(cpuItem(createCpu(0, 1), kart, [kart], t, 5), false);
 });
+
+// I2: アイテム（Banana・Lightning）で左右が入れ替わった CPU は、ふらふらと走る（設計書 6章）
+function soloRun(swap, sec = 8) {
+  const kart = createKart(track, gridSlot(track, 0).i, gridSlot(track, 0).lateral);
+  const cpu = createCpu(0);
+  const p = cpuParams(params, 1);
+  let steerSum = 0;
+  let steerPrev = 0;
+  let wobble = 0;
+  let n = 0;
+  let maxSpeed = 0;
+  for (let t = 0; t < sec; t += DT) {
+    if (swap) Object.assign(kart, { muddy: 5, swapItem: true });
+    const ctl = cpuControl(cpu, kart, track, t, p.topSpeed);
+    stepKart(kart, ctl, track, p, DT);
+    const eff = swap ? -ctl.steer : ctl.steer; // 左右が入れ替わる前の、実際の向き
+    wobble += Math.abs(eff - steerPrev);
+    steerPrev = eff;
+    steerSum += Math.abs(eff);
+    n++;
+    if (t > 3) maxSpeed = Math.max(maxSpeed, kart.speed);
+  }
+  return { kart, top: p.topSpeed, wobble: wobble / n, maxSpeed, s: kart.seg };
+}
+
+test('I2: アイテムで左右が入れ替わった CPU は、ふらふら走り、遅くなる。それでも進む', () => {
+  const plain = soloRun(false);
+  const swapped = soloRun(true);
+  assert.ok(swapped.maxSpeed <= swapped.top * 0.8, `最高 ${swapped.maxSpeed.toFixed(1)} / 上限 ${swapped.top.toFixed(1)}`);
+  assert.ok(plain.maxSpeed > swapped.maxSpeed + 3, `${plain.maxSpeed.toFixed(1)} vs ${swapped.maxSpeed.toFixed(1)}`);
+  assert.ok(swapped.wobble > plain.wobble * 1.5, `ゆれ ${swapped.wobble.toFixed(3)} vs ${plain.wobble.toFixed(3)}`);
+  assert.ok(swapped.s > plain.s * 0.4 && swapped.kart.speed > 10, `進んだ ${swapped.s} / ${plain.s}、速さ ${swapped.kart.speed.toFixed(1)}`);
+  assert.equal(swapped.kart.respawn, 0);
+});
+
+test('I2: ぬかるみ（swapItem なしの muddy）の CPU は今まで通り（ゆれも速さの上限も足さない）', () => {
+  const kart = createKart(track, gridSlot(track, 0).i, gridSlot(track, 0).lateral);
+  const cpu = createCpu(0);
+  const a = cpuControl(cpu, { ...kart, muddy: 3 }, track, 1, 30);
+  const b = cpuControl(createCpu(0), { ...kart, muddy: 0 }, track, 1, 30);
+  assert.equal(a.steer, -b.steer);
+});

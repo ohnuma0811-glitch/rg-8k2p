@@ -47,6 +47,7 @@ export function canUse(kart, finished) {
 export function swapSteer(kart, time) {
   if (kart.star > 0 || kart.auto) return false;
   kart.muddy = Math.max(kart.muddy ?? 0, time);
+  kart.swapItem = true; // CPU がふらふら走るための目印（ぬかるみとの見分け。muddy が 0 になったら stepItems が消す）
   return true;
 }
 
@@ -156,6 +157,7 @@ export function stepItems(world, karts, f, dt) {
   world.flash = Math.max(0, world.flash - ITEM.FLASH_FADE * dt);
   karts.forEach((kart, k) => {
     if (kart.shock > 0) kart.shock = Math.max(0, kart.shock - dt);
+    if (kart.swapItem && !(kart.muddy > 0)) kart.swapItem = false;
     if (kart.zap > 0) kart.zap = Math.max(0, kart.zap - dt);
     kart.orbitAngle = (kart.orbitAngle + ITEM.ORBIT_SPIN * dt) % (2 * Math.PI);
     if (kart.roulette > 0) {

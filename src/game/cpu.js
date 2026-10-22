@@ -4,6 +4,9 @@ import { locate, islandNear, span, ahead as aheadOf } from './track.js';
 import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js';
 
 export const CPU = {
+  ITEM_SWAP_SPEED: 0.75, // アイテムで左右が入れ替わっている間の、最高速に対する上限
+  ITEM_SWAP_WOBBLE: 0.4, // そのときのハンドルのゆれ（-1〜1 の量）
+  ITEM_SWAP_FREQ: 5, // ゆれの速さ（rad/s）
   LOOK: 10, // 何m先の点を目指すか（の基本）
   LOOK_PER_SPEED: 0.3, // 速さ1m/s ごとに、目指す点をこれだけ先にする
   STEER_GAIN: 2.5, // 目指す点とのずれ（rad）を、ハンドルの量にする倍率
@@ -67,7 +70,7 @@ export function routeChoice(cpu, fork, paths, lap, track) {
 }
 
 // その時の操作（{ steer, brake, drift }）。t はレースの時刻（線をゆらすため）
-export function cpuControl(cpu, kart, track, t) {
+export function cpuControl(cpu, kart, track, t, topSpeed = null) {
   const { samples } = track;
   const n = samples.length;
   const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
@@ -284,7 +287,10 @@ export function cpuControl(cpu, kart, track, t) {
   // コブゾーン（Kyugo Mountain）: 手前から中まで、速すぎれば落とす（速いまま当たると跳ねて、すべる雪の上で向きを失う）
   const mogulBrake = (track.moguls ?? []).some((m) => samples[m.i].path === samples[loc.i].path && span(track, loc.s, samples[m.i].s) < 45) && kart.speed > 30;
   const slipBrake = grip < 1 && bend > CPU.BRAKE_BEND * 0.7 && kart.speed > CPU.CORNER_SPEED * (0.55 + 0.45 * grip);
-  const brake = lost || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
+  // アイテムの入れ替わり（Banana・Lightning。kart.swapItem）: ふらふらと走る（ハンドルをゆらし、最高速の ITEM_SWAP_SPEED 倍まで）。ぬかるみは今まで通り
+  const swapped = kart.swapItem && kart.muddy > 0;
+  const swapSlow = swapped && topSpeed !== null && kart.speed > topSpeed * CPU.ITEM_SWAP_SPEED;
+  const brake = lost || swapSlow || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
@@ -294,7 +300,8 @@ export function cpuControl(cpu, kart, track, t) {
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
   const starting = cpu.drifting && !kart.drift.active;
   const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
-  return { steer: kart.muddy > 0 ? -out : out, brake, drift: cpu.drifting };
+  const wobbled = swapped ? Math.max(-1, Math.min(1, out + CPU.ITEM_SWAP_WOBBLE * Math.sin(t * CPU.ITEM_SWAP_FREQ + cpu.phase))) : out;
+  return { steer: kart.muddy > 0 ? -wobbled : wobbled, brake, drift: cpu.drifting && !swapped };
 }
 
 const DINO_HOLD = 58; // 一度食べられた CPU が、恐竜を待つ所（ジャンプ②の手前 m。加速板（40m 手前）より十分手前。最終レビューで 45 から）

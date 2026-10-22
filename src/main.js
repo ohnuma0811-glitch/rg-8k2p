@@ -623,7 +623,8 @@ function stepGame(dt) {
     } else {
       // CPU（ゴールしたプレイヤーの車も CPU が運転する）
       const rubber = k === me ? 1 : rubberFactor(progress(race, k, track), myProgress, L);
-      stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber, k === me ? 2 : g.level), dt);
+      const params = cpuParams(g.base, rubber, k === me ? 2 : g.level);
+      stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t, params.topSpeed), track, params, dt);
     }
   });
   const starSaved = starGuard(karts); // Star の車は障害物でスピンしない

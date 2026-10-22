@@ -270,3 +270,15 @@ test('Lightning: 自分以外の全員が10秒左右入れ替わる（Star・自
   assert.equal(karts[1].zap, 0);
   assert.ok(karts[1].shock > 8.9 && karts[1].shock < 9.1);
 });
+
+test('I2: swapSteer は swapItem の目印をつけ、muddy が 0 になったら stepItems が消す（ぬかるみだけの muddy には付かない）', () => {
+  const { karts, world, f } = setup();
+  karts[1].muddy = 3; // ぬかるみ
+  stepItems(world, karts, f, DT);
+  assert.ok(!karts[1].swapItem);
+  assert.ok(swapSteer(karts[1], 0.05));
+  assert.equal(karts[1].swapItem, true);
+  karts[1].muddy = 0;
+  stepItems(world, karts, f, DT);
+  assert.equal(karts[1].swapItem, false);
+});
