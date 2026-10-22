@@ -43,6 +43,7 @@ export const COURSE2 = {
   name: 'Kampar Town',
   music: 'kampar', // このコースの曲（src/audio/songs.js）
   theme: 'town',
+  itemRows: [['B', 'C', 0.56], ['S', 'S', 0.5]], // アイテムの箱: ECONSAVE の横断幕の手前と、半周の所（2026-10-22 のユーザー依頼）
   scenery: KAMPAR_SCENERY, // 景色の置き場所（src/data/kampar.js）
   // 町の角（A・B・C・D・F・J）は直角（2026-10-15 のユーザー依頼）。角の点の前後に近い点を置いて、角をきつくする
   points: [

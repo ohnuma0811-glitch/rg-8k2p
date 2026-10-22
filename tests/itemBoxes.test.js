@@ -1,13 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrack, stageAt } from '../src/game/track.js';
+import { buildTrack, stageAt, markS, span } from '../src/game/track.js';
 import { COURSES } from '../src/data/tracks.js';
 import { rowSpots, rowBoxes, createBoxes, stepBoxes, touchBoxes, BOX_RESPAWN, ROW_CLEAR } from '../src/game/itemBoxes.js';
 
 const tracks = COURSES.map((c) => buildTrack(c));
 
-test('箱の列: 周回のあるコースは1周に1列（Soki Forest は内側の道にもう1列）。World Cities は5列', () => {
-  assert.deepEqual(tracks.map((t) => rowSpots(t).length), [1, 1, 2, 1, 5]);
+test('箱の列: 周回のあるコースは1周に1列（Soki Forest は内側の道にもう1列、Kampar Town は ECONSAVE の前にもう1列）。World Cities は5列', () => {
+  assert.deepEqual(tracks.map((t) => rowSpots(t).length), [1, 2, 2, 1, 5]);
+});
+
+test('Kampar Town: ECONSAVE の横断幕の手前 30m 以内に1列（2026-10-22 のユーザー依頼）', () => {
+  const t = tracks[1];
+  const banner = markS(t, ['B', 'C', 0.66]);
+  assert.ok(rowSpots(t).some((i) => { const d = span(t, t.samples[i].s, banner); return d > 0 && d < 30; }));
 });
 
 test('列の前後 15m は、地面があり、ジャンプ台・加速板・橋・自動の区間・無い道・小さなジャンプ台でない', () => {
