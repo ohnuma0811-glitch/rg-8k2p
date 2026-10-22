@@ -18,7 +18,7 @@ test('列の前後 15m は、地面があり、ジャンプ台・加速板・橋
       for (let k = 0; k <= ROW_CLEAR; k++) {
         for (const j of [a, b]) {
           const p = t.samples[j];
-          assert.ok(p.y !== null && !p.ramp && !p.boost && !p.bridge && !p.auto && !p.void && !p.kick, `${t.def.name} 点 ${j}`);
+          assert.ok(p.y !== null && !p.ramp && !p.boost && !p.bridge && !p.auto && !p.void && !p.kick && !(p.median > 0), `${t.def.name} 点 ${j}`);
         }
         a = t.samples[a].next;
         b = t.samples[b].prev;

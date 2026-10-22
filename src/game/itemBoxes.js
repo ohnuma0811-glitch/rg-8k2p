@@ -13,7 +13,7 @@ function clearAt(track, i) {
   for (let k = 0; k <= ROW_CLEAR; k++) {
     for (const j of [a, b]) {
       const p = track.samples[j];
-      if (p.y === null || p.ramp || p.boost || p.bridge || p.auto || p.void || p.kick) return false;
+      if (p.y === null || p.ramp || p.boost || p.bridge || p.auto || p.void || p.kick || p.median > 0) return false;
     }
     a = track.samples[a].next;
     b = track.samples[b].prev;
