@@ -638,8 +638,8 @@ function stepGame(dt) {
   if (track.oneWays.length) karts.forEach((kart) => oneWayContact(kart, track));
   // 橋の下の橋脚（Soki Forest）: ぶつかるとスピン
   if (track.bridgePiers?.length) karts.forEach((kart) => pierContact(kart, track, race.t, PHYS));
-  // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆
-  if (track.muds.length) karts.forEach((kart) => mudContact(kart, track, dt));
+  // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆。アイテムの入れ替わり（Banana・Lightning）も同じ kart.muddy なので、どのコースでも時間を減らす
+  karts.forEach((kart) => mudContact(kart, track, dt));
   if (track.slows.length) karts.forEach((kart) => slowContact(kart, track, dt));
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
   // 悲鳴は自分が食べられたときだけ（2026-10-16 のユーザー依頼）

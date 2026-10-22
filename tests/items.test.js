@@ -4,7 +4,7 @@ import { buildTrack } from '../src/game/track.js';
 import { COURSES } from '../src/data/tracks.js';
 import { createKart } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
-import { ITEM, initItems, createItemWorld, canTake, itemPress, stepItems, itemFrame } from '../src/game/items.js';
+import { ITEM, initItems, createItemWorld, canTake, itemPress, stepItems, itemFrame, swapSteer } from '../src/game/items.js';
 
 const t = buildTrack(COURSES[1]);
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
@@ -104,4 +104,75 @@ test('itemFrame: 自分は press、CPU は cpuPress で ITEM を押す', () => {
   const { events } = itemFrame(world, karts, f, DT);
   assert.deepEqual(events.map((e) => e.k).sort(), [0, 1]);
   assert.equal(karts[2].mushrooms ?? 0, 0);
+});
+
+test('Banana: 1回目の ITEM で後ろにぶら下げ（枠は空）、2回目で 3m 後ろに置く', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.held = 'banana';
+  itemPress(world, karts, 0, f);
+  assert.equal(k.trailing, true);
+  assert.equal(k.held, null);
+  assert.equal(canTake(k), true, 'ぶら下げている間は、次のアイテムを取れる');
+  k.held = 'mushroom';
+  const ev = itemPress(world, karts, 0, f);
+  assert.equal(ev.type, 'drop', 'ぶら下げたバナナを置くのが先');
+  assert.equal(k.held, 'mushroom');
+  assert.equal(k.trailing, false);
+  assert.equal(world.bananas.length, 1);
+  const b = world.bananas[0];
+  assert.ok(Math.abs(Math.hypot(b.x - k.x, b.z - k.z) - ITEM.BANANA_DROP) < 1e-6);
+  assert.ok(Math.cos(Math.atan2(b.z - k.z, b.x - k.x) - k.heading) < -0.99, '後ろ');
+});
+
+test('置いたバナナを踏むと、5秒間ハンドルの左右が入れ替わる（スピンしない）。バナナは消える', () => {
+  const { karts, world, f } = setup();
+  world.bananas.push({ id: 99, owner: 0, x: karts[1].x, y: karts[1].y, z: karts[1].z, age: 5 });
+  const out = stepItems(world, karts, f, DT);
+  assert.ok(out.some((e) => e.type === 'banana' && e.k === 1));
+  assert.equal(karts[1].muddy, ITEM.BANANA_SWAP);
+  assert.equal(karts[1].spin, 0);
+  assert.equal(karts[1].bananaHits, 1);
+  assert.equal(world.bananas.length, 0);
+});
+
+test('置いてすぐ（1秒）は、自分では踏まない', () => {
+  const { karts, world, f } = setup();
+  world.bananas.push({ id: 99, owner: 0, x: karts[0].x, y: karts[0].y, z: karts[0].z, age: 0 });
+  stepItems(world, karts, f, DT);
+  assert.equal(world.bananas.length, 1);
+});
+
+test('バナナはコース全体で10個まで。超えたら古い物から消える', () => {
+  const { karts, world, f } = setup();
+  for (let n = 0; n < 12; n++) {
+    karts[0].held = 'banana';
+    itemPress(world, karts, 0, f);
+    itemPress(world, karts, 0, f);
+    karts[0].x += 20;
+  }
+  assert.equal(world.bananas.length, ITEM.BANANA_MAX);
+  assert.equal(world.bananas[0].id, 3, '最初の2つが消えた');
+});
+
+test('入れ替わりがまた起きたら、残りは長い方。Star と自動の区間の車には効かない', () => {
+  const k = { muddy: 3 };
+  assert.equal(swapSteer(k, 5), true);
+  assert.equal(k.muddy, 5);
+  k.muddy = 8;
+  swapSteer(k, 5);
+  assert.equal(k.muddy, 8);
+  assert.equal(swapSteer({ muddy: 0, star: 2 }, 5), false);
+  assert.equal(swapSteer({ muddy: 0, auto: { id: 'jump' } }, 5), false);
+});
+
+test('Star の車はバナナを踏んでも何も起きない（バナナは消える）。自動の区間の車は踏まない', () => {
+  const { karts, world, f } = setup();
+  karts[1].star = 3;
+  karts[2].auto = { id: 'jump' };
+  world.bananas.push({ id: 1, owner: 0, x: karts[1].x, y: karts[1].y, z: karts[1].z, age: 5 });
+  world.bananas.push({ id: 2, owner: 0, x: karts[2].x, y: karts[2].y, z: karts[2].z, age: 5 });
+  stepItems(world, karts, f, DT);
+  assert.equal(karts[1].muddy ?? 0, 0);
+  assert.deepEqual(world.bananas.map((b) => b.id), [2]);
 });
