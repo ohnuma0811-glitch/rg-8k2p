@@ -23,9 +23,11 @@
 | 万能 | Penguin-man | 3 | 3 | 3 | 男の子 |
 | スタートダッシュ | Rabbit Girl | 5 | 2 | 3 | 女の子 |
 | スタートダッシュ | Mouse Boy | 5 | 2 | 3 | 男の子 |
-| 最高速度 | Big Tiger | 2 | 5 | 2 | 男の子 |
-| 最高速度 | Rampage Elephant | 2 | 5 | 2 | 男の子 |
+| 最高速度 | Big Tiger | 2 | 5 | 1 | 男の子 |
+| 最高速度 | Rampage Elephant | 2 | 5 | 1 | 男の子 |
 | コントロール重視 | Lightning Cat | 3 | 2 | 5 | 女の子 |
+
+- Big Tiger・Rampage Elephant は速いので、曲がる能力を 2 から 1 にした。Penguin-man・Big Tiger・Rampage Elephant は、カートに乗っている体を太くした（体格をよく。見た目だけ）（2026-10-22 のユーザー依頼）。
 
 - 8人のデータ（名前・能力・見た目・カートの色・声）は `src/data/characters.js` にまとめる。今の `src/main.js` の `PLAYER_CHARS`（選べる2人）と `CPU_LOOKS`（CPU の見た目）は、これに置きかえる。
 - 能力の数字を実際の速さに直す表は、今の `src/game/stats.js`（`kartParams`）を使う。調整するのはこの表だけ。

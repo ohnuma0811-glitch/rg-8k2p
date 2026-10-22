@@ -9,8 +9,8 @@ test('8人と能力（加速・最高速・ハンドル）は、設計書のと�
     ['penguin', 'Penguin-man', 3, 3, 3],
     ['rabbit', 'Rabbit Girl', 5, 2, 3],
     ['mouse', 'Mouse Boy', 5, 2, 3],
-    ['tiger', 'Big Tiger', 2, 5, 2],
-    ['elephant', 'Rampage Elephant', 2, 5, 2],
+    ['tiger', 'Big Tiger', 2, 5, 1], // 速いので曲がりにくく（2026-10-22 のユーザー依頼）
+    ['elephant', 'Rampage Elephant', 2, 5, 1],
     ['cat', 'Lightning Cat', 3, 2, 5],
   ]);
 });
