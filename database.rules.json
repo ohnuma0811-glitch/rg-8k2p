@@ -83,7 +83,7 @@
         ".write": "auth != null && !newData.exists() && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && !root.child('lobby').exists()))",
         "$msg": {
           ".write": "auth != null && ((auth.uid === 'GM_UID_HERE' && !newData.exists()) || (!data.exists() && newData.exists() && $codeId === root.child('secret/codeId').val() && root.child('access/' + auth.uid + '/codeId').val() === $codeId && root.child('secret/active').val() === true))",
-          ".validate": "newData.hasChildren(['uid', 'name', 'char', 'at']) && newData.child('uid').val() === auth.uid && newData.child('at').val() === now && newData.parent().parent().parent().child('chatLast/' + auth.uid).val() === now && (newData.hasChild('preset') !== newData.hasChild('text'))",
+          ".validate": "newData.hasChildren(['uid', 'name', 'char', 'at']) && newData.child('uid').val() === auth.uid && newData.child('at').val() === now && newData.parent().parent().parent().child('chatLast/' + auth.uid).val() === now && (newData.hasChild('preset') !== newData.hasChild('text')) && (!newData.hasChild('preset') || !root.child('chatLast/' + auth.uid).exists() || now - root.child('chatLast/' + auth.uid).val() >= 2000)",
           "uid": { ".validate": "newData.isString()" },
           "name": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z]{1,12}$/)" },
           "char": { ".validate": "newData.isString() && newData.val().length <= 12" },

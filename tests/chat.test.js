@@ -34,3 +34,10 @@ test('受け取り: 古い順に、最新の50件。表示の文（定型文は�
   assert.equal(displayText({ preset: 0 }, 'ja'), 'READYを おして！');
   assert.equal(displayText({ text: 'やあ' }, 'en'), 'やあ');
 });
+
+test('定型文は2秒に1回、自由な文は1秒に1回（2026-10-22 のユーザー依頼）', () => {
+  assert.equal(canSend(4000, 5500, 'preset'), false);
+  assert.equal(canSend(4000, 6000, 'preset'), true);
+  assert.equal(canSend(4000, 5000, 'text'), true);
+  assert.equal(canSend(null, 1, 'preset'), true);
+});

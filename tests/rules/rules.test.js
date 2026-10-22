@@ -179,3 +179,10 @@ test('部屋と票: 入っている端末が部屋を読み書き。票は自分
   await assertFails(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 1 }), '締め切りのあと');
   await assertFails(as('u1').ref('room').set({ phase: 'party' }));
 });
+
+test('チャット: 定型文は2秒に1回（自由な文は1秒）', async () => {
+  await member('u1');
+  await env.withSecurityRulesDisabled((c) => c.database().ref('chatLast/u1').set(Date.now() - 1500));
+  await assertFails(as('u1').ref().update({ 'chat/c1/p1': message('u1', { preset: 3 }), 'chatLast/u1': NOW }), '1.5秒では定型文は送れない');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/t1': message('u1', { text: 'hi' }), 'chatLast/u1': NOW }), '1.5秒なら自由な文は送れる');
+});

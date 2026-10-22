@@ -108,7 +108,7 @@ export function runLobby(root, ctx) {
       $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], r.picks ?? 0, lang) : '';
     };
     const send = async (body) => {
-      if (!canSend(lastSent, serverNow())) return false;
+      if (!canSend(lastSent, serverNow(), 'preset' in body ? 'preset' : 'text')) return false;
       lastSent = serverNow();
       await sendChat(db, me.codeId, me, body).catch(() => {});
       return true;
