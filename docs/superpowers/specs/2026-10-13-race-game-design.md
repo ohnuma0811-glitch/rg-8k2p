@@ -193,6 +193,9 @@
 - Penguin-man は、KENTA からもらった絵（`docs/reference/penguin-man.webp`）の特徴を残す: 黒い体と白いおなか、頭のツンツンした毛、黒いサングラス（白い2本線の光）、黄色いくちばしと足、茶色のリュック。
 - Rabbit Girl と Lightning Cat は女の子のキャラ。Mouse Boy は男の子のキャラ。
 - 動物たちはオリジナル。Rabbit Girl はリボン、Mouse Boy は大きな丸い耳、Big Tiger はしま模様、Rampage Elephant は長い鼻と大きな体、Lightning Cat は稲妻もようのスカーフ、のように一目で分かる特徴を1つ付ける。
+- カートの色（2026-10-22）: Kyugo 赤、Soki 青、Penguin-man 水色、Rabbit Girl ピンク、Mouse Boy 緑、Big Tiger オレンジ、Rampage Elephant 紫、Lightning Cat 黄色。Rampage Elephant はほかより大きい（見た目だけ）。
+- キャラ選びには能力を出さない（顔と名前だけ。2026-10-22 のユーザーの判断）。
+- 大会の CPU は、大会の最初に自分以外の7人から4人を選び、5レースとも同じ顔ぶれ（2026-10-22 のユーザーの判断）。くわしくは docs/superpowers/specs/2026-10-22-characters-design.md。
 
 ## 6. 操作
 
