@@ -731,7 +731,7 @@ html, body {
 /* Global City のステージが変わったときの、場所の大きな表示（2026-10-20 のユーザー依頼） */
 #stage-banner {
   position: fixed;
-  top: 30%;
+  top: max(30%, 140px); /* 低い画面（スマホの横向き）では、上の真ん中のアイテムの枠にかからないように */
   left: 50%;
   z-index: 3;
   transform: translate(-50%, -50%);
@@ -864,22 +864,22 @@ html, body {
   text-align: left;
 }
 
-/* アイテムの枠（上の真ん中）。TIME TRIAL では出さない */
+/* アイテムの枠（上の真ん中）。TIME TRIAL では出さない。2026-10-22 のユーザー依頼で 1.3倍に */
 #item-slot {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 8px);
   left: 50%;
   transform: translateX(-50%);
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   border: 3px solid #fff;
-  border-radius: 12px;
+  border-radius: 16px;
   background: rgba(0, 0, 0, 0.45);
   display: grid;
   place-items: center;
   pointer-events: none;
 }
-#item-slot .icon svg { width: 52px; height: 52px; display: block; }
+#item-slot .icon svg { width: 68px; height: 68px; display: block; }
 #race-hud.solo-tt #item-slot { display: none; }
 /* 稲妻で左右が入れ替わっている間の、画面の端の黄色い光 */
 #zap-glow {
