@@ -1,5 +1,5 @@
-import { stageVisible } from '../../game/world.js?v=bfc0648';
-import { stageAt } from '../../game/track.js?v=bfc0648';
+import { stageVisible } from '../../game/world.js?v=187c0cd';
+import { stageAt } from '../../game/track.js?v=187c0cd';
 // root.userData.stageGroups の群れの見え方を決める（毎フレーム。変わったときだけ visible を書く）
 export function applyStageVisibility(root, cur, autoId, win = null) {
   for (const g of root.userData.stageGroups ?? []) {

@@ -1,7 +1,7 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=bfc0648';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=bfc0648';
-import { colorOf } from './data/characters.js?v=bfc0648';
+import { typeLetter, isValidName } from './names.js?v=187c0cd';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=187c0cd';
+import { colorOf } from './data/characters.js?v=187c0cd';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -40,8 +40,8 @@ function waitPick(root) {
 export const MODES = [
   { id: 'solo', label: 'SOLO RACE', icon: '🏁', sub: '1 player + 4 CPU', ready: true },
   { id: 'timetrial', label: 'TIME TRIAL', icon: '⏱️', sub: 'Practice alone · 3 laps', ready: true },
-  { id: 'versus', label: 'VS RACE', icon: '👥', sub: '2〜8 players', ready: false, code: true },
-  { id: 'battle', label: 'BATTLE', icon: '🎈', sub: '3 hits and you are out', ready: false, code: true },
+  { id: 'versus', label: 'VS RACE', icon: '👥', sub: '2〜8 players', ready: true, code: true },
+  { id: 'battle', label: 'BATTLE', icon: '🎈', sub: '3 hits and you are out', ready: true, code: true },
 ];
 // code: GAME CODE が要る遊び方（ボタンに「🔒 GAME CODE」と書く）
 
@@ -395,4 +395,83 @@ function wait(sec) {
 // 周回の所の文字（片道のコースはステージ。2026-10-20 のユーザー依頼「STAGE 2/5 HONG KONG」の形）
 export function stageText(track, k) {
   return `STAGE ${k + 1}/${track.stages.length} ${track.stages[k].name}`;
+}
+
+// GAME CODE の文（設計書 docs/superpowers/specs/2026-10-22-gamecode-design.md の 4章）
+export function codeMessage(r) {
+  if (r.kind === 'wrong') return `Wrong code. ${r.left} ${r.left === 1 ? 'try' : 'tries'} left.`;
+  if (r.kind === 'locked') return 'Too many tries. Ask the Game Master.';
+  if (r.kind === 'off') return 'No game code now. Ask the Game Master.';
+  if (r.kind === 'offline') return 'No connection';
+  if (r.kind === 'setup') return 'Not set up yet';
+  return '';
+}
+
+// GAME CODE の画面: 数字ボタン（0〜9）、入れた数の丸4つ、消す、OK、BACK。onTry(guess) は { kind, left } を返す
+// 'in' になったら 'in'、BACK なら BACK を返す
+export function enterCode(root, onTry) {
+  return new Promise((resolve) => {
+    let digits = '';
+    let busy = false;
+    let done = false; // 終わったあとに遅れて返ってきた結果で、いまの画面を消さない
+    show(root, `
+      ${BACK_BUTTON}
+      <h1>GAME CODE</h1>
+      <div class="code-dots">${'<span></span>'.repeat(4)}</div>
+      <div class="code-pad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'].map((k) => `<button type="button" data-key="${k}">${k === 'del' ? '⌫' : k === 'ok' ? 'OK' : k}</button>`).join('')}</div>
+      <p class="note code-note"></p>`);
+    const dots = [...root.querySelectorAll('.code-dots span')];
+    const note = root.querySelector('.code-note');
+    const draw = () => dots.forEach((d, i) => d.classList.toggle('on', i < digits.length));
+    const finish = (v) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener('keydown', onKey);
+      root.onclick = null;
+      hide(root);
+      resolve(v);
+    };
+    const press = async (k) => {
+      if (busy || done) return;
+      if (k === 'del') digits = digits.slice(0, -1);
+      else if (k === 'ok') {
+        if (digits.length !== 4) return;
+        busy = true;
+        note.textContent = '...';
+        const r = await onTry(digits).catch(() => ({ kind: 'offline', left: 0 }));
+        busy = false;
+        if (done) return;
+        if (r.kind === 'in') return finish('in');
+        digits = '';
+        note.textContent = codeMessage(r);
+      } else if (digits.length < 4) digits += k;
+      draw();
+    };
+    const onKey = (e) => {
+      if (/^(Digit|Numpad)[0-9]$/.test(e.code)) press(e.code.slice(-1));
+      else if (e.code === 'Backspace') press('del');
+      else if (e.code === 'Enter' || e.code === 'NumpadEnter') press('ok');
+      else if (e.code === 'Escape') finish(BACK);
+    };
+    window.addEventListener('keydown', onKey);
+    root.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.back) return finish(BACK);
+      press(b.dataset.key);
+    };
+  });
+}
+
+// 文字を出して、OK で閉じる（待合室の「coming soon」・つながらないときなど）
+export function notice(root, text) {
+  return new Promise((resolve) => {
+    show(root, `<p class="text">${text}</p><div class="choices"><button type="button" data-ok="1">OK</button></div>`);
+    root.onclick = (e) => {
+      if (!e.target.closest('[data-ok]')) return;
+      root.onclick = null;
+      hide(root);
+      resolve();
+    };
+  });
 }
