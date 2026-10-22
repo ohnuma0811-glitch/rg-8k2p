@@ -159,13 +159,14 @@ function touch(karts) {
   return squashContacts(karts, now);
 }
 
-test('ぺしゃんこ: 小さい車が大きい車にぶつかると squash=1.0 で止まる。大きい車は無事', () => {
+test('ぺしゃんこ: 小さい車が大きい車にぶつかると squash=2.0 で止まる（2026-10-23 のユーザー依頼で1秒→2秒）。大きい車は無事', () => {
   const { karts, a, b } = pair();
   b.smallTime = 8; b.small = 0.35;
   const hit = touch(karts);
   assert.deepEqual(hit, [1]);
   assert.equal(b.squash, SQUASH.TIME);
-  assert.equal(SQUASH.TIME, 1.0);
+  assert.equal(SQUASH.TIME, 2.0);
+  assert.equal(SQUASH.REST, 0.5);
   assert.equal(a.squash ?? 0, 0);
   stepKart(b, { steer: 0, throttle: true, brake: false, drift: false }, t, params, DT);
   assert.equal(b.speed, 0);
@@ -179,17 +180,21 @@ test('ぺしゃんこ: 小さい車どうしでは何も起きない', () => {
   assert.ok(!(a.squash > 0) && !(b.squash > 0));
 });
 
-test('ぺしゃんこ: 1秒後に大きさも速さも元にもどる（稲妻が残っていても）', () => {
+test('ぺしゃんこ: 2秒後に大きさも速さも元にもどる（稲妻が残っていても）。もどってから0.5秒は走り出せない', () => {
   const { karts, world, f, b } = pair();
   b.smallTime = 8; b.small = 0.35;
   touch(karts);
-  run(world, karts, f, 0.5);
+  run(world, karts, f, 1.5);
   assert.ok(b.squash > 0 && b.smallTime > 7, '途中はまだぺしゃんこで、稲妻は止まったまま進まなくてもよい');
   assert.ok(b.small < 0.4);
   run(world, karts, f, 0.6);
   assert.equal(b.squash, 0);
   assert.equal(b.small, 1);
   assert.equal(b.smallTime, 0);
+  for (let s = 0; s < 0.4; s += DT) stepKart(b, { steer: 0, throttle: true, brake: false, drift: false }, t, params, DT);
+  assert.equal(b.speed, 0, 'もどってから0.5秒は止まったまま');
+  for (let s = 0; s < 0.2; s += DT) stepKart(b, { steer: 0, throttle: true, brake: false, drift: false }, t, params, DT);
+  assert.ok(b.speed > 0, '0.5秒たったら走り出す');
   b.speed = params.topSpeed * 0.97;
   for (let s = 0; s < 1.5; s += DT) stepKart(b, { steer: 0, throttle: true, brake: false, drift: false }, t, params, DT);
   assert.ok(b.speed > params.topSpeed * 0.9);
