@@ -6,8 +6,8 @@ import { rowSpots, rowBoxes, createBoxes, stepBoxes, touchBoxes, BOX_RESPAWN, RO
 
 const tracks = COURSES.map((c) => buildTrack(c));
 
-test('箱の列: 周回のあるコースは1周に1列（Soki Forest は内側の道にもう1列、Kampar Town は ECONSAVE の前、Soki Forest はマップの下にもう1列）。World Cities は5列', () => {
-  assert.deepEqual(tracks.map((t) => rowSpots(t).length), [1, 2, 3, 1, 5]);
+test('箱の列: 周回のあるコースは1周に1列（Soki Forest は内側の道にもう1列、Kampar Town は ECONSAVE の前、Soki Forest はマップの下にもう1列、Kyugo Mountain は分かれ道の手前にもう1列）。World Cities は5列', () => {
+  assert.deepEqual(tracks.map((t) => rowSpots(t).length), [1, 2, 3, 2, 5]);
 });
 
 test('Kampar Town: ECONSAVE の横断幕の手前 30m 以内に1列（2026-10-22 のユーザー依頼）', () => {
@@ -60,6 +60,12 @@ test('Soki Forest: コースマップの下（スタートのあとの直線）�
   const z0 = Math.min(...zs);
   const z1 = Math.max(...zs);
   assert.ok(rowSpots(t).some((i) => t.samples[i].path === 0 && (t.samples[i].z - z0) / (z1 - z0) > 0.9));
+});
+
+test('Kyugo Mountain: 分かれ道の手前 15m 以内にも1列（2026-10-22 のユーザー依頼）', () => {
+  const t = tracks[3];
+  const fork = t.samples[t.marks.FK].s;
+  assert.ok(rowSpots(t).some((i) => { const d = span(t, t.samples[i].s, fork); return t.samples[i].path === 0 && d > 0 && d < 15; }));
 });
 
 test('Soki Forest: 本線の列を通らない内側の道（inner）にも1列', () => {
