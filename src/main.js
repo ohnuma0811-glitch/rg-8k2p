@@ -35,7 +35,7 @@ import { initItems, createItemWorld, itemFrame, starGuard, starRestore } from '.
 import { createItemView } from './render/items.js';
 import { addRecent, cleanRecent } from './names.js';
 import { usedSec, addPlay, remainingText } from './playtime.js';
-import { createPlaytimeSync } from './net/playtimeSync.js';
+import { createPlaytimeSync, safeStorage } from './net/playtimeSync.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
@@ -906,7 +906,7 @@ async function memberStore() {
   return memberDb;
 }
 const playSync = createPlaytimeSync({
-  storage: browserStorage ?? memoryStorage,
+  storage: safeStorage(browserStorage),
   getDb: memberStore,
   getUid: () => signInAnon(),
   // GM のリセットを見たら、この端末の記録（名前・日付）も0にする

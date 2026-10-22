@@ -155,3 +155,15 @@ test('昨日までの記録は残さない', async () => {
   s.add('KYUGO', NOW, 20);
   assert.ok(!storage.getItem('race.playMine').includes('50'));
 });
+
+test('safeStorage: 読んでも書いても投げない。storage が null でも動く', async () => {
+  const { safeStorage } = await import('../src/net/playtimeSync.js');
+  const bad = safeStorage({ getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } });
+  assert.equal(bad.getItem('a'), null);
+  assert.doesNotThrow(() => bad.setItem('a', '1'));
+  const none = safeStorage(null);
+  assert.equal(none.getItem('a'), null);
+  const ok = safeStorage(memory());
+  ok.setItem('a', '1');
+  assert.equal(ok.getItem('a'), '1');
+});

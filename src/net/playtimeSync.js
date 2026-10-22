@@ -13,6 +13,26 @@ export function remainingWith(localUsed, serverUsed, limitMin) {
   return Math.max(0, (limitMin ?? DEFAULT_LIMIT_MIN) * 60 - used);
 }
 
+// 読んでも書いても投げない storage（ブロックされた端末・null でも止まらない）
+export function safeStorage(raw) {
+  return {
+    getItem(k) {
+      try {
+        return raw ? raw.getItem(k) : null;
+      } catch {
+        return null;
+      }
+    },
+    setItem(k, v) {
+      try {
+        raw?.setItem(k, v);
+      } catch {
+        // 保存できない端末でも止まらない
+      }
+    },
+  };
+}
+
 function read(storage, k) {
   try {
     return JSON.parse(storage.getItem(k)) ?? {};
