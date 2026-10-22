@@ -929,3 +929,15 @@ html, body {
   background: #fff;
   opacity: 0;
 }
+
+/* GAME CODE の画面（M4-A） */
+#menu .code-dots { display: flex; gap: 14px; justify-content: center; margin: 8px 0 14px; }
+#menu .code-dots span { width: 22px; height: 22px; border: 3px solid #fff; border-radius: 50%; }
+#menu .code-dots span.on { background: #ffd34a; border-color: #ffd34a; }
+#menu .code-pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; justify-content: center; }
+#menu .code-pad button { height: 56px; border: 3px solid #fff; border-radius: 12px; background: #1c3c88; color: #fff; font: bold 24px system-ui, sans-serif; }
+#menu .code-note { min-height: 1.4em; }
+@media (max-height: 430px) {
+  #menu .code-pad { grid-template-columns: repeat(6, 56px); }
+  #menu .code-pad button { height: 44px; }
+}

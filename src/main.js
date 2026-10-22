@@ -37,6 +37,8 @@ import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
+import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js';
+import { codeState, tryCode, setName, deviceKind } from './net/gamecode.js';
 import { SharedTimes, dateText } from './sharedTimes.js';
 import { TIMES_URL } from './config.js';
 import { createAudio } from './audio/audio.js';
@@ -878,6 +880,43 @@ async function seeYouTomorrow(name) {
   await screens.message(menu, 'See you tomorrow!', `${name}, you played enough today.`, [{ id: 'ok', label: 'OK' }]);
 }
 
+// ---- 対戦（M4-A）: GAME CODE ----
+let netUid = null;
+async function netStore() {
+  const f = await connect();
+  return storeOf(f);
+}
+// GAME CODE の画面（入っていれば飛ばす）。入れたら true、BACK・入れないときは false
+async function gameCodeStep() {
+  if (!firebaseReady()) {
+    await screens.notice(menu, screens.codeMessage({ kind: 'setup' }));
+    return false;
+  }
+  let db;
+  try {
+    netUid = await signInAnon();
+    db = await netStore();
+  } catch {
+    await screens.notice(menu, screens.codeMessage({ kind: 'offline' }));
+    return false;
+  }
+  const st = await codeState(db, netUid).catch(() => ({ kind: 'offline' }));
+  if (st.kind === 'in') return true;
+  if (st.kind !== 'need') {
+    await screens.notice(menu, screens.codeMessage(st));
+    return false;
+  }
+  const r = await screens.enterCode(menu, (guess) => tryCode(db, netUid, guess, { device: deviceKind(navigator.userAgent), now: Date.now() }));
+  return r === 'in';
+}
+async function setVersusName(name) {
+  try {
+    await setName(await netStore(), netUid, name, Date.now());
+  } catch {
+    // 名前が書けなくても進む（GM の Players に名前が出ないだけ）
+  }
+}
+
 async function flow() {
   let resume = null; // TIME TRIAL の結果で「コース選び」を押したとき: { mode, name } でコース選びから
   for (;;) {
@@ -896,7 +935,11 @@ async function flow() {
     while (!ready) {
       if (screen === 'title') {
         mode = await screens.title(menu, audio);
-        screen = 'name';
+        screen = mode === 'versus' || mode === 'battle' ? 'code' : 'name';
+      } else if (screen === 'code') {
+        // 対戦（M4-A）: GAME CODE → 名前 → 待合室（M4-B でつくる）
+        const ok = await gameCodeStep();
+        screen = ok ? 'name' : 'title';
       } else if (screen === 'name') {
         const recent = cleanRecent(load('recent', []));
         name = await screens.askName(menu, recent);
@@ -907,6 +950,12 @@ async function flow() {
         save('recent', addRecent(recent, name));
         if (remainingSec(playStore(), name, Date.now()) <= 0) {
           await seeYouTomorrow(name);
+          screen = 'title';
+          continue;
+        }
+        if (mode === 'versus' || mode === 'battle') {
+          await setVersusName(name);
+          await screens.notice(menu, 'The waiting room is coming soon.');
           screen = 'title';
           continue;
         }

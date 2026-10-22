@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MODES } from '../src/screens.js';
 
-test('タイトルで選べるのは4つ: SOLO RACE / TIME TRIAL / VS RACE / BATTLE（2026-10-14 のユーザー依頼）。いま遊べるのは SOLO RACE と TIME TRIAL（2026-10-18）', () => {
+test('タイトルで選べるのは4つ: SOLO RACE / TIME TRIAL / VS RACE / BATTLE（2026-10-14 のユーザー依頼）。VS RACE と BATTLE も選べる（M4-A。GAME CODE が要る）', () => {
   assert.deepEqual(MODES.map((m) => m.id), ['solo', 'timetrial', 'versus', 'battle']);
   assert.deepEqual(MODES.map((m) => m.label), ['SOLO RACE', 'TIME TRIAL', 'VS RACE', 'BATTLE']);
-  assert.deepEqual(MODES.filter((m) => m.ready).map((m) => m.id), ['solo', 'timetrial']);
+  assert.deepEqual(MODES.filter((m) => m.ready).map((m) => m.id), ['solo', 'timetrial', 'versus', 'battle']);
   for (const m of MODES) assert.ok(m.icon && m.sub, m.id);
 });
 
@@ -123,4 +123,24 @@ test('キャラ選び: 8人のボタン。色はカートの色、能力は出�
   assert.equal((html.match(/class="last"/g) ?? []).length, 1);
   assert.ok(characterButton(CHARS[5], 'tiger').includes('class="last"'));
   assert.equal(CHARS.map((c) => characterButton(c, 'nobody')).join('').includes('class="last"'), false);
+});
+
+test('GAME CODE の文（英語）', async () => {
+  const { codeMessage } = await import('../src/screens.js');
+  assert.equal(codeMessage({ kind: 'wrong', left: 3 }), 'Wrong code. 3 tries left.');
+  assert.equal(codeMessage({ kind: 'wrong', left: 1 }), 'Wrong code. 1 try left.');
+  assert.equal(codeMessage({ kind: 'locked', left: 0 }), 'Too many tries. Ask the Game Master.');
+  assert.equal(codeMessage({ kind: 'off', left: 0 }), 'No game code now. Ask the Game Master.');
+  assert.equal(codeMessage({ kind: 'offline', left: 0 }), 'No connection');
+  assert.equal(codeMessage({ kind: 'setup', left: 0 }), 'Not set up yet');
+  assert.equal(codeMessage({ kind: 'need', left: 5 }), '');
+});
+
+test('VS RACE と BATTLE は選べる（GAME CODE が要る）', async () => {
+  const { MODES } = await import('../src/screens.js');
+  for (const id of ['versus', 'battle']) {
+    const m = MODES.find((x) => x.id === id);
+    assert.equal(m.ready, true);
+    assert.equal(m.code, true);
+  }
 });
