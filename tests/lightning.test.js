@@ -4,7 +4,7 @@ import { buildTrack } from '../src/game/track.js';
 import { COURSES } from '../src/data/tracks.js';
 import { createKart, stepKart, BLAST } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
-import { ITEM, initItems, createItemWorld, itemPress, stepItems } from '../src/game/items.js';
+import { ITEM, initItems, createItemWorld, itemPress, stepItems, canUse } from '../src/game/items.js';
 
 const t = buildTrack(COURSES[1]);
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
@@ -141,4 +141,81 @@ test('稲妻: 白い光は約0.4秒で消える', () => {
   assert.ok(world.flash > 0.3);
   run(world, karts, f, 0.3);
   assert.equal(world.flash, 0);
+});
+
+// ---- 小さい車は大きい車にぶつかると、ぺしゃんこ（2026-10-22 のユーザー依頼） ----
+import { pushApart } from '../src/game/collide.js';
+import { SQUASH, squashKart, squashContacts } from '../src/game/items.js';
+
+function pair() {
+  const c = setup(2);
+  const [a, b] = c.karts;
+  b.x = a.x + 1.5; b.z = a.z; b.y = a.y; b.seg = a.seg;
+  a.speed = b.speed = 20;
+  return { ...c, a, b };
+}
+function touch(karts) {
+  const now = pushApart(karts, new Set());
+  return squashContacts(karts, now);
+}
+
+test('ぺしゃんこ: 小さい車が大きい車にぶつかると squash=1.0 で止まる。大きい車は無事', () => {
+  const { karts, a, b } = pair();
+  b.smallTime = 8; b.small = 0.35;
+  const hit = touch(karts);
+  assert.deepEqual(hit, [1]);
+  assert.equal(b.squash, SQUASH.TIME);
+  assert.equal(SQUASH.TIME, 1.0);
+  assert.equal(a.squash ?? 0, 0);
+  stepKart(b, { steer: 0, throttle: true, brake: false, drift: false }, t, params, DT);
+  assert.equal(b.speed, 0);
+  assert.ok(a.speed > 0);
+});
+
+test('ぺしゃんこ: 小さい車どうしでは何も起きない', () => {
+  const { karts, a, b } = pair();
+  a.smallTime = b.smallTime = 8;
+  assert.deepEqual(touch(karts), []);
+  assert.ok(!(a.squash > 0) && !(b.squash > 0));
+});
+
+test('ぺしゃんこ: 1秒後に大きさも速さも元にもどる（稲妻が残っていても）', () => {
+  const { karts, world, f, b } = pair();
+  b.smallTime = 8; b.small = 0.35;
+  touch(karts);
+  run(world, karts, f, 0.5);
+  assert.ok(b.squash > 0 && b.smallTime > 7, '途中はまだぺしゃんこで、稲妻は止まったまま進まなくてもよい');
+  assert.ok(b.small < 0.4);
+  run(world, karts, f, 0.6);
+  assert.equal(b.squash, 0);
+  assert.equal(b.small, 1);
+  assert.equal(b.smallTime, 0);
+  b.speed = params.topSpeed * 0.97;
+  for (let s = 0; s < 1.5; s += DT) stepKart(b, { steer: 0, throttle: true, brake: false, drift: false }, t, params, DT);
+  assert.ok(b.speed > params.topSpeed * 0.9);
+});
+
+test('ぺしゃんこ: つぶれている間はアイテムを使えない', () => {
+  const { karts, b } = pair();
+  assert.equal(canUse(b, false), true);
+  b.smallTime = 8; b.small = 0.35;
+  touch(karts);
+  assert.equal(canUse(b, false), false);
+});
+
+test('ぺしゃんこ: スピン中・Star の車はつぶれない（Star の車は小さくならない）', () => {
+  const { karts, b } = pair();
+  b.smallTime = 8; b.small = 0.35; b.blast = 1;
+  assert.equal(squashKart(b), false);
+  assert.deepEqual(touch(karts), []);
+  assert.ok(!(b.squash > 0));
+  b.blast = 0; b.tumble = 1;
+  assert.equal(squashKart(b), false);
+  b.tumble = 0; b.auto = { id: 'x' };
+  assert.equal(squashKart(b), false);
+  b.auto = null; b.respawn = 1;
+  assert.equal(squashKart(b), false);
+  b.respawn = 0;
+  assert.equal(squashKart(b), true);
+  assert.equal(squashKart(b), false, '二重にはつぶれない');
 });

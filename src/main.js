@@ -8,6 +8,7 @@ import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPos
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor, cpuItem } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
+import { squashContacts } from './game/items.js';
 import {
   LAPS, raceLaps, raceDistance, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
 } from './game/race.js';
@@ -295,6 +296,7 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
     names,
     tags,
     blastsHeard: 0, // 聞こえた爆発の数（自分か、近くの車が吹き飛んだ）
+    squashesHeard: 0, // 聞こえた「ぺしゃんこ」の数（自分か、40m 以内の車がつぶれた）
     items: solo ? null : createItemWorld(track), // アイテム（TIME TRIAL にはない）
     itemView: solo ? null : createItemView(scene),
     slotShown: undefined, // 枠に出している絵（変わったときだけ書きかえる）
@@ -675,6 +677,10 @@ function stepGame(dt) {
   const before = g.contacts;
   g.contacts = pushApart(karts, before);
   g.bumps += newBumps(before, g.contacts, me);
+  // 小さい車が大きい車にぶつかったら、ぺしゃんこ（2026-10-22 のユーザー依頼）。近くで起きたら音が聞こえる
+  for (const k of squashContacts(karts, g.contacts)) {
+    if (k === me || Math.hypot(karts[k].x - karts[me].x, karts[k].z - karts[me].z) < 40) g.squashesHeard++;
+  }
   karts.forEach((kart, k) => updateProgress(race, k, track, kart.seg));
   if (!race.entries[me].finished) {
     g.playSec += dt;
@@ -1327,7 +1333,7 @@ function renderGame(alpha, dt) {
   // 音: 前のフレームとくらべて鳴らす。エンジン音は毎フレーム高さを近づける
   // バンプの警告（自分の車だけ。ゴールしたあとは出さない）
   g.bumpWarn = !e.finished && bumpWarning(track, kart);
-  const now = soundState({ count: countEl.textContent, lap: track.stages.length ? stageNow : e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), snowmanHop: g.snowmanHops, thunder: g.items?.thunder ?? 0, blastsHeard: g.blastsHeard });
+  const now = soundState({ count: countEl.textContent, lap: track.stages.length ? stageNow : e.lap, finished: e.finished, kart, bumps: g.bumps, wallQuiet: g.wallQuiet, jumpSoon: jumpAhead(track, kart), bumpWarn: g.bumpWarn, busNear: !e.finished && busNear(track, kart, g.race.t), boarWarn: !e.finished && boarWarning(track, kart, g.race.t), monkeyThrows: g.monkeyThrows, dinoRoar: !e.finished && dinoNear(kart, g.race.t), snowmanHop: g.snowmanHops, thunder: g.items?.thunder ?? 0, blastsHeard: g.blastsHeard, squashesHeard: g.squashesHeard });
   g.wallQuiet = kart.onWall ? 0 : g.wallQuiet + dt; // 壁から離れている秒数
   for (const name of soundEvents(g.sound, now, track.stages.length || raceLaps(track))) {
     if (name === 'driftStart') sfx.drift(true, kart.speed / g.params[g.me].topSpeed);
@@ -1343,6 +1349,7 @@ function renderGame(alpha, dt) {
     else if (name === 'busPass') voices.has('horn') ? voices.play('horn') : sfx.play('busPass'); // バスのクラクション（ユーザーが用意した音）
     else if (name === 'tramPass') voices.has('tram') ? voices.play('tram') : sfx.play('busPass'); // 香港の路面電車（ユーザーが用意した電車のクラクション）
     else if (name === 'explosion') voices.has('explosion') ? voices.play('explosion') : sfx.play('bump'); // 甲羅で吹き飛んだ（ユーザーが用意した音）
+    else if (name === 'squash') sfx.play('squash'); // 小さい車がぺしゃんこ（2026-10-22 のユーザー依頼）
     else if (name === 'thunder') voices.has('thunder') ? voices.play('thunder') : sfx.play('bump'); // 稲妻（ユーザーが用意した音）
     else if (name === 'starOn') sfx.star(true);
     else if (name === 'starOff') sfx.star(false);

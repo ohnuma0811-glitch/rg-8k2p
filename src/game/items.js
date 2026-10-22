@@ -1,11 +1,13 @@
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md）: 枠・ルーレット・ITEM ボタンの順番・使ったときの効果
 // ボタンを押したことは「出来事」（{ type, k, t, ... }）にして applyItemEvent で効かせる（M4 の対戦で、ほかの端末にも同じ出来事を送るため）
-import { useMushroom, STAR, startBlast, LIGHTNING, BLAST } from './kart.js';
+import { useMushroom, STAR, startBlast, LIGHTNING, BLAST, SQUASH, squashKart } from './kart.js';
 import { rollItem } from './itemOdds.js';
 import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js';
 import { locate } from './track.js';
 import { KART_RADIUS } from './collide.js';
 import { launchShell, stepShells, guard, SHELL } from './shells.js';
+
+export { SQUASH, squashKart };
 
 export const ITEM = {
   ROULETTE: 2, // ルーレットが回る秒数
@@ -43,7 +45,7 @@ export function canTake(kart) {
 
 // ITEM ボタンが効くか
 export function canUse(kart, finished) {
-  return !finished && !(kart.blast > 0) && !(kart.tumble > 0) && !kart.auto && !(kart.respawn > 0);
+  return !finished && !(kart.blast > 0) && !(kart.tumble > 0) && !kart.auto && !(kart.respawn > 0) && !(kart.squash > 0);
 }
 
 // 左右の入れ替え（Banana・Lightning。Soki Forest のぬかるみと同じ kart.muddy）。残りは「今の残り」と「新しい時間」の長い方
@@ -70,6 +72,7 @@ function strikeLightning(world, karts, k) {
 
 // 小さくなっている車の大きさ（kart.small）を進める: スピンの間に1→0.35、そのあと0.35、終わりの BACK 秒で1にもどる
 function stepSmall(kart, dt) {
+  if (kart.squash > 0) return; // ぺしゃんこの間は、時間も大きさも止める（終わると元にもどる）
   if (kart.smallTime > 0) {
     kart.smallTime = Math.max(0, kart.smallTime - dt);
     const down = kart.blast > 0 ? 1 - kart.blast / BLAST.TIME : 1; // スピンの進み 0 → 1
@@ -291,4 +294,16 @@ export function starRestore(karts, saved) {
     if (k.spin > s.spin || k.tumble > s.tumble) Object.assign(k, { spin: s.spin, tumble: s.tumble, speed: s.speed, heading: s.heading, move: s.move ?? k.move });
     if ((k.muddy ?? 0) > s.muddy) k.muddy = s.muddy;
   });
+}
+
+// 今ぶつかっている組（pushApart が返す 'a-b'）のうち、小さい車が大きい車にぶつかったものをぺしゃんこにする。つぶれた車の番号を返す
+export function squashContacts(karts, contacts) {
+  const out = [];
+  const big = (k) => !(karts[k].smallTime > 0);
+  for (const key of contacts) {
+    const [a, b] = key.split('-').map(Number);
+    if (big(a) && squashKart(karts[b])) out.push(b);
+    else if (big(b) && squashKart(karts[a])) out.push(a);
+  }
+  return out;
 }

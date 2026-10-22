@@ -1,7 +1,9 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
 import * as THREE from '../../vendor/three.module.min.js';
-import { PHYS, BLAST } from '../game/kart.js';
+import { PHYS, BLAST, SQUASH } from '../game/kart.js';
+const SQUASH_FLAT = 0.06; // ぺしゃんこの厚み（元の大きさに対して）
+const SQUASH_WIDE = 1.4; // ぺしゃんこで横に広がる倍率
 import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js';
 import { animalHead, animalBody } from './animals.js';
 
@@ -366,6 +368,27 @@ export function syncKartModel(model, kart) {
   model.scale.setScalar(kart.small ?? 1); // 稲妻で小さくなる（2026-10-22 のユーザー依頼）。名前の札も子なので、いっしょに小さくなる
   model.rotation.z = kart.hump > 0 ? Math.sin(u * Math.PI * 2) * 0.2 : 0;
   model.rotation.x = flying ? (since / TUMBLE_FLY) * Math.PI * 4 : 0;
+  // ぺしゃんこ（小さい車が大きい車にぶつかった。2026-10-22 のユーザー依頼）: 平らで少し広がり、紙のようにひらひら舞い上がって、ゆらゆら落ちる
+  if (kart.squash > 0) {
+    const q = 1 - kart.squash / SQUASH.TIME; // 0 → 1
+    const w = (kart.small ?? 1) * SQUASH_WIDE;
+    model.scale.set(w, SQUASH_FLAT, w);
+    model.position.y += SQUASH.LIFT * Math.sin(q * Math.PI) * (1 - 0.3 * q);
+    model.rotation.z = Math.sin(q * Math.PI * 6) * 0.5 * (1 - 0.5 * q);
+    model.rotation.x = Math.sin(q * Math.PI * 4 + 1) * 0.35 * (1 - 0.5 * q);
+  }
+  // 名前の札は、ぺしゃんこでも平らにならず、小さい車の頭の上あたりに見えるまま
+  const tag = model.children.find((c) => c.isSprite);
+  if (tag) {
+    if (kart.squash > 0) {
+      const w = (kart.small ?? 1) * SQUASH_WIDE;
+      tag.scale.set((TAG_SCREEN * 4) / w, TAG_SCREEN / SQUASH_FLAT, 1);
+      tag.position.set(-0.45, (4.3 * (kart.small ?? 1)) / SQUASH_FLAT, 0);
+    } else {
+      tag.scale.set(TAG_SCREEN * 4, TAG_SCREEN, 1);
+      tag.position.set(-0.45, 4.3, 0);
+    }
+  }
   const stars = model.userData.stars;
   if (stars) {
     stars.visible = tumbling && !flying;

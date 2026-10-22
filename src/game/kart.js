@@ -55,6 +55,7 @@ export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。
 export const STAR = { TIME: 9, TOP: 1.4, ACCEL: 2, TURN: 0.08 }; // TIME: 2026-10-22 のユーザー依頼で 6秒の 1.5倍。TOP: 同じ日の依頼「もっと速く」で 1.2 から // TURN: ハンドルの能力の数字1つ分（rad/s）
 // 稲妻（2026-10-22 のユーザー依頼）: 当たった車は35%に小さくなり、10秒間、最高速が75%
 export const LIGHTNING = { TIME: 10, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // BACK: 元の大きさにもどる秒数
+export const SQUASH = { TIME: 1.0, LIFT: 1.0 }; // 小さい車が大きい車にぶつかってぺしゃんこ: ひらひら舞う秒数と、上がる高さ m（2026-10-22 のユーザー依頼）
 export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2, REST: 0.5 }; // REST: 着地してから走り出すまで止まっている秒数（2026-10-22 のユーザー依頼） // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
 
 function wrapAngle(a) {
@@ -96,6 +97,7 @@ export function placeAt(kart, track, i, lateral = 0) {
   kart.spinTo = p.h; // スピンのあとに向く向き
   kart.mushroom = 0; // キノコでダートでもおそくならない残りの秒数
   kart.star = 0; // Star の残りの秒数
+  kart.squash = 0; // ぺしゃんこの残りの秒数
   kart.blast = 0; // 吹き飛ぶスピンの残りの秒数
   kart.blastRest = 0; // 吹き飛んで着地したあと、止まっている残りの秒数
   kart.blastTo = p.h; // 吹き飛んだあとに向く向き
@@ -138,8 +140,18 @@ export function useMushroom(kart, params) {
 }
 
 // 吹き飛ぶスピン（甲羅に当たった・Star の車にぶつかられた）: その場で止まり、上に飛んで2回転して落ちる。着いたら道の向き
+// 小さい車（稲妻）が大きい車にぶつかった: ぺしゃんこになってひらひら舞う。始まったら true（どの端末でも同じ関数で始められる）
+export function squashKart(kart) {
+  if (!(kart.smallTime > 0) || kart.squash > 0 || kart.star > 0) return false;
+  if (kart.blast > 0 || kart.tumble > 0 || kart.respawn > 0 || kart.auto) return false;
+  kart.squash = SQUASH.TIME;
+  kart.speed = 0;
+  return true;
+}
+
 export function startBlast(kart, track) {
   if (kart.blast > 0) return false;
+  kart.squash = 0; // ぺしゃんこの途中で吹き飛んだら、そちらを優先
   kart.blast = BLAST.TIME;
   kart.blastTo = track.samples[kart.seg].h;
   kart.blasts = (kart.blasts || 0) + 1;
@@ -236,6 +248,16 @@ export function stepKart(kart, ctl, track, params, dt) {
   // 自動の区間（Global City。2026-10-20）: 操作は効かず、決まった時間で道すじを進む
   if (kart.auto) {
     stepAuto(kart, track, dt);
+    return;
+  }
+  // ぺしゃんこ: 操作は効かず止まったまま。終わったら、稲妻の残りに関係なく元の大きさと速さにもどる
+  if (kart.squash > 0) {
+    kart.squash = Math.max(0, kart.squash - dt);
+    kart.speed = 0;
+    if (kart.squash === 0) {
+      kart.small = 1;
+      kart.smallTime = 0;
+    }
     return;
   }
   // アイテムの時間
