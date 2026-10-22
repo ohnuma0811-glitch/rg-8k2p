@@ -42,3 +42,17 @@ test('Star の車は虹色の光に包まれる。最後の1秒は点滅する',
   view.update(world, [kart], 1);
   assert.equal(aura.visible, false);
 });
+
+test('稲妻が落ちた車の上に、稲妻が見える（zap の間だけ）', () => {
+  const scene = new THREE.Scene();
+  const world = createItemWorld(buildTrack(COURSES[0]));
+  const view = createItemView(scene);
+  const kart = { x: 5, y: 0, z: 7, heading: 0, star: 0, orbit: [], zap: 0.3 };
+  view.update(world, [kart], 0);
+  const bolt = scene.children.find((o) => o.userData.kind === 'bolt');
+  assert.equal(bolt.visible, true);
+  assert.equal(bolt.position.x, 5);
+  kart.zap = 0;
+  view.update(world, [kart], 0.1);
+  assert.equal(bolt.visible, false);
+});

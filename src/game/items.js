@@ -50,6 +50,17 @@ export function swapSteer(kart, time) {
   return true;
 }
 
+// 稲妻: 自分以外の全員の左右を10秒入れ替える（効いた車に稲妻が見える）。画面は一瞬白く光る
+function strikeLightning(world, karts, k) {
+  karts.forEach((o, j) => {
+    if (j === k || !swapSteer(o, ITEM.LIGHTNING_SWAP)) return;
+    o.shock = Math.max(o.shock ?? 0, ITEM.LIGHTNING_SWAP);
+    o.zap = ITEM.ZAP_SHOW;
+  });
+  world.flash = 1;
+  world.thunder += 1;
+}
+
 // バナナを置く（車の 3m 後ろの地面）。コース全体で10個まで
 function dropBanana(world, kart, k) {
   const x = kart.x - Math.cos(kart.heading) * ITEM.BANANA_DROP;
@@ -134,7 +145,7 @@ export function applyItemEvent(world, karts, ev, f) {
     } else if (ev.item === 'shell') {
       launchShell(world, kart, ev.k, 'red', ev.target, f.params.topSpeed);
       kart.thrown = (kart.thrown || 0) + 1;
-    }
+    } else if (ev.item === 'lightning') strikeLightning(world, karts, ev.k);
   }
 }
 
@@ -142,7 +153,10 @@ export function applyItemEvent(world, karts, ev, f) {
 export function stepItems(world, karts, f, dt) {
   const out = [];
   stepBoxes(world.boxes, dt);
+  world.flash = Math.max(0, world.flash - ITEM.FLASH_FADE * dt);
   karts.forEach((kart, k) => {
+    if (kart.shock > 0) kart.shock = Math.max(0, kart.shock - dt);
+    if (kart.zap > 0) kart.zap = Math.max(0, kart.zap - dt);
     kart.orbitAngle = (kart.orbitAngle + ITEM.ORBIT_SPIN * dt) % (2 * Math.PI);
     if (kart.roulette > 0) {
       kart.roulette = Math.max(0, kart.roulette - dt);

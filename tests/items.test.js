@@ -250,3 +250,23 @@ test('Star の車は、障害物に当たってもスピン・転がり・入れ
   assert.equal(plain.spin, 1);
   assert.equal(plain.muddy, 4);
 });
+
+test('Lightning: 自分以外の全員が10秒左右入れ替わる（Star・自動の区間の車は効かない）。白い光と稲妻', () => {
+  const { karts, world, f } = setup(4);
+  karts[2].star = 3;
+  karts[3].auto = { id: 'jump' };
+  karts[0].held = 'lightning';
+  itemPress(world, karts, 0, f);
+  assert.equal(karts[0].muddy ?? 0, 0);
+  assert.equal(karts[1].muddy, ITEM.LIGHTNING_SWAP);
+  assert.equal(karts[1].shock, ITEM.LIGHTNING_SWAP);
+  assert.equal(karts[1].zap, ITEM.ZAP_SHOW);
+  assert.equal(karts[2].muddy ?? 0, 0);
+  assert.equal(karts[3].muddy ?? 0, 0);
+  assert.equal(world.flash, 1);
+  assert.equal(world.thunder, 1);
+  frames(world, karts, f, 1);
+  assert.equal(world.flash, 0, '白い光はすぐ消える');
+  assert.equal(karts[1].zap, 0);
+  assert.ok(karts[1].shock > 8.9 && karts[1].shock < 9.1);
+});

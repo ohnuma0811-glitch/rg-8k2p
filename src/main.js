@@ -1118,6 +1118,14 @@ function renderGame(alpha, dt) {
   // アイテム: 箱・バナナ・甲羅の見た目と、上の真ん中の枠
   if (g.items) {
     g.itemView.update(g.items, views, g.race.t);
+    // 稲妻: 落ちた瞬間の白い光。自分の左右が稲妻で入れ替わっている間は、画面の端が黄色く光る
+    itemFlash.style.opacity = String(g.items.flash * 0.9);
+    const meK2 = g.karts[g.me];
+    zapGlow.style.opacity = meK2.shock > 0 && meK2.muddy > 0 ? '1' : '0';
+    // ほかの車の入れ替わりの煙（近くの車だけ）
+    views.forEach((v, k) => {
+      if (k !== g.me && v.muddy > 0 && Math.hypot(v.x - mine.x, v.z - mine.z) < 80) effects.mud(v);
+    });
     const show = slotItem(g.karts[g.me]);
     if (show !== g.slotShown) {
       g.slotShown = show;

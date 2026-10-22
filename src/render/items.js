@@ -58,6 +58,20 @@ export function createItemView(scene) {
   const reds = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0xe8312a }), MAX_SHELL, 'reds');
   const meshes = [boxes, bananas, greens, reds];
   // Star の虹色の光（車ごとに、使うときに作る）
+  // 稲妻（空から車へ、ぎざぎざの線）
+  const bolts = [];
+  const bolt = (i) => {
+    if (!bolts[i]) {
+      const pts = [];
+      for (let n = 0; n <= 8; n++) pts.push(new THREE.Vector3(n % 2 ? 1.2 : -1.2, 30 - n * 3.6, n % 3 ? 0.8 : -0.8));
+      const m = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xfff27a }));
+      m.userData.kind = 'bolt';
+      m.visible = false;
+      scene.add(m);
+      bolts[i] = m;
+    }
+    return bolts[i];
+  };
   const auras = [];
   const aura = (i) => {
     if (!auras[i]) {
@@ -109,6 +123,13 @@ export function createItemView(scene) {
       done(greens, g);
       done(reds, r);
       karts.forEach((k, i) => {
+        const on = k.zap > 0;
+        if (!on && !bolts[i]) return;
+        const b = bolt(i);
+        b.visible = on;
+        if (on) b.position.set(k.x, k.y, k.z);
+      });
+      karts.forEach((k, i) => {
         // 終わる1秒前から点滅
         const on = k.star > 0 && !(k.star < 1 && Math.floor(k.star * 10) % 2 === 0);
         if (!on && !auras[i]) return;
@@ -120,6 +141,7 @@ export function createItemView(scene) {
       });
     },
     dispose() {
+      for (const b of bolts) if (b) { scene.remove(b); b.geometry.dispose(); b.material.dispose(); }
       for (const a of auras) if (a) { scene.remove(a); a.geometry.dispose(); a.material.dispose(); }
       for (const m of meshes) {
         scene.remove(m);
