@@ -1,0 +1,29 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { newCodeId, setCodeUpdates, stopUpdates, playersOf, lockedOf, clampLimit } from '../src/gm.js';
+
+test('Set: コードとコードの番号（毎回新しい）を、/secret と /status に（/status にはコードを入れない）', () => {
+  const id = newCodeId(1000, () => 0.5);
+  assert.match(id, /^[a-z0-9]{2,40}$/);
+  assert.notEqual(newCodeId(1000, () => 0.1), newCodeId(1001, () => 0.1));
+  assert.deepEqual(setCodeUpdates('0811', id), { secret: { code: '0811', codeId: id, active: true }, status: { codeId: id, active: true } });
+  assert.throws(() => setCodeUpdates('81', id));
+});
+
+test('Stop: すぐに使えなくする', () => {
+  assert.deepEqual(stopUpdates('c1'), { 'secret/active': false, status: { codeId: 'c1', active: false } });
+});
+
+test('Players: 今のコードで入った人（名前のある人）を新しい順。Locked: 今のコードで5回まちがえた端末', () => {
+  const access = { a: { codeId: 'c1', name: 'KYUGO', at: 10 }, b: { codeId: 'c1', name: 'SOKI', at: 20 }, c: { codeId: 'c0', name: 'OLD', at: 30 }, d: { codeId: 'c1', name: '', at: 40 } };
+  assert.deepEqual(playersOf(access, 'c1').map((p) => p.name), ['SOKI', 'KYUGO']);
+  const attempts = { x: { codeId: 'c1', count: 5, device: 'iPhone', at: 5 }, y: { codeId: 'c1', count: 2, device: 'PC', at: 6 }, z: { codeId: 'c0', count: 5, device: 'Android', at: 7 } };
+  assert.deepEqual(lockedOf(attempts, 'c1'), [{ uid: 'x', device: 'iPhone', at: 5 }]);
+  assert.deepEqual(playersOf(null, 'c1'), []);
+});
+
+test('Daily limit は 5〜120分', () => {
+  assert.equal(clampLimit(0), 5);
+  assert.equal(clampLimit(25), 25);
+  assert.equal(clampLimit(999), 120);
+});

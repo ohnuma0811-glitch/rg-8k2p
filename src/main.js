@@ -38,6 +38,7 @@ import { usedSec, addPlay, remainingText } from './playtime.js';
 import { createPlaytimeSync } from './net/playtimeSync.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
+import { gmScreen } from './gm.js';
 import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js';
 import { codeState, tryCode, setName, deviceKind } from './net/gamecode.js';
 import { SharedTimes, dateText } from './sharedTimes.js';
@@ -1420,4 +1421,5 @@ startLoop({
 // ホーム画面に追加したときに使う（https のときだけ。手元の http://localhost では使わない）
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
-flow();
+if (location.hash === '#gm') gmScreen(menu);
+else flow();
