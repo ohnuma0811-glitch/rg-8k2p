@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=49643e0';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=49643e0';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=dcfe307';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=dcfe307';
 
 export const CPU = {
   ITEM_SWAP_SPEED: 0.75, // アイテムで左右が入れ替わっている間の、最高速に対する上限
@@ -398,7 +398,8 @@ export function cpuItem(cpu, kart, karts, track, t, rand = Math.random) {
   const since = t - cpu.heldAt;
   if (since < CPU_ITEM.MIN_WAIT) return false;
   if (kart.held === 'banana') return true;
-  if (kart.held === 'mushroom') return since >= CPU_ITEM.MUSHROOM_LATEST || straightAhead(kart, track);
+  // キノコ（3個セット）: 前のキノコの加速が終わってから、次を使う
+  if (kart.held === 'mushroom') return !(kart.mushroom > 0) && (since >= CPU_ITEM.MUSHROOM_LATEST || straightAhead(kart, track));
   if (kart.held === 'star' || kart.held === 'lightning') return since >= cpu.wait;
   return false;
 }

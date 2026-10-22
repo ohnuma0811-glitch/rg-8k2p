@@ -1,7 +1,7 @@
 // 効果音（その場でプログラムから作って鳴らす）と、鳴りつづける音（エンジン・ドリフトのキュルキュル）
 // audio.ctx がない（音が使えない・まだタップしていない）ときは、何もしない
-import { midiToHz } from './notes.js?v=49643e0';
-import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=49643e0';
+import { midiToHz } from './notes.js?v=dcfe307';
+import { engineParams, DRIFT_VOLUME, WALL_VOLUME } from './mix.js?v=dcfe307';
 
 export function createSfx(audio) {
   let noise = null; // 1秒の雑音（使い回す）
@@ -174,7 +174,13 @@ export function createSfx(audio) {
     hop: () => boing(),
     rouletteTick: () => tone('square', 1320, 0.04, 0.06), // ルーレットのカラカラ
     itemGet: () => [0, 0.09, 0.18].forEach((at) => tone('square', 1760, 0.07, 0.12, { at })), // ピンピンピン
-    mushroom: () => tone('sawtooth', 300, 0.5, 0.15, { to: 1400 }), // しゅいーん
+    // キノコのダッシュ: 「ボン」と大きく押し出し、強い風の「シューーン」（2026-10-22 のユーザー依頼「大きく」。加速板より大きく、長く）
+    mushroom: () => {
+      tone('sine', 140, 0.25, 0.6, { to: 55 }); // ボン
+      burst('bandpass', 500, 6000, 1.0, 0.8); // 強い風
+      tone('sawtooth', 250, 1.0, 0.2, { to: 1800 }); // シューーン
+      tone('square', 500, 1.0, 0.1, { to: 3600 }); // 1オクターブ上
+    },
     shellOut: () => tone('square', 700, 0.15, 0.12, { to: 300 }),
     bananaHit: () => {
       tone('sine', 900, 0.3, 0.18, { to: 200 });

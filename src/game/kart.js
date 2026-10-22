@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=49643e0';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=49643e0';
+import { locate, respawnIndex, sampleAt } from './track.js?v=dcfe307';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=dcfe307';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -52,7 +52,7 @@ export const PHYS = {
 
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4・7章）
 export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。ダートでもおそくならない
-export const STAR = { TIME: 6, TOP: 1.2, ACCEL: 2, TURN: 0.08 }; // TURN: ハンドルの能力の数字1つ分（rad/s）
+export const STAR = { TIME: 9, TOP: 1.4, ACCEL: 2, TURN: 0.08 }; // TIME: 2026-10-22 のユーザー依頼で 6秒の 1.5倍。TOP: 同じ日の依頼「もっと速く」で 1.2 から // TURN: ハンドルの能力の数字1つ分（rad/s）
 export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2 }; // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
 
 function wrapAngle(a) {

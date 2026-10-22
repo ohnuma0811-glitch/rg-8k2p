@@ -1,5 +1,6 @@
 // 右上のコースマップ: コースの形と、だれがどこを走っているかを点で描く
 // 地図の座標: コースの x は右、z は下
+import { stageAt } from '../game/track.js?v=dcfe307';
 
 // コース全体を、幅 w・高さ h（余白 pad）の中に、縦横の比を変えずに収める。(x, z) → { x, y }（画面の点）
 export function mapFit(samples, w, h, pad) {
@@ -48,6 +49,32 @@ export function minimapDashes(track) {
   return (track.autos ?? []).map((a) => track.samples.slice(0, track.length).filter((q) => q.auto === a.id));
 }
 
+// ステージのあるコース（World Cities）: ステージ k の所だけの地図の線（2026-10-22 のユーザー依頼「エリアごとに表示」）
+// スタートの後ろ（道の終わりより後ろの点）はステージ 0、ゴールのあとの周回は最後のステージ
+function stageOf(track, q) {
+  return stageAt(track, q.s > track.marks.END ? q.s - track.length : q.s);
+}
+export function stagePaths(track, k) {
+  const out = [];
+  for (const list of minimapPaths(track)) {
+    let run = [];
+    for (const q of list) {
+      if (stageOf(track, q) === k) run.push(q);
+      else {
+        if (run.length) out.push(run);
+        run = [];
+      }
+    }
+    if (run.length) out.push(run);
+  }
+  return out;
+}
+
+// 地図に出す車の点: ステージのあるコースでは、同じステージにいる車だけ（stage が undefined なら全部）
+export function mapDots(dots, stage) {
+  return stage === undefined ? dots : dots.filter((d) => d.stage === undefined || d.stage === stage);
+}
+
 // 地図を作る。draw(dots) で毎回、車の点を描く。dots = [{ x, z, color, me }]（me は自分の車。大きく、白いふち）
 // 大きさは resize() のときだけ調べ、コースの形はそのとき別のキャンバスに1回だけ描いておく（毎フレームは写すだけ）
 export function createMinimap(canvas, track) {
@@ -57,6 +84,8 @@ export function createMinimap(canvas, track) {
   let w = 0;
   let h = 0;
   let ratio = 1;
+  const staged = !!track.stages?.length;
+  let stage = 0; // ステージのあるコースで、いま描いているステージ
 
   function resize() {
     const cw = canvas.clientWidth;
@@ -70,12 +99,19 @@ export function createMinimap(canvas, track) {
     canvas.width = roadCanvas.width = Math.round(w * ratio);
     canvas.height = roadCanvas.height = Math.round(h * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    fit = mapFit(track.samples, w, h, 8);
+    build();
+  }
+
+  // コースの形（ステージのあるコースは、そのステージの所だけを枠いっぱいに）
+  function build() {
+    const lines = staged ? stagePaths(track, stage) : minimapPaths(track);
+    fit = mapFit(staged ? lines.flat() : track.samples, w, h, 8);
     // コースの形とスタートライン
     const rc = roadCanvas.getContext('2d');
     rc.setTransform(ratio, 0, 0, ratio, 0, 0);
+    rc.clearRect(0, 0, w, h);
     const road = new Path2D();
-    minimapPaths(track).forEach((ps, k) => {
+    lines.forEach((ps, k) => {
       ps.forEach((p, i) => {
         const q = fit(p.x, p.z);
         if (i === 0) road.moveTo(q.x, q.y);
@@ -92,7 +128,7 @@ export function createMinimap(canvas, track) {
     rc.stroke(road);
     // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）は、細い点線
     const dash = new Path2D();
-    for (const ps of minimapDashes(track)) {
+    for (const ps of staged ? [] : minimapDashes(track)) {
       ps.forEach((p, i) => {
         const q = fit(p.x, p.z);
         if (i === 0) dash.moveTo(q.x, q.y);
@@ -104,18 +140,24 @@ export function createMinimap(canvas, track) {
     rc.lineWidth = 2;
     rc.stroke(dash);
     rc.setLineDash([]);
+    if (staged && stage !== 0) return;
     const s = track.samples[track.startIndex];
     const q = fit(s.x, s.z);
     rc.fillStyle = '#fff';
     rc.fillRect(q.x - 3, q.y - 3, 6, 6);
   }
 
-  function draw(dots) {
+  // dots = [{ x, z, color, me, stage }]。cur は自分のいるステージ（ステージのあるコースだけ）
+  function draw(dots, cur) {
+    if (staged && cur !== undefined && cur !== stage && w && h) {
+      stage = cur;
+      build();
+    }
     if (!fit) return;
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(roadCanvas, 0, 0, w, h);
     // 自分の車を最後に（いちばん上に）描く
-    const order = [...dots].sort((a, b) => (a.me ? 1 : 0) - (b.me ? 1 : 0));
+    const order = [...mapDots(dots, staged ? stage : undefined)].sort((a, b) => (a.me ? 1 : 0) - (b.me ? 1 : 0));
     for (const d of order) {
       const p = fit(d.x, d.z);
       ctx.beginPath();

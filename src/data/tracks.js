@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=49643e0';
-import { SOKI_SCENERY } from './soki.js?v=49643e0';
+import { KAMPAR_SCENERY } from './kampar.js?v=dcfe307';
+import { SOKI_SCENERY } from './soki.js?v=dcfe307';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -10,6 +10,7 @@ export const COURSE1 = {
   name: 'Kenta Circuit', // 2026-10-14 のユーザー依頼（Kentaサーキット）
   music: 'kenta', // このコースの曲（src/audio/songs.js の名前）
   theme: 'circuit', // 見た目の種類（観客席・土手・赤白の柵）
+  itemRows: [['S', 'S', 0.82]], // アイテムの箱の列は、コースマップの左下（2026-10-22 のユーザー依頼）
   // 絵の点。斜めの道の下（交わる所の手前）から、走る順に並べる
   points: [
     [445, 350], [455, 322], [465, 287], [480, 260], [497, 232], // 斜めの道（右上へ上る。交わる所をジャンプで越える）
@@ -42,6 +43,7 @@ export const COURSE2 = {
   name: 'Kampar Town',
   music: 'kampar', // このコースの曲（src/audio/songs.js）
   theme: 'town',
+  itemRows: [['B', 'C', 0.56], ['S', 'S', 0.5]], // アイテムの箱: ECONSAVE の横断幕の手前と、半周の所（2026-10-22 のユーザー依頼）
   scenery: KAMPAR_SCENERY, // 景色の置き場所（src/data/kampar.js）
   // 町の角（A・B・C・D・F・J）は直角（2026-10-15 のユーザー依頼）。角の点の前後に近い点を置いて、角をきつくする
   points: [
@@ -106,6 +108,7 @@ export const COURSE3 = {
   name: 'Soki Forest',
   music: 'forest',
   theme: 'forest',
+  itemRows: [['S', 'S', 0.04], ['S', 'S', 0.5]], // アイテムの箱: コースマップの下（スタートのあとの直線）と、半周の所（2026-10-22 のユーザー依頼）
   points: [
     [1260, 890], [1130, 885], [1050, 830], [980, 780], [860, 770], // 0〜4: スタートから下の道を西へ
     [740, 785], // 5: J1（ジャンプ①、川）
