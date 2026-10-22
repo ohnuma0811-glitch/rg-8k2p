@@ -27,13 +27,25 @@ test('列の前後 15m は、地面があり、ジャンプ台・加速板・橋
   }
 });
 
-test('周回のあるコースの本線の列は、スタートから 0.35〜0.65 周の所', () => {
-  for (const t of tracks.slice(0, 4)) {
+test('周回のあるコースの本線の列は、スタートから 0.35〜0.65 周の所（場所を決めたコースはのぞく）', () => {
+  for (const t of tracks.slice(0, 4).filter((t) => !t.def.itemRows)) {
     const main = rowSpots(t).filter((i) => t.samples[i].path === 0);
     assert.equal(main.length, 1, t.def.name);
     const rel = (t.samples[main[0]].s - t.samples[t.startIndex].s + t.length) % t.length;
     assert.ok(rel > 0.35 * t.length && rel < 0.65 * t.length, `${t.def.name}: ${rel}`);
   }
+});
+
+test('Kenta Circuit: 列はコースマップの左下（2026-10-22 のユーザー依頼）', () => {
+  const t = tracks[0];
+  const spots = rowSpots(t);
+  assert.equal(spots.length, 1);
+  const xs = t.samples.map((p) => p.x);
+  const zs = t.samples.map((p) => p.z);
+  const p = t.samples[spots[0]];
+  const fx = (p.x - Math.min(...xs)) / (Math.max(...xs) - Math.min(...xs));
+  const fz = (p.z - Math.min(...zs)) / (Math.max(...zs) - Math.min(...zs));
+  assert.ok(fx < 0.3 && fz > 0.7, `左 ${fx.toFixed(2)} / 下 ${fz.toFixed(2)}`);
 });
 
 test('Soki Forest: 本線の列を通らない内側の道（inner）にも1列', () => {
