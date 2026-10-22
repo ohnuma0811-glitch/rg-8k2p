@@ -2,7 +2,7 @@
 import { faceSvg } from './titleArt.js';
 import { charOf } from './data/characters.js';
 import { PHRASES, phrase, pickedText } from './chatPhrases.js';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText } from './net/chat.js';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText, nextChime } from './net/chat.js';
 import { enterLobby, leaveLobby, setReady, playersOf } from './net/lobby.js';
 import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js';
 
@@ -38,8 +38,7 @@ export function runLobby(root, ctx) {
   const state = { players: [], room: null, votes: null, msgs: [], status: null };
   const offs = [];
   let lastSent = null;
-  let shownMsgs = 0;
-  let announced = null;
+  let chimeState = { loaded: false, lastId: null };
   let finished = false;
   return new Promise((resolve) => {
     root.classList.add('show');
@@ -165,10 +164,9 @@ export function runLobby(root, ctx) {
     offs.push(db.watch('votes', (v) => { state.votes = v; drawVote(); }));
     offs.push(db.watch(`chat/${me.codeId}`, (v) => {
       state.msgs = lastMessages(v, CHAT_SHOW);
-      const last = state.msgs[state.msgs.length - 1];
-      if (state.msgs.length && shownMsgs && last && last.uid !== me.uid && last.id !== announced) ctx.chime();
-      announced = last?.id ?? null;
-      shownMsgs = state.msgs.length;
+      const res = nextChime(chimeState, state.msgs, me.uid);
+      chimeState = res.state;
+      if (res.chime) ctx.chime();
       drawMsgs();
     }, { last: CHAT_SHOW }));
     offs.push(db.watch('room', async (v) => {

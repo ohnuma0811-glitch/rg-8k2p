@@ -34,3 +34,11 @@ export function lastMessages(obj, n = CHAT_SHOW) {
 export function displayText(m, lang) {
   return typeof m.text === 'string' ? m.text : phrase(m.preset, lang);
 }
+
+// 新しい文の音。最初の受け取りは覚えるだけ。そのあと、いちばん新しい文の id が変わって、自分以外の文なら鳴らす
+export function nextChime(state, msgs, myUid) {
+  const last = msgs[msgs.length - 1];
+  const lastId = last ? last.id : null;
+  const chime = state.loaded && !!last && lastId !== state.lastId && last.uid !== myUid;
+  return { chime, state: { loaded: true, lastId } };
+}

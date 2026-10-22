@@ -41,3 +41,22 @@ test('定型文は2秒に1回、自由な文は1秒に1回（2026-10-22 のユ�
   assert.equal(canSend(4000, 5000, 'text'), true);
   assert.equal(canSend(null, 1, 'preset'), true);
 });
+
+test('音: 最初の受け取りでは鳴らさない。そのあと、いちばん新しい文が変わって、自分以外なら鳴らす（からのチャットへの最初の1件も）', async () => {
+  const { nextChime } = await import('../src/net/chat.js');
+  const m = (id, uid) => ({ id, uid });
+  let st = { loaded: false, lastId: null };
+  let r = nextChime(st, [m('a', 'u2')], 'u1');
+  assert.equal(r.chime, false, '最初の受け取り');
+  st = r.state;
+  r = nextChime(st, [m('a', 'u2')], 'u1');
+  assert.equal(r.chime, false, '同じ');
+  st = r.state;
+  r = nextChime(st, [m('a', 'u2'), m('b', 'u1')], 'u1');
+  assert.equal(r.chime, false, '自分の文');
+  st = r.state;
+  r = nextChime(st, [m('a', 'u2'), m('b', 'u1'), m('c', 'u2')], 'u1');
+  assert.equal(r.chime, true);
+  st = nextChime({ loaded: false, lastId: null }, [], 'u1').state;
+  assert.equal(nextChime(st, [m('a', 'u2')], 'u1').chime, true, 'からのチャットへの最初の1件');
+});
