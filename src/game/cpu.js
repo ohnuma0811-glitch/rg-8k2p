@@ -1,9 +1,12 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=ddbe513';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=ddbe513';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=49643e0';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=49643e0';
 
 export const CPU = {
+  ITEM_SWAP_SPEED: 0.75, // アイテムで左右が入れ替わっている間の、最高速に対する上限
+  ITEM_SWAP_WOBBLE: 0.4, // そのときのハンドルのゆれ（-1〜1 の量）
+  ITEM_SWAP_FREQ: 5, // ゆれの速さ（rad/s）
   LOOK: 10, // 何m先の点を目指すか（の基本）
   LOOK_PER_SPEED: 0.3, // 速さ1m/s ごとに、目指す点をこれだけ先にする
   STEER_GAIN: 2.5, // 目指す点とのずれ（rad）を、ハンドルの量にする倍率
@@ -67,7 +70,7 @@ export function routeChoice(cpu, fork, paths, lap, track) {
 }
 
 // その時の操作（{ steer, brake, drift }）。t はレースの時刻（線をゆらすため）
-export function cpuControl(cpu, kart, track, t) {
+export function cpuControl(cpu, kart, track, t, topSpeed = null) {
   const { samples } = track;
   const n = samples.length;
   const loc = locate(track, kart.x, kart.z, kart.seg, 40, kart.y ?? null);
@@ -284,7 +287,10 @@ export function cpuControl(cpu, kart, track, t) {
   // コブゾーン（Kyugo Mountain）: 手前から中まで、速すぎれば落とす（速いまま当たると跳ねて、すべる雪の上で向きを失う）
   const mogulBrake = (track.moguls ?? []).some((m) => samples[m.i].path === samples[loc.i].path && span(track, loc.s, samples[m.i].s) < 45) && kart.speed > 30;
   const slipBrake = grip < 1 && bend > CPU.BRAKE_BEND * 0.7 && kart.speed > CPU.CORNER_SPEED * (0.55 + 0.45 * grip);
-  const brake = lost || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
+  // アイテムの入れ替わり（Banana・Lightning。kart.swapItem）: ふらふらと走る（ハンドルをゆらし、最高速の ITEM_SWAP_SPEED 倍まで）。ぬかるみは今まで通り
+  const swapped = kart.swapItem && kart.muddy > 0;
+  const swapSlow = swapped && topSpeed !== null && kart.speed > topSpeed * CPU.ITEM_SWAP_SPEED;
+  const brake = lost || swapSlow || slipBrake || mogulBrake || (underBridge && kart.speed > 24) || (bend > CPU.BRAKE_BEND && kart.speed > CPU.CORNER_SPEED) || bumpBrake || (cowBrake && kart.speed > CPU.BUMP_SPEED) || dinoBrake || (slowBrake && kart.speed > 22) ||
     // バスが近いときに曲がり角へ速く入ると、外へふくらんでバスの車線に入るので、落とす
     (busNearby && bend > CPU.DRIFT_BEND && kart.speed > 22);
   // バスが近いときはドリフトしない（ドリフトで外へふくらむと、バスの車線に入る）
@@ -294,7 +300,8 @@ export function cpuControl(cpu, kart, track, t) {
   // ドリフトを始める（跳ねている）間だけ、曲がる向きにハンドルを切る。滑り出したら、目指す点に合わせて加減する
   const starting = cpu.drifting && !kart.drift.active;
   const out = starting ? Math.sign(bendTo) * Math.max(0.5, Math.abs(steer)) : steer;
-  return { steer: kart.muddy > 0 ? -out : out, brake, drift: cpu.drifting };
+  const wobbled = swapped ? Math.max(-1, Math.min(1, out + CPU.ITEM_SWAP_WOBBLE * Math.sin(t * CPU.ITEM_SWAP_FREQ + cpu.phase))) : out;
+  return { steer: kart.muddy > 0 ? -wobbled : wobbled, brake, drift: cpu.drifting && !swapped };
 }
 
 const DINO_HOLD = 58; // 一度食べられた CPU が、恐竜を待つ所（ジャンプ②の手前 m。加速板（40m 手前）より十分手前。最終レビューで 45 から）
@@ -334,4 +341,64 @@ export function bumpMiss(cpu, b, lap) {
 export const CPU_LEVELS = { 1: 0.66, 2: 1, 3: 1.12 };
 export function cpuParams(base, rubber, level = 2) {
   return { ...base, topSpeed: base.topSpeed * CPU.SKILL * rubber * (CPU_LEVELS[level] ?? 1) };
+}
+
+// CPU のアイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 10章）
+// 人のプレイヤーをわざとねらわない（CPU には甲羅が出ない。稲妻は全員に落ちる）
+export const CPU_ITEM = {
+  MIN_WAIT: 0.5, // 取ってから使うまで、いつもこれ以上あける（秒）
+  BEHIND: 20, // 後ろのこの m 以内に車が来たら、ぶら下げたバナナを置く
+  BANANA_HOLD: 8, // 来なければ、この秒数で置く
+  STRAIGHT: 0.15, // まっすぐと見なす、向きの差（rad）
+  STRAIGHT_AHEAD: 60, // この m 先まで見る
+  MUSHROOM_LATEST: 10, // まっすぐな所がなくても、この秒数持ったら使う
+};
+
+// この先 STRAIGHT_AHEAD m がまっすぐか
+function straightAhead(kart, track) {
+  const h0 = track.samples[kart.seg].h;
+  let j = kart.seg;
+  for (let d = 0; d < CPU_ITEM.STRAIGHT_AHEAD; d += 5) {
+    j = aheadOf(track, j, 5);
+    if (Math.abs(wrap(track.samples[j].h - h0)) > CPU_ITEM.STRAIGHT) return false;
+  }
+  return true;
+}
+
+// 後ろ BEHIND m 以内に車がいるか
+function someoneBehind(kart, karts) {
+  return karts.some((o) => {
+    if (o === kart || o.auto || Math.abs((o.y ?? 0) - (kart.y ?? 0)) > 3) return false;
+    const dx = o.x - kart.x;
+    const dz = o.z - kart.z;
+    return dx * Math.cos(kart.heading) + dz * Math.sin(kart.heading) < 0 && Math.hypot(dx, dz) <= CPU_ITEM.BEHIND;
+  });
+}
+
+// その時 ITEM を押すか。cpu に、アイテムを取った時刻（heldAt）、使うまでの秒数（wait）、ぶら下げた時刻（trailAt）を覚える
+export function cpuItem(cpu, kart, karts, track, t, rand = Math.random) {
+  if (kart.roulette > 0) return false;
+  if (kart.held !== cpu.lastHeld) {
+    cpu.lastHeld = kart.held;
+    cpu.heldAt = t;
+    cpu.wait = 1 + 2 * rand(); // Star・Lightning は1〜3秒で
+  }
+  if (kart.trailing) {
+    if (cpu.trailAt == null) cpu.trailAt = t;
+    const waited = t - cpu.trailAt;
+    if (waited < CPU_ITEM.MIN_WAIT) return false;
+    if (waited >= CPU_ITEM.BANANA_HOLD || someoneBehind(kart, karts)) {
+      cpu.trailAt = null;
+      return true;
+    }
+    return false;
+  }
+  cpu.trailAt = null;
+  if (!kart.held) return false;
+  const since = t - cpu.heldAt;
+  if (since < CPU_ITEM.MIN_WAIT) return false;
+  if (kart.held === 'banana') return true;
+  if (kart.held === 'mushroom') return since >= CPU_ITEM.MUSHROOM_LATEST || straightAhead(kart, track);
+  if (kart.held === 'star' || kart.held === 'lightning') return since >= cpu.wait;
+  return false;
 }

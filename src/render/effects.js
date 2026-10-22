@@ -1,6 +1,6 @@
 // ドリフトの煙（白 → 黄 → 赤。マリオカート64 のように）と、ダートの砂ぼこり
-import * as THREE from '../../vendor/three.module.min.js?v=ddbe513';
-import { driftLevel } from '../game/kart.js?v=ddbe513';
+import * as THREE from '../../vendor/three.module.min.js?v=49643e0';
+import { driftLevel } from '../game/kart.js?v=49643e0';
 
 const MAX = 200;
 const SMOKE = [new THREE.Color(0xf4f4f4), new THREE.Color(0xffd84a), new THREE.Color(0xff3b2f)];
@@ -28,6 +28,11 @@ export function createEffects(scene) {
   const WHITE = new THREE.Color(0xf4f4f4);
   const SPARK = new THREE.Color(0xffa22a);
   return {
+    // ほかの車の、左右が入れ替わっている間の煙（ぬかるみ・バナナ・稲妻）
+    mud(kart) {
+      emit(kart.x + (Math.random() - 0.5) * 2, kart.y + 0.8, kart.z + (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 1.5, 2 + Math.random() * 2, (Math.random() - 0.5) * 1.5, MUD_SMOKE, 0.9);
+    },
     // バンプで転がったときの小さな爆発: 白い煙が飛び散り、オレンジの火花（2026-10-15 のユーザー依頼）
     burst(x, y, z) {
       for (let k = 0; k < 24; k++) {

@@ -1,4 +1,4 @@
-import { sampleAt, stageAt } from './track.js?v=ddbe513';
+import { sampleAt, stageAt } from './track.js?v=49643e0';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ

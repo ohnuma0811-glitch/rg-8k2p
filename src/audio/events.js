@@ -1,5 +1,5 @@
 // 前と今の様子をくらべて、鳴らす音を決める（音は鳴らさない。テストできるように分けてある）
-import { locate } from '../game/track.js?v=ddbe513';
+import { locate } from '../game/track.js?v=49643e0';
 
 // ジャンプの着地の音は、地面（高さ 0）に着くこの秒数前に鳴らし始める
 // （スマホは音を出すまでに少し遅れるので、着いてから鳴らすと遅れて聞こえた: 2026-10-15 の実機確認）
@@ -23,7 +23,7 @@ export function jumpAhead(track, kart, lead = JUMP_LEAD) {
 // 音に関係する様子だけを取り出す。count はカウントの文字（'3' '2' '1' 'GO!' ''）、bumps は自分がぶつかった回数の合計
 // wallQuiet: 壁から離れている秒数（前のフレームまで）
 // jumpSoon: もうすぐジャンプ台から飛び出す（jumpAhead で調べたもの）
-export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null, snowmanHop = 0 }) {
+export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infinity, jumpSoon = false, bumpWarn = false, busNear = false, boarWarn = false, monkeyThrows = 0, dinoRoar = false, eatenHeard = null, snowmanHop = 0, thunder = 0, blastsHeard = 0 }) {
   return {
     count,
     lap,
@@ -64,6 +64,17 @@ export function soundState({ count, lap, finished, kart, bumps, wallQuiet = Infi
     auto: kart.auto?.id ?? null, // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）
     autoLeg: kart.auto?.leg ?? 0,
     autoError: !!kart.autoError, // スピードメーターが ERROR
+    // アイテム（M3-A）
+    roulette: (kart.roulette || 0) > 0,
+    rouletteTick: (kart.roulette || 0) > 0 ? Math.floor(kart.roulette * 10) : -1, // ルーレットのカラカラ（0.1秒ごと）
+    held: kart.held ?? null,
+    mushrooms: kart.mushrooms || 0,
+    thrown: kart.thrown || 0, // 甲羅を出した回数
+    bananaHits: kart.bananaHits || 0,
+    blocked: kart.blocked || 0, // 回る甲羅・ぶら下げたバナナで守った回数
+    star: (kart.star || 0) > 0,
+    thunder, // 稲妻が落ちた回数（だれが使っても）
+    blastsHeard, // 聞こえた爆発の数（自分か、近くの車が吹き飛んだ）
   };
 }
 
@@ -112,6 +123,7 @@ export function soundEvents(prev, cur, laps) {
   if (cur.stage > prev.stage) ev.push('spark');
   // スタートダッシュは専用の音（2026-10-16 のユーザー依頼）。そのときは加速の音を重ねない
   if (cur.dashes > prev.dashes) ev.push('startDash');
+  else if (cur.mushrooms > prev.mushrooms) ev.push('mushroom'); // キノコの「しゅいーん」（加速の音のかわり）
   else if (cur.boost && !prev.boost) ev.push('boost');
   if (cur.onWall && !prev.onWall && !cur.airborne && prev.wallQuiet >= WALL_QUIET) ev.push('wall');
   // 着地: もうすぐ着くと分かったときに鳴らす。分からないまま着いたときは、着いたときに鳴らす
@@ -127,5 +139,15 @@ export function soundEvents(prev, cur, laps) {
     if (cur.autoError && !prev.autoError) ev.push('error', 'warp');
   }
   // ワープのあとは着地の音なし（2026-10-21 のユーザー依頼「KLでは着地音不要」）
+  // アイテム（M3-A）
+  if (cur.roulette && cur.rouletteTick !== prev.rouletteTick) ev.push('rouletteTick');
+  if (!cur.roulette && prev.roulette && cur.held) ev.push('itemGet');
+  if (cur.thrown > prev.thrown) ev.push('shellOut');
+  if (cur.bananaHits > prev.bananaHits) ev.push('bananaHit');
+  if (cur.blocked > prev.blocked) ev.push('guard');
+  if (cur.blastsHeard > prev.blastsHeard) ev.push('explosion');
+  if (cur.thunder > prev.thunder) ev.push('thunder');
+  if (cur.star && !prev.star) ev.push('starOn'); // Star のメロディは、自分の車が Star のときだけ（2026-10-22 のユーザー依頼）
+  if (!cur.star && prev.star) ev.push('starOff');
   return ev;
 }

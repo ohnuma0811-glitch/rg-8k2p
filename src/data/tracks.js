@@ -1,5 +1,5 @@
-import { KAMPAR_SCENERY } from './kampar.js?v=ddbe513';
-import { SOKI_SCENERY } from './soki.js?v=ddbe513';
+import { KAMPAR_SCENERY } from './kampar.js?v=49643e0';
+import { SOKI_SCENERY } from './soki.js?v=49643e0';
 
 // コースのデータ。中心線は、通る点を順に並べて書き、なめらかな線でつなぐ（最後の点は最初の点につながる）
 // 点は KENTA の手描きの絵（docs/reference/course1-sketch.png）の画素の位置。x は右、z は下が正
@@ -371,6 +371,8 @@ export const COURSE5 = {
     GJ: 126, LND: 127, FIN: 128, END: 140, GB: 141,
   },
   open: { finish: 'FIN', end: 'END', back: 'GB', loop: 'MRG', dup: ['M'] }, // loop: 道の終わり（END）に着くと、同じ所のつなぎ目 MRG へ（ゴールのあと周回）
+  // アイテムの「?」の箱の列（2026-10-22 のユーザー依頼「東京駅周辺、京都、富士山、海底、NY」）
+  itemRows: [['MRN', 'TS', 0.5], ['FL', 'SK', 0.3], ['GI', 'GK', 0.5], ['SD', 'LIB', 0.5], ['TSQ', 'MAD', 0.5]],
   squareCorners: ['NY1', 'Z1', 'Z2', 'Z3', 'Z4', 'TSQ', 'MAD', 'Z5', 'Z6', 'Z7', 'TIF', 'Z8', 'Z9', 'Z10', 'Z11', 'CPN'].map((m) => [m, m, 0]), // ニューヨークは碁盤の目（2026-10-20 のユーザー依頼「カーブは直角で」）
   // dir: -1 は向かってくる、1 は同じ向き。side: 1 は右、-1 は左（2026-10-21 のユーザー依頼）。香港は左側通行、ニューヨークは右側通行
   vehicles: [
