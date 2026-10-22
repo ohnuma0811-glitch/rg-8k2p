@@ -1,7 +1,7 @@
 // TIME TRIAL のみんなの記録（2026-10-18 のユーザー依頼「ソロで一番速いタイムは全ての端末で共有」）。DOM に依存しない
 // Super Kyugo＆Soki Brothers の「みんなのランキング」と同じしくみ: 置き場所は Google スプレッドシート（apps-script/Code.gs）、
 // URL は src/config.js。電波がないときは端末にためて、つながったときに送る
-import { CHARS } from './data/characters.js?v=fe31b32';
+import { CHARS } from './data/characters.js?v=5cdda0b';
 
 export const TIME_RANK = 10; // コースごとに残す人数
 const PENDING_KEY = 'race.ttPending';

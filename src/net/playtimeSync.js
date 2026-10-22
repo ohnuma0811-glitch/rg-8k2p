@@ -2,7 +2,7 @@
 // 端末の記録（src/playtime.js）はそのまま。一度でも GAME CODE を正しく入れた端末だけ、
 // /playtime/{名前}/{日付}/{uid} に「この端末の合計秒」を絶対値で書く（何度送っても二重にならない）。
 // /playtime/{名前}/{日付}/reset は GM のリセットの時刻（ミリ秒）。見たら、この端末の分を0にする
-import { dayKey, isLimited, DEFAULT_LIMIT_MIN } from '../playtime.js?v=fe31b32';
+import { dayKey, isLimited, DEFAULT_LIMIT_MIN } from '../playtime.js?v=5cdda0b';
 
 const MINE_KEY = 'race.playMine'; // { '名前|日付': この端末の合計秒 }（今日の分だけ）
 const RESET_KEY = 'race.playReset'; // { '名前|日付': 見たリセットの時刻 }

@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=fe31b32';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=fe31b32';
+import { locate, respawnIndex, sampleAt } from './track.js?v=5cdda0b';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=5cdda0b';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -54,8 +54,8 @@ export const PHYS = {
 export const MUSHROOM = { TIME: 1.5 }; // 加速板と同じ 1.3倍で 1.5秒。ダートでもおそくならない
 export const STAR = { TIME: 9, TOP: 1.4, ACCEL: 2, TURN: 0.08 }; // TIME: 2026-10-22 のユーザー依頼で 6秒の 1.5倍。TOP: 同じ日の依頼「もっと速く」で 1.2 から // TURN: ハンドルの能力の数字1つ分（rad/s）
 // 稲妻（2026-10-22 のユーザー依頼）: 当たった車は35%に小さくなり、10秒間、最高速が75%
-export const LIGHTNING = { TIME: 10, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // BACK: 元の大きさにもどる秒数
-export const SQUASH = { TIME: 1.0, LIFT: 1.0 }; // 小さい車が大きい車にぶつかってぺしゃんこ: ひらひら舞う秒数と、上がる高さ m（2026-10-22 のユーザー依頼）
+export const LIGHTNING = { TIME: 15, SCALE: 0.35, SPEED: 0.75, BACK: 0.3 }; // TIME: 小さい秒数（10秒から15秒に。2026-10-23 のユーザー依頼）。BACK: 元の大きさにもどる秒数
+export const SQUASH = { TIME: 2.0, LIFT: 1.0, REST: 0.5 }; // 小さい車が大きい車にぶつかってぺしゃんこ: ひらひら舞う秒数、上がる高さ m、元にもどってから走り出せない秒数（2026-10-22・23 のユーザー依頼）
 export const BLAST = { TIME: 1.5, HEIGHT: 3, TURNS: 2, REST: 0.5 }; // REST: 着地してから走り出すまで止まっている秒数（2026-10-22 のユーザー依頼） // 吹き飛ぶスピン: 約3m 上に飛び、横に2回転して落ちる
 
 function wrapAngle(a) {
@@ -257,6 +257,7 @@ export function stepKart(kart, ctl, track, params, dt) {
     if (kart.squash === 0) {
       kart.small = 1;
       kart.smallTime = 0;
+      kart.blastRest = SQUASH.REST; // もどってから0.5秒は止まったまま（スピンのあとと同じ）
     }
     return;
   }

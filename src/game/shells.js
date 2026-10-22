@@ -1,8 +1,8 @@
 // 飛んでいる甲羅（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4.3・4.4・8・9章）と守り
 // 赤: 道にそって相手を追いかける。緑: まっすぐ飛び、柵ではね返る。障害物はすり抜け、ジャンプ台・地面のない所・自動の区間・無い道で消える
-import { locate, ahead } from './track.js?v=fe31b32';
-import { KART_RADIUS } from './collide.js?v=fe31b32';
-import { startBlast } from './kart.js?v=fe31b32';
+import { locate, ahead } from './track.js?v=5cdda0b';
+import { KART_RADIUS } from './collide.js?v=5cdda0b';
+import { startBlast } from './kart.js?v=5cdda0b';
 
 export const SHELL = {
   SPEED: 2, // 使ったキャラの最高速の何倍
@@ -32,6 +32,7 @@ export function guard(kart, ang, shell) {
     if (Math.cos(ang - a) >= 0.5 - 1e-9) {
       kart.orbit.splice(n, 1);
       kart.blocked = (kart.blocked || 0) + 1;
+      kart.orbitBlocked = (kart.orbitBlocked || 0) + 1; // 回る甲羅でこわした（爆発の音。2026-10-23 のユーザー依頼）
       return 'orbit';
     }
   }

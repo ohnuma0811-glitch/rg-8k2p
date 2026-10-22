@@ -1,10 +1,10 @@
 // 待合室とコースの投票の画面（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 2.1・4章）
-import { faceSvg } from './titleArt.js?v=fe31b32';
-import { charOf } from './data/characters.js?v=fe31b32';
-import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=fe31b32';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=fe31b32';
-import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=fe31b32';
-import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js?v=fe31b32';
+import { faceSvg } from './titleArt.js?v=5cdda0b';
+import { charOf } from './data/characters.js?v=5cdda0b';
+import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=5cdda0b';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=5cdda0b';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=5cdda0b';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js?v=5cdda0b';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;

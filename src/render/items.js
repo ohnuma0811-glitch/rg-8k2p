@@ -1,8 +1,8 @@
 // アイテムの見た目: 「?」の箱、バナナ、甲羅（飛ぶ・回る）、Star の虹色、稲妻
 // 箱・バナナ・甲羅は、種類ごとに1回で描く（InstancedMesh。タブレットで描く回数を増やさない）
-import * as THREE from '../../vendor/three.module.min.js?v=fe31b32';
-import { BOX_SIZE } from '../game/itemBoxes.js?v=fe31b32';
-import { ITEM } from '../game/items.js?v=fe31b32';
+import * as THREE from '../../vendor/three.module.min.js?v=5cdda0b';
+import { BOX_SIZE } from '../game/itemBoxes.js?v=5cdda0b';
+import { ITEM } from '../game/items.js?v=5cdda0b';
 
 const MAX_BOX = 40;
 const MAX_BANANA = 64; // 置いたバナナ 20 個と、ぶら下げたバナナ（5個 × 8台）
@@ -29,23 +29,19 @@ function questionMap() {
   return qTexture;
 }
 
-// バナナ: むいたバナナが縦に立っている形（2026-10-22 のユーザー依頼）。まん中にクリーム色の実、
-// 下の黄色い皮から4枚の皮が外へ開いて垂れ下がる。いちばん下に茶色の軸。色は頂点の色（材質は白）
+// バナナ: 皮だけを逆さにして立てた形（2026-10-23 のユーザー依頼）。上に茶色の軸、その下の黄色い皮のつつから、
+// 4枚の皮が外へ開きながら下りて、先が地面に着く。白い実はない。色は頂点の色（材質は白）
 function bananaGeometry() {
   const parts = [];
   const add = (g, rgb) => parts.push([g.index ? g.toNonIndexed() : g, rgb]);
-  // 下の皮（つつ）と茶色の軸
-  add(new THREE.CylinderGeometry(0.2, 0.13, 0.4, 10).translate(0, 0.3, 0), [1, 0.86, 0.18]);
-  add(new THREE.CylinderGeometry(0.08, 0.08, 0.12, 8).translate(0, 0.06, 0), [0.35, 0.22, 0.06]);
-  // 実: 上へ少し細くなり、先は丸い
-  add(new THREE.CylinderGeometry(0.13, 0.17, 0.6, 10).translate(0, 0.8, 0), [1, 0.96, 0.78]);
-  add(new THREE.SphereGeometry(0.13, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 1.1, 0), [1, 0.96, 0.78]);
-  // 4枚の皮: 皮のつつのふちから、上へ出てから外へ開き、地面近くまで垂れる。先は細く
+  // 上の茶色い軸と、皮のつつ
+  add(new THREE.CylinderGeometry(0.07, 0.08, 0.14, 8).translate(0, 1.0, 0), [0.35, 0.22, 0.06]);
+  add(new THREE.CylinderGeometry(0.13, 0.2, 0.4, 10).translate(0, 0.73, 0), [1, 0.86, 0.18]);
   for (let f = 0; f < 4; f++) {
     const a = (f / 4) * Math.PI * 2 + Math.PI / 4;
     const c = Math.cos(a);
     const z = Math.sin(a);
-    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0.17 * c, 0.48, 0.17 * z), new THREE.Vector3(0.55 * c, 0.85, 0.55 * z), new THREE.Vector3(0.75 * c, 0.15, 0.75 * z));
+    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0.18 * c, 0.56, 0.18 * z), new THREE.Vector3(0.55 * c, 0.5, 0.55 * z), new THREE.Vector3(0.72 * c, 0.06, 0.72 * z));
     const seg = 10;
     const rad = 6;
     const g = new THREE.TubeGeometry(curve, seg, 0.1, rad, false);
