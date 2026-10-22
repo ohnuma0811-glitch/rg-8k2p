@@ -282,3 +282,17 @@ test('I2: swapSteer は swapItem の目印をつけ、muddy が 0 になった�
   stepItems(world, karts, f, DT);
   assert.equal(karts[1].swapItem, false);
 });
+
+test('I3: 赤の甲羅は、ゴール済みの車をねらわない（その前のゴールしていない車か、いなければまっすぐ）', () => {
+  const { karts, world, f } = setup(4);
+  f.ranks = [3, 2, 1, 0]; // 3位は 2 番、いちばん後ろが 0 番（自分）
+  karts[0].held = 'shell';
+  f.finished = [false, false, true, true]; // 1位・2位はゴール済み
+  let ev = itemPress(world, karts, 0, f);
+  assert.equal(ev.target, 1);
+  karts[0].held = 'shell';
+  f.finished = [false, true, true, true]; // 前の車が全員ゴール済み
+  ev = itemPress(world, karts, 0, f);
+  assert.equal(ev.target, null);
+  assert.equal(world.shells[1].target, null);
+});

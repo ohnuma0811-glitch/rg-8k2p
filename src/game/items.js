@@ -99,9 +99,10 @@ function stepBananas(world, karts, dt, out) {
 }
 
 // 赤の甲羅がねらう車: 使った時点で、ひとつ前の順位の車（1位なら null）
-function targetOf(ranks, k) {
-  const pos = ranks.indexOf(k);
-  return pos > 0 ? ranks[pos - 1] : null;
+// ゴール済みの車は飛ばして、その前の順位のゴールしていない車（いなければ null。まっすぐ飛ぶ）
+function targetOf(ranks, k, finished) {
+  for (let pos = ranks.indexOf(k) - 1; pos >= 0; pos--) if (!finished[ranks[pos]]) return ranks[pos];
+  return null;
 }
 
 // ITEM ボタン（設計書 3.1 の順番）。出来事を返す（何もしないときは null）
@@ -112,7 +113,7 @@ export function itemPress(world, karts, k, f) {
   if (kart.trailing) ev = { type: 'drop', k, t: f.t };
   else if (kart.orbit.length) ev = { type: 'throw', k, t: f.t };
   else if (kart.roulette > 0) ev = { type: 'stop', k, t: f.t };
-  else if (kart.held) ev = { type: 'use', k, t: f.t, item: kart.held, target: kart.held === 'shell' ? targetOf(f.ranks, k) : null };
+  else if (kart.held) ev = { type: 'use', k, t: f.t, item: kart.held, target: kart.held === 'shell' ? targetOf(f.ranks, k, f.finished) : null };
   if (ev) applyItemEvent(world, karts, ev, f);
   return ev;
 }
