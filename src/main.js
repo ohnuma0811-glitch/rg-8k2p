@@ -34,7 +34,8 @@ import { speedText, slotItem, ITEM_ICONS } from './hud.js';
 import { initItems, createItemWorld, itemFrame, starGuard, starRestore } from './game/items.js';
 import { createItemView } from './render/items.js';
 import { addRecent, cleanRecent } from './names.js';
-import { remainingSec, addPlay, remainingText } from './playtime.js';
+import { usedSec, addPlay, remainingText } from './playtime.js';
+import { createPlaytimeSync } from './net/playtimeSync.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js';
@@ -227,8 +228,10 @@ function playStore() {
 function commitPlay() {
   if (!game || game.playSec <= 0) return;
   save('playtime', addPlay(playStore(), game.name, Date.now(), game.playSec));
+  playSync.add(game.name, Date.now(), game.playSec);
+  playSync.flush();
   game.playSec = 0;
-  game.leftBase = remainingSec(playStore(), game.name, Date.now());
+  game.leftBase = leftSec(game.name);
 }
 
 // ---- レース ----
@@ -308,7 +311,7 @@ function createGame(name, charId, level = 2, cup = null, { solo = false } = {}) 
     contacts: new Set(),
     playSec: 0,
     // 残り時間（秒）。保存してある記録を読むのは、レースの最初と記録したときだけ（毎フレーム読むと重い）
-    leftBase: remainingSec(playStore(), name, Date.now()),
+    leftBase: leftSec(name),
     sinceSave: 0,
     driftWas: false,
     endAt: null,
@@ -724,6 +727,7 @@ async function runRace(name, charId, cup, level = 2) {
   music.stop(1.5);
   // スタートの前に、コースを回って映しながら、レースの番号とコースの名前を出す（タイトルと同じカメラ）
   await screens.courseIntro(menu, course.name, label, COURSE_INTRO);
+  playSync.refresh(name, Date.now());
   game = createGame(name, charId, level, cup);
   track.dinoChomp = null; // 恐竜の口を閉じた時刻は、レースごとに消す
   buildTop3(game);
@@ -781,6 +785,7 @@ async function runTimeTrial(name, charId, def) {
   prepareRaceSongs(course);
   music.stop(1.5);
   await screens.courseIntro(menu, course.name, 'TIME TRIAL', COURSE_INTRO);
+  playSync.refresh(name, Date.now());
   game = createGame(name, charId, 2, null, { solo: true });
   track.dinoChomp = null;
   buildTop3(game);
@@ -886,6 +891,24 @@ async function netStore() {
   const f = await connect();
   return storeOf(f);
 }
+// 遊べる時間をサーバーにも（M4-A）。一度でも GAME CODE を正しく入れた端末だけ（/access/{uid} がある）
+let memberDb = null; // 入ったことのある端末のときの db（一度わかったら覚える）
+async function memberStore() {
+  if (memberDb || !firebaseReady() || !load('netMember', false)) return memberDb;
+  try {
+    const uid = await signInAnon();
+    const db = await netStore();
+    if (await db.get(`access/${uid}`)) memberDb = db;
+  } catch {
+    // つながらないときは、端末だけで数える
+  }
+  return memberDb;
+}
+const playSync = createPlaytimeSync({ storage: localStorage, getDb: memberStore });
+// 残りの秒数（端末とサーバーの多い方。サーバーが読めないときは端末だけ）
+function leftSec(name) {
+  return playSync.remaining(name, Date.now(), usedSec(playStore(), name, Date.now()));
+}
 // GAME CODE の画面（入っていれば飛ばす）。入れたら true、BACK・入れないときは false
 async function gameCodeStep() {
   if (!firebaseReady()) {
@@ -901,12 +924,16 @@ async function gameCodeStep() {
     return false;
   }
   const st = await codeState(db, netUid).catch(() => ({ kind: 'offline' }));
-  if (st.kind === 'in') return true;
+  if (st.kind === 'in') {
+    save('netMember', true);
+    return true;
+  }
   if (st.kind !== 'need') {
     await screens.notice(menu, screens.codeMessage(st));
     return false;
   }
   const r = await screens.enterCode(menu, (guess) => tryCode(db, netUid, guess, { device: deviceKind(navigator.userAgent), now: Date.now() }));
+  if (r === 'in') save('netMember', true);
   return r === 'in';
 }
 async function setVersusName(name) {
@@ -948,7 +975,8 @@ async function flow() {
           continue;
         }
         save('recent', addRecent(recent, name));
-        if (remainingSec(playStore(), name, Date.now()) <= 0) {
+        await playSync.refresh(name, Date.now());
+        if (leftSec(name) <= 0) {
           await seeYouTomorrow(name);
           screen = 'title';
           continue;
@@ -982,7 +1010,7 @@ async function flow() {
         save('ttCourse', courseNo);
         screen = 'character';
       } else if (screen === 'character') {
-        const pick = await screens.chooseCharacter(menu, CHARS, remainingText(remainingSec(playStore(), name, Date.now())), load('char', null));
+        const pick = await screens.chooseCharacter(menu, CHARS, remainingText(leftSec(name)), load('char', null));
         if (pick === screens.BACK) screen = screens.prevScreen('character', mode);
         else {
           charId = pick;
@@ -1004,7 +1032,7 @@ async function flow() {
     if (mode === 'timetrial') {
       for (;;) {
         const pick = await runTimeTrial(name, charId, COURSES[courseNo]);
-        if (remainingSec(playStore(), name, Date.now()) <= 0) {
+        if (leftSec(name) <= 0) {
           await seeYouTomorrow(name);
           break;
         }
@@ -1017,7 +1045,7 @@ async function flow() {
     cup.cpus = pickCpus(charId, CPU_COUNT); // 大会の CPU 4人（5レースとも同じ）
     for (;;) {
       const pick = await runRace(name, charId, cup, level);
-      if (remainingSec(playStore(), name, Date.now()) <= 0) {
+      if (leftSec(name) <= 0) {
         await seeYouTomorrow(name);
         break;
       }
