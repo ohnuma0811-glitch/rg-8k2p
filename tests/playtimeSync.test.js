@@ -167,3 +167,12 @@ test('safeStorage: 読んでも書いても投げない。storage が null で�
   ok.setItem('a', '1');
   assert.equal(ok.getItem('a'), '1');
 });
+
+test('waitUpTo: 返事が遅くても、決めた時間より長く待たない。早く終われば、すぐ進む', async () => {
+  const { waitUpTo } = await import('../src/net/playtimeSync.js');
+  const t0 = Date.now();
+  await waitUpTo(new Promise(() => {}), 30);
+  assert.ok(Date.now() - t0 < 500);
+  await waitUpTo(Promise.reject(new Error('x')), 1000); // 失敗しても投げない
+  assert.equal(await waitUpTo(Promise.resolve(7), 1000), 7);
+});

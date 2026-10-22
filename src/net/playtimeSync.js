@@ -13,6 +13,11 @@ export function remainingWith(localUsed, serverUsed, limitMin) {
   return Math.max(0, (limitMin ?? DEFAULT_LIMIT_MIN) * 60 - used);
 }
 
+// p を最長 ms 待つ（遅くても進む。失敗しても投げない）。SOLO の名前の画面で、つながらない端末を長く待たせないため
+export function waitUpTo(p, ms) {
+  return Promise.race([p.catch(() => undefined), new Promise((r) => setTimeout(r, ms))]);
+}
+
 // 読んでも書いても投げない storage（ブロックされた端末・null でも止まらない）
 export function safeStorage(raw) {
   return {

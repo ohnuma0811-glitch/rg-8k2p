@@ -35,7 +35,7 @@ import { initItems, createItemWorld, itemFrame, starGuard, starRestore } from '.
 import { createItemView } from './render/items.js';
 import { addRecent, cleanRecent } from './names.js';
 import { usedSec, addPlay, remainingText } from './playtime.js';
-import { createPlaytimeSync, safeStorage } from './net/playtimeSync.js';
+import { createPlaytimeSync, safeStorage, waitUpTo } from './net/playtimeSync.js';
 import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
@@ -988,7 +988,7 @@ async function flow() {
           continue;
         }
         save('recent', addRecent(recent, name));
-        await playSync.refresh(name, Date.now());
+        await waitUpTo(playSync.refresh(name, Date.now()), 2000); // つながらない端末を長く待たせない（SOLO はそのまま遊べる）
         if (leftSec(name) <= 0) {
           await seeYouTomorrow(name);
           screen = 'title';
