@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test tests/*.test.js",
     "test:rules": "firebase emulators:exec --only database --project demo-race \"node --test tests/rules/\""
   },
   "devDependencies": {
