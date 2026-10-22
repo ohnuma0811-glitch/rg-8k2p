@@ -422,6 +422,7 @@ html, body {
   min-width: 0;
   padding: 10px 6px;
   font-size: 15px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75); /* 黄色・ピンク・水色のボタンでも、白い名前が読める（最後のレビュー） */
 }
 #menu .choices.racers button.last {
   box-shadow: 0 0 0 4px #ffd34a, 0 0 18px #ffd34a;
