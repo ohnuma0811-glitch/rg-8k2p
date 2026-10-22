@@ -6,7 +6,7 @@ import { buildTrack, span, locate, stageAt, bannerStageAt } from './game/track.j
 import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
 import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, oneWayContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
-import { createCpu, cpuControl, cpuParams, rubberFactor } from './game/cpu.js';
+import { createCpu, cpuControl, cpuParams, rubberFactor, cpuItem } from './game/cpu.js';
 import { pushApart, newBumps } from './game/collide.js';
 import {
   LAPS, raceLaps, raceDistance, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
@@ -662,7 +662,7 @@ function stepGame(dt) {
     karts.forEach((kart, k) => {
       kart.finished = race.entries[k].finished; // 赤の甲羅は、相手がゴールしたら消える
     });
-    const f = { me, press: controls.itemPressed, cpuPress: () => false, t: race.t, ranks: ranking(race, track), finished: race.entries.map((e) => e.finished), params: g.base, rand: Math.random };
+    const f = { me, press: controls.itemPressed, cpuPress: (k) => !race.entries[k].finished && cpuItem(g.cpus[k], karts[k], karts, track, race.t), t: race.t, ranks: ranking(race, track), finished: race.entries.map((e) => e.finished), params: g.base, rand: Math.random };
     const out = itemFrame(g.items, karts, f, dt);
   }
   // バンプで転がり始めた車の所に、小さな爆発（白い煙と火花）

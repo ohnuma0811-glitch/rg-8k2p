@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack } from '../src/game/track.js';
-import { COURSE1 } from '../src/data/tracks.js';
+import { COURSE1, COURSES } from '../src/data/tracks.js';
 import { createKart, stepKart, startDash } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
-import { createCpu, cpuControl, rubberFactor, cpuParams, CPU } from '../src/game/cpu.js';
+import { createCpu, cpuControl, rubberFactor, cpuParams, CPU, cpuItem, CPU_ITEM } from '../src/game/cpu.js';
 import { createRace, raceTick, updateProgress, gridSlot, ranking, progress, LAPS } from '../src/game/race.js';
 import { pushApart } from '../src/game/collide.js';
 
@@ -149,4 +149,67 @@ test('CPU の速さは3段階: Level 1 は今の 7割くらい、Level 2 は今�
   assert.equal(CPU_LEVELS[2], 1);
   assert.ok(CPU_LEVELS[3] >= 1.08 && CPU_LEVELS[3] <= 1.16);
   assert.ok(cpuParams(base, 1, 1).topSpeed < cpuParams(base, 1, 2).topSpeed && cpuParams(base, 1, 2).topSpeed < cpuParams(base, 1, 3).topSpeed);
+});
+
+test('CPU のアイテム: 取ってから0.5秒は使わない。Star・Lightning は1〜3秒で使う', () => {
+  const t = buildTrack(COURSES[1]);
+  const kart = createKart(t, 100);
+  const cpu = createCpu(0, 1);
+  kart.held = 'star';
+  assert.equal(cpuItem(cpu, kart, [kart], t, 10, () => 0), false);
+  assert.equal(cpuItem(cpu, kart, [kart], t, 10.4, () => 0), false);
+  assert.equal(cpuItem(cpu, kart, [kart], t, 10.9, () => 0), false, 'rand 0 なら1秒');
+  assert.equal(cpuItem(cpu, kart, [kart], t, 11.01, () => 0), true);
+});
+
+test('CPU のアイテム: Banana はぶら下げて、後ろ 20m 以内に車が来たら置く。来なければ8秒で置く', () => {
+  const t = buildTrack(COURSES[1]);
+  const kart = createKart(t, 300);
+  const other = createKart(t, 200);
+  const cpu = createCpu(0, 1);
+  kart.held = 'banana';
+  cpuItem(cpu, kart, [kart, other], t, 0);
+  assert.equal(cpuItem(cpu, kart, [kart, other], t, 0.6), true, 'ぶら下げる');
+  kart.held = null;
+  kart.trailing = true;
+  assert.equal(cpuItem(cpu, kart, [kart, other], t, 0.7), false);
+  assert.equal(cpuItem(cpu, kart, [kart, other], t, 1.5), false, '後ろの車は 100m 先');
+  Object.assign(other, createKart(t, 285));
+  assert.equal(cpuItem(cpu, kart, [kart, other], t, 2), true, '後ろ 15m に来た');
+  const c2 = createCpu(1, 1);
+  const k2 = createKart(t, 600);
+  k2.trailing = true;
+  assert.equal(cpuItem(c2, k2, [k2], t, 0), false);
+  assert.equal(cpuItem(c2, k2, [k2], t, 7.9), false);
+  assert.equal(cpuItem(c2, k2, [k2], t, 8.1), true);
+});
+
+test('CPU のアイテム: Mushroom は、この先がまっすぐな所で使う（10秒持ったら使う）', () => {
+  const OVAL = buildTrack({ points: [[0, 0], [200, 0], [400, 0], [600, 0], [800, 0], [1000, 100], [800, 200], [600, 200], [400, 200], [200, 200], [0, 200], [-200, 100]], length: 2400, roadHalf: 9, dirt: 4 });
+  const L = OVAL.length;
+  const turnOf = (a, b) => Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a)));
+  const bendAt = (i) => Math.max(...[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((d) => turnOf(OVAL.samples[i].h, OVAL.samples[(i + d) % L].h)));
+  const idx = [...Array(L).keys()];
+  const straightI = idx.reduce((a, i) => (bendAt(i) < bendAt(a) ? i : a), 0);
+  const bendI = idx.reduce((a, i) => (bendAt(i) > bendAt(a) ? i : a), 0);
+  assert.ok(bendAt(straightI) < 0.05 && bendAt(bendI) > 0.5);
+  const straight = createKart(OVAL, straightI);
+  const cpu = createCpu(0, 1);
+  straight.held = 'mushroom';
+  cpuItem(cpu, straight, [straight], OVAL, 0);
+  assert.equal(cpuItem(cpu, straight, [straight], OVAL, 0.6), true);
+  const bend = createKart(OVAL, bendI);
+  const c2 = createCpu(1, 1);
+  bend.held = 'mushroom';
+  cpuItem(c2, bend, [bend], OVAL, 0);
+  assert.equal(cpuItem(c2, bend, [bend], OVAL, 0.6), false, 'カーブの手前');
+  assert.equal(cpuItem(c2, bend, [bend], OVAL, 10.1), true, '10秒持ったら使う');
+});
+
+test('CPU のアイテム: ルーレットの間は押さない', () => {
+  const t = buildTrack(COURSES[1]);
+  const kart = createKart(t, 100);
+  kart.roulette = 1;
+  kart.held = null;
+  assert.equal(cpuItem(createCpu(0, 1), kart, [kart], t, 5), false);
 });

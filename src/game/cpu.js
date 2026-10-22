@@ -335,3 +335,63 @@ export const CPU_LEVELS = { 1: 0.66, 2: 1, 3: 1.12 };
 export function cpuParams(base, rubber, level = 2) {
   return { ...base, topSpeed: base.topSpeed * CPU.SKILL * rubber * (CPU_LEVELS[level] ?? 1) };
 }
+
+// CPU のアイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 10章）
+// 人のプレイヤーをわざとねらわない（CPU には甲羅が出ない。稲妻は全員に落ちる）
+export const CPU_ITEM = {
+  MIN_WAIT: 0.5, // 取ってから使うまで、いつもこれ以上あける（秒）
+  BEHIND: 20, // 後ろのこの m 以内に車が来たら、ぶら下げたバナナを置く
+  BANANA_HOLD: 8, // 来なければ、この秒数で置く
+  STRAIGHT: 0.15, // まっすぐと見なす、向きの差（rad）
+  STRAIGHT_AHEAD: 60, // この m 先まで見る
+  MUSHROOM_LATEST: 10, // まっすぐな所がなくても、この秒数持ったら使う
+};
+
+// この先 STRAIGHT_AHEAD m がまっすぐか
+function straightAhead(kart, track) {
+  const h0 = track.samples[kart.seg].h;
+  let j = kart.seg;
+  for (let d = 0; d < CPU_ITEM.STRAIGHT_AHEAD; d += 5) {
+    j = aheadOf(track, j, 5);
+    if (Math.abs(wrap(track.samples[j].h - h0)) > CPU_ITEM.STRAIGHT) return false;
+  }
+  return true;
+}
+
+// 後ろ BEHIND m 以内に車がいるか
+function someoneBehind(kart, karts) {
+  return karts.some((o) => {
+    if (o === kart || o.auto || Math.abs((o.y ?? 0) - (kart.y ?? 0)) > 3) return false;
+    const dx = o.x - kart.x;
+    const dz = o.z - kart.z;
+    return dx * Math.cos(kart.heading) + dz * Math.sin(kart.heading) < 0 && Math.hypot(dx, dz) <= CPU_ITEM.BEHIND;
+  });
+}
+
+// その時 ITEM を押すか。cpu に、アイテムを取った時刻（heldAt）、使うまでの秒数（wait）、ぶら下げた時刻（trailAt）を覚える
+export function cpuItem(cpu, kart, karts, track, t, rand = Math.random) {
+  if (kart.roulette > 0) return false;
+  if (kart.held !== cpu.lastHeld) {
+    cpu.lastHeld = kart.held;
+    cpu.heldAt = t;
+    cpu.wait = 1 + 2 * rand(); // Star・Lightning は1〜3秒で
+  }
+  if (kart.trailing) {
+    if (cpu.trailAt == null) cpu.trailAt = t;
+    const waited = t - cpu.trailAt;
+    if (waited < CPU_ITEM.MIN_WAIT) return false;
+    if (waited >= CPU_ITEM.BANANA_HOLD || someoneBehind(kart, karts)) {
+      cpu.trailAt = null;
+      return true;
+    }
+    return false;
+  }
+  cpu.trailAt = null;
+  if (!kart.held) return false;
+  const since = t - cpu.heldAt;
+  if (since < CPU_ITEM.MIN_WAIT) return false;
+  if (kart.held === 'banana') return true;
+  if (kart.held === 'mushroom') return since >= CPU_ITEM.MUSHROOM_LATEST || straightAhead(kart, track);
+  if (kart.held === 'star' || kart.held === 'lightning') return since >= cpu.wait;
+  return false;
+}
