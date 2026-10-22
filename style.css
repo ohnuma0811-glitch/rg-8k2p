@@ -960,7 +960,7 @@ html, body {
 #menu .lb-ready-btn.on { background: #ffd34a !important; color: #222 !important; }
 #menu .lb-gear { display: flex; gap: 8px; }
 #menu .lb-gear.hidden, #menu .lb-vote.hidden { display: none; }
-#menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); /* チャットの列は画面の幅まで（定型文の列が長くても広がらない） */ gap: 8px; }
+#menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); /* チャットの列は画面の幅まで（定型文の列が長くても広がらない） */ gap: 8px; position: relative; /* 投票の覆いは、ここ（一覧とチャット）だけにかぶせる。BACK などの上の段は押せるまま */ }
 #menu .lb-list { overflow-y: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 6px; }
 #menu .lb-list .row { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 8px; }
 #menu .lb-list .row.me { background: rgba(255, 211, 74, 0.35); }

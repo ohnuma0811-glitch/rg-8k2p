@@ -49,8 +49,19 @@ export function decideVote(db, room, votes, courseCount) {
   });
 }
 
-export function resetRoom(db) {
-  return db.set('room', { phase: 'lobby' });
+// decided / voting のときだけ lobby に戻す（voteId を渡したら、その投票のときだけ）。lobby や別の投票は触らない
+export function resetRoom(db, voteId) {
+  return db.transaction('room', (cur) => {
+    if (!cur || (cur.phase !== 'decided' && cur.phase !== 'voting')) return undefined;
+    if (voteId !== undefined && cur.voteId !== voteId) return undefined;
+    return { phase: 'lobby' };
+  });
+}
+
+// 締め切りから15秒たっても decided / voting のまま（走る人が全員いなくなった・古い状態）なら、止まっている
+export const STALE_MS = 15000;
+export function roomStale(room, now) {
+  return !!room && (room.phase === 'decided' || room.phase === 'voting') && now > room.endsAt + STALE_MS;
 }
 
 export function racersLeft(room, players) {

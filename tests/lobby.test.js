@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { enterLobby, leaveLobby, setReady, playersOf } from '../src/net/lobby.js';
-import { VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft } from '../src/net/room.js';
+import { VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft, resetRoom, roomStale, STALE_MS } from '../src/net/room.js';
 
 // メモリのサーバー（パスで読み書き。transaction も）
 function fakeDb() {
@@ -90,4 +90,27 @@ test('走る人で、待合室に残っている数（抜けた人は数えな�
   const room = { racers: { u1: true, u2: true, u3: true } };
   assert.equal(racersLeft(room, [{ uid: 'u1' }, { uid: 'u3' }, { uid: 'u9' }]), 2);
   assert.equal(racersLeft({}, []), 0);
+});
+
+test('部屋を戻すのは、decided か voting のときだけ（lobby や、別の投票は触らない）', async () => {
+  const db = fakeDb();
+  db.data.room = { phase: 'decided', voteId: 'v1', course: 1, picks: 1 };
+  assert.equal(await resetRoom(db), true);
+  assert.deepEqual(db.data.room, { phase: 'lobby' });
+  assert.equal(await resetRoom(db), false, 'lobby はそのまま');
+  db.data.room = { phase: 'voting', voteId: 'v2', endsAt: 5 };
+  assert.equal(await resetRoom(db, 'v1'), false, 'voteId がちがう');
+  assert.equal(await resetRoom(db, 'v2'), true);
+  delete db.data.room;
+  assert.equal(await resetRoom(db), false);
+});
+
+test('止まった部屋: decided・voting が締め切りの15秒あとを過ぎたら、だれでも戻してよい', () => {
+  assert.equal(STALE_MS, 15000);
+  assert.equal(roomStale({ phase: 'decided', endsAt: 1000 }, 1000 + STALE_MS), false);
+  assert.equal(roomStale({ phase: 'decided', endsAt: 1000 }, 1001 + STALE_MS), true);
+  assert.equal(roomStale({ phase: 'voting', endsAt: 1000 }, 1001 + STALE_MS), true);
+  assert.equal(roomStale({ phase: 'voting', endsAt: 1000 }, 5000), false);
+  assert.equal(roomStale({ phase: 'lobby' }, 1e12), false);
+  assert.equal(roomStale(null, 1e12), false);
 });

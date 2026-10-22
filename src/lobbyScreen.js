@@ -4,7 +4,7 @@ import { charOf } from './data/characters.js';
 import { PHRASES, phrase, pickedText } from './chatPhrases.js';
 import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText } from './net/chat.js';
 import { enterLobby, leaveLobby, setReady, playersOf } from './net/lobby.js';
-import { allReady, startVote, castVote, decideVote, resetRoom, racersLeft } from './net/room.js';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;
@@ -62,8 +62,8 @@ export function runLobby(root, ctx) {
           <div class="lb-presets"></div>
           <form class="lb-form"><input type="text" maxlength="${CHAT_MAX}" placeholder="Message"><button type="submit">Send</button></form>
         </div>
+        <div class="lb-vote hidden"><h1>Choose the course</h1><p class="vote-left"></p><div class="vote-list"></div><p class="vote-picked"></p></div>
       </div>
-      <div class="lb-vote hidden"><h1>Choose the course</h1><p class="vote-left"></p><div class="vote-list"></div><p class="vote-picked"></p></div>
     </div>`;
     const $ = (sel) => root.querySelector(sel);
     const finish = async (why) => {
@@ -130,6 +130,7 @@ export function runLobby(root, ctx) {
       }
       if (act === 'sound' || act === 'controls' || act === 'lang') return drawGear();
       if (act === 'ready') {
+        if (state.room?.phase === 'voting' || state.room?.phase === 'decided') return; // 投票中は READY を押せない
         const mine = state.players.find((p) => p.uid === me.uid);
         return setReady(db, me.uid, !mine?.ready).catch(() => {});
       }
@@ -150,10 +151,11 @@ export function runLobby(root, ctx) {
     // 1秒に4回: 投票の残りの秒、全員 READY なら始める、締め切りなら決める、走る人が1人なら戻す
     const tick = setInterval(() => {
       const r = state.room;
-      if (!r || r.phase === 'lobby') {
+      if (roomStale(r, serverNow())) resetRoom(db, r.voteId).catch(() => {}); // 止まった部屋は、走る人でなくても戻す
+      else if (!r || r.phase === 'lobby') {
         if (allReady(state.players)) startVote(db, state.players, serverNow()).catch(() => {});
       } else if (r.phase === 'voting') {
-        if (racersLeft(r, state.players) < 2) resetRoom(db).catch(() => {});
+        if (racersLeft(r, state.players) < 2) resetRoom(db, r.voteId).catch(() => {});
         else if (serverNow() >= r.endsAt) decideVote(db, r, state.votes, ctx.courses.length).catch(() => {});
       }
       drawVote();
@@ -177,7 +179,7 @@ export function runLobby(root, ctx) {
       if (v?.phase === 'decided' && prev?.phase !== 'decided' && v.racers?.[me.uid]) {
         await new Promise((r) => setTimeout(r, 2000));
         await ctx.onDecided(v.course);
-        await resetRoom(db).catch(() => {});
+        await resetRoom(db, v.voteId).catch(() => {});
       }
       // 投票が始まったら、自分の READY を外す（決まって待合室に戻ったとき、READY が残っていて、すぐ次の投票が始まらないように）
       if (v?.phase === 'voting' && prev?.phase !== 'voting') setReady(db, me.uid, false).catch(() => {});
