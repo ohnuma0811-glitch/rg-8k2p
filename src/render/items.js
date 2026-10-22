@@ -57,6 +57,18 @@ export function createItemView(scene) {
   const greens = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0x2fb54a }), MAX_SHELL, 'greens');
   const reds = make(shellGeometry(), new THREE.MeshLambertMaterial({ color: 0xe8312a }), MAX_SHELL, 'reds');
   const meshes = [boxes, bananas, greens, reds];
+  // Star の虹色の光（車ごとに、使うときに作る）
+  const auras = [];
+  const aura = (i) => {
+    if (!auras[i]) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1.9, 16, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+      m.userData.kind = 'aura';
+      m.visible = false;
+      scene.add(m);
+      auras[i] = m;
+    }
+    return auras[i];
+  };
   const put = (mesh, n, x, y, z, ry = 0) => {
     dummy.position.set(x, y, z);
     dummy.rotation.set(0, ry, 0);
@@ -96,8 +108,19 @@ export function createItemView(scene) {
       }
       done(greens, g);
       done(reds, r);
+      karts.forEach((k, i) => {
+        // 終わる1秒前から点滅
+        const on = k.star > 0 && !(k.star < 1 && Math.floor(k.star * 10) % 2 === 0);
+        if (!on && !auras[i]) return;
+        const a = aura(i);
+        a.visible = on;
+        if (!on) return;
+        a.position.set(k.x, k.y + 1.2, k.z);
+        a.material.color.setHSL((t * 3) % 1, 1, 0.55);
+      });
     },
     dispose() {
+      for (const a of auras) if (a) { scene.remove(a); a.geometry.dispose(); a.material.dispose(); }
       for (const m of meshes) {
         scene.remove(m);
         m.geometry.dispose();

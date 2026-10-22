@@ -31,7 +31,7 @@ import { createEffects } from './render/effects.js';
 import { nextQuality, pixelRatio } from './render/quality.js';
 import { blendPose, poseOf } from './render/interp.js';
 import { speedText, slotItem, ITEM_ICONS } from './hud.js';
-import { initItems, createItemWorld, itemFrame } from './game/items.js';
+import { initItems, createItemWorld, itemFrame, starGuard, starRestore } from './game/items.js';
 import { createItemView } from './render/items.js';
 import { addRecent, cleanRecent } from './names.js';
 import { remainingSec, addPlay, remainingText } from './playtime.js';
@@ -625,6 +625,7 @@ function stepGame(dt) {
       stepKart(kart, cpuControl(g.cpus[k], kart, track, race.t), track, cpuParams(g.base, rubber, k === me ? 2 : g.level), dt);
     }
   });
+  const starSaved = starGuard(karts); // Star の車は障害物でスピンしない
   // 牛（Kampar Town）: どの車も、牛とぶつかったか見る
   if (track.cows.length) karts.forEach((kart) => cowContact(kart, track, race.t, PHYS));
   // スクールバス（Kampar Town）: 触れたらスピン
@@ -641,6 +642,7 @@ function stepGame(dt) {
   // ぬかるみ（Soki Forest）: 入ると4秒ハンドルが逆。アイテムの入れ替わり（Banana・Lightning）も同じ kart.muddy なので、どのコースでも時間を減らす
   karts.forEach((kart) => mudContact(kart, track, dt));
   if (track.slows.length) karts.forEach((kart) => slowContact(kart, track, dt));
+  starRestore(karts, starSaved);
   // 恐竜（Soki Forest）: ジャンプ②を飛んでいて、恐竜が顔を出していたら食べられる
   // 悲鳴は自分が食べられたときだけ（2026-10-16 のユーザー依頼）
   if (track.dino) karts.forEach((kart) => {

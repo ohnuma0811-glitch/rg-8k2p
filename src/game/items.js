@@ -1,6 +1,6 @@
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md）: 枠・ルーレット・ITEM ボタンの順番・使ったときの効果
 // ボタンを押したことは「出来事」（{ type, k, t, ... }）にして applyItemEvent で効かせる（M4 の対戦で、ほかの端末にも同じ出来事を送るため）
-import { useMushroom, STAR } from './kart.js';
+import { useMushroom, STAR, startBlast } from './kart.js';
 import { rollItem } from './itemOdds.js';
 import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js';
 import { locate } from './track.js';
@@ -162,6 +162,15 @@ export function stepItems(world, karts, f, dt) {
   });
   stepBananas(world, karts, dt, out);
   out.push(...stepShells(world, karts, dt));
+  // Star の車がほかの車にぶつかったら、相手が吹き飛ぶ（車どうしの押し合いの前に見る）
+  karts.forEach((a, i) => {
+    if (!(a.star > 0) || a.auto) return;
+    karts.forEach((b, j) => {
+      if (j === i || b.star > 0 || b.auto || b.blast > 0 || b.respawn > 0) return;
+      if (Math.abs((a.y ?? 0) - (b.y ?? 0)) > 1.5 || Math.hypot(a.x - b.x, a.z - b.z) >= KART_RADIUS * 2 + 0.2) return;
+      if (startBlast(b, world.track)) out.push({ type: 'blast', k: j, by: i });
+    });
+  });
   return out;
 }
 
@@ -176,4 +185,18 @@ export function itemFrame(world, karts, f, dt) {
   });
   const hits = stepItems(world, karts, f, dt);
   return { events, hits };
+}
+
+// Star の車は、障害物（牛・バス・イノシシ・雪だるま・木・橋脚・木の実・ぬかるみ）に当たっても、スピン・転がり・入れ替わりにならない
+// 障害物の当たりを見る前の様子をとっておき（starGuard）、見たあとで、Star の車だけ元にもどす（starRestore）
+export function starGuard(karts) {
+  return karts.map((k) => (k.star > 0 ? { spin: k.spin, tumble: k.tumble, speed: k.speed, heading: k.heading, move: k.move, muddy: k.muddy ?? 0 } : null));
+}
+export function starRestore(karts, saved) {
+  karts.forEach((k, i) => {
+    const s = saved[i];
+    if (!s) return;
+    if (k.spin > s.spin || k.tumble > s.tumble) Object.assign(k, { spin: s.spin, tumble: s.tumble, speed: s.speed, heading: s.heading, move: s.move ?? k.move });
+    if ((k.muddy ?? 0) > s.muddy) k.muddy = s.muddy;
+  });
 }

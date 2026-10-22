@@ -4,7 +4,7 @@ import { buildTrack } from '../src/game/track.js';
 import { COURSES } from '../src/data/tracks.js';
 import { createKart } from '../src/game/kart.js';
 import { kartParams } from '../src/game/stats.js';
-import { ITEM, initItems, createItemWorld, canTake, itemPress, stepItems, itemFrame, swapSteer } from '../src/game/items.js';
+import { ITEM, initItems, createItemWorld, canTake, itemPress, stepItems, itemFrame, swapSteer, starGuard, starRestore } from '../src/game/items.js';
 
 const t = buildTrack(COURSES[1]);
 const params = kartParams({ accel: 3, top: 3, handling: 3 });
@@ -222,4 +222,31 @@ test('回る甲羅がある車は、置かれたバナナも、向きが合え�
   assert.ok(out.some((e) => e.type === 'blocked' && e.k === 1));
   assert.equal(karts[1].muddy ?? 0, 0);
   assert.equal(karts[1].orbit.length, 2);
+});
+
+test('Star の車がほかの車にぶつかると、相手が吹き飛ぶ（Star どうし・自動の区間はなし）', () => {
+  const { karts, world, f } = setup();
+  karts[0].star = 5;
+  Object.assign(karts[1], { x: karts[0].x + 2, z: karts[0].z, y: karts[0].y });
+  const out = stepItems(world, karts, f, DT);
+  assert.ok(out.some((e) => e.type === 'blast' && e.k === 1 && e.by === 0));
+  assert.ok(karts[1].blast > 0);
+  assert.equal(karts[0].blast, 0);
+  const s = setup();
+  s.karts[0].star = 5;
+  s.karts[1].star = 5;
+  Object.assign(s.karts[1], { x: s.karts[0].x + 2, z: s.karts[0].z, y: s.karts[0].y });
+  stepItems(s.world, s.karts, s.f, DT);
+  assert.equal(s.karts[1].blast, 0);
+});
+
+test('Star の車は、障害物に当たってもスピン・転がり・入れ替わりにならない（starGuard → starRestore）', () => {
+  const star = { star: 3, spin: 0, tumble: 0, speed: 40, heading: 0.2, muddy: 0 };
+  const plain = { star: 0, spin: 0, tumble: 0, speed: 40, heading: 0.2, muddy: 0 };
+  const saved = starGuard([star, plain]);
+  for (const k of [star, plain]) Object.assign(k, { spin: 1, speed: 20, heading: 1, muddy: 4 }); // 牛にぶつかり、ぬかるみに入った
+  starRestore([star, plain], saved);
+  assert.deepEqual({ spin: star.spin, speed: star.speed, heading: star.heading, muddy: star.muddy }, { spin: 0, speed: 40, heading: 0.2, muddy: 0 });
+  assert.equal(plain.spin, 1);
+  assert.equal(plain.muddy, 4);
 });
