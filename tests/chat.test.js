@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText } from '../src/net/chat.js';
+import { samePreset, CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText } from '../src/net/chat.js';
 
 test('自由な文: 前後の空白を取る。空・空白だけ・100文字を超えるものは送らない', () => {
   assert.equal(cleanText('  hi  '), 'hi');
@@ -20,7 +20,7 @@ test('送る: メッセージと最後に送った時刻を、1回で書く（�
   const writes = [];
   const db = { newKey: (p) => `${p}/k1`.split('/').pop(), SERVER_TIME: 'NOW', update: async (path, v) => writes.push([path, v]) };
   await sendChat(db, 'c1', { uid: 'u1', name: 'KYUGO', char: 'kyugo' }, { preset: 8 });
-  assert.deepEqual(writes, [['', { 'chat/c1/k1': { uid: 'u1', name: 'KYUGO', char: 'kyugo', preset: 8, at: 'NOW' }, 'chatLast/u1': { at: 'NOW', key: 'k1' } }]]);
+  assert.deepEqual(writes, [['', { 'chat/c1/k1': { uid: 'u1', name: 'KYUGO', char: 'kyugo', preset: 8, at: 'NOW' }, 'chatLast/u1': { at: 'NOW', key: 'k1', preset: 8 } }]]);
 });
 
 test('受け取り: 古い順に、最新の50件。表示の文（定型文は読む人の言語、自由な文はそのまま）', () => {
@@ -59,4 +59,11 @@ test('音: 最初の受け取りでは鳴らさない。そのあと、いちば
   assert.equal(r.chime, true);
   st = nextChime({ loaded: false, lastId: null }, [], 'u1').state;
   assert.equal(nextChime(st, [m('a', 'u2')], 'u1').chime, true, 'からのチャットへの最初の1件');
+});
+
+test('同じ定型文は2回続けて送れない（2026-10-22 のユーザー依頼）', () => {
+  assert.equal(samePreset(3, { preset: 3 }), true);
+  assert.equal(samePreset(3, { preset: 4 }), false);
+  assert.equal(samePreset(3, { text: 'hi' }), false);
+  assert.equal(samePreset(null, { preset: 0 }), false);
 });

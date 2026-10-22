@@ -15,12 +15,17 @@ export function canSend(lastAt, now, kind = 'text') {
   return lastAt == null || now - lastAt >= (kind === 'preset' ? CHAT_GAP_PRESET : CHAT_GAP);
 }
 
+// 同じ定型文を2回続けては送れない（あいだに自由な文があればよい。2026-10-22 のユーザー依頼）
+export function samePreset(lastPreset, body) {
+  return body.preset != null && body.preset === lastPreset;
+}
+
 // メッセージと、最後に送った時刻を1回で書く（ルールが、1秒たっているかを chatLast でくらべる）
 export function sendChat(db, codeId, me, body) {
   const key = db.newKey(`chat/${codeId}`);
   return db.update('', {
     [`chat/${codeId}/${key}`]: { uid: me.uid, name: me.name, char: me.char, ...body, at: db.SERVER_TIME },
-    [`chatLast/${me.uid}`]: { at: db.SERVER_TIME, key }, // メッセージ1件とだけ結びつく（1回の書き込みに何件も入れられない）
+    [`chatLast/${me.uid}`]: { at: db.SERVER_TIME, key, ...(body.preset != null ? { preset: body.preset } : {}) }, // 定型文の番号も（ルールが、前と同じかをくらべる） // メッセージ1件とだけ結びつく（1回の書き込みに何件も入れられない）
   });
 }
 

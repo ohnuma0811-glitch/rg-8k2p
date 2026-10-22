@@ -2,7 +2,7 @@
 import { faceSvg } from './titleArt.js';
 import { charOf } from './data/characters.js';
 import { PHRASES, phrase, pickedText } from './chatPhrases.js';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, sendChat, lastMessages, displayText, nextChime } from './net/chat.js';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js';
 import { enterLobby, leaveLobby, setReady, playersOf } from './net/lobby.js';
 import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js';
 
@@ -38,6 +38,7 @@ export function runLobby(root, ctx) {
   const state = { players: [], room: null, votes: null, msgs: [], status: null };
   const offs = [];
   let lastSent = null;
+  let lastPreset = null; // 最後に送った定型文（同じものは続けて送れない）
   let chimeState = { loaded: false, lastId: null };
   let finished = false;
   return new Promise((resolve) => {
@@ -47,12 +48,12 @@ export function runLobby(root, ctx) {
         <button type="button" class="back-btn" data-act="back">◀ BACK</button>
         <button type="button" data-act="chars">Character</button>
         <button type="button" data-act="gear" aria-label="Settings">⚙</button>
+        <div class="lb-gear hidden">
+          <button type="button" data-act="sound"></button>
+          <button type="button" data-act="controls"></button>
+          <button type="button" data-act="lang"></button>
+        </div>
         <button type="button" class="lb-ready-btn" data-act="ready">READY</button>
-      </div>
-      <div class="lb-gear hidden">
-        <button type="button" data-act="sound"></button>
-        <button type="button" data-act="controls"></button>
-        <button type="button" data-act="lang"></button>
       </div>
       <div class="lb-main">
         <div class="lb-list"></div>
@@ -79,13 +80,14 @@ export function runLobby(root, ctx) {
     };
     const drawGear = () => {
       if (!$('[data-act="sound"]')) return; // 知らせが出ている間は、待合室の HTML がない
-      $('[data-act="sound"]').textContent = ctx.sound.isOn() ? '🔊 Sound ON' : '🔇 Sound OFF';
-      $('[data-act="controls"]').textContent = ctx.controls.mode() === 'keyboard' ? '⌨ Keyboard' : '👆 Buttons';
-      $('[data-act="lang"]').textContent = lang === 'ja' ? 'Chat: 日本語' : 'Chat: English';
+      // 小さい画面では、絵と短い文字だけ（.wide は CSS で隠す）
+      $('[data-act="sound"]').innerHTML = ctx.sound.isOn() ? '🔊<span class="wide"> Sound ON</span>' : '🔇<span class="wide"> Sound OFF</span>';
+      $('[data-act="controls"]').innerHTML = ctx.controls.mode() === 'keyboard' ? '⌨<span class="wide"> Keyboard</span>' : '👆<span class="wide"> Buttons</span>';
+      $('[data-act="lang"]').innerHTML = lang === 'ja' ? '<span class="wide">Chat: </span>日本語' : '<span class="wide">Chat: </span>English';
     };
     const drawPresets = () => {
       if (!$('.lb-presets')) return;
-      $('.lb-presets').innerHTML = PHRASES.map((_, i) => `<button type="button" data-preset="${i}">${esc(phrase(i, lang))}</button>`).join('');
+      $('.lb-presets').innerHTML = PHRASES.map((_, i) => `<button type="button" data-preset="${i}"${i === lastPreset ? ' class="used"' : ''}>${esc(phrase(i, lang))}</button>`).join('');
     };
     const drawMsgs = () => {
       if (!$('.lb-msgs')) return;
@@ -113,11 +115,17 @@ export function runLobby(root, ctx) {
       $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], r.picks ?? 0, lang) : '';
     };
     const send = async (body) => {
+      if (samePreset(lastPreset, body)) return false;
       if (!canSend(lastSent, serverNow(), 'preset' in body ? 'preset' : 'text')) return false;
       const prev = lastSent;
       lastSent = serverNow();
       const ok = await sendChat(db, me.codeId, me, body).then(() => true, () => false);
       if (!ok) lastSent = prev; // 送れなかったら、打った文は残して、すぐ送り直せる
+      if (ok) {
+        lastPreset = 'preset' in body ? body.preset : null;
+        // 送った定型文のボタンを薄くする（並びは描き直さない。横にずらした位置がもどらないように）
+        root.querySelectorAll('.lb-presets button').forEach((x) => x.classList.toggle('used', Number(x.dataset.preset) === lastPreset));
+      }
       return ok;
     };
     root.onclick = async (e) => {

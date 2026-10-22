@@ -83,7 +83,7 @@
         ".write": "auth != null && !newData.exists() && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && !root.child('lobby').exists()))",
         "$msg": {
           ".write": "auth != null && ((auth.uid === 'GM_UID_HERE' && !newData.exists()) || (!data.exists() && newData.exists() && $codeId === root.child('secret/codeId').val() && root.child('access/' + auth.uid + '/codeId').val() === $codeId && root.child('secret/active').val() === true))",
-          ".validate": "newData.hasChildren(['uid', 'name', 'char', 'at']) && newData.child('uid').val() === auth.uid && newData.child('at').val() === now && newData.parent().parent().parent().child('chatLast/' + auth.uid + '/key').val() === $msg && newData.parent().parent().parent().child('chatLast/' + auth.uid + '/at').val() === now && (newData.hasChild('preset') !== newData.hasChild('text')) && (!newData.hasChild('preset') || !root.child('chatLast/' + auth.uid + '/at').exists() || now - root.child('chatLast/' + auth.uid + '/at').val() >= 2000)",
+          ".validate": "newData.hasChildren(['uid', 'name', 'char', 'at']) && newData.child('uid').val() === auth.uid && newData.child('at').val() === now && newData.parent().parent().parent().child('chatLast/' + auth.uid + '/key').val() === $msg && newData.parent().parent().parent().child('chatLast/' + auth.uid + '/at').val() === now && (newData.hasChild('preset') !== newData.hasChild('text')) && (!newData.hasChild('preset') || !root.child('chatLast/' + auth.uid + '/at').exists() || now - root.child('chatLast/' + auth.uid + '/at').val() >= 2000) && (!newData.hasChild('preset') || (newData.parent().parent().parent().child('chatLast/' + auth.uid + '/preset').val() === newData.child('preset').val() && root.child('chatLast/' + auth.uid + '/preset').val() !== newData.child('preset').val()))",
           "uid": { ".validate": "newData.isString()" },
           "name": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z]{1,12}$/) && newData.val() === root.child('access/' + auth.uid + '/name').val()" },
           "char": { ".validate": "newData.isString() && newData.val().matches(/^(kyugo|soki|penguin|rabbit|mouse|tiger|elephant|cat)$/)" },
@@ -100,6 +100,7 @@
         ".validate": "newData.hasChildren(['at', 'key']) && newData.child('at').val() === now && (!data.child('at').exists() || now - data.child('at').val() >= 1000)",
         "at": { ".validate": "newData.isNumber()" },
         "key": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "preset": { ".validate": "newData.isNumber()" },
         "$other": { ".validate": false }
       }
     },

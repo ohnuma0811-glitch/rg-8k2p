@@ -116,7 +116,7 @@ async function member(uid, name = 'KYUGO') {
 }
 const NOW = { '.sv': 'timestamp' };
 const lobbyEntry = (name = 'KYUGO') => ({ name, char: 'cat', codeId: 'c1', ready: false, at: NOW });
-const message = (uid, extra = { preset: 0 }, name = 'KYUGO') => ({ uid, name, char: 'cat', ...extra, at: NOW });
+const message = (uid, extra = { text: 'hi' }, name = 'KYUGO') => ({ uid, name, char: 'cat', ...extra, at: NOW });
 
 test('待合室: 入っている端末だけが読み、自分の分だけ書く・消す', async () => {
   await assertFails(as('u1').ref('lobby').once('value'));
@@ -217,7 +217,7 @@ test('部屋の順番: lobby → voting（10秒・走る人は待合室にいる
 test('チャット: 定型文は2秒に1回（自由な文は1秒）', async () => {
   await member('u1');
   await env.withSecurityRulesDisabled((c) => c.database().ref('chatLast/u1').set({ at: Date.now() - 1500, key: 'old' }));
-  await assertFails(as('u1').ref().update({ 'chat/c1/p1': message('u1', { preset: 3 }), 'chatLast/u1': { at: NOW, key: 'p1' } }), '1.5秒では定型文は送れない');
+  await assertFails(as('u1').ref().update({ 'chat/c1/p1': message('u1', { preset: 3 }), 'chatLast/u1': { at: NOW, key: 'p1', preset: 3 } }), '1.5秒では定型文は送れない');
   await assertSucceeds(as('u1').ref().update({ 'chat/c1/t1': message('u1', { text: 'hi' }), 'chatLast/u1': { at: NOW, key: 't1' } }), '1.5秒なら自由な文は送れる');
 });
 
@@ -239,4 +239,19 @@ test('なりすまし: 待合室・チャットの名前は access の名前と�
   await assertFails(send('b', { ...message('u1'), char: 'constructor' }), 'キャラの id');
   await assertFails(send('c', message('u1', { text: '   ' })), '空白だけ');
   await assertSucceeds(send('d', message('u1', { text: ' hi ' })));
+});
+
+test('チャット: 同じ定型文を2回続けては送れない（2026-10-22 のユーザー依頼）', async () => {
+  await member('u1');
+  const send = (key, extra, last) => as('u1').ref().update({ [`chat/c1/${key}`]: message('u1', extra), 'chatLast/u1': { at: NOW, key, ...last } });
+  const ago = (preset) => env.withSecurityRulesDisabled((c) => c.database().ref('chatLast/u1').set({ at: Date.now() - 5000, key: 'old', ...(preset == null ? {} : { preset }) }));
+  await ago(3);
+  await assertFails(send('a', { preset: 3 }, { preset: 3 }), '前と同じ定型文');
+  await assertFails(send('b', { preset: 4 }, {}), 'chatLast に定型文の番号がない');
+  await assertFails(send('c', { preset: 4 }, { preset: 5 }), 'chatLast の番号がちがう');
+  await assertSucceeds(send('d', { preset: 4 }, { preset: 4 }), 'ちがう定型文');
+  await ago(3);
+  await assertSucceeds(send('e', { text: 'hi' }, {}), '自由な文');
+  await ago(null);
+  await assertSucceeds(send('f', { preset: 3 }, { preset: 3 }), 'あいだに自由な文があれば同じ定型文も送れる');
 });
