@@ -161,7 +161,7 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) {
 // 画面が見えなくなったら音を止める
 document.addEventListener('visibilitychange', () => (document.hidden ? audio.pause() : audio.resume()));
 // タッチできる端末はボタン、パソコンはキーボード
-controls.setMode(load('controlMode', hasTouch() ? 'buttons' : 'keyboard'));
+controls.setMode(hasTouch() ? 'buttons' : 'keyboard');
 let quality = 1;
 const TOUCH_DEVICE = touchOnly(window.matchMedia?.bind(window), navigator.userAgent, navigator.maxTouchPoints || 0); // 指で操作する端末（タブレット・スマホ）
 let layout;
@@ -968,7 +968,7 @@ async function versusLobby(name, charId) {
     lang: load('chatLang', defaultLang(navigator.language)),
     setLang: (l) => save('chatLang', l),
     sound: { isOn: () => audio.isOn(), setOn: (on) => audio.setOn(on) },
-    controls: { mode: () => controls.mode, setMode: (m) => { controls.setMode(m); save('controlMode', m); placeButtons(); } },
+    controls: { mode: () => controls.mode, setMode: (m) => { controls.setMode(m); placeButtons(); } },
     courses: COURSES.map((c) => c.name),
     // 通知は待合室の画面を上書きするので、HTML と onclick/onsubmit を取っておいて戻す
     onDecided: async () => {

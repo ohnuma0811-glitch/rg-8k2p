@@ -26,3 +26,10 @@ test('投票の行: コースごとに、選んだ人の顔（今の投票の票
   assert.equal((html.match(/face-svg/g) ?? []).length, 1);
   assert.ok(/data-course="1"[\s\S]*face-svg/.test(html));
 });
+
+test('操作モードは保存しない（待合室の切りかえはこの回だけ。保存すると、タッチ端末でボタンが消えて戻せなくなる）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.ok(!main.includes("'controlMode'"));
+  assert.ok(main.includes("controls.setMode(hasTouch() ? 'buttons' : 'keyboard')"));
+});
