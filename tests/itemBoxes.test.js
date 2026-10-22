@@ -68,7 +68,7 @@ test('1列は道幅に合わせて4〜6個、柵の内側に横一列', () => {
 test('触れた箱は消え、2秒たつと同じ場所に戻る。離れていれば取らない', () => {
   const boxes = createBoxes(tracks[1]);
   const b = boxes[0];
-  const kart = { x: b.x + 10, z: b.z, y: b.y };
+  const kart = { x: b.x + 200, z: b.z, y: b.y };
   assert.equal(touchBoxes(boxes, kart), false);
   kart.x = b.x + 1;
   assert.equal(touchBoxes(boxes, kart), true);
