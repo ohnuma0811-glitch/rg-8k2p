@@ -118,3 +118,36 @@ test('高さがちがう（ジャンプで上を飛んでいる）車は、箱�
   const b = boxes[0];
   assert.equal(touchBoxes(boxes, { x: b.x, z: b.z, y: b.y + 4 }), false);
 });
+
+test('箱は 2m（1.6m の約1.25倍。2026-10-22 のユーザー依頼）で、どのコースでも箱どうしが重ならない（箱2つ分以上あける）', async () => {
+  const { BOX_SIZE, createBoxes } = await import('../src/game/itemBoxes.js');
+  const { buildTrack } = await import('../src/game/track.js');
+  const { COURSES } = await import('../src/data/tracks.js');
+  assert.equal(BOX_SIZE, 2);
+  for (const c of COURSES) {
+    const b = createBoxes(buildTrack(c));
+    for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) {
+      assert.ok(Math.hypot(b[i].x - b[j].x, b[i].z - b[j].z, b[i].y - b[j].y) >= BOX_SIZE * 2, `${c.name} の箱 ${i} と ${j}`);
+    }
+  }
+});
+
+test('Kenta Circuit の箱は、コースマップ左下の直線（カーブの上ではない。2026-10-22 のユーザー依頼）', async () => {
+  const { rowSpots } = await import('../src/game/itemBoxes.js');
+  const { buildTrack } = await import('../src/game/track.js');
+  const { COURSE1 } = await import('../src/data/tracks.js');
+  const t = buildTrack(COURSE1);
+  const xs = t.samples.slice(0, t.length).map((p) => p.x);
+  const zs = t.samples.slice(0, t.length).map((p) => p.z);
+  const [i] = rowSpots(t);
+  const p = t.samples[i];
+  const u = (p.x - Math.min(...xs)) / (Math.max(...xs) - Math.min(...xs));
+  const v = (p.z - Math.min(...zs)) / (Math.max(...zs) - Math.min(...zs));
+  assert.ok(u < 0.3 && v > 0.85, `左下（u=${u.toFixed(2)} v=${v.toFixed(2)}）`);
+  for (const d of [-15, 15]) {
+    const q = t.samples[(i + d + t.length) % t.length];
+    let dh = q.h - p.h;
+    dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+    assert.ok(Math.abs(dh) < 0.1, `前後15mでほとんど曲がらない（${dh.toFixed(3)}）`);
+  }
+});

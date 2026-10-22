@@ -154,7 +154,7 @@ export function createItemView(scene) {
       let n = 0;
       for (const b of world.boxes) {
         if (b.gone > 0 || n >= MAX_BOX) continue;
-        put(boxes, n++, b.x, b.y + 1.4 + Math.sin(t * 3 + b.x) * 0.15, b.z, t * 1.5);
+        put(boxes, n++, b.x, b.y + 1.6 + Math.sin(t * 3 + b.x) * 0.15, b.z, t * 1.5);
       }
       done(boxes, n);
       n = 0;
