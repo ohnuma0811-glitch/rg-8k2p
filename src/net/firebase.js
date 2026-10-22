@@ -16,6 +16,7 @@ export function withTimeout(promise, ms = NET_TIMEOUT) {
 
 export function normalizeError(e) {
   if (e && (e.code === 'PERMISSION_DENIED' || /PERMISSION_DENIED/i.test(e.message ?? ''))) e.denied = true;
+  if (e && /offline/i.test(e.message ?? '')) e.offline = true; // 'Client is offline.' など
   return e;
 }
 

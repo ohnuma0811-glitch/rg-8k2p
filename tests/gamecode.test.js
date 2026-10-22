@@ -94,3 +94,13 @@ test('端末の種類', () => {
   assert.equal(deviceKind('Mozilla/5.0 (Linux; Android 12; SM-T220)'), 'Android');
   assert.equal(deviceKind('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'PC');
 });
+
+test('「Client is offline.」のような、見たことのないエラーも offline にする（画面が固まらない）', async () => {
+  const { codeState, tryCode } = await import('../src/net/gamecode.js');
+  const db = { get: async () => { throw new Error('Client is offline.'); }, set: async () => {} };
+  const r = await tryCode(db, 'u1', '1234', { device: 'PC', now: 1 });
+  assert.equal(r.kind, 'offline');
+  assert.equal((await codeState(db, 'u1')).kind, 'offline');
+  const weird = { get: async () => { throw new TypeError('boom'); }, set: async () => {} };
+  assert.equal((await tryCode(weird, 'u1', '1234', { device: 'PC', now: 1 })).kind, 'offline');
+});

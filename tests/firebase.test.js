@@ -17,3 +17,9 @@ test('ルールで断られたエラーは denied', () => {
   assert.equal(normalizeError(Object.assign(new Error('x'), { code: 'PERMISSION_DENIED' })).denied, true);
   assert.equal(normalizeError(new Error('other')).denied, undefined);
 });
+
+test('「Client is offline.」のメッセージは offline として扱う', () => {
+  assert.equal(normalizeError(new Error('Client is offline.')).offline, true);
+  assert.equal(normalizeError(new Error('network is offline now')).offline, true);
+  assert.equal(normalizeError(new Error('other')).offline, undefined);
+});

@@ -5,6 +5,14 @@ export const MAX_TRIES = 5;
 
 // 今の様子: off（コードが出ていない）/ in（入れる）/ locked（5回まちがえた）/ need（コードを入れる。left は残りの回数）
 export async function codeState(db, uid) {
+  try {
+    return await readState(db, uid);
+  } catch (e) {
+    if (e?.denied) throw e;
+    return { kind: 'offline', left: 0, codeId: null }; // つながらない・見たことのないエラー: 画面を固めない
+  }
+}
+async function readState(db, uid) {
   const status = await db.get('status');
   if (!status?.active) return { kind: 'off', left: 0, codeId: status?.codeId ?? null };
   const access = await db.get(`access/${uid}`);
@@ -19,6 +27,7 @@ export async function codeState(db, uid) {
 export async function tryCode(db, uid, guess, { device, now }) {
   try {
     const st = await codeState(db, uid);
+    if (st.kind === 'offline') return { kind: 'offline', left: 0 };
     if (st.kind !== 'need') return { kind: st.kind, left: st.left };
     const count = MAX_TRIES - st.left + 1;
     await db.set(`attempts/${uid}`, { codeId: st.codeId, count, guess, device, at: now });
@@ -31,9 +40,8 @@ export async function tryCode(db, uid, guess, { device, now }) {
       return { kind: left > 0 ? 'wrong' : 'locked', left };
     }
   } catch (e) {
-    if (e.offline) return { kind: 'offline', left: 0 };
     if (e.denied) return { kind: 'off', left: 0 }; // コードが変わった・止まった直後
-    throw e;
+    return { kind: 'offline', left: 0 }; // それ以外のエラーも、つながらない扱い（キーパッドが固まらない）
   }
 }
 
