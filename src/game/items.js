@@ -160,7 +160,7 @@ export function applyItemEvent(world, karts, ev, f) {
   }
   if (ev.type === 'throw') {
     kart.orbit.shift();
-    fireShell(world, kart, ev.k, 'green', null, f.params.topSpeed);
+    fireShell(world, kart, ev.k, 'green', null, (f.paramsOf?.(ev.k) ?? f.params).topSpeed);
     kart.thrown = (kart.thrown || 0) + 1;
     return;
   }
@@ -178,7 +178,7 @@ export function applyItemEvent(world, karts, ev, f) {
       kart.orbit = [0, 1, 2];
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'shell') {
-      fireShell(world, kart, ev.k, 'red', ev.target, f.params.topSpeed);
+      fireShell(world, kart, ev.k, 'red', ev.target, (f.paramsOf?.(ev.k) ?? f.params).topSpeed);
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'lightning') strikeLightning(world, karts, ev.k);
   }

@@ -408,3 +408,12 @@ test('バナナのふらふら（左右の入れ替わり）は、何かでス�
   stepKart(z, ctl, t, params, 1 / 60);
   assert.ok(z.muddy > 9);
 });
+
+test('甲羅の速さは、使った車のキャラの最高速の2倍（paramsOf）', () => {
+  const { karts, world, f } = setup();
+  const fast = { ...params, topSpeed: 46 };
+  f.paramsOf = (k) => (k === 0 ? fast : params);
+  karts[0].held = 'shell';
+  itemPress(world, karts, 0, f);
+  assert.equal(world.shells[0].speed, 92);
+});
