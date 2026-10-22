@@ -598,7 +598,8 @@ test('Mushroom: 1.5秒、最高速の 1.3倍。ダートでもおそくならな
   assert.equal(k.mushroom, 0, '1.5秒で終わる');
 });
 
-test('Star: 6秒。最高速 1.2倍・加速2倍・よく曲がる。終わったらもとどおり', () => {
+test('Star: 9秒（2026-10-22 のユーザー依頼で 6秒の 1.5倍）。最高速 1.4倍・加速2倍・よく曲がる。終わったらもとどおり', () => {
+  assert.equal(STAR.TIME, 9);
   const s = createKart(OVAL, 100);
   const n = createKart(OVAL, 100);
   s.star = STAR.TIME;
@@ -607,8 +608,8 @@ test('Star: 6秒。最高速 1.2倍・加速2倍・よく曲がる。終わっ�
   assert.ok(s.speed > n.speed * 1.6, `加速: ${s.speed} / ${n.speed}`);
   run(OVAL, s, roadCtl, 4.5);
   assert.ok(s.speed > params.topSpeed * 1.35, `最高速: ${s.speed}`); // 2026-10-22 のユーザー依頼で 1.2倍から 1.4倍
-  assert.ok(s.star > 0 && s.star < 1);
-  run(OVAL, s, roadCtl, 1);
+  assert.ok(Math.abs(s.star - (STAR.TIME - 5.5)) < 0.05);
+  run(OVAL, s, roadCtl, STAR.TIME - 5.5 + 0.1);
   assert.equal(s.star, 0);
   // 曲がる速さ: 同じ速さでハンドルいっぱい
   const a = createKart(OVAL, 100);

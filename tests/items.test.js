@@ -77,11 +77,11 @@ test('Mushroom を使う: 加速して、枠が空になる。出来事が返る
   assert.equal(itemPress(world, karts, 0, f), null, '空の枠では何もしない');
 });
 
-test('Star を使う: 6秒の無敵', () => {
+test('Star を使う: 9秒の無敵', () => {
   const { karts, world, f } = setup();
   karts[0].held = 'star';
   itemPress(world, karts, 0, f);
-  assert.equal(karts[0].star, 6);
+  assert.equal(karts[0].star, 9);
 });
 
 test('使えない時: 吹き飛んでいる・転がっている・自動の区間・コースに戻る途中・ゴールしたあと', () => {
