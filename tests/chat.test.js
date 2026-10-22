@@ -20,7 +20,7 @@ test('送る: メッセージと最後に送った時刻を、1回で書く（�
   const writes = [];
   const db = { newKey: (p) => `${p}/k1`.split('/').pop(), SERVER_TIME: 'NOW', update: async (path, v) => writes.push([path, v]) };
   await sendChat(db, 'c1', { uid: 'u1', name: 'KYUGO', char: 'kyugo' }, { preset: 8 });
-  assert.deepEqual(writes, [['', { 'chat/c1/k1': { uid: 'u1', name: 'KYUGO', char: 'kyugo', preset: 8, at: 'NOW' }, 'chatLast/u1': 'NOW' }]]);
+  assert.deepEqual(writes, [['', { 'chat/c1/k1': { uid: 'u1', name: 'KYUGO', char: 'kyugo', preset: 8, at: 'NOW' }, 'chatLast/u1': { at: 'NOW', key: 'k1' } }]]);
 });
 
 test('受け取り: 古い順に、最新の50件。表示の文（定型文は読む人の言語、自由な文はそのまま）', () => {

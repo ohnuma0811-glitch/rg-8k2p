@@ -136,9 +136,9 @@ test('チャット: 自分の名前で、1秒に1回、新しく足すだけ。�
   await member('u1');
   await member('u2');
   const db = as('u1');
-  await assertSucceeds(db.ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': NOW }));
-  await assertFails(db.ref().update({ 'chat/c1/m2': message('u1'), 'chatLast/u1': NOW }), '1秒たっていない');
-  await assertFails(db.ref().update({ 'chat/c1/m3': message('u2'), 'chatLast/u1': NOW }), 'ほかの人の uid');
+  await assertSucceeds(db.ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': { at: NOW, key: 'm1' } }));
+  await assertFails(db.ref().update({ 'chat/c1/m2': message('u1'), 'chatLast/u1': { at: NOW, key: 'm2' } }), '1秒たっていない');
+  await assertFails(db.ref().update({ 'chat/c1/m3': message('u2'), 'chatLast/u1': { at: NOW, key: 'm3' } }), 'ほかの人の uid');
   await assertFails(db.ref('chat/c1/m4').set(message('u1')), 'chatLast を一緒に書かない');
   await assertFails(db.ref('chat/c1/m1/preset').set(5), '書き直せない');
   await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
@@ -149,17 +149,17 @@ test('チャット: 自分の名前で、1秒に1回、新しく足すだけ。�
 
 test('チャット: 中身の決まり（preset か text のどちらか1つ、text は 1〜100文字、前のコードには送れない）', async () => {
   await member('u1');
-  const send = (key, extra) => as('u1').ref().update({ [`chat/c1/${key}`]: message('u1', extra), 'chatLast/u1': NOW });
+  const send = (key, extra) => as('u1').ref().update({ [`chat/c1/${key}`]: message('u1', extra), 'chatLast/u1': { at: NOW, key } });
   await assertFails(send('a', { preset: 0, text: 'x' }));
   await assertFails(send('b', { text: 'a'.repeat(101) }));
   await assertFails(send('c', { preset: 13 }));
-  await assertFails(as('u1').ref().update({ 'chat/c0/d': message('u1'), 'chatLast/u1': NOW }));
+  await assertFails(as('u1').ref().update({ 'chat/c0/d': message('u1'), 'chatLast/u1': { at: NOW, key: 'd' } }));
   await assertSucceeds(send('e', { text: 'a'.repeat(100) }));
 });
 
 test('チャット: だれもいなければ、入っている端末が消せる。GM はいつでも消せる', async () => {
   await member('u1');
-  await assertSucceeds(as('u1').ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': NOW }));
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': { at: NOW, key: 'm1' } }));
   await assertSucceeds(as('u1').ref('chat/c1').remove());
   await env.withSecurityRulesDisabled((c) => c.database().ref('chat/c1/m2').set({ uid: 'u1', name: 'A', char: 'cat', preset: 1, at: 1 }));
   await env.withSecurityRulesDisabled((c) => c.database().ref('lobby/u9').set({ name: 'X', char: 'cat', codeId: 'c1', ready: false, at: 1 }));
@@ -182,7 +182,16 @@ test('部屋と票: 入っている端末が部屋を読み書き。票は自分
 
 test('チャット: 定型文は2秒に1回（自由な文は1秒）', async () => {
   await member('u1');
-  await env.withSecurityRulesDisabled((c) => c.database().ref('chatLast/u1').set(Date.now() - 1500));
-  await assertFails(as('u1').ref().update({ 'chat/c1/p1': message('u1', { preset: 3 }), 'chatLast/u1': NOW }), '1.5秒では定型文は送れない');
-  await assertSucceeds(as('u1').ref().update({ 'chat/c1/t1': message('u1', { text: 'hi' }), 'chatLast/u1': NOW }), '1.5秒なら自由な文は送れる');
+  await env.withSecurityRulesDisabled((c) => c.database().ref('chatLast/u1').set({ at: Date.now() - 1500, key: 'old' }));
+  await assertFails(as('u1').ref().update({ 'chat/c1/p1': message('u1', { preset: 3 }), 'chatLast/u1': { at: NOW, key: 'p1' } }), '1.5秒では定型文は送れない');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/t1': message('u1', { text: 'hi' }), 'chatLast/u1': { at: NOW, key: 't1' } }), '1.5秒なら自由な文は送れる');
+});
+
+test('チャット: 1回の書き込みで通るメッセージは1件だけ（chatLast の key と合うものだけ）', async () => {
+  await member('u1');
+  const two = { 'chat/c1/a1': message('u1'), 'chat/c1/a2': message('u1'), 'chatLast/u1': { at: NOW, key: 'a1' } };
+  await assertFails(as('u1').ref().update(two), '2件を1回で');
+  await assertFails(as('u1').ref().update({ 'chat/c1/b1': message('u1'), 'chatLast/u1': { at: NOW, key: 'zzz' } }), 'key がちがう');
+  await assertFails(as('u1').ref().update({ 'chat/c1/b1': message('u1'), 'chatLast/u1': { at: NOW } }), 'key がない');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/c1': message('u1'), 'chatLast/u1': { at: NOW, key: 'c1' } }), '1件');
 });

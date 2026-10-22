@@ -20,7 +20,7 @@ export function sendChat(db, codeId, me, body) {
   const key = db.newKey(`chat/${codeId}`);
   return db.update('', {
     [`chat/${codeId}/${key}`]: { uid: me.uid, name: me.name, char: me.char, ...body, at: db.SERVER_TIME },
-    [`chatLast/${me.uid}`]: db.SERVER_TIME,
+    [`chatLast/${me.uid}`]: { at: db.SERVER_TIME, key }, // メッセージ1件とだけ結びつく（1回の書き込みに何件も入れられない）
   });
 }
 
