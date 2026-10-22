@@ -950,3 +950,41 @@ html, body {
 #menu .gm-code, #menu .gm-new { font: bold 28px ui-monospace, monospace; letter-spacing: 6px; text-align: center; margin: 4px 0; }
 #menu .gm-uid { font: 14px ui-monospace, monospace; word-break: break-all; user-select: all; }
 #menu .gm-panel p button { margin-left: 6px; padding: 4px 10px; border-radius: 8px; }
+
+/* 待合室（M4-B）: 横向きのスマホで1画面。左に一覧、右にチャット */
+#menu .lobby { width: min(980px, 100%); height: 100%; display: flex; flex-direction: column; gap: 8px; padding: 8px; box-sizing: border-box; }
+#menu .lb-top { display: flex; gap: 8px; align-items: center; }
+#menu .lb-top .back-btn { position: static; }
+#menu .lb-top button { padding: 6px 12px; border: 2px solid #fff; border-radius: 10px; background: #1c3c88; color: #fff; font: bold 15px system-ui, sans-serif; }
+#menu .lb-ready-btn { margin-left: auto; padding: 10px 26px !important; font-size: 20px !important; background: #2fa36b !important; }
+#menu .lb-ready-btn.on { background: #ffd34a !important; color: #222 !important; }
+#menu .lb-gear { display: flex; gap: 8px; }
+#menu .lb-gear.hidden, #menu .lb-vote.hidden { display: none; }
+#menu .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); /* チャットの列は画面の幅まで（定型文の列が長くても広がらない） */ gap: 8px; position: relative; /* 投票の覆いは、ここ（一覧とチャット）だけにかぶせる。BACK などの上の段は押せるまま */ }
+#menu .lb-list { overflow-y: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 6px; }
+#menu .lb-list .row { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 8px; }
+#menu .lb-list .row.me { background: rgba(255, 211, 74, 0.35); }
+#menu .lb-face { display: inline-grid; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex: none; }
+#menu .lb-face .face-svg { width: 100%; height: 100%; }
+#menu .lb-ready { margin-left: auto; font-weight: bold; }
+#menu .lb-chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 6px; }
+#menu .lb-msgs { flex: 1; overflow-y: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 6px; text-align: left; }
+#menu .msg { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+#menu .msg.mine { flex-direction: row-reverse; text-align: right; }
+#menu .msg-name { font-size: 12px; opacity: 0.8; }
+#menu .msg-text { background: rgba(255, 255, 255, 0.15); padding: 3px 8px; border-radius: 10px; }
+#menu .lb-presets { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+#menu .lb-presets button { flex: none; padding: 6px 10px; border: 2px solid #fff; border-radius: 16px; background: #1c3c88; color: #fff; font: 14px system-ui, sans-serif; white-space: nowrap; }
+#menu .lb-form { display: flex; gap: 6px; }
+#menu .lb-form input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 2px solid #fff; font-size: 16px; }
+#menu .lb-form button { padding: 6px 14px; border: 2px solid #fff; border-radius: 8px; background: #2fa36b; color: #fff; font-weight: bold; }
+#menu .lb-vote { position: absolute; inset: 0; background: rgba(10, 20, 50, 0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+#menu .vote-left { font: bold 40px system-ui, sans-serif; margin: 0; }
+#menu .vote-list { display: grid; grid-template-columns: repeat(5, minmax(0, 150px)); gap: 8px; }
+#menu .vote-course { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 90px; padding: 8px; border: 3px solid #fff; border-radius: 12px; background: #1c3c88; color: #fff; font: bold 15px system-ui, sans-serif; }
+#menu .vote-faces { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+#menu .vote-picked { font: bold 24px system-ui, sans-serif; min-height: 1.4em; }
+@media (max-height: 430px) {
+  #menu .lb-main { grid-template-columns: 170px minmax(0, 1fr); }
+  #menu .vote-course { min-height: 64px; }
+}

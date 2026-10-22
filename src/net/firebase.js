@@ -60,17 +60,25 @@ export async function signOut() {
 
 // 読み書きの形。どれも NET_TIMEOUT で時間切れ（offline）、ルールで断られたら denied
 export function storeOf(f) {
-  const { ref, get, set, update, remove, runTransaction, onValue } = f.mods.db;
+  const { ref, get, set, update, remove, runTransaction, onValue, push, serverTimestamp, onDisconnect, query, limitToLast } = f.mods.db;
   const r = (path) => (path ? ref(f.db, path) : ref(f.db)); // '' はいちばん上
   const wrap = (p) => withTimeout(p).catch((e) => {
     throw normalizeError(e);
   });
+  const val = (s) => (s.exists() ? s.val() : null);
   return {
-    get: (path) => wrap(get(r(path)).then((s) => (s.exists() ? s.val() : null))),
+    get: (path) => wrap(get(r(path)).then(val)),
     set: (path, value) => wrap(set(r(path), value)),
     update: (path, values) => wrap(update(r(path), values)),
     remove: (path) => wrap(remove(r(path))),
     transaction: (path, fn) => wrap(runTransaction(r(path), fn).then((res) => res.committed)),
-    onValue: (path, cb) => onValue(r(path), (s) => cb(s.exists() ? s.val() : null)),
+    onValue: (path, cb) => onValue(r(path), (s) => cb(val(s))),
+    // 待合室とチャット（M4-B）
+    newKey: (path) => push(r(path)).key, // 書かずに、新しいキー（時刻の順に並ぶ）だけ作る
+    SERVER_TIME: serverTimestamp(), // 書くときにサーバーの時刻に置きかわる
+    onDisconnectRemove: (path) => wrap(onDisconnect(r(path)).remove()), // 電波が切れた・アプリを閉じたら、サーバーが消す
+    cancelOnDisconnect: (path) => wrap(onDisconnect(r(path)).cancel()),
+    watch: (path, cb, { last } = {}) => onValue(last ? query(r(path), limitToLast(last)) : r(path), (s) => cb(val(s))), // やめる関数を返す
+    serverOffset: (cb) => onValue(ref(f.db, '.info/serverTimeOffset'), (s) => cb(s.val() ?? 0)),
   };
 }

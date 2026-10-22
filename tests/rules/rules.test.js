@@ -108,3 +108,135 @@ test('遊んだ時間: 入ったことのある別の端末（u1）は、u2 の�
   await assertSucceeds(as('u1').ref('access/u1').set({ codeId: 'c1', name: 'KYUGO', at: 1 }));
   await assertFails(as('u1').ref(`${day}/u2`).set(86400));
 });
+
+// 入っている端末を作る
+async function member(uid, name = 'KYUGO') {
+  await as(uid).ref(`attempts/${uid}`).set(attempt(1, '0811'));
+  await as(uid).ref(`access/${uid}`).set({ codeId: 'c1', name, at: 1 });
+}
+const NOW = { '.sv': 'timestamp' };
+const lobbyEntry = (name = 'KYUGO') => ({ name, char: 'cat', codeId: 'c1', ready: false, at: NOW });
+const message = (uid, extra = { preset: 0 }, name = 'KYUGO') => ({ uid, name, char: 'cat', ...extra, at: NOW });
+
+test('待合室: 入っている端末だけが読み、自分の分だけ書く・消す', async () => {
+  await assertFails(as('u1').ref('lobby').once('value'));
+  await assertFails(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await member('u1');
+  await member('u2');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertSucceeds(as('u1').ref('lobby/u1/ready').set(true));
+  await assertFails(as('u2').ref('lobby/u1/ready').set(false));
+  await assertSucceeds(as('u2').ref('lobby').once('value'));
+  await assertFails(as('u1').ref('lobby/u1/char').set('mario'));
+  await assertSucceeds(as('u1').ref('lobby/u1').remove());
+  await assertSucceeds(as(GM).ref('lobby').once('value'));
+});
+
+test('チャット: 自分の名前で、1秒に1回、新しく足すだけ。人がいるときは消せない', async () => {
+  await member('u1');
+  await member('u2');
+  const db = as('u1');
+  await assertSucceeds(db.ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': { at: NOW, key: 'm1' } }));
+  await assertFails(db.ref().update({ 'chat/c1/m2': message('u1'), 'chatLast/u1': { at: NOW, key: 'm2' } }), '1秒たっていない');
+  await assertFails(db.ref().update({ 'chat/c1/m3': message('u2'), 'chatLast/u1': { at: NOW, key: 'm3' } }), 'ほかの人の uid');
+  await assertFails(db.ref('chat/c1/m4').set(message('u1')), 'chatLast を一緒に書かない');
+  await assertFails(db.ref('chat/c1/m1/preset').set(5), '書き直せない');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertFails(as('u2').ref('chat/c1').remove(), '人がいるときは消せない');
+  await assertSucceeds(as('u2').ref('chat/c1').once('value'));
+  await assertFails(as('u3').ref('chat/c1').once('value'), '入っていない端末は読めない');
+});
+
+test('チャット: 中身の決まり（preset か text のどちらか1つ、text は 1〜100文字、前のコードには送れない）', async () => {
+  await member('u1');
+  const send = (key, extra) => as('u1').ref().update({ [`chat/c1/${key}`]: message('u1', extra), 'chatLast/u1': { at: NOW, key } });
+  await assertFails(send('a', { preset: 0, text: 'x' }));
+  await assertFails(send('b', { text: 'a'.repeat(101) }));
+  await assertFails(send('c', { preset: 13 }));
+  await assertFails(as('u1').ref().update({ 'chat/c0/d': message('u1'), 'chatLast/u1': { at: NOW, key: 'd' } }));
+  await assertSucceeds(send('e', { text: 'a'.repeat(100) }));
+});
+
+test('チャット: だれもいなければ、入っている端末が消せる。GM はいつでも消せる', async () => {
+  await member('u1');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': { at: NOW, key: 'm1' } }));
+  await assertSucceeds(as('u1').ref('chat/c1').remove());
+  await env.withSecurityRulesDisabled((c) => c.database().ref('chat/c1/m2').set({ uid: 'u1', name: 'A', char: 'cat', preset: 1, at: 1 }));
+  await env.withSecurityRulesDisabled((c) => c.database().ref('lobby/u9').set({ name: 'X', char: 'cat', codeId: 'c1', ready: false, at: 1 }));
+  await assertSucceeds(as(GM).ref('chat/c1/m2').remove());
+});
+
+test('部屋と票: 入っている端末が部屋を読み書き。票は自分の分だけ、投票中で、走る人で、締め切りの前', async () => {
+  await member('u1');
+  await member('u2');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertFails(as('u3').ref('room').once('value'));
+  await assertSucceeds(as('u1').ref('room').set({ phase: 'voting', voteId: 'v1', endsAt: Date.now() + 10000, racers: { u1: true }, seed: 1 }));
+  await assertSucceeds(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 2 }));
+  await assertFails(as('u1').ref('votes/u2').set({ voteId: 'v1', course: 2 }), 'ほかの人の票');
+  await assertFails(as('u2').ref('votes/u2').set({ voteId: 'v1', course: 2 }), '走る人でない');
+  await assertFails(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 9 }), 'コースの番号');
+  await env.withSecurityRulesDisabled((c) => c.database().ref('room/endsAt').set(Date.now() - 1000));
+  await assertFails(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 1 }), '締め切りのあと');
+  await assertFails(as('u1').ref('room').set({ phase: 'party' }));
+});
+
+test('部屋の順番: lobby → voting（10秒・走る人は待合室にいる人）→ decided（締め切りのあと・中身はそのまま）→ lobby。消せるのは GM だけ', async () => {
+  await member('u1');
+  await member('u2');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertSucceeds(as('u2').ref('lobby/u2').set(lobbyEntry()));
+  const endsAt = Date.now() + 10000;
+  const voting = (extra = {}) => ({ phase: 'voting', voteId: 'v1', endsAt, racers: { u1: true, u2: true }, seed: 1, ...extra });
+  const decided = (extra = {}) => ({ ...voting(), phase: 'decided', course: 2, picks: 1, ...extra });
+  await assertFails(as('u1').ref('room').set({ phase: 'decided', course: 3, picks: 99 }), '投票なしで決める');
+  await assertFails(as('u1').ref('room').set(voting({ endsAt: Date.now() + 1e10 })), '締め切りが遠い');
+  await assertFails(as('u1').ref('room').set(voting({ endsAt: Date.now() + 1000 })), '締め切りが近い');
+  await assertFails(as('u1').ref('room').set(voting({ racers: { u9: true } })), '待合室にいない人');
+  await assertFails(as('u1').ref('room').set(voting({ racers: null })), '走る人がいない');
+  await assertSucceeds(as('u1').ref('room').set(voting()));
+  await assertFails(as('u2').ref('room').set(voting({ endsAt: Date.now() + 10500 })), '投票中に投票を上書き（締め切りをのばす）');
+  await assertFails(as('u2').ref('room/racers').remove(), '投票中に走る人を消す');
+  await assertFails(as('u2').ref('room').set(decided()), '締め切りの前に決める');
+  await assertFails(as('u2').ref('room').remove(), '部屋を消す');
+  await env.withSecurityRulesDisabled((c) => c.database().ref('room/endsAt').set(Date.now() - 1000));
+  const late = Date.now() - 1000;
+  await assertFails(as('u2').ref('room').set(decided({ endsAt: late, voteId: 'v2' })), 'voteId を変える');
+  await assertFails(as('u2').ref('room').set(decided({ endsAt: late + 5, course: 7 })), 'endsAt を変える・コースの番号');
+  await assertFails(as('u2').ref('room').set(decided({ endsAt: late, racers: null })), '走る人を消して決める');
+  await env.withSecurityRulesDisabled((c) => c.database().ref('room/endsAt').set(late));
+  await assertSucceeds(as('u2').ref('room').set(decided({ endsAt: late })), '締め切りのあと');
+  await assertFails(as('u2').ref('room').set(voting({ voteId: 'v3' })), 'decided から voting には行けない');
+  await assertSucceeds(as('u1').ref('room').set({ phase: 'lobby' }));
+  await assertSucceeds(as('u1').ref('room').set({ phase: 'lobby' }));
+  await assertFails(as('u1').ref('room').set({ phase: 'lobby', course: 1 }), 'lobby に余計な値');
+  await assertSucceeds(as(GM).ref('room').set(decided()), 'GM は何でも');
+  await assertSucceeds(as(GM).ref('room').remove(), 'GM は消せる');
+});
+
+test('チャット: 定型文は2秒に1回（自由な文は1秒）', async () => {
+  await member('u1');
+  await env.withSecurityRulesDisabled((c) => c.database().ref('chatLast/u1').set({ at: Date.now() - 1500, key: 'old' }));
+  await assertFails(as('u1').ref().update({ 'chat/c1/p1': message('u1', { preset: 3 }), 'chatLast/u1': { at: NOW, key: 'p1' } }), '1.5秒では定型文は送れない');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/t1': message('u1', { text: 'hi' }), 'chatLast/u1': { at: NOW, key: 't1' } }), '1.5秒なら自由な文は送れる');
+});
+
+test('チャット: 1回の書き込みで通るメッセージは1件だけ（chatLast の key と合うものだけ）', async () => {
+  await member('u1');
+  const two = { 'chat/c1/a1': message('u1'), 'chat/c1/a2': message('u1'), 'chatLast/u1': { at: NOW, key: 'a1' } };
+  await assertFails(as('u1').ref().update(two), '2件を1回で');
+  await assertFails(as('u1').ref().update({ 'chat/c1/b1': message('u1'), 'chatLast/u1': { at: NOW, key: 'zzz' } }), 'key がちがう');
+  await assertFails(as('u1').ref().update({ 'chat/c1/b1': message('u1'), 'chatLast/u1': { at: NOW } }), 'key がない');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/c1': message('u1'), 'chatLast/u1': { at: NOW, key: 'c1' } }), '1件');
+});
+
+test('なりすまし: 待合室・チャットの名前は access の名前と同じ。キャラは決まった id、文は空白だけではだめ', async () => {
+  await member('u1');
+  await assertFails(as('u1').ref('lobby/u1').set(lobbyEntry('SOKI')), 'access とちがう名前で待合室');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry('KYUGO')));
+  const send = (key, msg) => as('u1').ref().update({ [`chat/c1/${key}`]: msg, 'chatLast/u1': { at: NOW, key } });
+  await assertFails(send('a', message('u1', { preset: 0 }, 'SOKI')), 'ほかの子の名前でチャット');
+  await assertFails(send('b', { ...message('u1'), char: 'constructor' }), 'キャラの id');
+  await assertFails(send('c', message('u1', { text: '   ' })), '空白だけ');
+  await assertSucceeds(send('d', message('u1', { text: ' hi ' })));
+});

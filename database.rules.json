@@ -63,6 +63,68 @@
         ".write": "auth != null && auth.uid === 'GM_UID_HERE'",
         ".validate": "$name.matches(/^[A-Z]{1,12}$/) && newData.isNumber() && newData.val() >= 5 && newData.val() <= 120"
       }
+    },
+    "lobby": {
+      ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
+        ".validate": "newData.hasChildren(['name', 'char', 'codeId', 'ready', 'at']) && newData.child('codeId').val() === root.child('secret/codeId').val()",
+        "name": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z]{1,12}$/) && newData.val() === root.child('access/' + $uid + '/name').val()" },
+        "char": { ".validate": "newData.isString() && newData.val().matches(/^(kyugo|soki|penguin|rabbit|mouse|tiger|elephant|cat)$/)" },
+        "codeId": { ".validate": "newData.isString()" },
+        "ready": { ".validate": "newData.isBoolean()" },
+        "at": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "chat": {
+      "$codeId": {
+        ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || ($codeId === root.child('secret/codeId').val() && root.child('access/' + auth.uid + '/codeId').val() === $codeId && root.child('secret/active').val() === true))",
+        ".write": "auth != null && !newData.exists() && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && !root.child('lobby').exists()))",
+        "$msg": {
+          ".write": "auth != null && ((auth.uid === 'GM_UID_HERE' && !newData.exists()) || (!data.exists() && newData.exists() && $codeId === root.child('secret/codeId').val() && root.child('access/' + auth.uid + '/codeId').val() === $codeId && root.child('secret/active').val() === true))",
+          ".validate": "newData.hasChildren(['uid', 'name', 'char', 'at']) && newData.child('uid').val() === auth.uid && newData.child('at').val() === now && newData.parent().parent().parent().child('chatLast/' + auth.uid + '/key').val() === $msg && newData.parent().parent().parent().child('chatLast/' + auth.uid + '/at').val() === now && (newData.hasChild('preset') !== newData.hasChild('text')) && (!newData.hasChild('preset') || !root.child('chatLast/' + auth.uid + '/at').exists() || now - root.child('chatLast/' + auth.uid + '/at').val() >= 2000)",
+          "uid": { ".validate": "newData.isString()" },
+          "name": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z]{1,12}$/) && newData.val() === root.child('access/' + auth.uid + '/name').val()" },
+          "char": { ".validate": "newData.isString() && newData.val().matches(/^(kyugo|soki|penguin|rabbit|mouse|tiger|elephant|cat)$/)" },
+          "preset": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12 && newData.val() % 1 === 0" },
+          "text": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100 && !newData.val().matches(/^ *$/)" },
+          "at": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "chatLast": {
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && newData.exists()",
+        ".validate": "newData.hasChildren(['at', 'key']) && newData.child('at').val() === now && (!data.child('at').exists() || now - data.child('at').val() >= 1000)",
+        "at": { ".validate": "newData.isNumber()" },
+        "key": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "$other": { ".validate": false }
+      }
+    },
+    "room": {
+      ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
+      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (newData.exists() && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
+      ".validate": "newData.hasChild('phase') && (auth.uid === 'GM_UID_HERE' || (newData.child('phase').val() === 'lobby' && !newData.hasChildren(['voteId']) && !newData.hasChildren(['endsAt']) && !newData.hasChildren(['seed']) && !newData.hasChildren(['course']) && !newData.hasChildren(['picks']) && !newData.hasChildren(['racers'])) || (newData.child('phase').val() === 'voting' && (!data.exists() || data.child('phase').val() === 'lobby') && newData.hasChildren(['voteId', 'endsAt', 'seed', 'racers']) && !newData.hasChildren(['course']) && !newData.hasChildren(['picks']) && newData.child('endsAt').val() >= now + 9000 && newData.child('endsAt').val() <= now + 11000) || (newData.child('phase').val() === 'decided' && data.child('phase').val() === 'voting' && now >= data.child('endsAt').val() && newData.child('voteId').val() === data.child('voteId').val() && newData.child('endsAt').val() === data.child('endsAt').val() && newData.child('seed').val() === data.child('seed').val() && newData.hasChildren(['course', 'picks', 'racers'])))",
+      "phase": { ".validate": "newData.isString() && newData.val().matches(/^(lobby|voting|decided|racing)$/)" },
+      "voteId": { ".validate": "newData.isString() && newData.val().length <= 40" },
+      "endsAt": { ".validate": "newData.isNumber()" },
+      "seed": { ".validate": "newData.isNumber()" },
+      "course": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4 && newData.val() % 1 === 0" },
+      "picks": { ".validate": "newData.isNumber()" },
+      "racers": { "$r": { ".validate": "newData.val() === true && (auth.uid === 'GM_UID_HERE' || (newData.parent().parent().child('phase').val() === 'voting' ? root.child('lobby/' + $r).exists() : data.exists()))" } },
+      "$other": { ".validate": false }
+    },
+    "votes": {
+      ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && root.child('room/phase').val() === 'voting' && root.child('room/racers/' + $uid).val() === true && now < root.child('room/endsAt').val()",
+        ".validate": "newData.hasChildren(['voteId', 'course']) && newData.child('voteId').val() === root.child('room/voteId').val()",
+        "voteId": { ".validate": "newData.isString()" },
+        "course": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4 && newData.val() % 1 === 0" },
+        "$other": { ".validate": false }
+      }
     }
   }
 }
