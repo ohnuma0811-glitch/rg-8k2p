@@ -110,13 +110,13 @@ test('遊んだ時間: 入ったことのある別の端末（u1）は、u2 の�
 });
 
 // 入っている端末を作る
-async function member(uid) {
+async function member(uid, name = 'KYUGO') {
   await as(uid).ref(`attempts/${uid}`).set(attempt(1, '0811'));
-  await as(uid).ref(`access/${uid}`).set({ codeId: 'c1', name: 'KYUGO', at: 1 });
+  await as(uid).ref(`access/${uid}`).set({ codeId: 'c1', name, at: 1 });
 }
 const NOW = { '.sv': 'timestamp' };
 const lobbyEntry = (name = 'KYUGO') => ({ name, char: 'cat', codeId: 'c1', ready: false, at: NOW });
-const message = (uid, extra = { preset: 0 }) => ({ uid, name: 'KYUGO', char: 'cat', ...extra, at: NOW });
+const message = (uid, extra = { preset: 0 }, name = 'KYUGO') => ({ uid, name, char: 'cat', ...extra, at: NOW });
 
 test('待合室: 入っている端末だけが読み、自分の分だけ書く・消す', async () => {
   await assertFails(as('u1').ref('lobby').once('value'));
@@ -194,4 +194,15 @@ test('チャット: 1回の書き込みで通るメッセージは1件だけ（c
   await assertFails(as('u1').ref().update({ 'chat/c1/b1': message('u1'), 'chatLast/u1': { at: NOW, key: 'zzz' } }), 'key がちがう');
   await assertFails(as('u1').ref().update({ 'chat/c1/b1': message('u1'), 'chatLast/u1': { at: NOW } }), 'key がない');
   await assertSucceeds(as('u1').ref().update({ 'chat/c1/c1': message('u1'), 'chatLast/u1': { at: NOW, key: 'c1' } }), '1件');
+});
+
+test('なりすまし: 待合室・チャットの名前は access の名前と同じ。キャラは決まった id、文は空白だけではだめ', async () => {
+  await member('u1');
+  await assertFails(as('u1').ref('lobby/u1').set(lobbyEntry('SOKI')), 'access とちがう名前で待合室');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry('KYUGO')));
+  const send = (key, msg) => as('u1').ref().update({ [`chat/c1/${key}`]: msg, 'chatLast/u1': { at: NOW, key } });
+  await assertFails(send('a', message('u1', { preset: 0 }, 'SOKI')), 'ほかの子の名前でチャット');
+  await assertFails(send('b', { ...message('u1'), char: 'constructor' }), 'キャラの id');
+  await assertFails(send('c', message('u1', { text: '   ' })), '空白だけ');
+  await assertSucceeds(send('d', message('u1', { text: ' hi ' })));
 });
