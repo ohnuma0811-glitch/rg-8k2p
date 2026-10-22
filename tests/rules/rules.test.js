@@ -108,3 +108,74 @@ test('遊んだ時間: 入ったことのある別の端末（u1）は、u2 の�
   await assertSucceeds(as('u1').ref('access/u1').set({ codeId: 'c1', name: 'KYUGO', at: 1 }));
   await assertFails(as('u1').ref(`${day}/u2`).set(86400));
 });
+
+// 入っている端末を作る
+async function member(uid) {
+  await as(uid).ref(`attempts/${uid}`).set(attempt(1, '0811'));
+  await as(uid).ref(`access/${uid}`).set({ codeId: 'c1', name: 'KYUGO', at: 1 });
+}
+const NOW = { '.sv': 'timestamp' };
+const lobbyEntry = (name = 'KYUGO') => ({ name, char: 'cat', codeId: 'c1', ready: false, at: NOW });
+const message = (uid, extra = { preset: 0 }) => ({ uid, name: 'KYUGO', char: 'cat', ...extra, at: NOW });
+
+test('待合室: 入っている端末だけが読み、自分の分だけ書く・消す', async () => {
+  await assertFails(as('u1').ref('lobby').once('value'));
+  await assertFails(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await member('u1');
+  await member('u2');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertSucceeds(as('u1').ref('lobby/u1/ready').set(true));
+  await assertFails(as('u2').ref('lobby/u1/ready').set(false));
+  await assertSucceeds(as('u2').ref('lobby').once('value'));
+  await assertFails(as('u1').ref('lobby/u1/char').set('mario'));
+  await assertSucceeds(as('u1').ref('lobby/u1').remove());
+  await assertSucceeds(as(GM).ref('lobby').once('value'));
+});
+
+test('チャット: 自分の名前で、1秒に1回、新しく足すだけ。人がいるときは消せない', async () => {
+  await member('u1');
+  await member('u2');
+  const db = as('u1');
+  await assertSucceeds(db.ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': NOW }));
+  await assertFails(db.ref().update({ 'chat/c1/m2': message('u1'), 'chatLast/u1': NOW }), '1秒たっていない');
+  await assertFails(db.ref().update({ 'chat/c1/m3': message('u2'), 'chatLast/u1': NOW }), 'ほかの人の uid');
+  await assertFails(db.ref('chat/c1/m4').set(message('u1')), 'chatLast を一緒に書かない');
+  await assertFails(db.ref('chat/c1/m1/preset').set(5), '書き直せない');
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertFails(as('u2').ref('chat/c1').remove(), '人がいるときは消せない');
+  await assertSucceeds(as('u2').ref('chat/c1').once('value'));
+  await assertFails(as('u3').ref('chat/c1').once('value'), '入っていない端末は読めない');
+});
+
+test('チャット: 中身の決まり（preset か text のどちらか1つ、text は 1〜100文字、前のコードには送れない）', async () => {
+  await member('u1');
+  const send = (key, extra) => as('u1').ref().update({ [`chat/c1/${key}`]: message('u1', extra), 'chatLast/u1': NOW });
+  await assertFails(send('a', { preset: 0, text: 'x' }));
+  await assertFails(send('b', { text: 'a'.repeat(101) }));
+  await assertFails(send('c', { preset: 13 }));
+  await assertFails(as('u1').ref().update({ 'chat/c0/d': message('u1'), 'chatLast/u1': NOW }));
+  await assertSucceeds(send('e', { text: 'a'.repeat(100) }));
+});
+
+test('チャット: だれもいなければ、入っている端末が消せる。GM はいつでも消せる', async () => {
+  await member('u1');
+  await assertSucceeds(as('u1').ref().update({ 'chat/c1/m1': message('u1'), 'chatLast/u1': NOW }));
+  await assertSucceeds(as('u1').ref('chat/c1').remove());
+  await env.withSecurityRulesDisabled((c) => c.database().ref('chat/c1/m2').set({ uid: 'u1', name: 'A', char: 'cat', preset: 1, at: 1 }));
+  await env.withSecurityRulesDisabled((c) => c.database().ref('lobby/u9').set({ name: 'X', char: 'cat', codeId: 'c1', ready: false, at: 1 }));
+  await assertSucceeds(as(GM).ref('chat/c1/m2').remove());
+});
+
+test('部屋と票: 入っている端末が部屋を読み書き。票は自分の分だけ、投票中で、走る人で、締め切りの前', async () => {
+  await member('u1');
+  await member('u2');
+  await assertFails(as('u3').ref('room').once('value'));
+  await assertSucceeds(as('u1').ref('room').set({ phase: 'voting', voteId: 'v1', endsAt: Date.now() + 60000, racers: { u1: true }, seed: 1 }));
+  await assertSucceeds(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 2 }));
+  await assertFails(as('u1').ref('votes/u2').set({ voteId: 'v1', course: 2 }), 'ほかの人の票');
+  await assertFails(as('u2').ref('votes/u2').set({ voteId: 'v1', course: 2 }), '走る人でない');
+  await assertFails(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 9 }), 'コースの番号');
+  await assertSucceeds(as('u1').ref('room').set({ phase: 'voting', voteId: 'v1', endsAt: Date.now() - 1000, racers: { u1: true }, seed: 1 }));
+  await assertFails(as('u1').ref('votes/u1').set({ voteId: 'v1', course: 1 }), '締め切りのあと');
+  await assertFails(as('u1').ref('room').set({ phase: 'party' }));
+});
