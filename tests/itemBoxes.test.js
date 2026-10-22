@@ -6,8 +6,8 @@ import { rowSpots, rowBoxes, createBoxes, stepBoxes, touchBoxes, BOX_RESPAWN, RO
 
 const tracks = COURSES.map((c) => buildTrack(c));
 
-test('箱の列: 周回のあるコースは1周に1列（Soki Forest は内側の道にもう1列、Kampar Town は ECONSAVE の前、Soki Forest はマップの下にもう1列、Kyugo Mountain は分かれ道の手前にもう1列）。World Cities は5列', () => {
-  assert.deepEqual(tracks.map((t) => rowSpots(t).length), [1, 2, 3, 2, 5]);
+test('箱の列: 周回のあるコースは1周に1列（Soki Forest は内側の道にもう1列、Kampar Town は ECONSAVE の前、Soki Forest はマップの下にもう1列、Kyugo Mountain は分かれ道の手前にもう1列）。World Cities は12列', () => {
+  assert.deepEqual(tracks.map((t) => rowSpots(t).length), [1, 2, 3, 2, 12]);
 });
 
 test('Kampar Town: ECONSAVE の横断幕の手前 30m 以内に1列（2026-10-22 のユーザー依頼）', () => {
@@ -74,10 +74,10 @@ test('Soki Forest: 本線の列を通らない内側の道（inner）にも1列'
   assert.deepEqual(ids.sort(), ['inner', 'main', 'main']);
 });
 
-test('World Cities の列は、東京・富士山・京都・海底・ニューヨーク', () => {
+test('World Cities の列は、東京・富士山・京都・海底・ニューヨークに2列ずつ、香港・クアラルンプールに1列ずつ（2026-10-22 のユーザー依頼「各コース1回ずつ追加」）', () => {
   const t = tracks[4];
   const names = rowSpots(t).map((i) => t.stages[stageAt(t, t.samples[i].s)].name);
-  assert.deepEqual(names, ['TOKYO', 'MT. FUJI', 'KYOTO', 'UNDER THE SEA', 'NEW YORK']);
+  assert.deepEqual(names, ['TOKYO', 'TOKYO', 'MT. FUJI', 'MT. FUJI', 'KYOTO', 'KYOTO', 'HONG KONG', 'UNDER THE SEA', 'UNDER THE SEA', 'NEW YORK', 'NEW YORK', 'KUALA LUMPUR']);
 });
 
 test('1列は道幅に合わせて4〜6個、柵の内側に横一列', () => {
