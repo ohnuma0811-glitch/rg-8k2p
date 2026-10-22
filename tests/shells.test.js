@@ -183,3 +183,17 @@ test('回る甲羅がある車へ飛んできた甲羅は、回る甲羅の所�
   assert.equal(b.blast, 0);
   assert.equal(b.orbit.length, 2);
 });
+
+test('I1: 赤の甲羅は、本道から撃っても、入れ子の分かれ道（内側の道）にいる相手に当たる', () => {
+  const t = buildTrack(COURSES[2]);
+  const inner = t.paths.find((p) => p.id === 'inner');
+  assert.ok(inner && t.samples[inner.fork].path !== 0, '内側の道は本道から直接は分かれない');
+  const mainFork = t.paths[t.samples[inner.fork].path].fork;
+  const me = kartAt(t, mainFork - 60);
+  assert.equal(t.samples[me.seg].path, 0);
+  const target = kartAt(t, inner.start + 120);
+  const world = createItemWorld(t);
+  launchShell(world, me, 0, 'red', 1, params.topSpeed);
+  const out = fly(world, [me, target], 12);
+  assert.ok(out.some((e) => e.type === 'blast' && e.k === 1), JSON.stringify(out));
+});

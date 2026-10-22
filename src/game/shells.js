@@ -72,7 +72,15 @@ function stepRed(world, s, karts, dt) {
   const n = Math.floor(s.carry);
   s.carry -= n;
   const tgtPath = track.samples[tgt.seg].path;
-  const choose = (i, paths) => paths.find((p) => p === tgtPath) ?? null;
+  // 相手の道から、分かれた元の道をたどって（入れ子の分かれ道）、ここで分かれる道に着いたらそれを選ぶ
+  const choose = (i, paths) => {
+    let p = tgtPath;
+    for (let guard = 0; guard < 8 && p > 0; guard++) {
+      if (paths.includes(p)) return p;
+      p = track.samples[track.paths[p].fork].path;
+    }
+    return null;
+  };
   for (let k = 0; k < n && !s.done; k++) {
     s.seg = ahead(track, s.seg, 1, choose);
     if (gone(track.samples[s.seg])) s.done = true;
