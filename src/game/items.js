@@ -5,6 +5,7 @@ import { rollItem } from './itemOdds.js';
 import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js';
 import { locate } from './track.js';
 import { KART_RADIUS } from './collide.js';
+import { launchShell, stepShells, guard } from './shells.js';
 
 export const ITEM = {
   ROULETTE: 2, // ルーレットが回る秒数
@@ -72,6 +73,11 @@ function stepBananas(world, karts, dt, out) {
         out.push({ type: 'squash', k: j });
         break;
       }
+      const by = guard(o, Math.atan2(b.z - o.z, b.x - o.x), false);
+      if (by) {
+        out.push({ type: 'blocked', k: j, by });
+        break;
+      }
       swapSteer(o, ITEM.BANANA_SWAP);
       o.bananaHits = (o.bananaHits || 0) + 1;
       out.push({ type: 'banana', k: j });
@@ -80,14 +86,21 @@ function stepBananas(world, karts, dt, out) {
   }
 }
 
+// 赤の甲羅がねらう車: 使った時点で、ひとつ前の順位の車（1位なら null）
+function targetOf(ranks, k) {
+  const pos = ranks.indexOf(k);
+  return pos > 0 ? ranks[pos - 1] : null;
+}
+
 // ITEM ボタン（設計書 3.1 の順番）。出来事を返す（何もしないときは null）
 export function itemPress(world, karts, k, f) {
   const kart = karts[k];
   if (!canUse(kart, f.finished[k])) return null;
   let ev = null;
   if (kart.trailing) ev = { type: 'drop', k, t: f.t };
+  else if (kart.orbit.length) ev = { type: 'throw', k, t: f.t };
   else if (kart.roulette > 0) ev = { type: 'stop', k, t: f.t };
-  else if (kart.held) ev = { type: 'use', k, t: f.t, item: kart.held, target: null };
+  else if (kart.held) ev = { type: 'use', k, t: f.t, item: kart.held, target: kart.held === 'shell' ? targetOf(f.ranks, k) : null };
   if (ev) applyItemEvent(world, karts, ev, f);
   return ev;
 }
@@ -100,6 +113,12 @@ export function applyItemEvent(world, karts, ev, f) {
     dropBanana(world, kart, ev.k);
     return;
   }
+  if (ev.type === 'throw') {
+    kart.orbit.shift();
+    launchShell(world, kart, ev.k, 'green', null, f.params.topSpeed);
+    kart.thrown = (kart.thrown || 0) + 1;
+    return;
+  }
   if (ev.type === 'stop') {
     kart.roulette = 0;
     kart.held = kart.rouletteItem;
@@ -109,6 +128,13 @@ export function applyItemEvent(world, karts, ev, f) {
     if (ev.item === 'mushroom') useMushroom(kart, f.params);
     else if (ev.item === 'star') kart.star = STAR.TIME;
     else if (ev.item === 'banana') kart.trailing = true;
+    else if (ev.item === 'green') {
+      kart.orbit = [0, 1, 2];
+      kart.thrown = (kart.thrown || 0) + 1;
+    } else if (ev.item === 'shell') {
+      launchShell(world, kart, ev.k, 'red', ev.target, f.params.topSpeed);
+      kart.thrown = (kart.thrown || 0) + 1;
+    }
   }
 }
 
@@ -117,6 +143,7 @@ export function stepItems(world, karts, f, dt) {
   const out = [];
   stepBoxes(world.boxes, dt);
   karts.forEach((kart, k) => {
+    kart.orbitAngle = (kart.orbitAngle + ITEM.ORBIT_SPIN * dt) % (2 * Math.PI);
     if (kart.roulette > 0) {
       kart.roulette = Math.max(0, kart.roulette - dt);
       if (kart.roulette === 0) {
@@ -134,6 +161,7 @@ export function stepItems(world, karts, f, dt) {
     }
   });
   stepBananas(world, karts, dt, out);
+  out.push(...stepShells(world, karts, dt));
   return out;
 }
 

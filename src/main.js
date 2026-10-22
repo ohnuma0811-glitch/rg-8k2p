@@ -657,6 +657,9 @@ function stepGame(dt) {
   }
   // アイテム（M3-A）: ITEM ボタン → 箱・ルーレット・バナナ・甲羅・Star の当たり
   if (g.items) {
+    karts.forEach((kart, k) => {
+      kart.finished = race.entries[k].finished; // 赤の甲羅は、相手がゴールしたら消える
+    });
     const f = { me, press: controls.itemPressed, cpuPress: () => false, t: race.t, ranks: ranking(race, track), finished: race.entries.map((e) => e.finished), params: g.base, rand: Math.random };
     const out = itemFrame(g.items, karts, f, dt);
   }
@@ -664,6 +667,9 @@ function stepGame(dt) {
   karts.forEach((kart) => {
     if (kart.tumble > 0 && !kart.tumbleShown) effects.burst(kart.x, kart.y + 0.5, kart.z);
     kart.tumbleShown = kart.tumble > 0;
+    // 甲羅に当たって吹き飛んだ: 当たった所に小さな爆発（オレンジの光と煙）
+    if (kart.blast > 0 && !kart.blastShown) effects.burst(kart.x, kart.y + 0.8, kart.z);
+    kart.blastShown = kart.blast > 0;
   });
   const before = g.contacts;
   g.contacts = pushApart(karts, before);

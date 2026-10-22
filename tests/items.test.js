@@ -176,3 +176,50 @@ test('Star の車はバナナを踏んでも何も起きない（バナナは消
   assert.equal(karts[1].muddy ?? 0, 0);
   assert.deepEqual(world.bananas.map((b) => b.id), [2]);
 });
+
+test('Green Shell ×3: 1回目の ITEM で3つが回りだす（枠は空）。そのあと押すたびに1つずつ前へ投げる', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.held = 'green';
+  itemPress(world, karts, 0, f);
+  assert.deepEqual(k.orbit, [0, 1, 2]);
+  assert.equal(k.held, null);
+  assert.equal(canTake(k), true);
+  k.held = 'green'; // 回している間に、また緑の甲羅を取った
+  for (let n = 3; n > 0; n--) {
+    assert.equal(itemPress(world, karts, 0, f).type, 'throw');
+    assert.equal(k.orbit.length, n - 1);
+  }
+  assert.equal(world.shells.length, 3);
+  assert.ok(world.shells.every((s) => s.kind === 'green' && Math.cos(s.heading - k.heading) > 0.99), 'いつも前');
+  assert.equal(itemPress(world, karts, 0, f).item, 'green', '全部投げたら、次の緑の甲羅を回せる');
+  assert.equal(k.orbit.length, 3);
+});
+
+test('Shell（赤）: 使った時点のひとつ前の順位の車をねらう。1位で使うと相手なし', () => {
+  const { karts, world, f } = setup();
+  karts[0].held = 'shell'; // 3位
+  assert.equal(itemPress(world, karts, 0, f).target, 1);
+  karts[2].held = 'shell'; // 1位
+  assert.equal(itemPress(world, karts, 2, f).target, null);
+  assert.equal(world.shells.length, 2);
+});
+
+test('ITEM の順番: ぶら下げたバナナ → 回る甲羅 → 枠', () => {
+  const { karts, world, f } = setup();
+  const k = karts[0];
+  k.trailing = true;
+  k.orbit = [0, 1];
+  k.held = 'mushroom';
+  assert.deepEqual([itemPress(world, karts, 0, f).type, itemPress(world, karts, 0, f).type, itemPress(world, karts, 0, f).type, itemPress(world, karts, 0, f).type], ['drop', 'throw', 'throw', 'use']);
+});
+
+test('回る甲羅がある車は、置かれたバナナも、向きが合えばふせぐ', () => {
+  const { karts, world, f } = setup();
+  karts[1].orbit = [0, 1, 2];
+  world.bananas.push({ id: 99, owner: 0, x: karts[1].x, y: karts[1].y, z: karts[1].z + 0.1, age: 5 });
+  const out = stepItems(world, karts, f, DT);
+  assert.ok(out.some((e) => e.type === 'blocked' && e.k === 1));
+  assert.equal(karts[1].muddy ?? 0, 0);
+  assert.equal(karts[1].orbit.length, 2);
+});
