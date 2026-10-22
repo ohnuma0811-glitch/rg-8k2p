@@ -76,3 +76,20 @@ test('M2: 稲妻は、幅 0.5m ほどの太いぎざぎざの帯で、高さ 30m
   view.dispose();
   assert.equal(scene.children.length, 0);
 });
+
+test('M4: 食べられている・走り直し中・hidden の車には、回る甲羅・バナナ・光・稲妻を出さない', () => {
+  const scene = new THREE.Scene();
+  const world = createItemWorld(buildTrack(COURSES[0]));
+  const view = createItemView(scene);
+  const base = { x: 0, y: 0, z: 0, heading: 0, star: 3, orbit: [0, 1, 2], orbitAngle: 0, trailing: true, zap: 0.3 };
+  const karts = [{ ...base }, { ...base, swallowed: true }, { ...base, respawn: 1 }, { ...base, hidden: true }];
+  view.update(world, karts, 0);
+  const find = (kind) => scene.children.find((o) => o.userData.kind === kind);
+  assert.equal(find('greens').count, 3, '見えている1台の分だけ');
+  assert.equal(find('bananas').count, 1);
+  const auras = scene.children.filter((o) => o.userData.kind === 'aura');
+  const bolts = scene.children.filter((o) => o.userData.kind === 'bolt');
+  assert.equal(auras.filter((a) => a.visible).length, 1);
+  assert.equal(bolts.filter((a) => a.visible).length, 1);
+  view.dispose();
+});

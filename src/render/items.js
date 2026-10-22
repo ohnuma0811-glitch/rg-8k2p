@@ -112,7 +112,9 @@ export function createItemView(scene) {
   };
   return {
     // karts は描く位置（なめらかにした位置）。t はレースの時刻
+    // 見えていない車（食べられている・走り直し中で点滅・k.hidden = 宇宙やワープでほかの車を消している間）には、ぶら下げ・回る甲羅・光・稲妻を出さない
     update(world, karts, t) {
+      const seen = (k) => !(k.swallowed || k.respawn > 0 || k.hidden);
       let n = 0;
       for (const b of world.boxes) {
         if (b.gone > 0 || n >= MAX_BOX) continue;
@@ -122,7 +124,7 @@ export function createItemView(scene) {
       n = 0;
       for (const b of world.bananas) if (n < MAX_BANANA) put(bananas, n++, b.x, b.y, b.z, b.id);
       for (const k of karts) {
-        if (k.trailing && n < MAX_BANANA) put(bananas, n++, k.x - Math.cos(k.heading) * ITEM.TRAIL_BACK, k.y, k.z - Math.sin(k.heading) * ITEM.TRAIL_BACK, -k.heading);
+        if (seen(k) && k.trailing && n < MAX_BANANA) put(bananas, n++, k.x - Math.cos(k.heading) * ITEM.TRAIL_BACK, k.y, k.z - Math.sin(k.heading) * ITEM.TRAIL_BACK, -k.heading);
       }
       done(bananas, n);
       let g = 0;
@@ -132,7 +134,7 @@ export function createItemView(scene) {
         else if (s.kind === 'green' && g < MAX_SHELL) put(greens, g++, s.x, s.y, s.z, t * 12);
       }
       for (const k of karts) {
-        for (const slot of k.orbit ?? []) {
+        for (const slot of seen(k) ? k.orbit ?? [] : []) {
           const a = k.orbitAngle + (slot * 2 * Math.PI) / 3;
           if (g < MAX_SHELL) put(greens, g++, k.x + Math.cos(a) * ITEM.ORBIT_R, k.y + 0.3, k.z + Math.sin(a) * ITEM.ORBIT_R, t * 12);
         }
@@ -140,7 +142,7 @@ export function createItemView(scene) {
       done(greens, g);
       done(reds, r);
       karts.forEach((k, i) => {
-        const on = k.zap > 0;
+        const on = k.zap > 0 && seen(k);
         if (!on && !bolts[i]) return;
         const b = bolt(i);
         b.visible = on;
@@ -148,7 +150,7 @@ export function createItemView(scene) {
       });
       karts.forEach((k, i) => {
         // 終わる1秒前から点滅
-        const on = k.star > 0 && !(k.star < 1 && Math.floor(k.star * 10) % 2 === 0);
+        const on = seen(k) && k.star > 0 && !(k.star < 1 && Math.floor(k.star * 10) % 2 === 0);
         if (!on && !auras[i]) return;
         const a = aura(i);
         a.visible = on;

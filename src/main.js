@@ -1052,6 +1052,7 @@ function renderGame(alpha, dt) {
   // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）の間は、自分の車だけを映す（2026-10-20 のユーザーの判断）
   const meAuto = !!g.karts[g.me].auto;
   if (meAuto) g.models.forEach((m, k) => { if (k !== g.me) m.visible = false; });
+  if (meAuto) views.forEach((v, k) => { if (k !== g.me) v.hidden = true; }); // アイテムの見た目も、消した車の分は出さない
   // 浮いている車の下の影（全部のコースで。2026-10-17 のユーザー依頼）: 地面に。高いほど小さく、うすく
   views.forEach((v, k) => {
     const sh = g.shadows[k];
