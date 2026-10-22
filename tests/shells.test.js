@@ -44,7 +44,7 @@ test('赤の甲羅は、相手のいる分かれ道へ進む（Soki Forest の�
   assert.ok(out.some((e) => e.type === 'blast' && e.k === 1));
 });
 
-test('前に車がいない赤の甲羅は、前にまっすぐ飛び、5秒か柵で消える', () => {
+test('前に車がいない赤の甲羅は、前にまっすぐ飛び、30秒か柵で消える', () => {
   const t = kampar;
   const me = kartAt(t, 100);
   const world = createItemWorld(t);
@@ -53,14 +53,14 @@ test('前に車がいない赤の甲羅は、前にまっすぐ飛び、5秒か�
   assert.equal(world.shells.length, 0);
 });
 
-test('緑の甲羅: まっすぐ飛び、柵ではね返る。21回目に当たるか5秒で消える（2026-10-22 に20回まで）', () => {
+test('緑の甲羅: まっすぐ飛び、柵ではね返る。21回目に当たるか30秒で消える（2026-10-22 に20回・30秒まで）', () => {
   const t = kampar;
   const me = kartAt(t, 100);
   me.heading += 1.2; // 柵へ向けて投げる
   const world = createItemWorld(t);
   const s = launchShell(world, me, 0, 'green', null, params.topSpeed);
   let maxB = 0;
-  for (let k = 0; k < 5.2 / DT && world.shells.length; k++) {
+  for (let k = 0; k < (SHELL.LIFE + 0.2) / DT && world.shells.length; k++) {
     stepShells(world, [me], DT);
     maxB = Math.max(maxB, s.bounces);
   }
