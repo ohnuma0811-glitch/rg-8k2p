@@ -104,3 +104,22 @@ export function sampleAt(buf, time) {
 export function dueToSend(lastAt, now) {
   return now - lastAt >= SEND_MS;
 }
+
+// subscribe(cb) → 後始末の関数。最初の値が来るまで待つ（ms を過ぎたら null）。値が来たら購読は取り消す
+export function firstValue(subscribe, ms, timers = { setTimeout, clearTimeout }) {
+  return new Promise((resolve) => {
+    let done = false;
+    let off = null;
+    let timer = null;
+    const end = (v) => {
+      if (done) return;
+      done = true;
+      timers.clearTimeout(timer);
+      if (off) off();
+      resolve(v);
+    };
+    timer = timers.setTimeout(() => end(null), ms);
+    off = subscribe((v) => end(v));
+    if (done && off) off();
+  });
+}

@@ -97,3 +97,20 @@ test('送るのは 100ms ごと（1秒に10回）', () => {
   assert.equal(dueToSend(0, 99), false);
   assert.equal(dueToSend(0, 100), true);
 });
+
+test('firstValue: 最初の値で解決して購読をやめる。来なければ ms のあと null（対戦のスタート前のサーバー時計。M4-C1）', async () => {
+  const { firstValue } = await import('../src/net/sync.js');
+  let cb = null;
+  let offs = 0;
+  const p = firstValue((f) => { cb = f; return () => { offs++; }; }, 1000);
+  cb(42);
+  cb(43);
+  assert.equal(await p, 42);
+  assert.equal(offs, 1);
+  // すぐ来る（購読の中で同期して呼ばれる）
+  let o2 = 0;
+  assert.equal(await firstValue((f) => { f(7); return () => { o2++; }; }, 1000), 7);
+  assert.equal(o2, 1);
+  // 来ない
+  assert.equal(await firstValue(() => () => {}, 10), null);
+});

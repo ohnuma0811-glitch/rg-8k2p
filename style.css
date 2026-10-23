@@ -747,7 +747,8 @@ html, body {
   text-shadow: 0 4px 0 #6b3d00;
   pointer-events: none;
 }
-#countdown {
+#countdown,
+#vs-countdown {
   position: fixed;
   top: 32%;
   left: 50%;

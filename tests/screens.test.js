@@ -211,3 +211,13 @@ test('対戦の QUIT の画面を出している間は、自分の車はブレ�
   assert.ok(/const MENU_BRAKE = \{ steer: 0, brake: false, drift: false, stop: true \};/.test(src), '止まる操作');
   assert.ok(src.includes('vs?.menuOpen ? MENU_BRAKE : controls'), 'QUIT の画面の間はブレーキ');
 });
+
+test('対戦の最後の 10…1 は #vs-countdown に出す。スタートの 3・2・1 の #countdown には出さない（スタートの音を鳴らさない。M4-C1）', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('id="vs-countdown"'));
+  assert.ok(src.includes('setText(vsCountEl, g.vs?.countdown != null ? String(g.vs.countdown)'));
+  assert.ok(!/setText\(countEl, g\.vs\?\.countdown != null \? String/.test(src));
+  assert.ok(src.includes("setText(countEl, g.vs?.countdown != null ? ''"));
+});

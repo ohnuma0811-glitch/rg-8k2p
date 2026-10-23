@@ -42,7 +42,7 @@ import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
 import { runLobby } from './lobbyScreen.js';
 import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
-import { createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js';
+import { firstValue, createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js';
 import { resetRoom } from './net/room.js';
 import { defaultLang } from './chatPhrases.js';
 import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js';
@@ -99,6 +99,7 @@ const lapEl = $('lap');
 const timeEl = $('race-time');
 const rankEl = $('rank');
 const countEl = $('countdown');
+const vsCountEl = $('vs-countdown'); // 対戦の最後の 10…1（スタートの 3・2・1 と別にして、スタートの音を鳴らさない）
 const itemIconEl = document.querySelector('#item-slot .icon');
 const itemFlash = $('item-flash');
 const leftEl = $('time-left');
@@ -1092,13 +1093,29 @@ async function vsQuitMenu(g) {
 // 対戦のレース。待合室の「選ばれました」の3秒のあとに呼ぶ。終わったら（QUIT も）戻る。待合室の画面は呼んだ所が戻す
 async function runVsRace(db, me, room, players) {
   let offset = 0;
-  const offs = [db.serverOffset((v) => { offset = v; })];
+  // スタートの時刻を決める前に、サーバーの時計のずれが届くのを待つ（2秒まで。来なければ分かっているずれのまま）
+  const offs = [];
+  const got = await firstValue((cb) => {
+    const off = db.serverOffset((v) => { offset = v; cb(v); });
+    offs.push(off);
+    return () => {};
+  }, 2000);
+  if (got !== null) offset = got;
   const now = () => Date.now() + offset;
   try {
     // 作るのは早い者勝ちで1回（startAt = 今のサーバーの時刻 + 8秒）。ほかの端末が作ったら、それを待つ
     await createVsRace(db, room, players, now(), COURSES.length).catch(() => false);
     const data = await waitRace(db, room.voteId, RACE_WAIT_MS);
-    if (!data || !data.racers?.[me.uid]) return; // 来ない・自分が入っていない: 待合室へ
+    if (!data || !data.racers?.[me.uid]) {
+      // 来ない・自分が入っていない: 知らせて、部屋を戻して、待合室へ
+      resetRoom(db, room.voteId).catch(() => {});
+      screens.notice(menu, 'Could not start the race.');
+      await new Promise((r) => setTimeout(r, 2000));
+      menu.onclick = null;
+      menu.classList.remove('show');
+      menu.innerHTML = '';
+      return;
+    }
     useCourse(COURSES[data.course]);
     prepareRaceSongs(course);
     music.stop(1.5); // GO! でコースの曲
@@ -1295,6 +1312,7 @@ async function versusLobby(name, charId) {
       menu.innerHTML = '';
       await runVsRace(db, { uid: netUid, name, char: charId }, room, players).catch((e) => {
         console.error(e);
+        fade(0); // 暗いままにしない
         if (game) {
           raceHud.classList.remove('show', 'vs');
           removeGame();
@@ -1659,7 +1677,8 @@ function renderGame(alpha, dt) {
   setText(timeEl, timeText(Math.max(0, e.finished ? e.time : race.t)));
   const order = g.vs ? vsOrder(g) : ranking(race, track);
   setText(rankEl, ordinal(order.indexOf(g.me) + 1));
-  setText(countEl, g.vs?.countdown != null ? String(g.vs.countdown) : flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race));
+  setText(vsCountEl, g.vs?.countdown != null ? String(g.vs.countdown) : '');
+  setText(countEl, g.vs?.countdown != null ? '' : flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race));
   // World Cities: マップは今のステージだけ。ほかのステージにいる車の点は出さない（2026-10-22 のユーザー依頼）
   const staged = track.stages.length > 0;
   minimap.draw(views.flatMap((v, k) => (vsHidden(g, k) ? [] : [{ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me, stage: staged ? (k === g.me ? stageNow : bannerStageAt(track, progress(race, k, track))) : undefined }])), staged ? stageNow : undefined);
