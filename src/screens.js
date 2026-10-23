@@ -1,7 +1,8 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=b50c581';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=b50c581';
-import { colorOf } from './data/characters.js?v=b50c581';
+import { typeLetter, isValidName } from './names.js?v=cdf967c';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=cdf967c';
+import { colorOf } from './data/characters.js?v=cdf967c';
+import { canFullscreen, toggleFullscreen } from './fullscreen.js?v=cdf967c';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -54,10 +55,12 @@ const LOGO = `
   </h1>`;
 
 // タイトル: 遊び方を選ぶ（2×2 に並べる）。選んだ遊び方の id を返す
-// 左上の 🔊/🔇 で音の ON/OFF（sound = { isOn, setOn }）
+// 左上の 🔊/🔇 で音の ON/OFF（sound = { isOn, setOn }）。その右の ⛶ で全画面（できるブラウザだけ）
 export async function title(root, sound) {
+  const fs = canFullscreen(globalThis.window);
   show(root, `
       <button type="button" class="sound-btn" aria-label="Sound">${sound.isOn() ? '🔊' : '🔇'}</button>
+      ${fs ? '<button type="button" class="fs-btn" aria-label="Full screen">⛶</button>' : ''}
       ${LOGO}
       <div class="choices modes">${MODES.map((m) => `<button type="button" data-pick="${m.id}"><span class="icon">${m.icon}</span>${m.label}<small>${m.sub}</small>${m.code ? '<span class="need-code">🔒 GAME CODE</span>' : ''}</button>`).join('')}</div>
       <p class="note"></p>`);
@@ -69,6 +72,7 @@ export async function title(root, sound) {
     sound.setOn(!sound.isOn());
     soundBtn.textContent = sound.isOn() ? '🔊' : '🔇';
   });
+  root.querySelector('.fs-btn')?.addEventListener('click', () => toggleFullscreen(window));
   let clear = null;
   for (;;) {
     const pick = await waitPick(root);

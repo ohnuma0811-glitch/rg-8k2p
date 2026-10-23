@@ -1,8 +1,8 @@
 // 飛んでいる甲羅（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4.3・4.4・8・9章）と守り
 // 赤: 道にそって相手を追いかける。緑: まっすぐ飛び、柵ではね返る。障害物はすり抜け、ジャンプ台・地面のない所・自動の区間・無い道で消える
-import { locate, ahead } from './track.js?v=b50c581';
-import { KART_RADIUS } from './collide.js?v=b50c581';
-import { startBlast } from './kart.js?v=b50c581';
+import { locate, ahead } from './track.js?v=cdf967c';
+import { KART_RADIUS } from './collide.js?v=cdf967c';
+import { startBlast } from './kart.js?v=cdf967c';
 
 export const SHELL = {
   SPEED: 2, // 使ったキャラの最高速の何倍

@@ -1,7 +1,7 @@
 // タイトル画面の絵: Kyugo（赤い T シャツ、ツンツン頭）と Soki（青い T シャツ、赤い野球帽、前歯が1本ない）
 // コースが回っている前、文字のうしろに大きく出す（2026-10-14 のユーザー依頼）
 
-import { ANIMAL_FACES, animalFaceSvg } from './animalFaces.js?v=b50c581';
+import { ANIMAL_FACES, animalFaceSvg } from './animalFaces.js?v=cdf967c';
 
 const SKIN = '#f6cfa6';
 const LINE = '#3a1a10';
