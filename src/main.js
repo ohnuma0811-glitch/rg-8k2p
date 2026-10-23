@@ -41,7 +41,7 @@ import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
 import { runLobby } from './lobbyScreen.js';
-import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, kartDropped, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
+import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, kartDropped, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, readyToStart, startRace, markLoaded, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
 import { firstValue, createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js';
 import { resetRoom } from './net/room.js';
 import { defaultLang } from './chatPhrases.js';
@@ -605,6 +605,13 @@ function stepGame(dt) {
     g.prev[k] = poseOf(kart);
   });
   if (vs) vsApplyRemote(g); // ほかの車（人と、ほかの端末が動かす CPU）は、届いた様子を少し遅らせてつなぐ
+  // 対戦: 全員の読みこみがそろって startAt が決まるまでは、コースの全景のまま待つ（Waiting for players…。2026-10-23 のユーザー依頼）
+  if (vs && vs.startAt == null) {
+    vsWaitStart(g);
+    g.flyT = 0;
+    g.driftWas = controls.drift;
+    return;
+  }
   // 対戦: スタート前のカメラとカウントは、サーバーの時計で（全員の GO! がそろう）。startAt が GO! の時刻
   const vsT = vs ? (vs.now() - vs.startAt) / 1000 : 0;
   if (vs) g.flyT = Math.max(0, Math.min(START_FLY_TIME, vsT + COUNTDOWN + START_FLY_TIME));
@@ -890,7 +897,11 @@ function vsStateOf(g, db, data, lineup, myId, now) {
     humanIds: lineup.filter((e) => e.human).map((e) => e.id),
     humanK: ids.map((id, k) => k).filter((k) => human[k]),
     cpuK: ids.map((id, k) => k).filter((k) => !human[k]),
-    startAt: data.startAt, // GO! の時刻
+    startAt: data.startAt ?? null, // GO! の時刻。全員の読みこみがそろうまで null
+    createdAt: data.createdAt ?? null, // /race を作ったサーバーの時刻（読みこみを待つのは、ここから最大 20 秒）
+    loaded: data.loaded ?? {}, // 読みこみ済みの人
+    readyTry: 0, // スタートを決められるかを最後に見た時刻
+    starting: false, // スタートを書いている途中
     racers: data.racers,
     scores: data.scores ?? {},
     host: data.host, // CPU を動かす端末
@@ -941,7 +952,20 @@ function watchVs(g, db) {
     setOwned(g, v);
   }));
   offs.push(db.watch('race/firstGoalAt', (t) => { v.firstGoalAt = t ?? null; }));
+  offs.push(db.watch('race/startAt', (t) => { v.startAt = t ?? null; }));
+  offs.push(db.watch('race/loaded', (val) => { v.loaded = val ?? {}; }));
   return offs;
+}
+
+// startAt がまだないあいだ、1秒に4回: 全員の読みこみがそろった（または20秒たった）ら、スタートを今 + 7秒に決める（1台だけが書ける）
+function vsWaitStart(g) {
+  const v = g.vs;
+  const now = v.now();
+  if (v.starting || now - v.readyTry < 250) return;
+  v.readyTry = now;
+  if (!readyToStart({ createdAt: v.createdAt, racers: v.racers, loaded: v.loaded }, now)) return;
+  v.starting = true;
+  startRace(v.db, now).catch(() => {}).finally(() => { v.starting = false; });
 }
 
 // この端末が動かさない車に、届いた様子を INTERP_DELAY_MS 遅らせてつないだものを入れる。3秒止まった人の車は gone
@@ -1117,7 +1141,7 @@ async function runVsRace(db, me, room, players) {
   if (got !== null) offset = got;
   const now = () => Date.now() + offset;
   try {
-    // 作るのは早い者勝ちで1回（startAt = 今のサーバーの時刻 + 8秒）。ほかの端末が作ったら、それを待つ
+    // 作るのは早い者勝ちで1回（スタートの時刻 startAt は、全員の読みこみがそろってから決まる）。ほかの端末が作ったら、それを待つ
     await createVsRace(db, room, players, now(), COURSES.length).catch(() => false);
     const data = await waitRace(db, room.voteId, RACE_WAIT_MS);
     if (!data || !data.racers?.[me.uid]) {
@@ -1148,6 +1172,7 @@ async function runVsRace(db, me, room, players) {
     speedo.classList.remove('hidden');
     countEl.classList.remove('go');
     placeButtons();
+    markLoaded(db, me.uid).catch(() => {}); // コースもシーンも用意できた（全員がそろうとスタートが決まる。書けなくても20秒で始まる）
     const why = await new Promise((resolve) => {
       g.onEnd = resolve;
     });
@@ -1693,7 +1718,9 @@ function renderGame(alpha, dt) {
   const order = g.vs ? vsOrder(g) : ranking(race, track);
   setText(rankEl, ordinal(order.indexOf(g.me) + 1));
   setText(vsCountEl, g.vs?.countdown != null ? String(g.vs.countdown) : '');
-  setText(countEl, g.vs?.countdown != null ? '' : flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race));
+  const waiting = g.vs != null && g.vs.startAt == null;
+  countEl.classList.toggle('waiting', waiting);
+  setText(countEl, waiting ? 'Waiting for players…' : g.vs?.countdown != null ? '' : flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race));
   // World Cities: マップは今のステージだけ。ほかのステージにいる車の点は出さない（2026-10-22 のユーザー依頼）
   const staged = track.stages.length > 0;
   minimap.draw(views.flatMap((v, k) => (vsHidden(g, k) ? [] : [{ x: v.x, z: v.z, color: g.faces[k].color, me: k === g.me, stage: staged ? (k === g.me ? stageNow : bannerStageAt(track, progress(race, k, track))) : undefined }])), staged ? stageNow : undefined);

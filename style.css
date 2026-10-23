@@ -762,6 +762,11 @@ html, body {
   text-shadow: 3px 0 0 #1c3c88, -3px 0 0 #1c3c88, 0 3px 0 #1c3c88, 0 -3px 0 #1c3c88, 2px 2px 0 #1c3c88, -2px 2px 0 #1c3c88, 2px -2px 0 #1c3c88, -2px -2px 0 #1c3c88, 0 7px 0 #1c3c88;
   pointer-events: none;
 }
+/* 対戦で全員の読みこみを待つ間（2026-10-23 のユーザー依頼） */
+#countdown.waiting {
+  white-space: nowrap;
+  font-size: clamp(28px, 8vh, 64px);
+}
 /* Global City のステージが変わったときの、場所の大きな表示（2026-10-20 のユーザー依頼） */
 #stage-banner {
   position: fixed;

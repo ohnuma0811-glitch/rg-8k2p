@@ -130,11 +130,21 @@
     },
     "race": {
       ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
-      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (newData.exists() && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('room/racers/' + auth.uid).val() === true && root.child('room/phase').val() === 'decided' && newData.child('id').val() === root.child('room/voteId').val() && data.child('id').val() !== newData.child('id').val() && !newData.hasChild('goals') && !newData.hasChild('firstGoalAt') && !newData.hasChild('karts')))",
-      ".validate": "newData.hasChildren(['id', 'course', 'startAt', 'racers', 'host'])",
+      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (newData.exists() && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('room/racers/' + auth.uid).val() === true && root.child('room/phase').val() === 'decided' && newData.child('id').val() === root.child('room/voteId').val() && data.child('id').val() !== newData.child('id').val() && !newData.hasChild('goals') && !newData.hasChild('firstGoalAt') && !newData.hasChild('karts') && !newData.hasChild('startAt') && !newData.hasChild('loaded')))",
+      ".validate": "newData.hasChildren(['id', 'course', 'createdAt', 'racers', 'host'])",
       "id": { ".validate": "newData.isString() && newData.val().length <= 40" },
       "course": { ".validate": "newData.isNumber() && (newData.val() === data.val() || newData.val() === root.child('room/course').val())" },
-      "startAt": { ".validate": "newData.isNumber() && (newData.val() === data.val() || auth.uid === 'GM_UID_HERE' || (newData.val() >= now + 4000 && newData.val() <= now + 12000))" },
+      "createdAt": { ".validate": "newData.isNumber() && (newData.val() === data.val() || auth.uid === 'GM_UID_HERE' || newData.val() === now)" },
+      "startAt": {
+        ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('race/racers/' + auth.uid).exists() && !data.exists() && newData.exists()",
+        ".validate": "newData.isNumber() && (newData.val() === data.val() || auth.uid === 'GM_UID_HERE' || (newData.val() >= now + 5000 && newData.val() <= now + 9000))"
+      },
+      "loaded": {
+        "$uid": {
+          ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && $uid === auth.uid && root.child('race/racers/' + $uid).exists() && !data.exists() && newData.exists()",
+          ".validate": "newData.isNumber() && newData.val() === now"
+        }
+      },
       "racers": {
         "$uid": {
           ".validate": "newData.hasChildren(['name', 'char', 'slot']) && root.child('room/racers/' + $uid).val() === true",

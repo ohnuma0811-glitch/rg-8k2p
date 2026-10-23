@@ -263,7 +263,7 @@ const decidedRoom = (extra = {}) => ({ phase: 'decided', voteId: 'v1', endsAt: r
 const raceData = (extra = {}) => ({
   id: 'v1',
   course: 2,
-  startAt: Date.now() + 8000,
+  createdAt: NOW, // スタートは、全員の読みこみがそろってから（2026-10-23 のユーザー依頼）
   racers: { u1: { name: 'KYUGO', char: 'cat', slot: 0 }, u2: { name: 'SOKI', char: 'tiger', slot: 1 } },
   cpus: { c0: { char: 'kyugo', slot: 2 }, c1: { char: 'soki', slot: 3 }, c2: { char: 'mouse', slot: 4 } },
   host: 'u1',
@@ -285,8 +285,10 @@ test('対戦のレース: /race を作れるのは、部屋が decided のとき
   await disabled((db) => db.ref('room').set(decidedRoom()));
   await assertFails(as('u3').ref('race').set(raceData()), '入っていない端末');
   await assertFails(as('u1').ref('race').set(raceData({ id: 'v9' })), '投票の番号がちがう');
-  await assertFails(as('u1').ref('race').set(raceData({ startAt: Date.now() + 60000 })), 'スタートが遠すぎる');
-  await assertFails(as('u1').ref('race').set(raceData({ startAt: Date.now() })), 'スタートが近すぎる');
+  await assertFails(as('u1').ref('race').set(raceData({ createdAt: Date.now() - 60000 })), '作った時刻がサーバーの時刻でない');
+  await assertFails(as('u1').ref('race').set(raceData({ createdAt: null })), '作った時刻がない');
+  await assertFails(as('u1').ref('race').set(raceData({ startAt: Date.now() + 7000 })), '作るときにスタートは決められない');
+  await assertFails(as('u1').ref('race').set(raceData({ loaded: { u1: NOW } })), '読みこみ済みを先に書く');
   await assertFails(as('u1').ref('race').set(raceData({ course: 4 })), '決まったコースとちがう');
   await assertFails(as('u1').ref('race').set(raceData({ racers: { u1: { name: 'KYUGO', char: 'cat', slot: 0 }, u9: { name: 'KYUGO', char: 'cat', slot: 1 } } })), '走る人でない');
   await assertFails(as('u1').ref('race').set(raceData({ racers: { u1: { name: 'SOKI', char: 'cat', slot: 0 } } })), 'ほかの子の名前');
@@ -422,4 +424,49 @@ test('走ったコース（/played）と、性能の点数（/lobby/{uid}/score�
   await assertFails(as('u1').ref('lobby/u1/score').set(101));
   await assertFails(as('u1').ref('lobby/u1/score').set(50.5));
   await assertFails(as('u1').ref('lobby/u2/score').set(50), 'ほかの人の点数');
+});
+
+test('スタート: 走る人が1回だけ、now + 5〜9秒で書ける。走る人でない・二度目・範囲の外は書けない', async () => {
+  await racing();
+  await member('u3', 'MOMO');
+  await assertFails(as('u3').ref('race/startAt').set(Date.now() + 7000), '走る人でない');
+  await assertFails(as('u1').ref('race/startAt').set(Date.now() + 2000), '近すぎる');
+  await assertFails(as('u1').ref('race/startAt').set(Date.now() + 20000), '遠すぎる');
+  await assertFails(as('u1').ref('race/startAt').set(Date.now() - 1000), '過去');
+  await assertFails(as('u1').ref('race/startAt').set('soon'), '数でない');
+  await assertSucceeds(as('u1').ref('race/startAt').set(Date.now() + 7000));
+  await assertFails(as('u2').ref('race/startAt').set(Date.now() + 7000), '二度目');
+  await assertFails(as('u1').ref('race/startAt').remove(), '消す');
+});
+
+test('スタート: transaction（2台が同時でも1回）でも書ける', async () => {
+  await racing();
+  const a = await as('u1').ref('race/startAt').transaction((cur) => (cur == null ? Date.now() + 7000 : undefined));
+  assert.equal(a.committed, true);
+  const b = await as('u2').ref('race/startAt').transaction((cur) => (cur == null ? Date.now() + 7000 : undefined));
+  assert.equal(b.committed, false);
+});
+
+test('読みこみ済み: 本人だけが、走る人のときに、サーバーの時刻で、1回だけ書ける', async () => {
+  await racing();
+  await member('u3', 'MOMO');
+  await assertSucceeds(as('u1').ref('race/loaded/u1').set(NOW));
+  await assertFails(as('u1').ref('race/loaded/u1').set(NOW), '二度目');
+  await assertFails(as('u1').ref('race/loaded/u2').set(NOW), 'ほかの人');
+  await assertFails(as('u3').ref('race/loaded/u3').set(NOW), '走る人でない');
+  await assertFails(as('u2').ref('race/loaded/u2').set(123), 'サーバーの時刻でない');
+  await assertFails(as('u2').ref('race/loaded/u2').set('yes'), '数でない');
+  await assertSucceeds(as('u2').ref('race/loaded/u2').set(NOW));
+  await assertSucceeds(as('u2').ref('race/loaded').once('value'));
+});
+
+test('/race を transaction で作るとき、createdAt をサーバーの時刻の置きかえで書ける', async () => {
+  await member('u1', 'KYUGO');
+  await member('u2', 'SOKI');
+  await disabled((db) => db.ref('room').set(decidedRoom()));
+  const r = await as('u1').ref('race').transaction((cur) => (cur && cur.id === 'v1' ? undefined : raceData()));
+  assert.equal(r.committed, true);
+  const got = (await as('u2').ref('race').once('value')).val();
+  assert.equal(typeof got.createdAt, 'number');
+  assert.ok(Math.abs(got.createdAt - Date.now()) < 10000);
 });

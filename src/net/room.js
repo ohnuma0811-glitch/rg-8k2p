@@ -2,6 +2,7 @@
 // /room = { phase: 'lobby' | 'voting' | 'decided' | 'racing', voteId, endsAt, racers: { uid: true }, seed, course, picks }
 // /votes/{uid} = { voteId, course }（前の投票の票は voteId で見分けて数えない）
 export const VOTE_MS = 10000;
+export const READY_WAIT_MS = 20000; // 対戦のスタートで、全員の読みこみを待つ最大の時間（2026-10-23 のユーザー依頼）
 
 export function allReady(players) {
   return players.length >= 2 && players.every((p) => p.ready);
@@ -86,12 +87,13 @@ export function markPlayed(db, course, courseCount) {
   });
 }
 
-// racing のまま止まった部屋（待合室のだれでも lobby に戻してよい）。race = { id, startAt, racers, goals }（/race から）
+// racing のまま止まった部屋（待合室のだれでも lobby に戻してよい）。race = { id, startAt, createdAt, racers, goals }（/race から。startAt は全員の読みこみがそろうまで無い）
 export const RACE_MAX_MS = 10 * 60 * 1000;
 export function racingStale(room, race, players, now) {
   if (!room || room.phase !== 'racing') return false;
   if (!race || race.id !== room.voteId) return now > room.endsAt + STALE_MS; // レースができないまま
-  if (now > race.startAt + RACE_MAX_MS) return true;
+  const base = race.startAt ?? (typeof race.createdAt === 'number' ? race.createdAt + READY_WAIT_MS : null); // まだ決まっていなければ、作った時刻 + 待つ時間
+  if (base != null && now > base + RACE_MAX_MS) return true;
   const uids = Object.keys(race.racers ?? {});
   if (!uids.length) return false; // まだ読みこんでいない
   const here = new Set(players.map((p) => p.uid));

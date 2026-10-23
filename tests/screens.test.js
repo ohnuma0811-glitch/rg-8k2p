@@ -219,5 +219,5 @@ test('対戦の最後の 10…1 は #vs-countdown に出す。スタートの 3�
   assert.ok(html.includes('id="vs-countdown"'));
   assert.ok(src.includes('setText(vsCountEl, g.vs?.countdown != null ? String(g.vs.countdown)'));
   assert.ok(!/setText\(countEl, g\.vs\?\.countdown != null \? String/.test(src));
-  assert.ok(src.includes("setText(countEl, g.vs?.countdown != null ? ''"));
+  assert.ok(src.includes("setText(countEl, waiting ? 'Waiting for players…' : g.vs?.countdown != null ? ''"));
 });

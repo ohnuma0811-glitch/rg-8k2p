@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  RACE_KARTS, START_DELAY_MS, KART_STALE_MS, END_AFTER_FIRST_MS, SPECTATE_HOLD, cpuCount, pickVsCpus, pickHost, makeRace, createVsRace, waitRace, raceLineup,
+  RACE_KARTS, START_LEAD_MS, READY_WAIT_MS, readyToStart, startRace, markLoaded, KART_STALE_MS, END_AFTER_FIRST_MS, SPECTATE_HOLD, cpuCount, pickVsCpus, pickHost, makeRace, createVsRace, waitRace, raceLineup,
   kartGone, vsRanking, raceEnd, slowestHuman, nextSpectate, nextHost, takeHost, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef,
 } from '../src/net/race.js';
 import { CHARS } from '../src/data/characters.js';
@@ -56,14 +56,16 @@ test('host は点数がいちばん高い端末（同じなら uid の小さい�
   assert.equal(pickHost({}), null);
 });
 
-test('レースを作る: スタートは今のサーバーの時刻 + 8秒。人が前（ランダムな順）、CPU が後ろ。走る人でない人・待合室にいない人は入れない', () => {
+test('レースを作る: スタートはまだ決めない（createdAt だけ）。人が前（ランダムな順）、CPU が後ろ。走る人でない人・待合室にいない人は入れない', () => {
   const room = { phase: 'decided', voteId: 'v1', course: 3, racers: { u1: true, u2: true, u3: true } };
   const players = [player('u1', 'KYUGO', 'kyugo', 50), player('u2', 'SOKI', 'soki', 90), player('u9', 'LATE', 'cat', 99)];
   const race = makeRace(room, players, 1000.4, seq(0.1, 0.7, 0.3, 0.5, 0.2));
-  assert.equal(START_DELAY_MS, 8000);
+  assert.equal(START_LEAD_MS, 7000);
+  assert.equal(READY_WAIT_MS, 20000);
   assert.equal(race.id, 'v1');
   assert.equal(race.course, 3);
-  assert.equal(race.startAt, 9000);
+  assert.equal(race.createdAt, 1000);
+  assert.ok(!('startAt' in race), 'スタートは全員の読みこみを待ってから');
   assert.deepEqual(Object.keys(race.racers).sort(), ['u1', 'u2']);
   assert.deepEqual(Object.values(race.racers).map((r) => r.slot).sort(), [0, 1]);
   assert.deepEqual(race.racers.u1, { name: 'KYUGO', char: 'kyugo', slot: race.racers.u1.slot });
@@ -82,9 +84,10 @@ test('作るのは1回だけ（2台が同時に見ても）。作った端末が
   db.data.room = { phase: 'decided', voteId: 'v1', endsAt: 1, seed: 1, course: 2, picks: 1, racers: { u1: true, u2: true } };
   const players = [player('u1', 'KYUGO', 'kyugo', 50), player('u2', 'SOKI', 'soki', 90)];
   assert.equal(await createVsRace(db, db.data.room, players, 1000, 5, Math.random), true);
-  const startAt = db.data.race.startAt;
+  assert.equal(db.data.race.createdAt, 777, 'サーバーの時刻で書く');
+  assert.ok(!('startAt' in db.data.race));
   assert.equal(await createVsRace(db, { ...db.data.room, phase: 'decided' }, players, 5000, 5, Math.random), false);
-  assert.equal(db.data.race.startAt, startAt, 'スタートの時刻は変わらない');
+  assert.equal(db.data.race.createdAt, 777, '作り直さない');
   assert.deepEqual(db.data.played, { 2: true });
   assert.equal(db.data.room.phase, 'racing');
   // 次の投票（番号がちがう）なら作り直す
@@ -333,4 +336,51 @@ test('M6: レースが終わったとき、QUIT の画面が開いていたら�
   const main = src('../src/main.js');
   assert.ok(main.includes('await closeVsMenu(g);'));
   assert.ok(/async function closeVsMenu\(g\)[\s\S]{0,300}data-pick="close"/.test(main));
+});
+
+test('全員の読みこみがそろったか: 全員 loaded、または createdAt から20秒。startAt が決まっていたら false', () => {
+  const race = { createdAt: 1000, racers: { u1: {}, u2: {} }, loaded: { u1: 5 } };
+  assert.equal(readyToStart(race, 1000 + READY_WAIT_MS - 1), false, '1人がまだ');
+  assert.equal(readyToStart(race, 1000 + READY_WAIT_MS), true, '20秒たった');
+  assert.equal(readyToStart({ ...race, loaded: { u1: 5, u2: 6 } }, 1001), true, '全員');
+  assert.equal(readyToStart({ ...race, loaded: null }, 1001), false);
+  assert.equal(readyToStart({ ...race, loaded: { u1: 5, u2: 6 }, startAt: 9999 }, 1e9), false, 'もう決まっている');
+  assert.equal(readyToStart(null, 1e9), false);
+  assert.equal(readyToStart({ racers: { u1: {} }, loaded: { u1: 1 } }, 5), true, 'createdAt がなくても全員なら');
+  assert.equal(readyToStart({ racers: {}, loaded: null }, 1e9), false, '走る人がいない');
+  assert.equal(readyToStart({ racers: { u1: {} } }, 1e9), false, 'createdAt がなければ20秒は数えない');
+});
+
+test('スタートを決める: まだ決まっていないときだけ、今 + 7秒。2台が同時でも1回', async () => {
+  const db = fakeDb();
+  db.data.race = { id: 'v1', createdAt: 1 };
+  assert.equal(await startRace(db, 5000.4), true);
+  assert.equal(db.data.race.startAt, 5000 + START_LEAD_MS);
+  assert.equal(await startRace(db, 9000), false);
+  assert.equal(db.data.race.startAt, 12000, '先に決めた方だけ');
+});
+
+test('読みこみ済みを書く: /race/loaded/{uid} にサーバーの時刻', async () => {
+  const db = fakeDb();
+  db.data.race = { id: 'v1' };
+  await markLoaded(db, 'u1');
+  assert.deepEqual(db.data.race.loaded, { u1: 777 });
+});
+
+test('startAt がまだないとき: 切れた車を作らない・host を変えない・終わりにしない', () => {
+  assert.equal(kartGone(undefined, 1e9, null), false);
+  assert.equal(kartDropped(undefined, 1e9, null), false);
+  assert.equal(kartGone(undefined, 1e9, undefined), false);
+  assert.equal(nextHost({ host: 'u1', startAt: null, racers: { u1: {}, u2: {} }, scores: {} }, {}, {}, 1e9), null);
+  assert.deepEqual(raceEnd({ startAt: null, firstGoalAt: null }, ['u1'], {}, new Set(['u1']), 1e9), { over: false, countdown: null });
+});
+
+test('main.js: スタートが決まるまで待つ（markLoaded・startAt を見る・Waiting for players…）', async () => {
+  const fs = await import('node:fs');
+  const main = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.ok(main.includes('markLoaded(db, me.uid)'));
+  assert.ok(main.includes("db.watch('race/startAt'"));
+  assert.ok(main.includes('if (vs && vs.startAt == null) {'));
+  assert.ok(main.includes('readyToStart({ createdAt: v.createdAt, racers: v.racers, loaded: v.loaded }, now)'));
+  assert.ok(main.includes('Waiting for players…'));
 });

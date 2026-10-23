@@ -1,13 +1,15 @@
 // 対戦のレース（設計書 docs/superpowers/specs/2026-10-23-vsrace-design.md の 2〜4章）
-// /race = { id（投票の番号）, course, startAt（GO! のサーバーの時刻）, racers: { uid: { name, char, slot } }, cpus: { c0: { char, slot } },
+// /race = { id（投票の番号）, course, createdAt（作ったサーバーの時刻）, startAt（GO! のサーバーの時刻。全員の読みこみがそろってから決まる）, loaded: { uid: サーバーの時刻 }, racers: { uid: { name, char, slot } }, cpus: { c0: { char, slot } },
 //           host（CPU を動かす端末の uid）, scores: { uid: 点 }, firstGoalAt, karts: { 車: 様子 }, goals: { 車: 秒 | 'quit' } }
 // サーバー（db）は引数でもらう（storeOf の形。テストではメモリの作り物）
 import { CHARS, charOf, colorOf } from '../data/characters.js';
 import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js';
-import { markPlayed, startRacing } from './room.js';
+import { markPlayed, startRacing, READY_WAIT_MS } from './room.js';
+
+export { READY_WAIT_MS };
 
 export const RACE_KARTS = 5; // 5台に足りない分を CPU で
-export const START_DELAY_MS = 8000; // 決めてから GO! まで（コースの準備・スタート前のカメラ・3・2・1）
+export const START_LEAD_MS = 7000; // スタートを決めてから GO! まで（スタート前のカメラ 4秒 + 3・2・1）。全員の読みこみを最大 READY_WAIT_MS 待つ（2026-10-23 のユーザー依頼）
 export const KART_STALE_MS = 3000; // 書いた時刻がこれより古い人の車は、切れたとみなす
 export const END_DROP_MS = 15000; // 終わりの判断では、書いた時刻がこれより古い人だけを切れたとみなす（3秒の電波の乱れでレースを終わらせない）
 export const END_AFTER_FIRST_MS = 180000; // 人の1位のゴールから、これで終わり
@@ -45,7 +47,7 @@ export function pickHost(scores) {
 const scoreOf = (s) => (typeof s === 'number' && s >= 0 && s <= 100 ? Math.round(s) : 0);
 
 // /race の中身。走る人（room.racers）で待合室にいる人だけ。人が前（ランダムな順）、CPU が後ろ
-export function makeRace(room, players, serverNow, rand = Math.random) {
+export function makeRace(room, players, createdAt, rand = Math.random) {
   const humans = shuffled(players.filter((p) => room.racers?.[p.uid]), rand);
   if (!humans.length) return null;
   const racers = {};
@@ -58,17 +60,36 @@ export function makeRace(room, players, serverNow, rand = Math.random) {
   pickVsCpus(humans.map((p) => p.char), cpuCount(humans.length), rand).forEach((char, j) => {
     cpus[`c${j}`] = { char, slot: humans.length + j };
   });
-  return { id: room.voteId, course: room.course, startAt: Math.round(serverNow) + START_DELAY_MS, racers, cpus, host: pickHost(scores), scores };
+  return { id: room.voteId, course: room.course, createdAt: typeof createdAt === 'number' ? Math.round(createdAt) : createdAt, racers, cpus, host: pickHost(scores), scores };
 }
 
 // 決まったのを見た走る人の端末が呼ぶ。作るのは1回だけ（同じ投票の番号の /race がもうあれば作らない）
 export async function createVsRace(db, room, players, serverNow, courseCount, rand = Math.random) {
-  const race = makeRace(room, players, serverNow, rand);
+  const race = makeRace(room, players, db.SERVER_TIME ?? serverNow, rand); // createdAt はサーバーの時刻（ルールが now とくらべる）
   if (!race) return false;
   const made = await db.transaction('race', (cur) => (cur && cur.id === room.voteId ? undefined : race));
   if (made) await markPlayed(db, room.course, courseCount).catch(() => {});
   await startRacing(db, room.voteId).catch(() => {});
   return made;
+}
+
+// 全員の読みこみがそろったか（または createdAt から READY_WAIT_MS たった）。スタートを決めてよいとき true。決まっていれば false
+export function readyToStart(race, now) {
+  if (!race || race.startAt != null) return false;
+  const uids = Object.keys(race.racers ?? {});
+  if (!uids.length) return false;
+  if (uids.every((uid) => race.loaded?.[uid] != null)) return true;
+  return typeof race.createdAt === 'number' && now >= race.createdAt + READY_WAIT_MS;
+}
+
+// まだ決まっていないときだけ、スタートを今 + START_LEAD_MS に決める（1台だけが書ける）
+export function startRace(db, now) {
+  return db.transaction('race/startAt', (cur) => (cur == null ? Math.round(now) + START_LEAD_MS : undefined));
+}
+
+// 自分のコースとシーンの用意ができた（サーバーの時刻）
+export function markLoaded(db, uid) {
+  return db.set(`race/loaded/${uid}`, db.SERVER_TIME);
 }
 
 // その投票の番号の /race が来るのを待つ。ms たっても来なければ null
@@ -101,12 +122,14 @@ export function raceLineup(race) {
 
 // 切れた車（その時だけの判断）。msg.t は書いた時刻（サーバー）。まだ来ていない車は、スタート + 3秒までは待つ
 export function kartGone(msg, now, startAt) {
+  if (startAt == null && !msg) return false; // スタートがまだ決まっていない: 切れた車はない
   if (!msg || typeof msg.t !== 'number') return now > startAt + KART_STALE_MS;
   return now - msg.t > KART_STALE_MS;
 }
 
 // 終わりの判断だけに使う「切れた」（END_DROP_MS）。車を隠す・順位・host の引き継ぎは kartGone（3秒）のまま
 export function kartDropped(msg, now, startAt) {
+  if (startAt == null && !msg) return false;
   if (!msg || typeof msg.t !== 'number') return now > startAt + END_DROP_MS;
   return now - msg.t > END_DROP_MS;
 }
@@ -124,6 +147,7 @@ export function vsRanking(lineup, goals, prog, gone) {
 // 終わり（どの端末も同じ計算）。humanIds は人の車の id。now はサーバーの時刻
 // gone は終わりの判断用の「切れた人」（kartDropped の 15秒）。over: 終わった。countdown: 3分の決まりの最後の10秒（10〜1）、ほかは null
 export function raceEnd({ startAt, firstGoalAt }, humanIds, goals, gone, now, runSec = RESULTS_DELAY) {
+  if (startAt == null) return { over: false, countdown: null }; // まだスタートしていない
   const g = goals ?? {};
   const times = humanIds.map((id) => g[id]).filter((v) => typeof v === 'number');
   const first = firstGoalAt ?? (times.length ? startAt + Math.min(...times) * 1000 : null);
@@ -163,6 +187,7 @@ export function nextSpectate(state, slowest, targetRacing, dt) {
 // host を変えるか。host の車が3秒止まった・host が QUIT したら、残っている人（車が止まっていない・QUIT していない）で
 // 点数（/race/scores）がいちばん高い uid。変えなくてよい・だれもいないときは null。karts は { 車: 様子 }（t がサーバーの時刻）
 export function nextHost(race, karts, goals, now) {
+  if (race.startAt == null) return null; // スタートの前は引き継がない
   const cur = race.host;
   if (goals?.[cur] !== 'quit' && !kartGone(karts?.[cur], now, race.startAt)) return null;
   const scores = {};

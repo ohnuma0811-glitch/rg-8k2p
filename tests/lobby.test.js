@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from '../src/net/lobby.js';
-import { VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft, resetRoom, roomStale, STALE_MS, markPlayed, startRacing, racingStale, RACE_MAX_MS } from '../src/net/room.js';
+import { READY_WAIT_MS, VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft, resetRoom, roomStale, STALE_MS, markPlayed, startRacing, racingStale, RACE_MAX_MS } from '../src/net/room.js';
 
 // メモリのサーバー（パスで読み書き。transaction も）
 function fakeDb() {
@@ -192,6 +192,12 @@ test('止まったレースの部屋: 走っている人が待合室にいなく
   assert.equal(racingStale(room, { ...race, racers: null }, [], 20000), false, 'まだ読みこんでいない');
   assert.equal(racingStale(room, { id: 'v0' }, here, 1000 + STALE_MS), false);
   assert.equal(racingStale(room, { id: 'v0' }, here, 1001 + STALE_MS), true, 'レースができないまま');
+  // startAt がまだないレース（全員の読みこみを待っている）: createdAt + 20秒 を基準にする
+  const waiting = { id: 'v1', createdAt: 10000, racers: race.racers, goals: null };
+  assert.equal(racingStale(room, waiting, here, 20000), false, '待っている');
+  assert.equal(racingStale(room, waiting, here, 10000 + READY_WAIT_MS + RACE_MAX_MS), false);
+  assert.equal(racingStale(room, waiting, here, 10000 + READY_WAIT_MS + RACE_MAX_MS + 1), true, '10分たっても始まらない');
+  assert.equal(racingStale(room, { id: 'v1', racers: race.racers }, here, 1e12), false, 'startAt も createdAt もまだ読めていない');
   assert.equal(racingStale({ phase: 'lobby' }, race, [], 1e12), false);
   assert.equal(racingStale(null, race, [], 1e12), false);
 });
