@@ -114,3 +114,20 @@ test('firstValue: 最初の値で解決して購読をやめる。来なけれ�
   // 来ない
   assert.equal(await firstValue(() => () => {}, 10), null);
 });
+
+test('waitRace と firstValue のいつもの timers は、setTimeout を this なしで呼ぶ（Illegal invocation にならない）', async () => {
+  const { firstValue } = await import('../src/net/sync.js');
+  const { waitRace } = await import('../src/net/race.js');
+  const real = [globalThis.setTimeout, globalThis.clearTimeout];
+  const strict = (fn) => function (...a) { if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation'); return fn(...a); };
+  globalThis.setTimeout = strict(real[0]);
+  globalThis.clearTimeout = strict(real[1]);
+  try {
+    assert.equal(await firstValue((cb) => { cb(5); return () => {}; }, 50), 5);
+    const db = { watch: (p, cb) => { cb('v1'); return () => {}; }, get: async () => ({ id: 'v1' }) };
+    const r = await waitRace(db, 'v1', 50);
+    assert.equal(r?.id, 'v1');
+  } finally {
+    [globalThis.setTimeout, globalThis.clearTimeout] = real;
+  }
+});

@@ -106,7 +106,7 @@ export function dueToSend(lastAt, now) {
 }
 
 // subscribe(cb) → 後始末の関数。最初の値が来るまで待つ（ms を過ぎたら null）。値が来たら購読は取り消す
-export function firstValue(subscribe, ms, timers = { setTimeout, clearTimeout }) {
+export function firstValue(subscribe, ms, timers = { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (id) => clearTimeout(id) }) {
   return new Promise((resolve) => {
     let done = false;
     let off = null;

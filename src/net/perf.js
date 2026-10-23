@@ -30,7 +30,7 @@ export async function ping(db, clock = () => Date.now()) {
 }
 
 // fps: 今の fps を返す関数。stop でやめる
-export function startPerf(db, uid, { fps, clock = () => Date.now(), every = PING_EVERY_MS, timers = { setInterval, clearInterval } }) {
+export function startPerf(db, uid, { fps, clock = () => Date.now(), every = PING_EVERY_MS, timers = { setInterval: (f, ms) => setInterval(f, ms), clearInterval: (id) => clearInterval(id) } }) { // ブラウザの setInterval は this なしで呼ぶ（Illegal invocation になる）
   const rtts = [];
   let sent = null; // 書けた点数
   let busy = false;

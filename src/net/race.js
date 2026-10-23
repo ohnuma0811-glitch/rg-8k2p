@@ -71,7 +71,7 @@ export async function createVsRace(db, room, players, serverNow, courseCount, ra
 }
 
 // その投票の番号の /race が来るのを待つ。ms たっても来なければ null
-export function waitRace(db, id, ms, timers = { setTimeout, clearTimeout }) {
+export function waitRace(db, id, ms, timers = { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (id) => clearTimeout(id) }) {
   return new Promise((resolve) => {
     let off = null;
     let done = false;

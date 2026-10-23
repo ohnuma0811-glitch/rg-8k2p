@@ -67,3 +67,23 @@ test('書けなかったら（待合室の行がまだない など）、次に�
   await perf.tick();
   assert.deepEqual(writes, [['lobby/u1/score', 93]]);
 });
+
+test('startPerf のいつもの timers は、ブラウザの setInterval を this なしで呼ぶ（Illegal invocation にならない。2026-10-23 の確かめ）', async () => {
+  const { startPerf } = await import('../src/net/perf.js');
+  const real = globalThis.setInterval;
+  const realClear = globalThis.clearInterval;
+  let called = 0;
+  // ブラウザと同じく、this が globalThis（か undefined）でないと失敗する setInterval
+  globalThis.setInterval = function (f, ms) { if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation'); called++; return 1; };
+  globalThis.clearInterval = function () { if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation'); };
+  try {
+    const db = { get: async () => 20, set: async () => {} };
+    const p = startPerf(db, 'u1', { fps: () => 60 });
+    await p.first;
+    p.stop();
+    assert.equal(called, 1);
+  } finally {
+    globalThis.setInterval = real;
+    globalThis.clearInterval = realClear;
+  }
+});
