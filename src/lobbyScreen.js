@@ -63,8 +63,7 @@ export function runLobby(root, ctx) {
       <div class="lb-top">
         <button type="button" class="back-btn" data-act="back">◀ TITLE</button>
         <button type="button" data-act="chars">Character</button>
-        <button type="button" data-act="gear" aria-label="Settings">⚙</button>
-        <div class="lb-gear hidden">
+        <div class="lb-gear"> <!-- 音・操作・定型文の言語。歯車なしで、いつも出す（2026-10-23 のユーザー依頼） -->
           <button type="button" data-act="sound"></button>
           <button type="button" data-act="controls"></button>
           <button type="button" data-act="lang"></button>
@@ -174,7 +173,6 @@ export function runLobby(root, ctx) {
       const act = b.dataset.act;
       if (act === 'back') return finish('back');
       if (act === 'chars') return finish('chars');
-      if (act === 'gear') return $('.lb-gear').classList.toggle('hidden');
       if (act === 'sound') ctx.sound.setOn(!ctx.sound.isOn());
       if (act === 'controls') ctx.controls.setMode(ctx.controls.mode() === 'keyboard' ? 'buttons' : 'keyboard');
       if (act === 'lang') {

@@ -58,6 +58,7 @@ import { crowdMix, CROWD_MAX } from './audio/mix.js';
 import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js';
 import { CHARS, charOf, colorOf, pickCpus, lineupOf } from './data/characters.js';
 import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js';
+import { watchKeyboard } from './keyboard.js';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
 const VERSION = 'dev';
@@ -94,6 +95,7 @@ const speedNum = speedo.querySelector('.num');
 const wrongWayEl = $('wrongway');
 const bumpWarnEl = $('bump-warn');
 const menu = $('menu');
+watchKeyboard(); // 画面のキーボードがかぶった分、メニュー（待合室のチャット）を上につめる（2026-10-23）
 const raceHud = $('race-hud');
 const lapEl = $('lap');
 const timeEl = $('race-time');

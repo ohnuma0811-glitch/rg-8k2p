@@ -53,3 +53,11 @@ test('QUIT でレースから先に戻った人の待合室は、部屋を lobby
   assert.ok(main.includes("return why === 'quit' ? 'quit' : 'lobby';"), 'main: QUIT を待合室に伝える');
   assert.ok(/if \(why === 'quit'\) \{[\s\S]{0,300}return 'quit';/.test(main), 'runVsRace: QUIT で quit を返す');
 });
+
+test('待合室に歯車のボタンはなく、音・操作・言語のボタンはいつも出ている（2026-10-23 のユーザー依頼）', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../src/lobbyScreen.js', import.meta.url), 'utf8');
+  assert.ok(!src.includes('data-act="gear"'));
+  assert.ok(!src.includes('lb-gear hidden'));
+  assert.ok(src.includes('data-act="sound"') && src.includes('data-act="controls"') && src.includes('data-act="lang"'));
+});
