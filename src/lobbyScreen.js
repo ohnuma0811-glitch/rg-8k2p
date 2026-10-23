@@ -1,11 +1,11 @@
 // 待合室とコースの投票の画面（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 2.1・4章）
-import { faceSvg } from './titleArt.js?v=36ccc7f';
-import { charOf } from './data/characters.js?v=36ccc7f';
-import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=36ccc7f';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=36ccc7f';
-import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=36ccc7f';
-import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=36ccc7f';
-import { startPerf } from './net/perf.js?v=36ccc7f';
+import { faceSvg } from './titleArt.js?v=b50c581';
+import { charOf } from './data/characters.js?v=b50c581';
+import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=b50c581';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=b50c581';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=b50c581';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=b50c581';
+import { startPerf } from './net/perf.js?v=b50c581';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;

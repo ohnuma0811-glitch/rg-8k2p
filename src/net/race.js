@@ -2,9 +2,9 @@
 // /race = { id（投票の番号）, course, createdAt（作ったサーバーの時刻）, startAt（GO! のサーバーの時刻。全員の読みこみがそろってから決まる）, loaded: { uid: サーバーの時刻 }, racers: { uid: { name, char, slot } }, cpus: { c0: { char, slot } },
 //           host（CPU を動かす端末の uid）, scores: { uid: 点 }, firstGoalAt, karts: { 車: 様子 }, goals: { 車: 秒 | 'quit' } }
 // サーバー（db）は引数でもらう（storeOf の形。テストではメモリの作り物）
-import { CHARS, charOf, colorOf } from '../data/characters.js?v=36ccc7f';
-import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js?v=36ccc7f';
-import { markPlayed, startRacing, READY_WAIT_MS } from './room.js?v=36ccc7f';
+import { CHARS, charOf, colorOf } from '../data/characters.js?v=b50c581';
+import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js?v=b50c581';
+import { markPlayed, startRacing, READY_WAIT_MS } from './room.js?v=b50c581';
 
 export { READY_WAIT_MS };
 
@@ -158,6 +158,16 @@ export function raceEnd({ startAt, firstGoalAt }, humanIds, goals, gone, now, ru
   const left = limitAt - now;
   const counting = limitAt <= doneAt && left > 0 && left <= FINAL_COUNT * 1000;
   return { over: now >= endAt, countdown: counting ? Math.ceil(left / 1000) : null };
+}
+
+// 最後の人がゴールした（2026-10-23 のユーザー依頼「〇〇 FINISH!」）: いま新しくゴールのタイムが入った人で、
+// それで人が全員ゴール・QUIT・切れたなら、その人の名前。ほかは null（CPU は数えない）
+export function lastHumanFinish(lineup, prevGoals, goals, gone) {
+  const humans = lineup.filter((e) => e.human);
+  const done = humans.every((e) => goals?.[e.id] != null || gone.has(e.id));
+  if (!done) return null;
+  const now = humans.find((e) => typeof goals?.[e.id] === 'number' && prevGoals?.[e.id] == null);
+  return now ? now.name : null;
 }
 
 // まだ走っている人の車（CPU は入れない）で、いちばん遅い車の id。いなければ null

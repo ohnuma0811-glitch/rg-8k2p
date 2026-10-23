@@ -1,7 +1,7 @@
 // 車の様子を送る・届いた様子をなめらかにつなぐ（設計書 docs/superpowers/specs/2026-10-23-vsrace-design.md の 2章 3・3章）
 // /race/karts/{車} = { x y z h m v i l c r p [dd ds hp hu tb sp sw bo ai] at t }（キーの意味は計画書「対戦のレースの決まり」）
-export const SEND_MS = 100; // 1秒に10回
-export const INTERP_DELAY_MS = 200; // ほかの車は、この分だけ遅らせて表示する
+export const SEND_MS = 83; // 1秒に12回（2026-10-23 のユーザー依頼で10回から）
+export const INTERP_DELAY_MS = 150; // ほかの車は、この分だけ遅らせて表示する（2026-10-23 のユーザー依頼で 200 から）
 export const EXTRAP_MAX_MS = 250; // 新しいデータが来ないとき、先読みするのはここまで
 export const SNAP_DIST = 30; // これより離れた2つ（リスポーン・ワープ）はつながない（m）
 export const BUFFER_SIZE = 20; // とっておくデータの数

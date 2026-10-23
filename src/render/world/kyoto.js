@@ -1,10 +1,10 @@
 // Global City の京都（2026-10-20）: 外国の人が見ても京都だと分かるように、日本らしさ・京都らしさを前に出す
 // 東から入るので、実際の位置のとおり時計回り: 伏見稲荷 → 清水寺（舞台からジャンプ）→ 八坂の五重塔・祇園 → 銀閣寺 → 金閣寺 → 嵐山の竹林
-import * as THREE from '../../../vendor/three.module.min.js?v=36ccc7f';
-import { createBuilder } from '../town/builder.js?v=36ccc7f';
-import { locate } from '../../game/track.js?v=36ccc7f';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=36ccc7f';
-import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=36ccc7f';
+import * as THREE from '../../../vendor/three.module.min.js?v=b50c581';
+import { createBuilder } from '../town/builder.js?v=b50c581';
+import { locate } from '../../game/track.js?v=b50c581';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=b50c581';
+import { landmark, worldAt, sOf, along, beside, pointAt, sakura, roundTree, coneTree, ryOf, roadSign, roadBanner } from './kit.js?v=b50c581';
 
 const VERMILION = 0xe0441c; // 朱色
 const DARK_WOOD = 0x3a2a22;

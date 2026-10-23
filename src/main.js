@@ -1,67 +1,67 @@
 // 起動。タイトル → 名前 → キャラ選び → SOLO のレース（自分＋CPU 4台、3周）→ 結果
-import * as THREE from '../vendor/three.module.min.js?v=36ccc7f';
-import { startLoop } from './loop.js?v=36ccc7f';
-import { COURSES } from './data/tracks.js?v=36ccc7f';
-import { buildTrack, span, locate, stageAt, bannerStageAt } from './game/track.js?v=36ccc7f';
-import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=36ccc7f';
-import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, oneWayContact, DINO_BLACK } from './game/hazards.js?v=36ccc7f';
-import { kartParams } from './game/stats.js?v=36ccc7f';
-import { createCpu, cpuControl, cpuParams, rubberFactor, cpuItem } from './game/cpu.js?v=36ccc7f';
-import { pushApart, newBumps, solidKarts } from './game/collide.js?v=36ccc7f';
-import { squashContacts } from './game/items.js?v=36ccc7f';
+import * as THREE from '../vendor/three.module.min.js?v=b50c581';
+import { startLoop } from './loop.js?v=b50c581';
+import { COURSES } from './data/tracks.js?v=b50c581';
+import { buildTrack, span, locate, stageAt, bannerStageAt } from './game/track.js?v=b50c581';
+import { createKart, stepKart, startDash, PHYS } from './game/kart.js?v=b50c581';
+import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, oneWayContact, DINO_BLACK } from './game/hazards.js?v=b50c581';
+import { kartParams } from './game/stats.js?v=b50c581';
+import { createCpu, cpuControl, cpuParams, rubberFactor, cpuItem } from './game/cpu.js?v=b50c581';
+import { pushApart, newBumps, solidKarts } from './game/collide.js?v=b50c581';
+import { squashContacts } from './game/items.js?v=b50c581';
 import {
   LAPS, raceLaps, raceDistance, COUNTDOWN, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
-} from './game/race.js?v=36ccc7f';
-import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=36ccc7f';
-import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=36ccc7f';
-import { applyStageVisibility, attachStage } from './render/world/stages.js?v=36ccc7f';
-import { skyFor } from './render/world/sky.js?v=36ccc7f';
-import { updateSpace, spaceLook } from './render/world/space.js?v=36ccc7f';
-import { updateSea } from './render/world/sea.js?v=36ccc7f';
-import { updateWarp, warpLook, suckPose } from './render/world/warp.js?v=36ccc7f';
-import { showcaseCamera } from './render/showcase.js?v=36ccc7f';
-import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, updateSpectateCamera, SPECTATE, spectateClose, nextSpectateView, START_FLY_TIME } from './render/scene.js?v=36ccc7f';
-import { createMinimap } from './render/minimap.js?v=36ccc7f';
-import { releaseTrack, tracksToRelease } from './render/release.js?v=36ccc7f';
-import { grandstandSpot } from './render/trackMesh.js?v=36ccc7f';
-import { createKartModel, syncKartModel, createNameTag, createCowModel, createCowLegs, setCowLegs, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=36ccc7f';
-import { shinkansenCars, watchedKart, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js?v=36ccc7f';
-import { GLOBAL_SCENERY } from './data/global.js?v=36ccc7f';
-import { faceSvg } from './titleArt.js?v=36ccc7f';
-import { createEffects } from './render/effects.js?v=36ccc7f';
-import { nextQuality, pixelRatio } from './render/quality.js?v=36ccc7f';
-import { blendPose, poseOf } from './render/interp.js?v=36ccc7f';
-import { speedText, slotItem, ITEM_ICONS } from './hud.js?v=36ccc7f';
-import { initItems, createItemWorld, itemFrame, starGuard, starRestore } from './game/items.js?v=36ccc7f';
-import { createItemView } from './render/items.js?v=36ccc7f';
-import { addRecent, cleanRecent } from './names.js?v=36ccc7f';
-import { usedSec, addPlay, remainingText } from './playtime.js?v=36ccc7f';
-import { createPlaytimeSync, safeStorage, waitUpTo } from './net/playtimeSync.js?v=36ccc7f';
-import { load, save } from './storage.js?v=36ccc7f';
-import * as screens from './screens.js?v=36ccc7f';
-import { gmScreen } from './gm.js?v=36ccc7f';
-import { runLobby } from './lobbyScreen.js?v=36ccc7f';
-import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, kartDropped, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, readyToStart, startRace, markLoaded, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js?v=36ccc7f';
-import { firstValue, createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js?v=36ccc7f';
-import { resetRoom } from './net/room.js?v=36ccc7f';
-import { defaultLang } from './chatPhrases.js?v=36ccc7f';
-import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js?v=36ccc7f';
-import { codeState, tryCode, setName, deviceKind } from './net/gamecode.js?v=36ccc7f';
-import { SharedTimes, dateText } from './sharedTimes.js?v=36ccc7f';
-import { TIMES_URL } from './config.js?v=36ccc7f';
-import { createAudio } from './audio/audio.js?v=36ccc7f';
-import { createSfx } from './audio/sfx.js?v=36ccc7f';
-import { createVoices } from './audio/voice.js?v=36ccc7f';
-import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=36ccc7f';
-import { createCrowd } from './audio/crowd.js?v=36ccc7f';
-import { crowdMix, CROWD_MAX } from './audio/mix.js?v=36ccc7f';
-import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js?v=36ccc7f';
-import { CHARS, charOf, colorOf, pickCpus, lineupOf } from './data/characters.js?v=36ccc7f';
-import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=36ccc7f';
-import { watchKeyboard } from './keyboard.js?v=36ccc7f';
+} from './game/race.js?v=b50c581';
+import { Controls, attachControls, computeButtonLayout, hasTouch } from './input.js?v=b50c581';
+import { tunnelLight, tunnelLook, touchOnly } from './render/snow/tunnel.js?v=b50c581';
+import { applyStageVisibility, attachStage } from './render/world/stages.js?v=b50c581';
+import { skyFor } from './render/world/sky.js?v=b50c581';
+import { updateSpace, spaceLook } from './render/world/space.js?v=b50c581';
+import { updateSea } from './render/world/sea.js?v=b50c581';
+import { updateWarp, warpLook, suckPose } from './render/world/warp.js?v=b50c581';
+import { showcaseCamera } from './render/showcase.js?v=b50c581';
+import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, updateSpectateCamera, SPECTATE, spectateClose, nextSpectateView, START_FLY_TIME } from './render/scene.js?v=b50c581';
+import { createMinimap } from './render/minimap.js?v=b50c581';
+import { releaseTrack, tracksToRelease } from './render/release.js?v=b50c581';
+import { grandstandSpot } from './render/trackMesh.js?v=b50c581';
+import { createKartModel, syncKartModel, createNameTag, createCowModel, createCowLegs, setCowLegs, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js?v=b50c581';
+import { shinkansenCars, watchedKart, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js?v=b50c581';
+import { GLOBAL_SCENERY } from './data/global.js?v=b50c581';
+import { faceSvg } from './titleArt.js?v=b50c581';
+import { createEffects } from './render/effects.js?v=b50c581';
+import { nextQuality, pixelRatio } from './render/quality.js?v=b50c581';
+import { blendPose, poseOf } from './render/interp.js?v=b50c581';
+import { speedText, slotItem, ITEM_ICONS } from './hud.js?v=b50c581';
+import { initItems, createItemWorld, itemFrame, starGuard, starRestore } from './game/items.js?v=b50c581';
+import { createItemView } from './render/items.js?v=b50c581';
+import { addRecent, cleanRecent } from './names.js?v=b50c581';
+import { usedSec, addPlay, remainingText } from './playtime.js?v=b50c581';
+import { createPlaytimeSync, safeStorage, waitUpTo } from './net/playtimeSync.js?v=b50c581';
+import { load, save } from './storage.js?v=b50c581';
+import * as screens from './screens.js?v=b50c581';
+import { gmScreen } from './gm.js?v=b50c581';
+import { runLobby } from './lobbyScreen.js?v=b50c581';
+import { createVsRace, lastHumanFinish, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, kartDropped, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, readyToStart, startRace, markLoaded, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js?v=b50c581';
+import { firstValue, createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js?v=b50c581';
+import { resetRoom } from './net/room.js?v=b50c581';
+import { defaultLang } from './chatPhrases.js?v=b50c581';
+import { firebaseReady, connect, signInAnon, storeOf } from './net/firebase.js?v=b50c581';
+import { codeState, tryCode, setName, deviceKind } from './net/gamecode.js?v=b50c581';
+import { SharedTimes, dateText } from './sharedTimes.js?v=b50c581';
+import { TIMES_URL } from './config.js?v=b50c581';
+import { createAudio } from './audio/audio.js?v=b50c581';
+import { createSfx } from './audio/sfx.js?v=b50c581';
+import { createVoices } from './audio/voice.js?v=b50c581';
+import { soundState, soundEvents, finishMusic, jumpAhead, afterPause } from './audio/events.js?v=b50c581';
+import { createCrowd } from './audio/crowd.js?v=b50c581';
+import { crowdMix, CROWD_MAX } from './audio/mix.js?v=b50c581';
+import { createMusic, FINAL_LAP_RATE, raceSongs } from './audio/music.js?v=b50c581';
+import { CHARS, charOf, colorOf, pickCpus, lineupOf } from './data/characters.js?v=b50c581';
+import { createCup, addRace, standings, isOver, courseOf, gridOrder } from './game/cup.js?v=b50c581';
+import { watchKeyboard } from './keyboard.js?v=b50c581';
 
 // 版番号（公開のときに scripts/deploy.sh がコミットの番号に置き換える。古い版が動いていないか確かめる用）
-const VERSION = '36ccc7f';
+const VERSION = 'b50c581';
 const CPU_COUNT = 4;
 const MENU_BRAKE = { steer: 0, brake: false, drift: false, stop: true }; // 対戦の QUIT の画面を出している間の操作（その場に止まる。ブレーキのようにバックはしない）
 const PLAYER_SLOT = 4; // プレイヤーは一番うしろからスタート
@@ -945,7 +945,16 @@ function watchVs(g, db) {
       if (msg) pushSample(v.bufs[k], msg);
     }));
   });
-  offs.push(db.watch('race/goals', (val) => { v.goals = { ...(val ?? {}), ...v.myGoals }; }));
+  offs.push(db.watch('race/goals', (val) => {
+    const prev = v.goals;
+    v.goals = { ...(val ?? {}), ...v.myGoals };
+    // 最後の人がゴールした: 先にゴールして見ている人の画面に「〇〇 FINISH!」を2秒と、明るいファンファーレ（2026-10-23 のユーザー依頼）
+    const name = typeof prev?.[v.myId] === 'number' ? lastHumanFinish(v.lineup, prev, v.goals, v.gone) : null;
+    if (name) {
+      v.finishNote = { text: `${name} FINISH!`, until: performance.now() + 2000 };
+      sfx.play('finish');
+    }
+  }));
   offs.push(db.watch('race/host', (h) => {
     if (!h) return;
     v.host = h;
@@ -1717,7 +1726,8 @@ function renderGame(alpha, dt) {
   setText(timeEl, timeText(Math.max(0, e.finished ? e.time : race.t)));
   const order = g.vs ? vsOrder(g) : ranking(race, track);
   setText(rankEl, ordinal(order.indexOf(g.me) + 1));
-  setText(vsCountEl, g.vs?.countdown != null ? String(g.vs.countdown) : '');
+  const note = g.vs?.finishNote && performance.now() < g.vs.finishNote.until ? g.vs.finishNote.text : ''; // 最後の人のゴール
+  setText(vsCountEl, g.vs?.countdown != null ? String(g.vs.countdown) : note);
   const waiting = g.vs != null && g.vs.startAt == null;
   countEl.classList.toggle('waiting', waiting);
   setText(countEl, waiting ? 'Waiting for players…' : g.vs?.countdown != null ? '' : flying ? '' : e.finished ? (race.t - e.time < FINISH_TEXT ? 'FINISH!' : '') : countdownText(race));

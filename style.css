@@ -762,6 +762,8 @@ html, body {
   text-shadow: 3px 0 0 #1c3c88, -3px 0 0 #1c3c88, 0 3px 0 #1c3c88, 0 -3px 0 #1c3c88, 2px 2px 0 #1c3c88, -2px 2px 0 #1c3c88, 2px -2px 0 #1c3c88, -2px -2px 0 #1c3c88, 0 7px 0 #1c3c88;
   pointer-events: none;
 }
+/* 「〇〇 FINISH!」は長いので、画面の幅に合わせて小さく（2026-10-23） */
+#vs-countdown { white-space: nowrap; font-size: min(clamp(60px, 22vh, 150px), 9vw); }
 /* 対戦で全員の読みこみを待つ間（2026-10-23 のユーザー依頼） */
 #countdown.waiting {
   white-space: nowrap;
