@@ -184,3 +184,42 @@ test('「バーン」のとき、車は大きく跳ね上がり、くるっと�
   assert.ok(Math.abs(m.position.y - kart.y) < 0.01);
   assert.ok(Math.abs(m.rotation.x) < 0.01);
 });
+
+test('上空カメラ（対戦で自分がゴールしたあと。M4-C1）: 車の 40m 上、横へ 30m。回っても車からの距離は同じで、車を見る', async () => {
+  const { spectatePose, SPECTATE } = await import('../src/render/scene.js');
+  assert.deepEqual(SPECTATE, { HEIGHT: 40, RADIUS: 30, TURN: 0.15, FOV: 60, SWITCH_WAIT: 0.5 });
+  const car = { x: 100, y: 5, z: -50 };
+  for (const a of [0, 1, 2.5, 4]) {
+    const p = spectatePose(car, a);
+    assert.equal(p.y, 45);
+    assert.ok(Math.abs(Math.hypot(p.x - car.x, p.z - car.z) - 30) < 1e-9);
+    assert.deepEqual(p.look, { x: 100, y: 5, z: -50 });
+  }
+  assert.ok(Math.abs(spectatePose(car, 0).x - 130) < 1e-9);
+  assert.ok(Math.abs(spectatePose(car, Math.PI / 2).z - -20) < 1e-9);
+});
+
+test('上空カメラ: トンネル・宇宙・ワープの間は、いつものカメラに切りかえる（0.5秒続いたら。2026-10-23 のユーザー依頼）', async () => {
+  const { spectateClose, nextSpectateView, SPECTATE } = await import('../src/render/scene.js');
+  const track = { samples: [{ tunnel: false }, { tunnel: true }] };
+  assert.equal(spectateClose(track, { seg: 0, auto: null }), false);
+  assert.equal(spectateClose(track, { seg: 1, auto: null }), true, 'トンネル');
+  assert.equal(spectateClose(track, { seg: 0, auto: { id: 'space' } }), true, '宇宙');
+  assert.equal(spectateClose(track, { seg: 0, auto: { id: 'warp' } }), true, 'ワープ');
+  assert.equal(spectateClose(track, { seg: 0, auto: { id: 'jump' } }), false, 'ほかの自動の区間は上空のまま');
+  assert.equal(SPECTATE.SWITCH_WAIT, 0.5);
+  let v = { chase: false, cand: false, wait: 0, flip: false };
+  v = nextSpectateView(v, true, 0.3);
+  assert.equal(v.flip, false, 'まだ 0.3 秒');
+  v = nextSpectateView(v, true, 0.3);
+  assert.equal(v.flip, true, '0.5 秒続いた');
+  assert.equal(v.chase, true);
+  v = nextSpectateView(v, true, 0.1);
+  assert.equal(v.flip, false, '切りかえは1回だけ');
+  v = nextSpectateView(v, false, 0.2);
+  v = nextSpectateView(v, true, 0.2);
+  assert.equal(v.chase, true, 'ちらついただけでは上空にもどらない');
+  v = nextSpectateView(v, false, 0.6);
+  assert.equal(v.flip, true);
+  assert.equal(v.chase, false, '出たら上空にもどる');
+});

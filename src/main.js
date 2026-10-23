@@ -20,7 +20,7 @@ import { updateSpace, spaceLook } from './render/world/space.js';
 import { updateSea } from './render/world/sea.js';
 import { updateWarp, warpLook, suckPose } from './render/world/warp.js';
 import { showcaseCamera } from './render/showcase.js';
-import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, START_FLY_TIME } from './render/scene.js';
+import { createRenderer, createWorld, setCourse, setDarkness, setSky, resetSky, resizeRenderer, updateChaseCamera, updateFrontCamera, updateFinishCamera, updateStartCamera, updateSpectateCamera, SPECTATE, spectateClose, nextSpectateView, START_FLY_TIME } from './render/scene.js';
 import { createMinimap } from './render/minimap.js';
 import { releaseTrack, tracksToRelease } from './render/release.js';
 import { grandstandSpot } from './render/trackMesh.js';
@@ -41,7 +41,7 @@ import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
 import { runLobby } from './lobbyScreen.js';
-import { createVsRace, waitRace, raceLineup, kartGone, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
+import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
 import { createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js';
 import { resetRoom } from './net/room.js';
 import { defaultLang } from './chatPhrases.js';
@@ -902,6 +902,13 @@ function vsStateOf(g, db, data, lineup, myId, now) {
     lastSend: 0,
     countdown: null, // 最後の 10…1
     menuOpen: false, // QUIT の画面を出している
+    spectate: { target: null, cand: null, wait: 0 }, // 上空カメラが追う車（id）
+    spectating: false, // 上空カメラにした
+    toSpectate: false, // 上空カメラへ切りかえ中（画面を暗くしている）
+    orbit: 0, // 上空カメラの回った角度（rad）
+    view: { chase: false, cand: false, wait: 0, flip: false }, // トンネル・宇宙・ワープの間は、いつものカメラ（2026-10-23 のユーザー依頼）
+    switching: false, // 切りかえの暗くする途中
+    hostTry: 0, // host の引き継ぎを最後に見た時刻
   };
   setOwned(g, v);
   return v;
@@ -1002,6 +1009,69 @@ function vsAfterStep(g, dt) {
     g.onEnd = null;
     f('finish');
   }
+  if (!g.onEnd) return; // 終わった
+  vsHostCheck(g, now);
+  vsSpectate(g, dt);
+}
+
+// host の引き継ぎ（1秒に1回まで見る）: host の車が3秒止まった・host が QUIT したら、
+// 残っている中で点数がいちばん高い端末が、自分に変える（transaction で1台だけ）
+function vsHostCheck(g, now) {
+  const v = g.vs;
+  if (v.host === v.myId || now - v.hostTry < 1000) return;
+  v.hostTry = now;
+  const karts = { ...v.latest, [v.myId]: { t: now } }; // 自分は動いている
+  const next = nextHost({ host: v.host, racers: v.racers, scores: v.scores, startAt: v.startAt }, karts, v.goals, now);
+  if (next !== v.myId) return;
+  const old = v.host;
+  takeHost(v.db, old, v.myId)
+    .then((ok) => {
+      if (!ok || game !== g) return;
+      // もうゴールした CPU のゴールは書き直さない。CPU は、今見えている位置から動かし続ける
+      for (const k of v.cpuK) if (v.goals[v.ids[k]] != null) v.sentGoal.add(v.ids[k]);
+      v.host = v.myId;
+      setOwned(g, v);
+    })
+    .catch(() => {});
+}
+
+// 自分がゴールしたら: SOLO と同じく走り抜けて（RESULTS_DELAY 秒）、画面を暗くし、上空カメラにして明るくする。
+// 上空カメラは、まだ走っている人の車（CPU は入れない）でいちばん遅い車を追う（2026-10-23 のユーザー依頼）
+function vsSpectate(g, dt) {
+  const v = g.vs;
+  const e = g.race.entries[g.me];
+  if (!e.finished) return;
+  if (!v.toSpectate && g.race.t >= e.time + RESULTS_DELAY) {
+    v.toSpectate = true;
+    fade(1).then(() => {
+      if (game !== g || !g.onEnd) return; // そのあいだに終わった（結果の画面が明るくする）
+      v.spectating = true;
+      fade(0);
+    });
+  }
+  const prog = {};
+  v.ids.forEach((id, k) => {
+    prog[id] = progress(g.race, k, track);
+  });
+  const slowest = slowestHuman(v.lineup, v.goals, v.gone, prog);
+  const t = v.spectate.target;
+  const racing = t != null && v.goals[t] == null && !v.gone.has(t);
+  v.spectate = nextSpectate(v.spectate, slowest, racing, dt);
+  v.orbit += SPECTATE.TURN * dt;
+  // トンネル・宇宙・ワープ: 暗くして、いつものカメラに切りかえる。出たら暗くして上空にもどる（2026-10-23 のユーザー依頼）
+  const tk = v.spectating && v.spectate.target != null ? v.ids.indexOf(v.spectate.target) : -1;
+  if (tk < 0 || v.switching) return;
+  const next = nextSpectateView(v.view, spectateClose(track, g.karts[tk]), dt);
+  if (!next.flip) {
+    v.view = next;
+    return;
+  }
+  v.switching = true;
+  fade(1).then(() => {
+    v.view = next;
+    v.switching = false;
+    if (game === g && g.onEnd) fade(0);
+  });
 }
 
 // 対戦の一時停止ボタン（レースは止まらない）: QUIT と、閉じる ✕ だけ
@@ -1442,14 +1512,17 @@ function renderGame(alpha, dt) {
   views.forEach((v, k) => syncKartModel(g.models[k], v));
   // 対戦: QUIT した人・切れた人の車は見せない
   if (g.vs) g.models.forEach((m, k) => { if (vsHidden(g, k)) m.visible = false; });
+  // 上空カメラ（対戦で自分がゴールしたあと）で見ている車の番号。ふだんは自分の車
+  const spec = g.vs?.spectating && g.vs.spectate.target != null ? g.vs.ids.indexOf(g.vs.spectate.target) : -1;
+  const fk = spec >= 0 ? spec : g.me;
   // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）の間は、自分の車だけを映す（2026-10-20 のユーザーの判断）
-  const meAuto = !!g.karts[g.me].auto;
-  if (meAuto) g.models.forEach((m, k) => { if (k !== g.me) m.visible = false; });
-  if (meAuto) views.forEach((v, k) => { if (k !== g.me) v.hidden = true; }); // アイテムの見た目も、消した車の分は出さない
+  const meAuto = !!g.karts[fk].auto;
+  if (meAuto) g.models.forEach((m, k) => { if (k !== fk) m.visible = false; });
+  if (meAuto) views.forEach((v, k) => { if (k !== fk) v.hidden = true; }); // アイテムの見た目も、消した車の分は出さない
   // 浮いている車の下の影（全部のコースで。2026-10-17 のユーザー依頼）: 地面に。高いほど小さく、うすく
   views.forEach((v, k) => {
     const sh = g.shadows[k];
-    sh.visible = !!v.airborne && !v.swallowed && !(v.respawn > 0) && !(meAuto && k !== g.me) && !vsHidden(g, k);
+    sh.visible = !!v.airborne && !v.swallowed && !(v.respawn > 0) && !(meAuto && k !== fk) && !vsHidden(g, k);
     if (!sh.visible) return;
     const loc = locate(track, v.x, v.z, v.seg, 40, v.y);
     // 地面のない所（ジャンプ台の先）: 森は川の水面、ほかのコースは下の地面（高さ 0。Kenta Circuit は下を通る道）
@@ -1467,13 +1540,13 @@ function renderGame(alpha, dt) {
   placeDino(g.race.t);
   placeSnowmen(g, g.race.t);
   // トンネル（Kyugo Mountain）: 入ると一度まっくら、中は暗く、車の前にライト、画面のまわりを暗く
-  g.tunnel = tunnelLight(g.tunnel, !!track.samples[g.karts[g.me].seg]?.tunnel, dt);
+  g.tunnel = tunnelLight(g.tunnel, !!track.samples[g.karts[fk].seg]?.tunnel, dt);
   // 出口の 120m 手前から、霧を晴らす（外の景色が見える）
-  const me = g.karts[g.me];
+  const me = g.karts[fk];
   const toExit = track.samples[me.seg]?.tunnel && track.marks.TO !== undefined ? span(track, track.samples[me.seg].s, track.marks.TO) : Infinity;
   // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
   if (track.def.theme === 'world') {
-    const rel = progress(g.race, g.me, track);
+    const rel = progress(g.race, fk, track);
     const cur = viewStage(track, me, stageAt(track, rel)); // 宇宙から下りてくる後半は香港
     // 前後のステージは、さかいめの近くだけ見せる（遠くの都市が見えた。2026-10-21 のユーザー依頼）
     const w = stageWindow(track, rel);
@@ -1498,7 +1571,7 @@ function renderGame(alpha, dt) {
     // 宇宙・ワープの間は、平らな地面を消す（宇宙から灰色の地面が見えた）
     if (scene.userData.ground) scene.userData.ground.visible = groundShown(track, rel, look.mode); // 宇宙・ワープ・海の底の区間では見せない
   }
-  showTunnel(g.tunnel, views[g.me], Math.max(0, Math.min(1, 1 - toExit / 120)));
+  showTunnel(g.tunnel, views[fk], Math.max(0, Math.min(1, 1 - toExit / 120)));
   // スローの板の矢印を、うしろへ流す（Kyugo Mountain）
   for (const tx of track.slowTextures ?? []) tx.offset.y = (tx.offset.y + dt * 1.5) % 1;
   // 食べられた演出（血のりは出さない。2026-10-16 のユーザーの判断「子供向けには刺激が強い」）
@@ -1509,7 +1582,7 @@ function renderGame(alpha, dt) {
   showChomp(g.chompE ?? null);
   // 遠すぎる車の名前は出さない（コースの反対側の札が、景色の上に浮かないように）
   g.tags.forEach((tag, k) => {
-    if (tag) tag.visible = !meAuto && Math.hypot(views[k].x - views[g.me].x, views[k].z - views[g.me].z) < TAG_RANGE;
+    if (tag) tag.visible = !meAuto && Math.hypot(views[k].x - views[fk].x, views[k].z - views[fk].z) < TAG_RANGE;
   });
   const mine = views[g.me];
   const kart = g.karts[g.me];
@@ -1534,10 +1607,12 @@ function renderGame(alpha, dt) {
   const flying = g.flyT < START_FLY_TIME;
   if (dev.has('front')) updateFrontCamera(camera, mine);
   else if (flying) updateStartCamera(camera, mine, g.flyT);
+  else if (spec >= 0 && g.vs.view.chase) updateChaseCamera(camera, views[spec], g.params[spec].topSpeed, dt); // トンネル・宇宙・ワープの間は、その車の後ろのいつものカメラ
+  else if (spec >= 0) updateSpectateCamera(camera, views[spec], g.vs.orbit); // 上空カメラ（一瞬で移る）
   else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.params[g.me].topSpeed, dt);
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
-  const ap = autoProgress(track, g.karts[g.me]); // 宇宙・ワープの演出の進み
+  const ap = autoProgress(track, g.karts[fk]); // 宇宙・ワープの演出の進み
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t, ap);
   // ワープの最後: 正面の光の円の真ん中へ、自分の車が小さくなりながら吸いこまれる（2026-10-22 のユーザー依頼）
   const meModel = g.models[g.me];

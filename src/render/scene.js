@@ -302,3 +302,33 @@ export function updateFinishCamera(camera, kart, t, dt) {
   camera.position.set(kart.x + Math.cos(a) * o.dist, kart.y + o.height, kart.z + Math.sin(a) * o.dist);
   camera.lookAt(kart.x + fx * o.ahead, kart.y + o.lookY, kart.z + fz * o.ahead);
 }
+
+// 対戦（M4-C1）: 自分がゴールしたあとの上空カメラ（2026-10-23 のユーザー依頼）。
+// 見る車の HEIGHT m 上、横へ RADIUS m の所を、1秒に TURN rad ゆっくり回りながら、車を見る。車が変わったら一瞬で移る
+export const SPECTATE = { HEIGHT: 40, RADIUS: 30, TURN: 0.15, FOV: 60, SWITCH_WAIT: 0.5 };
+// 上空カメラで見ている車が、トンネル・宇宙・ワープの間にいるか（その間は、いつものカメラにする。2026-10-23 のユーザー依頼）
+export function spectateClose(track, kart) {
+  return !!track.samples[kart.seg]?.tunnel || kart.auto?.id === 'space' || kart.auto?.id === 'warp';
+}
+// いつものカメラ（chase: true）と上空カメラの切りかえ。close が SWITCH_WAIT 秒続けて今とちがったら flip（その1回だけ true）
+export function nextSpectateView(view, close, dt) {
+  if (close === view.chase) return { chase: view.chase, cand: close, wait: 0, flip: false };
+  const wait = close === view.cand ? view.wait + dt : dt;
+  if (wait >= SPECTATE.SWITCH_WAIT - 1e-9) return { chase: close, cand: close, wait: 0, flip: true };
+  return { chase: view.chase, cand: close, wait, flip: false };
+}
+export function spectatePose(car, angle) {
+  return {
+    x: car.x + Math.cos(angle) * SPECTATE.RADIUS,
+    y: car.y + SPECTATE.HEIGHT,
+    z: car.z + Math.sin(angle) * SPECTATE.RADIUS,
+    look: { x: car.x, y: car.y, z: car.z },
+  };
+}
+export function updateSpectateCamera(camera, car, angle) {
+  const p = spectatePose(car, angle);
+  camera.fov = SPECTATE.FOV;
+  camera.updateProjectionMatrix();
+  camera.position.set(p.x, p.y, p.z);
+  camera.lookAt(p.look.x, p.look.y, p.look.z);
+}
