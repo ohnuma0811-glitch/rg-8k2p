@@ -1,11 +1,11 @@
 // 待合室とコースの投票の画面（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 2.1・4章）
-import { faceSvg } from './titleArt.js?v=564e67b';
-import { charOf } from './data/characters.js?v=564e67b';
-import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=564e67b';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=564e67b';
-import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=564e67b';
-import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=564e67b';
-import { startPerf } from './net/perf.js?v=564e67b';
+import { faceSvg } from './titleArt.js?v=36ccc7f';
+import { charOf } from './data/characters.js?v=36ccc7f';
+import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=36ccc7f';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=36ccc7f';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=36ccc7f';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=36ccc7f';
+import { startPerf } from './net/perf.js?v=36ccc7f';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;
@@ -63,10 +63,8 @@ export function runLobby(root, ctx) {
       <div class="lb-top">
         <button type="button" class="back-btn" data-act="back">◀ TITLE</button>
         <button type="button" data-act="chars">Character</button>
-        <button type="button" data-act="gear" aria-label="Settings">⚙</button>
-        <div class="lb-gear hidden">
+        <div class="lb-gear"> <!-- 音・定型文の言語。歯車なしで、いつも出す。操作（ボタン / キーボード）は SOLO と同じく自動（2026-10-23 のユーザー依頼） -->
           <button type="button" data-act="sound"></button>
-          <button type="button" data-act="controls"></button>
           <button type="button" data-act="lang"></button>
         </div>
         <button type="button" class="lb-ready-btn" data-act="ready">READY</button>
@@ -104,7 +102,6 @@ export function runLobby(root, ctx) {
       if (!$('[data-act="sound"]')) return; // 知らせ・レースの間は、待合室の HTML がない
       // 小さい画面では、絵と短い文字だけ（.wide は CSS で隠す）
       $('[data-act="sound"]').innerHTML = ctx.sound.isOn() ? '🔊<span class="wide"> Sound ON</span>' : '🔇<span class="wide"> Sound OFF</span>';
-      $('[data-act="controls"]').innerHTML = ctx.controls.mode() === 'keyboard' ? '⌨<span class="wide"> Keyboard</span>' : '👆<span class="wide"> Buttons</span>';
       $('[data-act="lang"]').innerHTML = lang === 'ja' ? '<span class="wide">Chat: </span>日本語' : '<span class="wide">Chat: </span>English';
     };
     const drawPresets = () => {
@@ -174,16 +171,14 @@ export function runLobby(root, ctx) {
       const act = b.dataset.act;
       if (act === 'back') return finish('back');
       if (act === 'chars') return finish('chars');
-      if (act === 'gear') return $('.lb-gear').classList.toggle('hidden');
       if (act === 'sound') ctx.sound.setOn(!ctx.sound.isOn());
-      if (act === 'controls') ctx.controls.setMode(ctx.controls.mode() === 'keyboard' ? 'buttons' : 'keyboard');
       if (act === 'lang') {
         lang = lang === 'ja' ? 'en' : 'ja';
         ctx.setLang(lang);
         drawPresets();
         drawMsgs();
       }
-      if (act === 'sound' || act === 'controls' || act === 'lang') return drawGear();
+      if (act === 'sound' || act === 'lang') return drawGear();
       if (act === 'ready') {
         if (!canReady(state.room)) return; // 投票中・レース中は READY を押せない（レース中に来た人は、レースが終わってから）
         const mine = state.players.find((p) => p.uid === me.uid);

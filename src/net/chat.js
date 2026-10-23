@@ -1,5 +1,5 @@
 // 待合室のチャット（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 3・4章）
-import { phrase } from '../chatPhrases.js?v=564e67b';
+import { phrase } from '../chatPhrases.js?v=36ccc7f';
 
 export const CHAT_MAX = 100; // 自由な文の長さ
 export const CHAT_SHOW = 50; // 画面に出す件数
