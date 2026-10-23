@@ -255,3 +255,139 @@ test('チャット: 同じ定型文を2回続けては送れない（2026-10-22 
   await ago(null);
   await assertSucceeds(send('f', { preset: 3 }, { preset: 3 }), 'あいだに自由な文があれば同じ定型文も送れる');
 });
+
+// ---- 対戦のレース（M4-C1） ----
+const disabled = (fn) => env.withSecurityRulesDisabled((c) => fn(c.database()));
+const raceEnds = Date.now() - 1000; // 投票の締め切り（racing へ行くとき、ルールが「変わっていないか」をくらべるので、どの部屋も同じ値）
+const decidedRoom = (extra = {}) => ({ phase: 'decided', voteId: 'v1', endsAt: raceEnds, seed: 1, racers: { u1: true, u2: true }, course: 2, picks: 1, ...extra });
+const raceData = (extra = {}) => ({
+  id: 'v1',
+  course: 2,
+  startAt: Date.now() + 8000,
+  racers: { u1: { name: 'KYUGO', char: 'cat', slot: 0 }, u2: { name: 'SOKI', char: 'tiger', slot: 1 } },
+  cpus: { c0: { char: 'kyugo', slot: 2 }, c1: { char: 'soki', slot: 3 }, c2: { char: 'mouse', slot: 4 } },
+  host: 'u1',
+  scores: { u1: 80, u2: 60 },
+  ...extra,
+});
+const kartMsg = (extra = {}) => ({ x: 1, y: 0, z: 2, h: 0, m: 0, v: 10, i: 3, l: 0, c: 0, at: Date.now(), t: NOW, ...extra });
+// u1（KYUGO）と u2（SOKI）が走っているレース
+async function racing() {
+  await member('u1', 'KYUGO');
+  await member('u2', 'SOKI');
+  await disabled((db) => db.ref().update({ room: decidedRoom({ phase: 'racing' }), race: raceData() }));
+}
+
+test('対戦のレース: /race を作れるのは、部屋が decided のときに、その投票の番号で1回だけ', async () => {
+  await member('u1', 'KYUGO');
+  await member('u2', 'SOKI');
+  await assertFails(as('u1').ref('race').set(raceData()), '部屋が decided でない');
+  await disabled((db) => db.ref('room').set(decidedRoom()));
+  await assertFails(as('u3').ref('race').set(raceData()), '入っていない端末');
+  await assertFails(as('u1').ref('race').set(raceData({ id: 'v9' })), '投票の番号がちがう');
+  await assertFails(as('u1').ref('race').set(raceData({ startAt: Date.now() + 60000 })), 'スタートが遠すぎる');
+  await assertFails(as('u1').ref('race').set(raceData({ startAt: Date.now() })), 'スタートが近すぎる');
+  await assertFails(as('u1').ref('race').set(raceData({ course: 4 })), '決まったコースとちがう');
+  await assertFails(as('u1').ref('race').set(raceData({ racers: { u1: { name: 'KYUGO', char: 'cat', slot: 0 }, u9: { name: 'KYUGO', char: 'cat', slot: 1 } } })), '走る人でない');
+  await assertFails(as('u1').ref('race').set(raceData({ racers: { u1: { name: 'SOKI', char: 'cat', slot: 0 } } })), 'ほかの子の名前');
+  await assertFails(as('u1').ref('race').set(raceData({ host: 'u9' })), 'host が走る人でない');
+  await assertFails(as('u1').ref('race').set(raceData({ cpus: { x9: { char: 'cat', slot: 2 } } })), 'CPU の名前は c0〜c7');
+  await assertFails(as('u1').ref('race').set(raceData({ goals: { u1: 1 } })), 'ゴールを先に書く');
+  await assertFails(as('u1').ref('race').set(raceData({ party: true })), '知らない中身');
+  await assertSucceeds(as('u1').ref('race').set(raceData()));
+  await assertFails(as('u2').ref('race').set(raceData()), '同じ番号で作り直す');
+  await assertSucceeds(as('u2').ref('race').once('value'));
+  await assertFails(as('u3').ref('race').once('value'), '入っていない端末は読めない');
+  await assertSucceeds(as(GM).ref('race').once('value'));
+  await assertSucceeds(as(GM).ref('race').remove());
+});
+
+test('部屋: decided → racing は、/race がその投票のレースのときだけ。racing → lobby', async () => {
+  await member('u1', 'KYUGO');
+  await member('u2', 'SOKI');
+  await disabled((db) => db.ref('room').set(decidedRoom()));
+  await assertFails(as('u1').ref('room').set(decidedRoom({ phase: 'racing' })), '/race がまだない');
+  await disabled((db) => db.ref('race').set(raceData({ id: 'v0' })));
+  await assertFails(as('u1').ref('room').set(decidedRoom({ phase: 'racing' })), '前のレース');
+  await disabled((db) => db.ref('race').set(raceData()));
+  await assertFails(as('u1').ref('room').set(decidedRoom({ phase: 'racing', course: 3 })), 'コースを変える');
+  await assertSucceeds(as('u1').ref('room').set(decidedRoom({ phase: 'racing' })));
+  await assertFails(as('u1').ref('room').set(decidedRoom({ phase: 'racing' })), 'racing → racing');
+  await assertFails(as('u1').ref('race').set(raceData({ id: 'v2' })), 'racing の間は /race を作り直せない');
+  await assertSucceeds(as('u2').ref('room').set({ phase: 'lobby' }));
+});
+
+test('車の様子: 人の車は本人だけ、CPU の車は host だけ。時刻はサーバーの時刻、中身は数だけ', async () => {
+  await racing();
+  await assertSucceeds(as('u1').ref('race/karts/u1').set(kartMsg()));
+  await assertFails(as('u2').ref('race/karts/u1').set(kartMsg()), 'ほかの人の車');
+  await assertSucceeds(as('u1').ref('race/karts').update({ u1: kartMsg(), c0: kartMsg(), c1: kartMsg(), c2: kartMsg() }), 'host は自分と CPU を1回で');
+  await assertFails(as('u2').ref('race/karts/c0').set(kartMsg()), 'host でない');
+  await assertFails(as('u1').ref('race/karts/c7').set(kartMsg()), 'いない CPU');
+  await assertFails(as('u1').ref('race/karts/u1').set(kartMsg({ t: 123 })), 'サーバーの時刻でない');
+  await assertFails(as('u1').ref('race/karts/u1').set(kartMsg({ x: null })), '位置がない');
+  await assertFails(as('u1').ref('race/karts/u1').set(kartMsg({ name: 'x' })), '数でない');
+  await assertFails(as('u3').ref('race/karts/u3').set(kartMsg()), '入っていない端末');
+  await assertSucceeds(as('u2').ref('race/karts/u2').set(kartMsg()));
+  await assertSucceeds(as('u2').ref('race/karts/u2').remove(), 'QUIT で消す');
+});
+
+test('ゴール: 人は本人、CPU は host。一度書いたら書きかえ・消すはできない。タイムか quit', async () => {
+  await racing();
+  await assertSucceeds(as('u1').ref('race/goals/u1').set(83.25));
+  await assertFails(as('u1').ref('race/goals/u1').set(80), '書きかえ');
+  await assertFails(as('u1').ref('race/goals/u1').remove(), '消す');
+  await assertFails(as('u1').ref('race/goals/u2').set(70), 'ほかの人');
+  await assertFails(as('u2').ref('race/goals/u2').set('win'), 'タイムか quit だけ');
+  await assertFails(as('u2').ref('race/goals/u2').set(-1), 'マイナス');
+  await assertSucceeds(as('u2').ref('race/goals/u2').set('quit'));
+  await assertFails(as('u2').ref('race/goals/c0').set(90), 'host でない');
+  await assertSucceeds(as('u1').ref('race/goals/c0').set(90));
+});
+
+test('CPU の host の引き継ぎ: host の車が3秒止まったときだけ、走る人が自分に変えられる', async () => {
+  await racing();
+  await assertFails(as('u2').ref('race/host').set('u2'), 'スタートの前で、host の車がまだない');
+  await disabled((db) => db.ref('race/karts/u1').set({ ...kartMsg(), t: Date.now() }));
+  await assertFails(as('u2').ref('race/host').set('u2'), 'host は動いている');
+  await disabled((db) => db.ref('race/karts/u1/t').set(Date.now() - 5000));
+  await assertFails(as('u2').ref('race/host').set('u1'), '自分以外に');
+  await member('u3', 'MOMO');
+  await assertFails(as('u3').ref('race/host').set('u3'), '走る人でない');
+  await assertSucceeds(as('u2').ref('race/host').set('u2'));
+  await assertSucceeds(as('u2').ref('race/karts/c0').set(kartMsg()), '引き継いだら CPU を書ける');
+  await assertFails(as('u1').ref('race/karts/c0').set(kartMsg()), '前の host はもう書けない');
+});
+
+test('CPU の host の引き継ぎ: host の車がなくなった（QUIT）ら、スタート + 3秒のあとは変えられる', async () => {
+  await racing();
+  await disabled((db) => db.ref('race/startAt').set(Date.now() - 10000));
+  await assertSucceeds(as('u2').ref('race/host').set('u2'));
+});
+
+test('最初のゴールの時刻は、走る人が、小さくする向きにだけ書ける', async () => {
+  await racing();
+  const startAt = (await as('u1').ref('race/startAt').once('value')).val();
+  await assertSucceeds(as('u1').ref('race/firstGoalAt').set(startAt + 90000));
+  await assertFails(as('u2').ref('race/firstGoalAt').set(startAt + 95000), '大きくする');
+  await assertSucceeds(as('u2').ref('race/firstGoalAt').set(startAt + 85000));
+  await assertFails(as('u2').ref('race/firstGoalAt').set(startAt - 1), 'スタートより前');
+  await member('u3', 'MOMO');
+  await assertFails(as('u3').ref('race/firstGoalAt').set(startAt + 1000), '走る人でない');
+});
+
+test('走ったコース（/played）と、性能の点数（/lobby/{uid}/score）', async () => {
+  await member('u1', 'KYUGO');
+  await assertFails(as('u3').ref('played/2').set(true), '入っていない端末');
+  await assertSucceeds(as('u1').ref('played/2').set(true));
+  await assertSucceeds(as('u1').ref('played').set({ 0: true, 2: true }), 'transaction の丸ごと書き');
+  await assertFails(as('u1').ref('played/5').set(true), 'コースの番号');
+  await assertFails(as('u1').ref('played/1').set('yes'));
+  await assertSucceeds(as('u1').ref('played').once('value'));
+  await assertSucceeds(as('u1').ref('played').remove());
+  await assertSucceeds(as('u1').ref('lobby/u1').set(lobbyEntry()));
+  await assertSucceeds(as('u1').ref('lobby/u1/score').set(87));
+  await assertFails(as('u1').ref('lobby/u1/score').set(101));
+  await assertFails(as('u1').ref('lobby/u1/score').set(50.5));
+  await assertFails(as('u1').ref('lobby/u2/score').set(50), 'ほかの人の点数');
+});
