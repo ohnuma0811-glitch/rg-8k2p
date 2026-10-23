@@ -5,6 +5,7 @@ export async function enterLobby(db, me) {
   const lobby = await db.get('lobby');
   if (!lobby) {
     await db.remove(`chat/${me.codeId}`).catch(() => {});
+    await db.remove('played').catch(() => {}); // 走ったコースも、待合室が空になったら最初から（M4-C1）
     await db.set('room', { phase: 'lobby' }).catch(() => {});
   }
   await db.onDisconnectRemove(`lobby/${me.uid}`); // アプリを閉じた・電波が切れたら、サーバーが消す

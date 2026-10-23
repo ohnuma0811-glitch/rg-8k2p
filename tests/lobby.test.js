@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from '../src/net/lobby.js';
-import { VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft, resetRoom, roomStale, STALE_MS } from '../src/net/room.js';
+import { VOTE_MS, allReady, tally, startVote, castVote, decideVote, racersLeft, resetRoom, roomStale, STALE_MS, markPlayed, startRacing, racingStale, RACE_MAX_MS } from '../src/net/room.js';
 
 // メモリのサーバー（パスで読み書き。transaction も）
 function fakeDb() {
@@ -126,4 +126,82 @@ test('電波がもどったら入り直す: 消えた自分の行を書き直し
   assert.deepEqual(db.data.chat, { c1: { m1: { preset: 0 } } });
   assert.deepEqual(db.data.room, { phase: 'voting' });
   assert.deepEqual(db.calls.slice(0, 1), [['onDisconnectRemove', 'lobby/u1']]);
+});
+
+test('同じ数のコースが並んだら、まだ走っていないコースを優先（2026-10-23 のユーザー依頼）', () => {
+  const v = (course) => ({ voteId: 'x', course });
+  const votes = { a: v(1), b: v(3) };
+  for (let seed = 1; seed < 40; seed++) {
+    assert.equal(tally(votes, 'x', seed, 5, { 1: true }).course, 3, `seed ${seed}`);
+    assert.equal(tally(votes, 'x', seed, 5, [null, true]).course, 3, '配列で来ても同じ');
+  }
+  // 並んだのが全部走ったコースなら、並んだ中から
+  const both = new Set();
+  for (let seed = 1; seed < 40; seed++) both.add(tally(votes, 'x', seed, 5, { 1: true, 3: true }).course);
+  assert.deepEqual([...both].sort(), [1, 3]);
+  // だれも選ばなければ、まだ走っていない中から
+  for (let seed = 1; seed < 40; seed++) assert.ok([2, 4].includes(tally({}, 'x', seed, 5, { 0: true, 1: true, 3: true }).course));
+  // 多い票は、走ったコースでもそのまま
+  assert.equal(tally({ a: v(1), b: v(1), c: v(3) }, 'x', 7, 5, { 1: true }).course, 1);
+});
+
+test('決めるときも、走ったコースを渡せる', async () => {
+  const db = fakeDb();
+  db.data.room = { phase: 'lobby' };
+  await startVote(db, [{ uid: 'u1' }, { uid: 'u2' }], 1000, () => 0.25);
+  const room = db.data.room;
+  await castVote(db, 'u1', room.voteId, 0);
+  await castVote(db, 'u2', room.voteId, 4);
+  assert.equal(await decideVote(db, room, db.data.votes, 5, { 0: true }), true);
+  assert.equal(db.data.room.course, 4);
+});
+
+test('走ったコース: レースが始まるときに足す。5コースそろったら空にする', async () => {
+  const db = fakeDb();
+  assert.equal(await markPlayed(db, 2, 5), true);
+  assert.deepEqual(db.data.played, { 2: true });
+  db.data.played = [true, null, true, true];
+  await markPlayed(db, 1, 5);
+  assert.deepEqual(db.data.played, { 0: true, 1: true, 2: true, 3: true });
+  await markPlayed(db, 4, 5);
+  assert.equal(db.data.played, null, '5つそろったら空');
+});
+
+test('部屋: decided → racing は同じ投票のときだけ。racing も lobby に戻せる', async () => {
+  const db = fakeDb();
+  db.data.room = { phase: 'decided', voteId: 'v1', endsAt: 5, racers: { u1: true }, seed: 1, course: 2, picks: 1 };
+  assert.equal(await startRacing(db, 'v0'), false);
+  assert.equal(await startRacing(db, 'v1'), true);
+  assert.deepEqual(db.data.room, { phase: 'racing', voteId: 'v1', endsAt: 5, racers: { u1: true }, seed: 1, course: 2, picks: 1 });
+  assert.equal(await startRacing(db, 'v1'), false, 'racing → racing はしない');
+  assert.equal(await resetRoom(db, 'v0'), false);
+  assert.equal(await resetRoom(db, 'v1'), true);
+  assert.deepEqual(db.data.room, { phase: 'lobby' });
+});
+
+test('止まったレースの部屋: 走っている人が待合室にいなくなった・10分たった・レースができないまま15秒', () => {
+  assert.equal(RACE_MAX_MS, 600000);
+  const room = { phase: 'racing', voteId: 'v1', endsAt: 1000 };
+  const race = { id: 'v1', startAt: 10000, racers: { u1: { slot: 0 }, u2: { slot: 1 } }, goals: null };
+  const here = [{ uid: 'u1' }, { uid: 'u2' }, { uid: 'u9' }];
+  assert.equal(racingStale(room, race, here, 20000), false, '2人とも走っている');
+  assert.equal(racingStale(room, { ...race, goals: { u1: 80.5, u2: 'quit' } }, here, 20000), true, '全員ゴールか QUIT');
+  assert.equal(racingStale(room, { ...race, goals: { u1: 80.5 } }, here, 20000), false, 'u2 がまだ走っている');
+  assert.equal(racingStale(room, race, [{ uid: 'u9' }], 20000), true, '走る人がだれも待合室にいない（切れた）');
+  assert.equal(racingStale(room, race, here, 10000 + RACE_MAX_MS + 1), true, '10分');
+  assert.equal(racingStale(room, { ...race, racers: null }, [], 20000), false, 'まだ読みこんでいない');
+  assert.equal(racingStale(room, { id: 'v0' }, here, 1000 + STALE_MS), false);
+  assert.equal(racingStale(room, { id: 'v0' }, here, 1001 + STALE_MS), true, 'レースができないまま');
+  assert.equal(racingStale({ phase: 'lobby' }, race, [], 1e12), false);
+  assert.equal(racingStale(null, race, [], 1e12), false);
+});
+
+test('だれもいない待合室に入ると、走ったコース（/played）も消す', async () => {
+  const db = fakeDb();
+  db.data.played = { 1: true };
+  await enterLobby(db, me('u1', 'KYUGO'));
+  assert.equal(db.data.played, undefined);
+  db.data.played = { 2: true };
+  await enterLobby(db, me('u2', 'SOKI'));
+  assert.deepEqual(db.data.played, { 2: true }, '人がいるときは消さない');
 });
