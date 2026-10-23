@@ -1,0 +1,106 @@
+// 車の様子を送る・届いた様子をなめらかにつなぐ（設計書 docs/superpowers/specs/2026-10-23-vsrace-design.md の 2章 3・3章）
+// /race/karts/{車} = { x y z h m v i l c r p [dd ds hp hu tb sp sw bo ai] at t }（キーの意味は計画書「対戦のレースの決まり」）
+export const SEND_MS = 100; // 1秒に10回
+export const INTERP_DELAY_MS = 200; // ほかの車は、この分だけ遅らせて表示する
+export const EXTRAP_MAX_MS = 250; // 新しいデータが来ないとき、先読みするのはここまで
+export const SNAP_DIST = 30; // これより離れた2つ（リスポーン・ワープ）はつながない（m）
+export const BUFFER_SIZE = 20; // とっておくデータの数
+
+const round = (v, n) => Math.round(v * 10 ** n) / 10 ** n;
+
+// 送るもの。prog は進んだ距離（順位用）、at は送る端末の、サーバーとのずれを直した時刻、serverTime は db.SERVER_TIME
+export function packKart(kart, entry, prog, at, serverTime) {
+  const msg = {
+    x: round(kart.x, 2), y: round(kart.y, 2), z: round(kart.z, 2),
+    h: round(kart.heading, 3), m: round(kart.move, 3), v: round(kart.speed, 2), i: kart.seg,
+    l: entry.lap, c: entry.checkpoint ? 1 : 0,
+  };
+  if (entry.rel != null) msg.r = round(entry.rel, 1);
+  if (Number.isFinite(prog)) msg.p = round(prog, 1);
+  // 見た目だけの様子は、0 でないときだけ（ふつうに走っているときは送らない）
+  const extra = {
+    dd: kart.drift?.active ? kart.drift.dir : 0,
+    ds: kart.drift?.active ? kart.drift.stage : 0,
+    hp: round(kart.hop || 0, 2),
+    hu: round(kart.hump || 0, 2),
+    tb: round(kart.tumble || 0, 2),
+    sp: round(kart.spin || 0, 2),
+    sw: kart.swallowed ? 1 : 0,
+    bo: kart.boost > 0 ? 1 : 0,
+    ai: kart.airborne ? 1 : 0,
+  };
+  for (const [key, val] of Object.entries(extra)) if (val) msg[key] = val;
+  msg.at = Math.round(at);
+  msg.t = serverTime;
+  return msg;
+}
+
+export function unpackKart(msg) {
+  const dd = msg.dd ?? 0;
+  return {
+    x: msg.x, y: msg.y ?? 0, z: msg.z,
+    heading: msg.h ?? 0, move: msg.m ?? msg.h ?? 0, speed: msg.v ?? 0, seg: msg.i ?? 0,
+    drift: { active: dd !== 0, dir: dd, stage: msg.ds ?? 0, counter: false, flicks: 0, time: 0 },
+    hop: msg.hp ?? 0, hump: msg.hu ?? 0, tumble: msg.tb ?? 0, spin: msg.sp ?? 0,
+    swallowed: !!msg.sw, boost: msg.bo ? 1 : 0, airborne: !!msg.ai,
+  };
+}
+
+// 周回を数えるための様子（race.entries[k] に入れる）
+export function entryOf(msg) {
+  return { lap: msg.l ?? 0, rel: msg.r ?? null, checkpoint: !!msg.c };
+}
+
+export function createBuffer() {
+  return { list: [] };
+}
+
+// 届いたデータを足す。時刻（at）が前のものより古い・同じなら捨てる
+export function pushSample(buf, msg) {
+  if (!msg || typeof msg.at !== 'number') return false;
+  const last = buf.list[buf.list.length - 1];
+  if (last && msg.at <= last.at) return false;
+  buf.list.push(msg);
+  if (buf.list.length > BUFFER_SIZE) buf.list.shift();
+  return true;
+}
+
+function lerpAngle(a, b, t) {
+  return a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
+}
+
+// time（送った端末の時刻の物差し）のときの様子
+export function sampleAt(buf, time) {
+  const L = buf.list;
+  if (!L.length) return null;
+  if (time <= L[0].at) return unpackKart(L[0]);
+  const last = L[L.length - 1];
+  if (time >= last.at) {
+    // 先読み: 進む向きに、その速さで（EXTRAP_MAX_MS まで）
+    const p = unpackKart(last);
+    const dt = Math.min(time - last.at, EXTRAP_MAX_MS) / 1000;
+    p.x += Math.cos(p.move) * p.speed * dt;
+    p.z += Math.sin(p.move) * p.speed * dt;
+    return p;
+  }
+  let j = 1;
+  while (L[j].at <= time) j++;
+  const a = unpackKart(L[j - 1]);
+  const b = unpackKart(L[j]);
+  const u = (time - L[j - 1].at) / (L[j].at - L[j - 1].at);
+  if (Math.hypot(b.x - a.x, b.z - a.z) > SNAP_DIST) return u < 0.5 ? a : b;
+  const near = u < 0.5 ? a : b; // 数で表せない様子（ドリフト・点の番号など）は近い方
+  return {
+    ...near,
+    x: a.x + (b.x - a.x) * u,
+    y: a.y + (b.y - a.y) * u,
+    z: a.z + (b.z - a.z) * u,
+    heading: lerpAngle(a.heading, b.heading, u),
+    move: lerpAngle(a.move, b.move, u),
+    speed: a.speed + (b.speed - a.speed) * u,
+  };
+}
+
+export function dueToSend(lastAt, now) {
+  return now - lastAt >= SEND_MS;
+}
