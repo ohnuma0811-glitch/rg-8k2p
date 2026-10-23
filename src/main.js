@@ -974,6 +974,7 @@ async function versusLobby(name, charId) {
     sound: { isOn: () => audio.isOn(), setOn: (on) => audio.setOn(on) },
     controls: { mode: () => controls.mode, setMode: (m) => { controls.setMode(m); placeButtons(); } },
     courses: COURSES.map((c) => c.name),
+    fps: () => fps, // 性能の点数（M4-C1）
     // 通知は待合室の画面を上書きするので、HTML と onclick/onsubmit を取っておいて戻す
     onDecided: async () => {
       const keep = menu.innerHTML;

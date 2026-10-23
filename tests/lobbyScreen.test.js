@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lobbyRows, messageRows, voteRows } from '../src/lobbyScreen.js';
+import { lobbyRows, messageRows, voteRows, racingText, canReady } from '../src/lobbyScreen.js';
 
 test('待合室の一覧: 顔・名前・READY、自分の行は me。人数', () => {
   const html = lobbyRows([{ uid: 'u1', name: 'KYUGO', char: 'kyugo', ready: true }, { uid: 'u2', name: 'SOKI', char: 'cat', ready: false }], 'u2');
@@ -32,4 +32,15 @@ test('操作モードは保存しない（待合室の切りかえはこの回�
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.ok(!main.includes("'controlMode'"));
   assert.ok(main.includes("controls.setMode(hasTouch() ? 'buttons' : 'keyboard')"));
+});
+
+test('レース中に来た人への知らせ: 今のレースのコースと、走っている人の名前（英語だけ）', () => {
+  assert.equal(racingText('Kampar Town', ['KYUGO', 'SOKI']), 'Racing now: Kampar Town — KYUGO, SOKI. Press READY after the race.');
+  assert.equal(racingText('Kampar Town', []), 'Racing now: Kampar Town. Press READY after the race.');
+});
+
+test('READY を押せるのは、部屋が lobby のときだけ（投票中・決まった・レース中は押せない。レース中に来た人は、レースのあと）', () => {
+  assert.equal(canReady(null), true);
+  assert.equal(canReady({ phase: 'lobby' }), true);
+  for (const phase of ['voting', 'decided', 'racing']) assert.equal(canReady({ phase }), false, phase);
 });
