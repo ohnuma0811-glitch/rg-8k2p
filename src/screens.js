@@ -1,7 +1,7 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=5cdda0b';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=5cdda0b';
-import { colorOf } from './data/characters.js?v=5cdda0b';
+import { typeLetter, isValidName } from './names.js?v=564e67b';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=564e67b';
+import { colorOf } from './data/characters.js?v=564e67b';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -381,6 +381,26 @@ export function standings(root, rows, raceLabel, final) {
     heading,
     rows.map((r) => ({ ...r, extra: `+${r.gained}`, from: r.total - r.gained, to: r.total })),
   );
+}
+
+// 対戦の結果（M4-C1）: rows = [{ place, name, time（'1:20.25' か '—'）, face, me }]。ポイントは出さない。sec 秒で閉じる（ボタンなし）
+export const VS_RESULTS_SEC = 5;
+export function vsResultsHtml(rows, courseName) {
+  return `<h1 class="results-title">RESULTS<small>${courseName}</small></h1>
+    <table class="results">${rows
+      .map(
+        (r) => `<tr class="${r.me ? 'me' : ''}">
+          <td class="place">${r.place}</td>
+          <td><span class="who"><span class="face" style="background:${r.face.color}">${faceSvg(r.face.character)}</span>${r.name}</span></td>
+          <td class="time">${r.time}</td></tr>`,
+      )
+      .join('')}</table>`;
+}
+export async function vsResults(root, rows, courseName, sec = VS_RESULTS_SEC) {
+  show(root, vsResultsHtml(rows, courseName));
+  root.onclick = null;
+  await wait(sec);
+  hide(root);
 }
 
 // 結果の行を出す順（下の順位から）

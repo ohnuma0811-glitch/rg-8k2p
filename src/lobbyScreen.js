@@ -1,10 +1,11 @@
 // 待合室とコースの投票の画面（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 2.1・4章）
-import { faceSvg } from './titleArt.js?v=5cdda0b';
-import { charOf } from './data/characters.js?v=5cdda0b';
-import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=5cdda0b';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=5cdda0b';
-import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=5cdda0b';
-import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racersLeft } from './net/room.js?v=5cdda0b';
+import { faceSvg } from './titleArt.js?v=564e67b';
+import { charOf } from './data/characters.js?v=564e67b';
+import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=564e67b';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=564e67b';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=564e67b';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=564e67b';
+import { startPerf } from './net/perf.js?v=564e67b';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;
@@ -29,18 +30,33 @@ export function voteRows(courses, votes, voteId, players) {
     .join('');
 }
 
+// レース中に来た人（と QUIT した人）への知らせ（M4-C1）。英語だけ
+export function racingText(courseName, names) {
+  return `Racing now: ${courseName}${names.length ? ` — ${names.join(', ')}` : ''}. Press READY after the race.`;
+}
+
+// READY を押せるのは、部屋がないか lobby のときだけ（投票中・決まった・レース中は押せない）
+export function canReady(room) {
+  return !room || room.phase === 'lobby';
+}
+
 // 待合室。戻り値: 'back'（タイトルへ）/ 'chars'（キャラを選び直す）/ 'recode'（コードが変わった）
+// コースが決まって自分が走る人なら、「選ばれました」の3秒のあと ctx.onDecided(room, players) でレースへ（M4-C1）。
+// onDecided が 'back' を返したら（遊べる時間が終わった）、待合室を出る
 export function runLobby(root, ctx) {
   const { db, me } = ctx;
   let lang = ctx.lang;
   let offset = 0;
   const serverNow = () => Date.now() + offset;
-  const state = { players: [], room: null, votes: null, msgs: [], status: null };
+  const state = { players: [], room: null, votes: null, msgs: [], status: null, played: null, race: { id: null, startAt: null, course: null, racers: null, goals: null } };
   const offs = [];
   let lastSent = null;
   let lastPreset = null; // 最後に送った定型文（同じものは続けて送れない）
   let chimeState = { loaded: false, lastId: null };
   let finished = false;
+  let inRace = false; // レースの画面にいる間（待合室の HTML はない）
+  let pending = null; // レースの間に出ることになったら（コードが変わった など）、レースのあとで出る
+  let stopPerf = () => {};
   return new Promise((resolve) => {
     root.classList.add('show');
     root.innerHTML = `<div class="panel lobby">
@@ -55,6 +71,7 @@ export function runLobby(root, ctx) {
         </div>
         <button type="button" class="lb-ready-btn" data-act="ready">READY</button>
       </div>
+      <p class="lb-racing hidden"></p>
       <div class="lb-main">
         <div class="lb-list"></div>
         <div class="lb-chat">
@@ -68,7 +85,12 @@ export function runLobby(root, ctx) {
     const $ = (sel) => root.querySelector(sel);
     const finish = async (why) => {
       if (finished) return;
+      if (inRace) {
+        pending = pending ?? why; // レースの画面をこわさない。レースのあとで出る
+        return;
+      }
       finished = true;
+      stopPerf();
       clearInterval(tick);
       offs.forEach((off) => off());
       await leaveLobby(db, me.uid).catch(() => {});
@@ -79,7 +101,7 @@ export function runLobby(root, ctx) {
       resolve(why);
     };
     const drawGear = () => {
-      if (!$('[data-act="sound"]')) return; // 知らせが出ている間は、待合室の HTML がない
+      if (!$('[data-act="sound"]')) return; // 知らせ・レースの間は、待合室の HTML がない
       // 小さい画面では、絵と短い文字だけ（.wide は CSS で隠す）
       $('[data-act="sound"]').innerHTML = ctx.sound.isOn() ? '🔊<span class="wide"> Sound ON</span>' : '🔇<span class="wide"> Sound OFF</span>';
       $('[data-act="controls"]').innerHTML = ctx.controls.mode() === 'keyboard' ? '⌨<span class="wide"> Keyboard</span>' : '👆<span class="wide"> Buttons</span>';
@@ -102,17 +124,35 @@ export function runLobby(root, ctx) {
       $('.lb-ready-btn').classList.toggle('on', !!mine?.ready);
       $('.lb-ready-btn').textContent = mine?.ready ? 'READY ✓' : 'READY';
     };
+    // レース中（M4-C1）: 今のレースのコースと、走っている人の名前
+    const drawRacing = () => {
+      const el = $('.lb-racing');
+      if (!el) return;
+      const racing = state.room?.phase === 'racing';
+      el.classList.toggle('hidden', !racing);
+      if (!racing) return;
+      const names = Object.values(state.race.racers ?? {}).sort((a, b) => a.slot - b.slot).map((r) => r.name);
+      el.textContent = racingText(ctx.courses[state.race.course ?? state.room.course] ?? '', names);
+    };
     const drawVote = () => {
       if (!$('.lb-vote')) return;
       const r = state.room;
       const voting = r?.phase === 'voting' || r?.phase === 'decided';
       $('.lb-vote').classList.toggle('hidden', !voting);
-      $('.lb-ready-btn').classList.toggle('off', voting); // コースを選んでいる間は READY を出さない
+      $('.lb-ready-btn').classList.toggle('off', voting || r?.phase === 'racing'); // 投票中・レース中は READY を出さない
+      drawRacing();
       if (!voting) return;
       $('.vote-list').innerHTML = voteRows(ctx.courses, state.votes, r.voteId, state.players);
       const left = Math.max(0, Math.ceil((r.endsAt - serverNow()) / 1000));
       $('.vote-left').textContent = r.phase === 'voting' ? `${left}` : '';
       $('.vote-picked').textContent = r.phase === 'decided' ? pickedText(ctx.courses[r.course], lang) : '';
+    };
+    const drawAll = () => {
+      drawGear();
+      drawPresets();
+      drawMsgs();
+      drawList();
+      drawVote();
     };
     const send = async (body) => {
       if (samePreset(lastPreset, body)) return false;
@@ -145,7 +185,7 @@ export function runLobby(root, ctx) {
       }
       if (act === 'sound' || act === 'controls' || act === 'lang') return drawGear();
       if (act === 'ready') {
-        if (state.room?.phase === 'voting' || state.room?.phase === 'decided') return; // 投票中は READY を押せない
+        if (!canReady(state.room)) return; // 投票中・レース中は READY を押せない（レース中に来た人は、レースが終わってから）
         const mine = state.players.find((p) => p.uid === me.uid);
         return setReady(db, me.uid, !mine?.ready).catch(() => {});
       }
@@ -163,26 +203,32 @@ export function runLobby(root, ctx) {
     };
     drawGear();
     drawPresets();
-    // 1秒に4回: 投票の残りの秒、全員 READY なら始める、締め切りなら決める、走る人が1人なら戻す
+    // 1秒に4回: 投票の残りの秒、全員 READY なら始める、締め切りなら決める、走る人が1人なら戻す、止まった部屋を戻す
     const tick = setInterval(() => {
       const r = state.room;
-      if (roomStale(r, serverNow())) resetRoom(db, r.voteId).catch(() => {}); // 止まった部屋は、走る人でなくても戻す
+      const now = serverNow();
+      if (roomStale(r, now) || racingStale(r, state.race, state.players, now)) resetRoom(db, r.voteId).catch(() => {}); // 止まった部屋は、走る人でなくても戻す
       else if (!r || r.phase === 'lobby') {
-        if (allReady(state.players)) startVote(db, state.players, serverNow()).catch(() => {});
+        if (allReady(state.players)) startVote(db, state.players, now).catch(() => {});
       } else if (r.phase === 'voting') {
         if (racersLeft(r, state.players) < 2) resetRoom(db, r.voteId).catch(() => {});
-        else if (serverNow() >= r.endsAt) decideVote(db, r, state.votes, ctx.courses.length).catch(() => {});
+        else if (now >= r.endsAt) decideVote(db, r, state.votes, ctx.courses.length, state.played).catch(() => {}); // 同じ数なら、まだ走っていないコース
       }
       drawVote();
     }, 250);
     offs.push(db.serverOffset((v) => { offset = v; }));
     offs.push(db.watch('lobby', (v) => { state.players = playersOf(v); drawList(); }));
     offs.push(db.watch('votes', (v) => { state.votes = v; drawVote(); }));
+    offs.push(db.watch('played', (v) => { state.played = v; }));
+    // 今のレース（車の様子 karts は見ない。1秒に何十回も変わるので）
+    for (const key of ['id', 'startAt', 'course', 'racers', 'goals']) {
+      offs.push(db.watch(`race/${key}`, (v) => { state.race[key] = v; drawRacing(); }));
+    }
     offs.push(db.watch(`chat/${me.codeId}`, (v) => {
       state.msgs = lastMessages(v, CHAT_SHOW);
       const res = nextChime(chimeState, state.msgs, me.uid);
       chimeState = res.state;
-      if (res.chime) ctx.chime();
+      if (res.chime && !inRace) ctx.chime();
       drawMsgs();
     }, { last: CHAT_SHOW }));
     offs.push(db.watch('room', async (v) => {
@@ -190,15 +236,21 @@ export function runLobby(root, ctx) {
       const prev = state.room;
       state.room = v;
       drawVote();
-      // コースが決まった: 「〇〇が選ばれました！」を3秒、観客の歓声と一緒に（2026-10-22 のユーザー依頼）。
-      // そのあと（M4-B では）coming soon。待合室に戻す・自分の READY を外す
+      // コースが決まった: 「〇〇が選ばれました！」を3秒、観客の歓声と一緒に（2026-10-22 のユーザー依頼）
       if (v?.phase === 'decided' && prev?.phase !== 'decided') ctx.cheer?.(3);
+      // 走る人は、そのあとレースへ（M4-C1）。終わったら待合室に戻す（READY は外れたまま）
       if (v?.phase === 'decided' && prev?.phase !== 'decided' && v.racers?.[me.uid]) {
         await new Promise((r) => setTimeout(r, 3000));
         if (finished) return;
-        await ctx.onDecided(v.course);
+        inRace = true;
+        const after = await Promise.resolve(ctx.onDecided(v, state.players)).catch(() => 'lobby');
+        inRace = false;
+        if (pending) return finish(pending);
+        if (after === 'back') return finish('back');
         if (finished) return;
-        await resetRoom(db, v.voteId).catch(() => {});
+        // QUIT で先に戻ったときは、部屋を戻さない（ほかの人はまだ走っている。終わった人の端末か、止まった部屋の見はりが戻す）
+        if (after !== 'quit') await resetRoom(db, v.voteId).catch(() => {});
+        drawAll();
       }
       // 投票が始まったら、自分の READY を外す（決まって待合室に戻ったとき、READY が残っていて、すぐ次の投票が始まらないように）
       if (v?.phase === 'voting' && prev?.phase !== 'voting') setReady(db, me.uid, false).catch(() => {});
@@ -212,6 +264,11 @@ export function runLobby(root, ctx) {
       if (on && wasOnline === false && !finished) rejoinLobby(db, me).catch(() => {});
       wasOnline = on;
     }));
-    enterLobby(db, me).catch(() => finish('recode'));
+    enterLobby(db, me)
+      .then(() => {
+        // 性能の点数（M4-C1）。待合室の行を書いてから
+        if (!finished && ctx.fps) stopPerf = startPerf(db, me.uid, { fps: ctx.fps }).stop;
+      })
+      .catch(() => finish('recode'));
   });
 }

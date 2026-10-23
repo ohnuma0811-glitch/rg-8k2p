@@ -1,4 +1,4 @@
-import { sampleAt, stageAt } from './track.js?v=5cdda0b';
+import { sampleAt, stageAt, span, between } from './track.js?v=564e67b';
 // Global City（2026-10-20）: 世界の都市のコースの、動かない決まり
 // 景色の群れ（ステージの番号の配列。自動の区間の景色は 'space' 'warp'）が、今見えるか
 // 今のステージとその前後だけ（遠くの都市は描かない。軽くするため）。宇宙・ワープの間は、その景色だけ
@@ -28,6 +28,28 @@ export function autoViewOf(kart) {
   if (a.id === 'space') return kart.y >= 150 || a.t > 2 ? 'space' : null;
   if (a.id === 'warp') return a.leg >= 2 ? 'warp' : null;
   return a.id;
+}
+
+// 上空カメラで見ている他の人の車（対戦）には auto が届かない。道の点の auto（宇宙・ワープ）から、いまの区間と進みを作る。
+// auto があるか、宇宙・ワープの区間の外なら、車をそのまま返す
+export function watchedKart(track, kart) {
+  if (kart.auto) return kart;
+  const id = track.samples[kart.seg]?.auto;
+  if (id !== 'space' && id !== 'warp') return kart;
+  const a = track.autos?.find((x) => x.id === id);
+  if (!a) return kart;
+  const s = track.samples[kart.seg].s;
+  let from = a.from;
+  for (let leg = 0; leg < a.legs.length; leg++) {
+    const to = a.legs[leg].to;
+    if (between(track, s, from, to) || leg === a.legs.length - 1) {
+      const len = span(track, from, to);
+      const t = len > 0 ? a.legs[leg].time * Math.min(1, span(track, from, s) / len) : 0;
+      return { ...kart, auto: { id, leg, t } };
+    }
+    from = to;
+  }
+  return kart;
 }
 
 // 平らな地面（世界にしいてある灰色の板）を見せるか（Global City）。宇宙・ワープの間と、海の底の区間（SD〜LIB）では見せない

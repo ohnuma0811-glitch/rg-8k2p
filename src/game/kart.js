@@ -1,8 +1,8 @@
 // 車の動き。アクセルは自動。ハンドル・ブレーキ・ドリフト・ダート・柵・ジャンプ台
 // 操作感はマリオカート64 にならう: 速いほどハンドルがゆるい、ドリフトは跳ねてから滑る、
 // ドリフトを続けると（反対に切って戻すとさらに早く）煙が 白 → 黄 → 赤 になり、赤で離すとミニターボ
-import { locate, respawnIndex, sampleAt } from './track.js?v=5cdda0b';
-import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=5cdda0b';
+import { locate, respawnIndex, sampleAt } from './track.js?v=564e67b';
+import { BUMP_LIMIT_KMH, TUMBLE_TIME, HUMP_TIME, meterKmh, crossed } from './hazards.js?v=564e67b';
 
 export const PHYS = {
   DIRT_FACTOR: 0.55, // ダートでの最高速の割合
@@ -344,7 +344,9 @@ export function stepKart(kart, ctl, track, params, dt) {
     // 路面のでこぼこで、最高速が少しずつ上下する（走っている場所で決まる。ダートは大きく）
     const bump = here.surface === 'road' ? PHYS.BUMP_ROAD : PHYS.BUMP_DIRT;
     maxV *= 1 + (bump * (Math.sin(here.s * 0.37) + Math.sin(here.s * 1.13 + 1.7))) / 2;
-    if (ctl.brake) {
+    if (ctl.stop) {
+      kart.speed = kart.speed > 0 ? Math.max(0, kart.speed - PHYS.BRAKE * dt) : Math.min(0, kart.speed + PHYS.BRAKE * dt); // 止まるだけ（対戦の QUIT の画面。M4-C1）
+    } else if (ctl.brake) {
       kart.speed = Math.max(-PHYS.REVERSE_MAX, kart.speed - PHYS.BRAKE * dt);
     } else if (kart.speed < maxV) {
       // 最高速に近いほど、加速が弱くなる

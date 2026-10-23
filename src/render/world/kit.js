@@ -1,6 +1,6 @@
 // Global City の部品（2026-10-20）: 箱・円柱・球・棒だけで作る。名所は src/render/world/<都市>.js
-import * as THREE from '../../../vendor/three.module.min.js?v=5cdda0b';
-import { markS, sampleAt } from '../../game/track.js?v=5cdda0b';
+import * as THREE from '../../../vendor/three.module.min.js?v=564e67b';
+import { markS, sampleAt } from '../../game/track.js?v=564e67b';
 
 // 名所の印（テストと確かめ用。見えない）
 export function landmark(group, name, x, y, z) {

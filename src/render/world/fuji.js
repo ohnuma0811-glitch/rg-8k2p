@@ -1,10 +1,10 @@
 // Global City の富士山のふもとと、新幹線と並走する道（2026-10-20）。富士山の山は地面（src/render/terrain.js の peaks）
-import * as THREE from '../../../vendor/three.module.min.js?v=5cdda0b';
-import { createBuilder } from '../town/builder.js?v=5cdda0b';
-import { locate } from '../../game/track.js?v=5cdda0b';
-import { terrainHeight } from '../terrain.js?v=5cdda0b';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=5cdda0b';
-import { landmark, worldAt, sOf, along, beside, pointAt, coneTree, viaduct } from './kit.js?v=5cdda0b';
+import * as THREE from '../../../vendor/three.module.min.js?v=564e67b';
+import { createBuilder } from '../town/builder.js?v=564e67b';
+import { locate } from '../../game/track.js?v=564e67b';
+import { terrainHeight } from '../terrain.js?v=564e67b';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=564e67b';
+import { landmark, worldAt, sOf, along, beside, pointAt, coneTree, viaduct } from './kit.js?v=564e67b';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const clear = (track, x, z, gap) => {
