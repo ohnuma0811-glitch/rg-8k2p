@@ -1853,3 +1853,20 @@ test('ワープの輪っか: 横にずれて入っても、急に真ん中へと
   assert.ok(maxStep < 0.5, `1コマで ${maxStep.toFixed(2)}m とんだ`);
   assert.ok(atR3 !== null && Math.abs(atR3) < 0.2, `3つ目の輪っかで真ん中（${atR3}）`);
 });
+
+test('World Cities: ゴールのあと3分、CPU の運転で周回の道を走り続けられる（無い道に入らず、止まらない。対戦 M4-C1）', async () => {
+  const { createCpu, cpuControl, cpuParams } = await import('../src/game/cpu.js');
+  const { kartParams } = await import('../src/game/stats.js');
+  const { createKart, stepKart } = await import('../src/game/kart.js');
+  for (const stats of [{ accel: 3, top: 3, handling: 3 }, { accel: 2, top: 5, handling: 1 }, { accel: 3, top: 2, handling: 5 }]) {
+    const kart = createKart(t, Math.round(t.marks.FIN) + 2, 0);
+    const cpu = createCpu(1, 0);
+    let time = 0;
+    for (let f = 0; f < 60 * 180; f++) {
+      stepKart(kart, cpuControl(cpu, kart, t, time), t, cpuParams(kartParams(stats), 1), 1 / 60);
+      time += 1 / 60;
+      assert.ok(!t.samples[kart.seg].void, '無い道に入った');
+      if (f > 600) assert.ok(kart.speed > 3, `止まった（${(f / 60).toFixed(1)}秒）`);
+    }
+  }
+});

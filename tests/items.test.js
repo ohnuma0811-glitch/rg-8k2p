@@ -301,8 +301,8 @@ test('M1: main.js の stepGame は、starGuard → 障害物 → 木の実（nut
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const at = (s) => src.indexOf(s);
-  assert.ok(at('starGuard(karts)') > 0 && at('starGuard(karts)') < at('cowContact(kart'));
-  assert.ok(at('nutContact(kart') > 0 && at('starRestore(karts') > at('nutContact(kart'));
+  assert.ok(at('starGuard(live)') > 0 && at('starGuard(live)') < at('cowContact(kart'));
+  assert.ok(at('nutContact(kart') > 0 && at('starRestore(live') > at('nutContact(kart'));
 });
 
 test('M6: キノコは、使った車自身のパラメーター（f.paramsOf）で加速する。CPU が自分の最高速の2倍にならない', () => {

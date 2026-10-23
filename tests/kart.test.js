@@ -671,3 +671,12 @@ test('吹き飛ぶスピンのあと、0.5秒止まってから走り出す（20
   run(OVAL, k, roadCtl, 0.2);
   assert.ok(k.speed > 0, '走り出す');
 });
+
+test('ctl.stop: 速さを 0 まで下げて止まる。ブレーキとちがってバックはしない（対戦の QUIT の画面。M4-C1）', () => {
+  const track = buildTrack(COURSE1);
+  const kart = createKart(track, track.startIndex);
+  const params = kartParams({ accel: 3, top: 3, handling: 3 });
+  kart.speed = 30;
+  for (let t = 0; t < 4; t += 1 / 60) stepKart(kart, { steer: 0, brake: false, drift: false, stop: true }, track, params, 1 / 60);
+  assert.equal(kart.speed, 0);
+});

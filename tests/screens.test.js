@@ -190,3 +190,24 @@ test('GAME CODE: 確かめている途中で BACK を押したら、あとで「
     delete globalThis.window;
   }
 });
+
+test('対戦の結果: 順位・顔・名前・タイム（ゴールしていなければ —）とコースの名前。ポイントは出さない（M4-C1）', async () => {
+  const { vsResultsHtml, VS_RESULTS_SEC } = await import('../src/screens.js');
+  assert.equal(VS_RESULTS_SEC, 5);
+  const html = vsResultsHtml([
+    { place: '1st', name: 'KYUGO', time: '1:20.25', face: { color: '#c11f0a', character: 'kyugo' }, me: true },
+    { place: '2nd', name: 'SOKI', time: '—', face: { color: '#1c3c88', character: 'soki' }, me: false },
+  ], 'Kampar Town');
+  assert.ok(html.includes('RESULTS') && html.includes('Kampar Town'));
+  assert.ok(/1st[\s\S]*KYUGO[\s\S]*1:20\.25[\s\S]*2nd[\s\S]*SOKI[\s\S]*—/.test(html));
+  assert.equal((html.match(/face-svg/g) ?? []).length, 2);
+  assert.equal((html.match(/class="me"/g) ?? []).length, 1);
+  assert.ok(!html.includes('class="points"'));
+});
+
+test('対戦の QUIT の画面を出している間は、自分の車はブレーキでその場に止まる（M4-C1）', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.ok(/const MENU_BRAKE = \{ steer: 0, brake: false, drift: false, stop: true \};/.test(src), '止まる操作');
+  assert.ok(src.includes('vs?.menuOpen ? MENU_BRAKE : controls'), 'QUIT の画面の間はブレーキ');
+});

@@ -383,6 +383,26 @@ export function standings(root, rows, raceLabel, final) {
   );
 }
 
+// 対戦の結果（M4-C1）: rows = [{ place, name, time（'1:20.25' か '—'）, face, me }]。ポイントは出さない。sec 秒で閉じる（ボタンなし）
+export const VS_RESULTS_SEC = 5;
+export function vsResultsHtml(rows, courseName) {
+  return `<h1 class="results-title">RESULTS<small>${courseName}</small></h1>
+    <table class="results">${rows
+      .map(
+        (r) => `<tr class="${r.me ? 'me' : ''}">
+          <td class="place">${r.place}</td>
+          <td><span class="who"><span class="face" style="background:${r.face.color}">${faceSvg(r.face.character)}</span>${r.name}</span></td>
+          <td class="time">${r.time}</td></tr>`,
+      )
+      .join('')}</table>`;
+}
+export async function vsResults(root, rows, courseName, sec = VS_RESULTS_SEC) {
+  show(root, vsResultsHtml(rows, courseName));
+  root.onclick = null;
+  await wait(sec);
+  hide(root);
+}
+
 // 結果の行を出す順（下の順位から）
 export function revealOrder(n) {
   return Array.from({ length: n }, (_, i) => n - 1 - i);

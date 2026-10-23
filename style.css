@@ -912,6 +912,7 @@ html, body {
 }
 #item-slot .icon svg { width: 68px; height: 68px; display: block; }
 #race-hud.solo-tt #item-slot { display: none; }
+#race-hud.vs #item-slot { display: none; } /* 対戦（M4-C1）はアイテムの箱を置かない */
 /* 稲妻が落ちた瞬間の白い光 */
 #item-flash {
   position: fixed;

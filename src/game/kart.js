@@ -344,7 +344,9 @@ export function stepKart(kart, ctl, track, params, dt) {
     // 路面のでこぼこで、最高速が少しずつ上下する（走っている場所で決まる。ダートは大きく）
     const bump = here.surface === 'road' ? PHYS.BUMP_ROAD : PHYS.BUMP_DIRT;
     maxV *= 1 + (bump * (Math.sin(here.s * 0.37) + Math.sin(here.s * 1.13 + 1.7))) / 2;
-    if (ctl.brake) {
+    if (ctl.stop) {
+      kart.speed = kart.speed > 0 ? Math.max(0, kart.speed - PHYS.BRAKE * dt) : Math.min(0, kart.speed + PHYS.BRAKE * dt); // 止まるだけ（対戦の QUIT の画面。M4-C1）
+    } else if (ctl.brake) {
       kart.speed = Math.max(-PHYS.REVERSE_MAX, kart.speed - PHYS.BRAKE * dt);
     } else if (kart.speed < maxV) {
       // 最高速に近いほど、加速が弱くなる
