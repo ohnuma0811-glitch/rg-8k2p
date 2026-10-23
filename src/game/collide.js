@@ -36,6 +36,11 @@ export function pushApart(karts, prev = new Set()) {
   return now;
 }
 
+// 見えない車（QUIT・切れた・来ない）は押し合いに入れない: その車だけ、auto つきのコピーにする（pushApart は auto の車を飛ばす。番号は同じ）
+export function solidKarts(karts, isHidden) {
+  return karts.map((kart, k) => (isHidden(k) ? { ...kart, auto: { id: 'hidden' } } : kart));
+}
+
 // k 番の車が、今回新しくぶつかった数（効果音用）。prev・now は pushApart が返す組（'a-b'）
 export function newBumps(prev, now, k) {
   let n = 0;

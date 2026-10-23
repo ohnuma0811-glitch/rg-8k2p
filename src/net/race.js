@@ -9,6 +9,7 @@ import { markPlayed, startRacing } from './room.js';
 export const RACE_KARTS = 5; // 5台に足りない分を CPU で
 export const START_DELAY_MS = 8000; // 決めてから GO! まで（コースの準備・スタート前のカメラ・3・2・1）
 export const KART_STALE_MS = 3000; // 書いた時刻がこれより古い人の車は、切れたとみなす
+export const END_DROP_MS = 15000; // 終わりの判断では、書いた時刻がこれより古い人だけを切れたとみなす（3秒の電波の乱れでレースを終わらせない）
 export const END_AFTER_FIRST_MS = 180000; // 人の1位のゴールから、これで終わり
 export const FINAL_COUNT = 10; // 最後の 10・9・…・1
 export const VS_LEVEL = 2; // 対戦の CPU の速さ
@@ -104,6 +105,12 @@ export function kartGone(msg, now, startAt) {
   return now - msg.t > KART_STALE_MS;
 }
 
+// 終わりの判断だけに使う「切れた」（END_DROP_MS）。車を隠す・順位・host の引き継ぎは kartGone（3秒）のまま
+export function kartDropped(msg, now, startAt) {
+  if (!msg || typeof msg.t !== 'number') return now > startAt + END_DROP_MS;
+  return now - msg.t > END_DROP_MS;
+}
+
 // 順位（車の id の順）: ゴールのタイム → 進んだ距離 → QUIT と切れた車（その中は進んだ距離の順）。同じなら並びの順
 export function vsRanking(lineup, goals, prog, gone) {
   const g = goals ?? {};
@@ -115,7 +122,7 @@ export function vsRanking(lineup, goals, prog, gone) {
 }
 
 // 終わり（どの端末も同じ計算）。humanIds は人の車の id。now はサーバーの時刻
-// over: 終わった。countdown: 3分の決まりの最後の10秒（10〜1）、ほかは null
+// gone は終わりの判断用の「切れた人」（kartDropped の 15秒）。over: 終わった。countdown: 3分の決まりの最後の10秒（10〜1）、ほかは null
 export function raceEnd({ startAt, firstGoalAt }, humanIds, goals, gone, now, runSec = RESULTS_DELAY) {
   const g = goals ?? {};
   const times = humanIds.map((id) => g[id]).filter((v) => typeof v === 'number');

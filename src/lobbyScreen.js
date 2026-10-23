@@ -228,7 +228,7 @@ export function runLobby(root, ctx) {
       state.msgs = lastMessages(v, CHAT_SHOW);
       const res = nextChime(chimeState, state.msgs, me.uid);
       chimeState = res.state;
-      if (res.chime) ctx.chime();
+      if (res.chime && !inRace) ctx.chime();
       drawMsgs();
     }, { last: CHAT_SHOW }));
     offs.push(db.watch('room', async (v) => {

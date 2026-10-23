@@ -207,6 +207,12 @@ test('上空カメラ: トンネル・宇宙・ワープの間は、いつもの
   assert.equal(spectateClose(track, { seg: 0, auto: { id: 'space' } }), true, '宇宙');
   assert.equal(spectateClose(track, { seg: 0, auto: { id: 'warp' } }), true, 'ワープ');
   assert.equal(spectateClose(track, { seg: 0, auto: { id: 'jump' } }), false, 'ほかの自動の区間は上空のまま');
+  // 他の人の車には kart.auto が届かない: 道の点の auto（宇宙・ワープ）で切りかえる（最後のレビューの I2）
+  const t2 = { samples: [{ tunnel: false }, { tunnel: false, auto: 'space' }, { tunnel: false, auto: 'warp' }, { tunnel: false, auto: 'jump' }] };
+  assert.equal(spectateClose(t2, { seg: 1 }), true, '道の上の宇宙');
+  assert.equal(spectateClose(t2, { seg: 2 }), true, '道の上のワープ');
+  assert.equal(spectateClose(t2, { seg: 3 }), false, 'ほかの自動の区間');
+  assert.equal(spectateClose(t2, { seg: 0 }), false);
   assert.equal(SPECTATE.SWITCH_WAIT, 0.5);
   let v = { chase: false, cand: false, wait: 0, flip: false };
   v = nextSpectateView(v, true, 0.3);

@@ -243,3 +243,94 @@ test('CPU の速さの直しのもと: まだ走っている人の進んだ距�
   assert.equal(rubberRef([100, 300]), 200);
   assert.ok(Number.isNaN(rubberRef([])));
 });
+
+// ---- M4-C1 最後のレビューの直し ----
+import { readFileSync } from 'node:fs';
+import { END_DROP_MS, kartDropped } from '../src/net/race.js';
+import { solidKarts, pushApart } from '../src/game/collide.js';
+import { watchedKart } from '../src/game/world.js';
+const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+
+test('I3: 終わりの判断は15秒の切断から。5秒止まった人ではレースを終わらせない、16秒なら終わる', () => {
+  assert.equal(END_DROP_MS, 15000);
+  const race = { startAt: 0, firstGoalAt: null };
+  const humans = ['u1', 'u2'];
+  const goals = { u1: 60 };
+  const now = (60 + RESULTS_DELAY) * 1000 + 1000;
+  const dropped = (age) => new Set(kartDropped({ t: 1000000 - age }, 1000000, 0) ? ['u2'] : []);
+  assert.equal(kartGone({ t: 1000000 - 5000 }, 1000000, 0), true, '5秒は hide / host の判断では切れている');
+  assert.equal(raceEnd(race, humans, goals, dropped(5000), now).over, false, '5秒では終わらない');
+  assert.equal(raceEnd(race, humans, goals, dropped(16000), now).over, true, '16秒で終わる');
+  assert.equal(kartDropped(null, 14000, 0), false, 'まだ来ていない車は15秒まで待つ');
+  assert.equal(kartDropped(null, 16000, 0), true);
+});
+
+test('I3: main.js は終わりの判断に dropped（15秒）を渡し、隠す・host は gone（3秒）のまま', () => {
+  const main = src('../src/main.js');
+  assert.ok(main.includes('kartDropped(msg, now, v.startAt)'));
+  assert.ok(/raceEnd\(\{ startAt: v\.startAt, firstGoalAt: v\.firstGoalAt \}, v\.humanIds, v\.goals, v\.dropped,/.test(main));
+});
+
+test('I1: 見えない車（QUIT・切れた・来ない）は押し合いに入らない', () => {
+  const mk = (x) => ({ x, z: 0, y: 0, speed: 20, respawn: 0, tumble: 0 });
+  const karts = [mk(0), mk(0.5), mk(50)];
+  const solid = solidKarts(karts, (k) => k === 1);
+  assert.notEqual(solid[1], karts[1], '見えない車はコピー');
+  assert.equal(solid[0], karts[0]);
+  pushApart(solid, new Set());
+  assert.equal(karts[0].x, 0, '自分は押されない');
+  assert.equal(karts[0].speed, 20, '遅くならない');
+  assert.equal(karts[1].x, 0.5, '見えない車は動かない');
+  const plain = [mk(0), mk(0.5)];
+  pushApart(plain, new Set());
+  assert.notEqual(plain[0].x, 0, '見える車どうしは押し合う');
+  assert.equal(solidKarts(karts, () => false)[1], karts[1]);
+  assert.ok(src('../src/main.js').includes('solidKarts(karts, (k) => vsHidden(g, k))'));
+});
+
+test('I2: 見ている他の人の車は、道の上の宇宙・ワープの区間から auto を作る', () => {
+  const track = {
+    samples: [{ s: 0 }, { s: 50, auto: 'space' }, { s: 90, auto: 'space' }, { s: 150, auto: 'warp' }],
+    length: 400,
+    autos: [
+      { id: 'space', from: 40, legs: [{ to: 80, time: 4 }, { to: 120, time: 6 }] },
+      { id: 'warp', from: 140, legs: [{ to: 160, time: 1 }, { to: 170, time: 1 }, { to: 190, time: 2 }] },
+    ],
+  };
+  const own = { seg: 1, auto: { id: 'jump' }, y: 0 };
+  assert.equal(watchedKart(track, own), own, 'auto があればそのまま');
+  const plain = { seg: 0, y: 0 };
+  assert.equal(watchedKart(track, plain), plain, '区間の外はそのまま');
+  const sp = watchedKart(track, { seg: 2, y: 200 });
+  assert.equal(sp.auto.id, 'space');
+  assert.equal(sp.auto.leg, 1);
+  const wp = watchedKart(track, { seg: 3, y: 0 });
+  assert.equal(wp.auto.id, 'warp');
+});
+
+test('I2: main.js は上空カメラで見る車の auto を道から作り、宇宙・ワープの景色もそれに合わせる', () => {
+  const main = src('../src/main.js');
+  assert.ok(main.includes('watchedKart(track, g.karts[fk])'));
+  assert.ok(!main.includes('const meAuto = !!g.karts[fk].auto;'));
+  assert.ok(main.includes('autoViewOf(me)') && main.includes('autoProgress(track, me)'));
+});
+
+test('I4: 上空カメラの間は、自分の速度・順位・周回・ボタンを消す（上位3人とマップは残す）', () => {
+  const main = src('../src/main.js');
+  const css = src('../style.css');
+  assert.ok(main.includes("document.body.classList.toggle('spectating', !!game?.vs?.spectating)"));
+  assert.ok(/!racing \|\| \(n === 'item' && !!game\?\.vs\) \|\| !!game\?\.vs\?\.spectating/.test(main));
+  assert.ok(/v\.spectating = true;[\s\S]{0,80}placeButtons\(\)/.test(main));
+  for (const id of ['#speedo', '#rank', '#lap-box']) assert.ok(css.includes(`body.spectating ${id}`), id);
+  assert.ok(!css.includes('body.spectating #top3') && !css.includes('body.spectating #side'));
+});
+
+test('M7: レース中の端末は、待合室のチャットの音を鳴らさない', () => {
+  assert.ok(src('../src/lobbyScreen.js').includes('if (res.chime && !inRace) ctx.chime();'));
+});
+
+test('M6: レースが終わったとき、QUIT の画面が開いていたら閉じて、約束を終わらせる', () => {
+  const main = src('../src/main.js');
+  assert.ok(main.includes('await closeVsMenu(g);'));
+  assert.ok(/async function closeVsMenu\(g\)[\s\S]{0,300}data-pick="close"/.test(main));
+});

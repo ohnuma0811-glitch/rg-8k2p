@@ -308,7 +308,8 @@ export function updateFinishCamera(camera, kart, t, dt) {
 export const SPECTATE = { HEIGHT: 40, RADIUS: 30, TURN: 0.15, FOV: 60, SWITCH_WAIT: 0.5 };
 // 上空カメラで見ている車が、トンネル・宇宙・ワープの間にいるか（その間は、いつものカメラにする。2026-10-23 のユーザー依頼）
 export function spectateClose(track, kart) {
-  return !!track.samples[kart.seg]?.tunnel || kart.auto?.id === 'space' || kart.auto?.id === 'warp';
+  const auto = track.samples[kart.seg]?.auto; // 他の人の車には kart.auto が届かないので、道の点の auto も見る
+  return !!track.samples[kart.seg]?.tunnel || kart.auto?.id === 'space' || kart.auto?.id === 'warp' || auto === 'space' || auto === 'warp';
 }
 // いつものカメラ（chase: true）と上空カメラの切りかえ。close が SWITCH_WAIT 秒続けて今とちがったら flip（その1回だけ true）
 export function nextSpectateView(view, close, dt) {

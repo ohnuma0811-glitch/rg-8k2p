@@ -7,7 +7,7 @@ import { createKart, stepKart, startDash, PHYS } from './game/kart.js';
 import { cowContact, cowPose, bumpWarning, busPose, busContact, busNear, boarPose, boarContact, boarWarning, createNuts, stepNuts, nutContact, dropFallen, NUT_FALL, MONKEY_HEIGHT, dinoPose, dinoPlace, dinoContact, mudContact, pierContact, slowContact, snowmanPose, snowmanContact, mogulContact, treeContact, oneWayContact, DINO_BLACK } from './game/hazards.js';
 import { kartParams } from './game/stats.js';
 import { createCpu, cpuControl, cpuParams, rubberFactor, cpuItem } from './game/cpu.js';
-import { pushApart, newBumps } from './game/collide.js';
+import { pushApart, newBumps, solidKarts } from './game/collide.js';
 import { squashContacts } from './game/items.js';
 import {
   LAPS, raceLaps, raceDistance, COUNTDOWN, COURSE_INTRO, RESULTS_DELAY, gridSlot, createRace, raceTick, countdownText, pressDash, takeDash, updateProgress, progress, ranking, ordinal, timeText, racePoints,
@@ -25,7 +25,7 @@ import { createMinimap } from './render/minimap.js';
 import { releaseTrack, tracksToRelease } from './render/release.js';
 import { grandstandSpot } from './render/trackMesh.js';
 import { createKartModel, syncKartModel, createNameTag, createCowModel, createCowLegs, setCowLegs, createTurtleModel, createBusModel, createBoarModel, createMonkeyModel, createNutModel, createNutShadow, createDinoModel, createSnowmanModel, createShinkansenModel, createTramModel, createTaxiModel, mergeStatic } from './render/models.js';
-import { shinkansenCars, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js';
+import { shinkansenCars, watchedKart, autoViewOf, viewStage, stageWindow, autoProgress, padRush, nightStage, groundShown, rushFovStep } from './game/world.js';
 import { GLOBAL_SCENERY } from './data/global.js';
 import { faceSvg } from './titleArt.js';
 import { createEffects } from './render/effects.js';
@@ -41,7 +41,7 @@ import { load, save } from './storage.js';
 import * as screens from './screens.js';
 import { gmScreen } from './gm.js';
 import { runLobby } from './lobbyScreen.js';
-import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
+import { createVsRace, slowestHuman, nextSpectate, nextHost, takeHost, waitRace, raceLineup, kartGone, kartDropped, vsRanking, raceEnd, writeGoal, setFirstGoal, quitRace, vsResultRows, rubberRef, VS_LEVEL, RACE_WAIT_MS } from './net/race.js';
 import { firstValue, createBuffer, pushSample, sampleAt, entryOf, packKart, dueToSend, INTERP_DELAY_MS } from './net/sync.js';
 import { resetRoom } from './net/room.js';
 import { defaultLang } from './chatPhrases.js';
@@ -186,7 +186,7 @@ function placeButtons() {
   for (const n of BUTTONS) {
     const b = layout[n];
     const el = els[n];
-    el.classList.toggle('hidden', controls.mode === 'keyboard' || !racing || (n === 'item' && !!game?.vs)); // 対戦（M4-C1）はアイテムなし
+    el.classList.toggle('hidden', controls.mode === 'keyboard' || !racing || (n === 'item' && !!game?.vs) || !!game?.vs?.spectating); // 上空カメラの間は自分のボタンを消す。対戦（M4-C1）はアイテムなし
     Object.assign(el.style, { left: `${b.x - b.r}px`, top: `${b.y - b.r}px`, width: `${b.r * 2}px`, height: `${b.r * 2}px` });
   }
   // 順位は ◀ ▶ ▼ の上（左下）
@@ -697,7 +697,7 @@ function stepGame(dt) {
   const before = g.contacts;
   // 対戦: 押されて動くのは、この端末が動かす車だけ（ほかの車は、届いた様子のまま。軽く押し合うだけ）
   const held = vs ? karts.map((kart) => ({ x: kart.x, z: kart.z, speed: kart.speed })) : null;
-  g.contacts = pushApart(karts, before);
+  g.contacts = pushApart(vs ? solidKarts(karts, (k) => vsHidden(g, k)) : karts, before); // 見えない車には当たらない
   if (vs) karts.forEach((kart, k) => {
     if (!mine(k)) Object.assign(kart, held[k]);
   });
@@ -898,7 +898,8 @@ function vsStateOf(g, db, data, lineup, myId, now) {
     latest: {}, // 車の id → 最後に届いた様子
     goals: {}, // 車の id → ゴールのタイム（秒）| 'quit'
     myGoals: {}, // この端末が書いたゴール（サーバーから返ってくる前でも数える）
-    gone: new Set(), // 切れた人の車の id
+    gone: new Set(), // 切れた人の車の id（3秒）
+    dropped: new Set(), // 終わりの判断用に切れた人の車の id（15秒）
     sentGoal: new Set(),
     lastSend: 0,
     countdown: null, // 最後の 10…1
@@ -946,11 +947,13 @@ function vsApplyRemote(g) {
   const v = g.vs;
   const now = v.now();
   const gone = new Set();
+  const dropped = new Set();
   g.karts.forEach((kart, k) => {
     if (v.owned.has(k)) return;
     const id = v.ids[k];
     const msg = v.latest[id];
     if (v.human[k] && kartGone(msg, now, v.startAt)) gone.add(id);
+    if (v.human[k] && kartDropped(msg, now, v.startAt)) dropped.add(id); // 終わりの判断用（15秒）
     const pose = sampleAt(v.bufs[k], now - INTERP_DELAY_MS);
     if (pose) Object.assign(kart, pose);
     const e = g.race.entries[k];
@@ -960,6 +963,7 @@ function vsApplyRemote(g) {
     e.time = e.finished ? goal : null;
   });
   v.gone = gone;
+  v.dropped = dropped;
 }
 
 // QUIT した人・切れた人の車（見せない。最下位あつかい）
@@ -1003,7 +1007,7 @@ function vsAfterStep(g, dt) {
     v.db.update('race/karts', out).catch(() => {});
   }
   // 終わり: 人が全員ゴール（最後の人のゴールの映像のあと）、または人の1位から3分
-  const end = raceEnd({ startAt: v.startAt, firstGoalAt: v.firstGoalAt }, v.humanIds, v.goals, v.gone, now);
+  const end = raceEnd({ startAt: v.startAt, firstGoalAt: v.firstGoalAt }, v.humanIds, v.goals, v.dropped, now);
   v.countdown = end.countdown;
   if (end.over && g.onEnd) {
     const f = g.onEnd;
@@ -1047,6 +1051,7 @@ function vsSpectate(g, dt) {
     fade(1).then(() => {
       if (game !== g || !g.onEnd) return; // そのあいだに終わった（結果の画面が明るくする）
       v.spectating = true;
+      placeButtons(); // 自分の操作ボタンを消す
       fade(0);
     });
   }
@@ -1088,6 +1093,13 @@ async function vsQuitMenu(g) {
   const end = g.onEnd;
   g.onEnd = null;
   end('quit');
+}
+
+// QUIT の画面が開いていたら閉じて、その約束（screens.message）を終わらせる。画面を出し直す前に、後始末が終わるのを待つ
+async function closeVsMenu(g) {
+  if (!g.vs.menuOpen) return;
+  menu.querySelector('[data-pick="close"]')?.click();
+  await new Promise((r) => setTimeout(r, 0));
 }
 
 // 対戦のレース。待合室の「選ばれました」の3秒のあとに呼ぶ。終わったら（QUIT も）戻る。待合室の画面は呼んだ所が戻す
@@ -1139,6 +1151,7 @@ async function runVsRace(db, me, room, players) {
     });
     commitPlay();
     showChomp(null);
+    await closeVsMenu(g); // QUIT の画面が開いたままなら閉じる
     if (why === 'quit') {
       quitRace(db, me.uid).catch(() => {}); // 最下位あつかい。自分の車は消える
       raceHud.classList.remove('show', 'vs');
@@ -1534,7 +1547,8 @@ function renderGame(alpha, dt) {
   const spec = g.vs?.spectating && g.vs.spectate.target != null ? g.vs.ids.indexOf(g.vs.spectate.target) : -1;
   const fk = spec >= 0 ? spec : g.me;
   // 自動の区間（Global City の大ジャンプ・宇宙・ワープ）の間は、自分の車だけを映す（2026-10-20 のユーザーの判断）
-  const meAuto = !!g.karts[fk].auto;
+  const watched = fk === g.me ? g.karts[fk] : watchedKart(track, g.karts[fk]); // 上空カメラで見る他の人の車は、道から宇宙・ワープを知る
+  const meAuto = !!watched.auto;
   if (meAuto) g.models.forEach((m, k) => { if (k !== fk) m.visible = false; });
   if (meAuto) views.forEach((v, k) => { if (k !== fk) v.hidden = true; }); // アイテムの見た目も、消した車の分は出さない
   // 浮いている車の下の影（全部のコースで。2026-10-17 のユーザー依頼）: 地面に。高いほど小さく、うすく
@@ -1560,7 +1574,7 @@ function renderGame(alpha, dt) {
   // トンネル（Kyugo Mountain）: 入ると一度まっくら、中は暗く、車の前にライト、画面のまわりを暗く
   g.tunnel = tunnelLight(g.tunnel, !!track.samples[g.karts[fk].seg]?.tunnel, dt);
   // 出口の 120m 手前から、霧を晴らす（外の景色が見える）
-  const me = g.karts[fk];
+  const me = watched;
   const toExit = track.samples[me.seg]?.tunnel && track.marks.TO !== undefined ? span(track, track.samples[me.seg].s, track.marks.TO) : Infinity;
   // Global City: 今のステージとその前後の景色だけ見せる。空・霧・光はステージごと（トンネルの暗さは、その上から）
   if (track.def.theme === 'world') {
@@ -1630,7 +1644,7 @@ function renderGame(alpha, dt) {
   else if (e.finished) updateFinishCamera(camera, mine, race.t - e.time, dt);
   else updateChaseCamera(camera, mine, g.params[g.me].topSpeed, dt);
   // Global City: 宇宙の景色はカメラについていく（いん石が流れ、地球が回る）
-  const ap = autoProgress(track, g.karts[fk]); // 宇宙・ワープの演出の進み
+  const ap = autoProgress(track, watched); // 宇宙・ワープの演出の進み
   for (const sg of track.mesh.userData.stageGroups ?? []) if (sg.userData.followCamera && sg.visible) (sg.userData.warp ? updateWarp : updateSpace)(sg, camera, race.t, ap);
   // ワープの最後: 正面の光の円の真ん中へ、自分の車が小さくなりながら吸いこまれる（2026-10-22 のユーザー依頼）
   const meModel = g.models[g.me];
@@ -1832,6 +1846,7 @@ startLoop({
       bumpWarnEl.style.top = `${((1 - overHead.y) / 2) * window.innerHeight}px`;
     }
     speedo.classList.toggle('hidden', !game);
+    document.body.classList.toggle('spectating', !!game?.vs?.spectating); // 上空カメラの間は、自分の速度・順位・周回を消す
     setText(hud, `${fps}fps  ${controls.mode}  v:${VERSION}${perf.text}`);
   },
 });

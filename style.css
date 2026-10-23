@@ -796,6 +796,12 @@ html, body {
 #speedo.hidden {
   display: none;
 }
+/* 対戦で自分がゴールして上空カメラになったら、自分の速度・順位・周回は消す（上位3人とマップは残す。場所は変えない） */
+body.spectating #speedo,
+body.spectating #rank,
+body.spectating #lap-box {
+  visibility: hidden;
+}
 #rotate {
   position: fixed;
   inset: 0;
