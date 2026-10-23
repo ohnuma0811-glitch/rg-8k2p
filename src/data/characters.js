@@ -22,9 +22,14 @@ export function colorOf(c) {
   return `#${c.body.toString(16).padStart(6, '0')}`;
 }
 
-// 大会の CPU: 自分以外の7人から、かぶらない n 人（大会の最初に1回。2026-10-22 のユーザーの判断）
-export function pickCpus(myId, n = 4, rand = Math.random) {
-  const rest = CHARS.filter((c) => c.id !== myId).map((c) => c.id);
+// 人の名前と同じ名前のキャラ（KYUGO → kyugo、SOKI → soki）。CPU はこのキャラを選ばない（まぎらわしい。2026-10-23 のユーザー依頼）
+export function namesake(names) {
+  return CHARS.filter((c) => names.some((n) => typeof n === 'string' && n === c.name.toUpperCase())).map((c) => c.id);
+}
+
+// 大会の CPU: 自分と avoid（namesake）以外から、かぶらない n 人（大会の最初に1回。2026-10-22 のユーザーの判断）
+export function pickCpus(myId, n = 4, rand = Math.random, avoid = []) {
+  const rest = CHARS.filter((c) => c.id !== myId && !avoid.includes(c.id)).map((c) => c.id);
   for (let i = rest.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [rest[i], rest[j]] = [rest[j], rest[i]];

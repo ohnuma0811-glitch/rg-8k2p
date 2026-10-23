@@ -2,9 +2,9 @@
 // /race = { id（投票の番号）, course, createdAt（作ったサーバーの時刻）, startAt（GO! のサーバーの時刻。全員の読みこみがそろってから決まる）, loaded: { uid: サーバーの時刻 }, racers: { uid: { name, char, slot } }, cpus: { c0: { char, slot } },
 //           host（CPU を動かす端末の uid）, scores: { uid: 点 }, firstGoalAt, karts: { 車: 様子 }, goals: { 車: 秒 | 'quit' } }
 // サーバー（db）は引数でもらう（storeOf の形。テストではメモリの作り物）
-import { CHARS, charOf, colorOf } from '../data/characters.js?v=cdf967c';
-import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js?v=cdf967c';
-import { markPlayed, startRacing, READY_WAIT_MS } from './room.js?v=cdf967c';
+import { CHARS, charOf, colorOf, namesake } from '../data/characters.js?v=669b1ac';
+import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js?v=669b1ac';
+import { markPlayed, startRacing, READY_WAIT_MS } from './room.js?v=669b1ac';
 
 export { READY_WAIT_MS };
 
@@ -57,7 +57,8 @@ export function makeRace(room, players, createdAt, rand = Math.random) {
     scores[p.uid] = scoreOf(p.score);
   });
   const cpus = {};
-  pickVsCpus(humans.map((p) => p.char), cpuCount(humans.length), rand).forEach((char, j) => {
+  // 人が選んだキャラと、人の名前と同じ名前のキャラ（KYUGO・SOKI）は、足りないときだけ
+  pickVsCpus([...humans.map((p) => p.char), ...namesake(humans.map((p) => p.name))], cpuCount(humans.length), rand).forEach((char, j) => {
     cpus[`c${j}`] = { char, slot: humans.length + j };
   });
   return { id: room.voteId, course: room.course, createdAt: typeof createdAt === 'number' ? Math.round(createdAt) : createdAt, racers, cpus, host: pickHost(scores), scores };
@@ -158,6 +159,12 @@ export function raceEnd({ startAt, firstGoalAt }, humanIds, goals, gone, now, ru
   const left = limitAt - now;
   const counting = limitAt <= doneAt && left > 0 && left <= FINAL_COUNT * 1000;
   return { over: now >= endAt, countdown: counting ? Math.ceil(left / 1000) : null };
+}
+
+// 人のだれかがゴールした（CPU・QUIT は数えない）。対戦では、遊べる時間をここまでで数える
+// （2026-10-23: ゴールが遅い人のほうが、遊べる時間が先になくなった。同じレースは、早い人のゴールにそろえる）
+export function humanGoaled(lineup, goals) {
+  return lineup.some((e) => e.human && typeof goals?.[e.id] === 'number');
 }
 
 // 最後の人がゴールした（2026-10-23 のユーザー依頼「〇〇 FINISH!」）: いま新しくゴールのタイムが入った人で、

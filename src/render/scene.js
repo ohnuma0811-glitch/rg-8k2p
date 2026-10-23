@@ -1,7 +1,7 @@
 // Three.js の場面: 空、地面、光、遠くの山、コース、追いかけるカメラ
-import * as THREE from '../../vendor/three.module.min.js?v=cdf967c';
-import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=cdf967c';
-import { ahead, behind } from '../game/track.js?v=cdf967c';
+import * as THREE from '../../vendor/three.module.min.js?v=669b1ac';
+import { buildTrackMesh, buildShowcase } from './trackMesh.js?v=669b1ac';
+import { ahead, behind } from '../game/track.js?v=669b1ac';
 
 const SKY = 0x8fd3ff;
 

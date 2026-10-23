@@ -51,18 +51,30 @@ export function entryOf(msg) {
   return { lap: msg.l ?? 0, rel: msg.r ?? null, checkpoint: !!msg.c };
 }
 
+// lags: 届いたときの遅れ（こちらの時刻 - at）。端末の時計のずれも入る
 export function createBuffer() {
-  return { list: [] };
+  return { list: [], lags: [] };
 }
 
 // 届いたデータを足す。時刻（at）が前のものより古い・同じなら捨てる
-export function pushSample(buf, msg) {
+export function pushSample(buf, msg, recvAt) {
   if (!msg || typeof msg.at !== 'number') return false;
   const last = buf.list[buf.list.length - 1];
   if (last && msg.at <= last.at) return false;
   buf.list.push(msg);
   if (buf.list.length > BUFFER_SIZE) buf.list.shift();
+  if (typeof recvAt === 'number') {
+    buf.lags.push(recvAt - msg.at);
+    if (buf.lags.length > BUFFER_SIZE) buf.lags.shift();
+  }
   return true;
+}
+
+// now（こちらの時刻）のときに見せる、送った端末の時刻。最近いちばん早く届いたときの遅れを引き、INTERP_DELAY_MS 遅らせる。
+// 端末の時計のずれ（サーバーの時刻への直しのずれ）が見せる時刻に入らない（2026-10-23: スマホの車が坂道でカクカクして埋まった）
+export function renderTime(buf, now) {
+  const lag = buf.lags?.length ? Math.min(...buf.lags) : 0;
+  return now - lag - INTERP_DELAY_MS;
 }
 
 function lerpAngle(a, b, t) {
@@ -81,6 +93,9 @@ export function sampleAt(buf, time) {
     const dt = Math.min(time - last.at, EXTRAP_MAX_MS) / 1000;
     p.x += Math.cos(p.move) * p.speed * dt;
     p.z += Math.sin(p.move) * p.speed * dt;
+    // 高さも、最後の2つの上り下りの速さで（坂道で地面に埋まらない）。ワープで飛んだ2つは使わない
+    const prev = L[L.length - 2];
+    if (prev && Math.hypot(last.x - prev.x, last.z - prev.z) <= SNAP_DIST) p.y += (((last.y ?? 0) - (prev.y ?? 0)) / (last.at - prev.at)) * 1000 * dt;
     return p;
   }
   let j = 1;

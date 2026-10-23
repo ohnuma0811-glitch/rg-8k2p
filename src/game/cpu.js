@@ -1,7 +1,7 @@
 // CPU の運転: 道の中心から少しずれた線を、少し先を見て走る。きついカーブの手前ではブレーキ、
 // 長いカーブではドリフト。プレイヤーより前の CPU は少し遅く、後ろの CPU は少し速く（離れすぎないように）
-import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=cdf967c';
-import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=cdf967c';
+import { locate, islandNear, span, ahead as aheadOf } from './track.js?v=669b1ac';
+import { cowPose, boarPose, busPose, dinoPose, BUS_SPEED, BUS_WIDTH, snowmanPose } from './hazards.js?v=669b1ac';
 
 export const CPU = {
   ITEM_SWAP_SPEED: 0.75, // アイテムで左右が入れ替わっている間の、最高速に対する上限

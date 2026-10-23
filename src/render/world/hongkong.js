@@ -1,10 +1,10 @@
 // Global City の香港（2026-10-20）: 夜。香港島の中環（セントラル）の高層ビル群の間を抜ける。ネオンの看板がギラギラ光る。北がわがビクトリア湾
-import * as THREE from '../../../vendor/three.module.min.js?v=cdf967c';
-import { createBuilder } from '../town/builder.js?v=cdf967c';
-import { locate } from '../../game/track.js?v=cdf967c';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=cdf967c';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=cdf967c';
-import { cityBlocks } from './tokyo.js?v=cdf967c';
+import * as THREE from '../../../vendor/three.module.min.js?v=669b1ac';
+import { createBuilder } from '../town/builder.js?v=669b1ac';
+import { locate } from '../../game/track.js?v=669b1ac';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=669b1ac';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, neonSign, trafficLight } from './kit.js?v=669b1ac';
+import { cityBlocks } from './tokyo.js?v=669b1ac';
 
 const NEON = [0xff2d6f, 0x2de0ff, 0xffe12d, 0x7dff3a, 0xff7a1a, 0xc23aff];
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
