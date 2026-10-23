@@ -130,7 +130,7 @@
     },
     "race": {
       ".read": "auth != null && (auth.uid === 'GM_UID_HERE' || (root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true))",
-      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (newData.exists() && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('room/phase').val() === 'decided' && newData.child('id').val() === root.child('room/voteId').val() && data.child('id').val() !== newData.child('id').val() && !newData.hasChild('goals') && !newData.hasChild('firstGoalAt') && !newData.hasChild('karts')))",
+      ".write": "auth != null && (auth.uid === 'GM_UID_HERE' || (newData.exists() && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('room/racers/' + auth.uid).val() === true && root.child('room/phase').val() === 'decided' && newData.child('id').val() === root.child('room/voteId').val() && data.child('id').val() !== newData.child('id').val() && !newData.hasChild('goals') && !newData.hasChild('firstGoalAt') && !newData.hasChild('karts')))",
       ".validate": "newData.hasChildren(['id', 'course', 'startAt', 'racers', 'host'])",
       "id": { ".validate": "newData.isString() && newData.val().length <= 40" },
       "course": { ".validate": "newData.isNumber() && (newData.val() === data.val() || newData.val() === root.child('room/course').val())" },
@@ -156,22 +156,44 @@
         ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && newData.val() === auth.uid && root.child('race/racers/' + auth.uid).exists() && (root.child('race/karts/' + data.val() + '/t').exists() ? now - root.child('race/karts/' + data.val() + '/t').val() > 3000 : now > root.child('race/startAt').val() + 3000)",
         ".validate": "newData.isString() && newData.parent().child('racers/' + newData.val()).exists()"
       },
-      "scores": { "$uid": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" } },
+      "scores": { "$uid": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100 && newData.parent().parent().child('racers/' + $uid).exists()" } },
       "firstGoalAt": {
-        ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('race/racers/' + auth.uid).exists() && (!data.exists() || newData.val() < data.val())",
-        ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('startAt').val()"
+        ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && root.child('race/racers/' + auth.uid).exists() && now >= root.child('race/startAt').val() + 20000 && newData.parent().child('goals/' + auth.uid).isNumber() && (!data.exists() || newData.val() < data.val())",
+        ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('startAt').val() + 20000 && newData.val() <= now"
       },
       "karts": {
         "$id": {
           ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && (($id === auth.uid && root.child('race/racers/' + auth.uid).exists()) || ($id.matches(/^c[0-7]$/) && root.child('race/cpus/' + $id).exists() && root.child('race/host').val() === auth.uid))",
           ".validate": "newData.hasChildren(['x', 'y', 'z', 'at', 't']) && newData.child('t').val() === now",
-          "$f": { ".validate": "newData.isNumber()" }
+          "x": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "y": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "z": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "h": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "m": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "v": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "i": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "l": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "c": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "r": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "p": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "dd": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "ds": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "hp": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "hu": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "tb": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "sp": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "sw": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "bo": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "ai": { ".validate": "newData.isNumber() && newData.val() >= -10000000 && newData.val() <= 10000000" },
+          "at": { ".validate": "newData.isNumber()" },
+          "t": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
         }
       },
       "goals": {
         "$id": {
           ".write": "auth != null && root.child('access/' + auth.uid + '/codeId').val() === root.child('secret/codeId').val() && root.child('secret/active').val() === true && !data.exists() && newData.exists() && (($id === auth.uid && root.child('race/racers/' + auth.uid).exists()) || ($id.matches(/^c[0-7]$/) && root.child('race/cpus/' + $id).exists() && root.child('race/host').val() === auth.uid))",
-          ".validate": "(newData.isNumber() && newData.val() > 0 && newData.val() < 3600) || newData.val() === 'quit'"
+          ".validate": "(newData.isNumber() && newData.val() >= 20 && newData.val() < 3600) || newData.val() === 'quit'"
         }
       },
       "$other": { ".validate": false }

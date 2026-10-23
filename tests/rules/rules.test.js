@@ -365,15 +365,47 @@ test('CPU の host の引き継ぎ: host の車がなくなった（QUIT）ら�
   await assertSucceeds(as('u2').ref('race/host').set('u2'));
 });
 
-test('最初のゴールの時刻は、走る人が、小さくする向きにだけ書ける', async () => {
+test('最初のゴールの時刻は、走る人が、ゴールしたあとに、小さくする向きにだけ書ける', async () => {
   await racing();
-  const startAt = (await as('u1').ref('race/startAt').once('value')).val();
+  const startAt = Date.now() - 100000;
+  await disabled((db) => db.ref('race/startAt').set(startAt));
+  await assertFails(as('u1').ref('race/firstGoalAt').set(startAt + 90000), '自分のゴールがまだない');
+  await assertSucceeds(as('u1').ref('race/goals/u1').set(90));
+  await assertFails(as('u1').ref('race/firstGoalAt').set(startAt + 5000), '20秒より前');
+  await assertFails(as('u1').ref('race/firstGoalAt').set(Date.now() + 60000), '未来');
   await assertSucceeds(as('u1').ref('race/firstGoalAt').set(startAt + 90000));
+  await assertSucceeds(as('u2').ref('race/goals/u2').set(80));
   await assertFails(as('u2').ref('race/firstGoalAt').set(startAt + 95000), '大きくする');
   await assertSucceeds(as('u2').ref('race/firstGoalAt').set(startAt + 85000));
-  await assertFails(as('u2').ref('race/firstGoalAt').set(startAt - 1), 'スタートより前');
   await member('u3', 'MOMO');
-  await assertFails(as('u3').ref('race/firstGoalAt').set(startAt + 1000), '走る人でない');
+  await assertFails(as('u3').ref('race/firstGoalAt').set(startAt + 86000), '走る人でない');
+});
+
+test('最初のゴールの時刻: スタートから20秒たつ前は書けない。ゴールと一緒の1回の update でも書ける', async () => {
+  await racing();
+  await assertFails(as('u1').ref().update({ 'race/goals/u1': 90, 'race/firstGoalAt': Date.now() }), 'まだスタートしていない');
+  const startAt = Date.now() - 100000;
+  await disabled((db) => db.ref('race/startAt').set(startAt));
+  await assertSucceeds(as('u1').ref().update({ 'race/goals/u1': 90, 'race/firstGoalAt': startAt + 90000 }));
+});
+
+test('/race を作るのは走る人。走る人でない端末は作れない', async () => {
+  await member('u1', 'KYUGO');
+  await member('u2', 'SOKI');
+  await member('u3', 'MOMO');
+  await disabled((db) => db.ref('room').set(decidedRoom()));
+  await assertFails(as('u3').ref('race').set(raceData()), '入っていても走る人でない');
+  await assertSucceeds(as('u2').ref('race').set(raceData()));
+});
+
+test('車の欄は決まったものだけ。数は大きすぎない。点数は走る人だけ。ゴールは20秒以上', async () => {
+  await racing();
+  await assertSucceeds(as('u1').ref('race/karts/u1').set(kartMsg({ dd: 1, ds: 2, hp: 0.1, r: 3.5, p: 100 })));
+  await assertFails(as('u1').ref('race/karts/u1').set(kartMsg({ zz: 1 })), '知らない欄');
+  await assertFails(as('u1').ref('race/karts/u1').set(kartMsg({ x: 1e9 })), '大きすぎる');
+  await assertFails(as('u1').ref('race/karts/u1').set(kartMsg({ x: -1e9 })), '小さすぎる');
+  await assertFails(as('u1').ref('race/scores/u9').set(50), '走る人でない点数');
+  await assertFails(as('u1').ref('race/goals/u1').set(5), '20秒より速いタイム');
 });
 
 test('走ったコース（/played）と、性能の点数（/lobby/{uid}/score）', async () => {
