@@ -1144,7 +1144,7 @@ async function runVsRace(db, me, room, players) {
       raceHud.classList.remove('show', 'vs');
       removeGame();
       placeButtons();
-      return;
+      return 'quit'; // 待合室は部屋を戻さない（ほかの人はまだ走っている）
     }
     // 結果へは SOLO と同じく、画面をだんだん暗く・曲をだんだん小さくしてから
     music.stop(FADE_SEC);
@@ -1310,7 +1310,7 @@ async function versusLobby(name, charId) {
       menu.onsubmit = null;
       menu.classList.remove('show');
       menu.innerHTML = '';
-      await runVsRace(db, { uid: netUid, name, char: charId }, room, players).catch((e) => {
+      const why = await runVsRace(db, { uid: netUid, name, char: charId }, room, players).catch((e) => {
         console.error(e);
         fade(0); // 暗いままにしない
         if (game) {
@@ -1330,7 +1330,7 @@ async function versusLobby(name, charId) {
       menu.innerHTML = keep;
       menu.onclick = oc;
       menu.onsubmit = os;
-      return 'lobby';
+      return why === 'quit' ? 'quit' : 'lobby';
     },
     chime: () => sfx.play('select'),
     // コースが決まったときの歓声（3秒）

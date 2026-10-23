@@ -248,7 +248,8 @@ export function runLobby(root, ctx) {
         if (pending) return finish(pending);
         if (after === 'back') return finish('back');
         if (finished) return;
-        await resetRoom(db, v.voteId).catch(() => {});
+        // QUIT で先に戻ったときは、部屋を戻さない（ほかの人はまだ走っている。終わった人の端末か、止まった部屋の見はりが戻す）
+        if (after !== 'quit') await resetRoom(db, v.voteId).catch(() => {});
         drawAll();
       }
       // 投票が始まったら、自分の READY を外す（決まって待合室に戻ったとき、READY が残っていて、すぐ次の投票が始まらないように）

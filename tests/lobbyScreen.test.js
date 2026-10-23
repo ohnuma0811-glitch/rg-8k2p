@@ -44,3 +44,12 @@ test('READY を押せるのは、部屋が lobby のときだけ（投票中・�
   assert.equal(canReady({ phase: 'lobby' }), true);
   for (const phase of ['voting', 'decided', 'racing']) assert.equal(canReady({ phase }), false, phase);
 });
+
+test('QUIT でレースから先に戻った人の待合室は、部屋を lobby に戻さない（ほかの人はまだ走っている。2026-10-23 の確かめ）', async () => {
+  const fs = await import('node:fs');
+  const lobby = fs.readFileSync(new URL('../src/lobbyScreen.js', import.meta.url), 'utf8');
+  const main = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.ok(lobby.includes("if (after !== 'quit') await resetRoom(db, v.voteId)"), '待合室: QUIT のときは戻さない');
+  assert.ok(main.includes("return why === 'quit' ? 'quit' : 'lobby';"), 'main: QUIT を待合室に伝える');
+  assert.ok(/if \(why === 'quit'\) \{[\s\S]{0,300}return 'quit';/.test(main), 'runVsRace: QUIT で quit を返す');
+});
