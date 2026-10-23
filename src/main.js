@@ -1312,7 +1312,6 @@ async function versusLobby(name, charId) {
     lang: load('chatLang', defaultLang(navigator.language)),
     setLang: (l) => save('chatLang', l),
     sound: { isOn: () => audio.isOn(), setOn: (on) => audio.setOn(on) },
-    controls: { mode: () => controls.mode, setMode: (m) => { controls.setMode(m); placeButtons(); } },
     courses: COURSES.map((c) => c.name),
     fps: () => fps, // 性能の点数（M4-C1）
     // コースが決まった（走る人だけ）: 対戦のレースへ。待合室の HTML と onclick/onsubmit を取っておいて、終わったら戻す

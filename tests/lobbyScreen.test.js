@@ -59,5 +59,6 @@ test('待合室に歯車のボタンはなく、音・操作・言語のボタ�
   const src = fs.readFileSync(new URL('../src/lobbyScreen.js', import.meta.url), 'utf8');
   assert.ok(!src.includes('data-act="gear"'));
   assert.ok(!src.includes('lb-gear hidden'));
-  assert.ok(src.includes('data-act="sound"') && src.includes('data-act="controls"') && src.includes('data-act="lang"'));
+  assert.ok(src.includes('data-act="sound"') && src.includes('data-act="lang"'));
+  assert.ok(!src.includes('data-act="controls"'), '操作の切りかえはない（SOLO と同じく自動。2026-10-23 のユーザー依頼）');
 });
