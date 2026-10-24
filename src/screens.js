@@ -1,8 +1,8 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=bb0e8ec';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=bb0e8ec';
-import { colorOf } from './data/characters.js?v=bb0e8ec';
-import { canFullscreen, toggleFullscreen } from './fullscreen.js?v=bb0e8ec';
+import { typeLetter, isValidName } from './names.js?v=5995320';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=5995320';
+import { colorOf } from './data/characters.js?v=5995320';
+import { canFullscreen, toggleFullscreen } from './fullscreen.js?v=5995320';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 

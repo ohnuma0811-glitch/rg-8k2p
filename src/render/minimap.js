@@ -1,6 +1,6 @@
 // 右上のコースマップ: コースの形と、だれがどこを走っているかを点で描く
 // 地図の座標: コースの x は右、z は下
-import { stageAt } from '../game/track.js?v=bb0e8ec';
+import { stageAt } from '../game/track.js?v=5995320';
 
 // コース全体を、幅 w・高さ h（余白 pad）の中に、縦横の比を変えずに収める。(x, z) → { x, y }（画面の点）
 export function mapFit(samples, w, h, pad) {

@@ -783,6 +783,21 @@ html, body {
 #countdown.waiting {
   white-space: nowrap;
   font-size: clamp(28px, 8vh, 64px);
+  text-align: center;
+  /* 上下にゆっくり動かす（止まった文字だと、画面が固まって見えた。2026-10-24 のユーザー依頼） */
+  animation: waiting-bob 1.6s ease-in-out infinite;
+}
+#countdown.waiting::after {
+  content: 'The race starts when everyone is ready!';
+  display: block;
+  margin-top: 0.4em;
+  font-size: 0.45em;
+  font-style: normal;
+  font-weight: 800;
+}
+@keyframes waiting-bob {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(-50%, calc(-50% - 10px)); }
 }
 /* Global City のステージが変わったときの、場所の大きな表示（2026-10-20 のユーザー依頼） */
 #stage-banner {

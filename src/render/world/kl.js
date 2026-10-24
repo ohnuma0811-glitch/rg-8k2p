@@ -1,11 +1,11 @@
 // Global City のクアラルンプール（2026-10-20）: 夕方から夜。南のプトラジャヤのピンクモスクの中の回廊を通り、
 // 北西のバトゥ洞窟（金色の像・虹色の階段）の中を通って、ペトロナスツインタワーの前でゴール
-import * as THREE from '../../../vendor/three.module.min.js?v=bb0e8ec';
-import { createBuilder } from '../town/builder.js?v=bb0e8ec';
-import { locate } from '../../game/track.js?v=bb0e8ec';
-import { GLOBAL_SCENERY } from '../../data/global.js?v=bb0e8ec';
-import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, buildRampDeck } from './kit.js?v=bb0e8ec';
-import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=bb0e8ec';
+import * as THREE from '../../../vendor/three.module.min.js?v=5995320';
+import { createBuilder } from '../town/builder.js?v=5995320';
+import { locate } from '../../game/track.js?v=5995320';
+import { GLOBAL_SCENERY } from '../../data/global.js?v=5995320';
+import { landmark, worldAt, sOf, along, beside, pointAt, tower, textSign, buildRampDeck } from './kit.js?v=5995320';
+import { TUNNEL_HEIGHT } from '../snow/tunnel.js?v=5995320';
 
 const ryAlong = (h) => Math.atan2(Math.cos(h), Math.sin(h));
 const PINK = 0xd9a0a8;

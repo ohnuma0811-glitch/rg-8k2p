@@ -1,11 +1,11 @@
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md）: 枠・ルーレット・ITEM ボタンの順番・使ったときの効果
 // ボタンを押したことは「出来事」（{ type, k, t, ... }）にして applyItemEvent で効かせる（M4 の対戦で、ほかの端末にも同じ出来事を送るため）
-import { useMushroom, STAR, startBlast, LIGHTNING, BLAST, SQUASH, squashKart } from './kart.js?v=bb0e8ec';
-import { rollItem } from './itemOdds.js?v=bb0e8ec';
-import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js?v=bb0e8ec';
-import { locate } from './track.js?v=bb0e8ec';
-import { KART_RADIUS } from './collide.js?v=bb0e8ec';
-import { launchShell, stepShells, guard, scatterBananas, advanceShell, SHELL } from './shells.js?v=bb0e8ec';
+import { useMushroom, STAR, startBlast, LIGHTNING, BLAST, SQUASH, squashKart } from './kart.js?v=5995320';
+import { rollItem } from './itemOdds.js?v=5995320';
+import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js?v=5995320';
+import { locate } from './track.js?v=5995320';
+import { KART_RADIUS } from './collide.js?v=5995320';
+import { launchShell, stepShells, guard, scatterBananas, advanceShell, SHELL } from './shells.js?v=5995320';
 
 export { SQUASH, squashKart };
 

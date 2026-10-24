@@ -1,11 +1,11 @@
 // カートと運転するキャラの形。キャラは丸い大きな頭の「ちびキャラ」を、形の部品を組み合わせて作る
 // （M1 は Kyugo と Soki。M3 で8キャラにする。髪型・色・耳などを変えれば同じ作りで足せる）
-import * as THREE from '../../vendor/three.module.min.js?v=bb0e8ec';
-import { PHYS, BLAST, SQUASH } from '../game/kart.js?v=bb0e8ec';
+import * as THREE from '../../vendor/three.module.min.js?v=5995320';
+import { PHYS, BLAST, SQUASH } from '../game/kart.js?v=5995320';
 const SQUASH_FLAT = 0.06; // ぺしゃんこの厚み（元の大きさに対して）
 const SQUASH_WIDE = 1.4; // ぺしゃんこで横に広がる倍率
-import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=bb0e8ec';
-import { animalHead, animalBody } from './animals.js?v=bb0e8ec';
+import { HUMP_TIME, TUMBLE_TIME } from '../game/hazards.js?v=5995320';
+import { animalHead, animalBody } from './animals.js?v=5995320';
 
 // バンプで転がる見た目（2026-10-15 のユーザー依頼）: はじめの TUMBLE_FLY 秒で大きく跳ねて2回転がり、そのあと目が回る（全部で TUMBLE_TIME 秒。2026-10-17 に2秒）
 const TUMBLE_FLY = 0.55;
