@@ -2,9 +2,9 @@
 // /race = { id（投票の番号）, course, createdAt（作ったサーバーの時刻）, startAt（GO! のサーバーの時刻。全員の読みこみがそろってから決まる）, loaded: { uid: サーバーの時刻 }, racers: { uid: { name, char, slot } }, cpus: { c0: { char, slot } },
 //           host（CPU を動かす端末の uid）, scores: { uid: 点 }, firstGoalAt, karts: { 車: 様子 }, goals: { 車: 秒 | 'quit' } }
 // サーバー（db）は引数でもらう（storeOf の形。テストではメモリの作り物）
-import { CHARS, charOf, colorOf, namesake } from '../data/characters.js?v=669b1ac';
-import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js?v=669b1ac';
-import { markPlayed, startRacing, READY_WAIT_MS } from './room.js?v=669b1ac';
+import { CHARS, charOf, colorOf, namesake } from '../data/characters.js?v=bb0e8ec';
+import { RESULTS_DELAY, ordinal, timeText } from '../game/race.js?v=bb0e8ec';
+import { markPlayed, startRacing, READY_WAIT_MS } from './room.js?v=bb0e8ec';
 
 export { READY_WAIT_MS };
 

@@ -1,11 +1,11 @@
 // アイテム（設計書 docs/superpowers/specs/2026-10-22-items-design.md）: 枠・ルーレット・ITEM ボタンの順番・使ったときの効果
 // ボタンを押したことは「出来事」（{ type, k, t, ... }）にして applyItemEvent で効かせる（M4 の対戦で、ほかの端末にも同じ出来事を送るため）
-import { useMushroom, STAR, startBlast, LIGHTNING, BLAST, SQUASH, squashKart } from './kart.js?v=669b1ac';
-import { rollItem } from './itemOdds.js?v=669b1ac';
-import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js?v=669b1ac';
-import { locate } from './track.js?v=669b1ac';
-import { KART_RADIUS } from './collide.js?v=669b1ac';
-import { launchShell, stepShells, guard, SHELL } from './shells.js?v=669b1ac';
+import { useMushroom, STAR, startBlast, LIGHTNING, BLAST, SQUASH, squashKart } from './kart.js?v=bb0e8ec';
+import { rollItem } from './itemOdds.js?v=bb0e8ec';
+import { createBoxes, stepBoxes, touchBoxes } from './itemBoxes.js?v=bb0e8ec';
+import { locate } from './track.js?v=bb0e8ec';
+import { KART_RADIUS } from './collide.js?v=bb0e8ec';
+import { launchShell, stepShells, guard, scatterBananas, advanceShell, SHELL } from './shells.js?v=bb0e8ec';
 
 export { SQUASH, squashKart };
 
@@ -34,8 +34,22 @@ export function initItems(kart) {
 }
 
 // レースのアイテムの世界（箱・置かれたバナナ・飛んでいる甲羅）
-export function createItemWorld(track) {
-  return { track, boxes: createBoxes(track), bananas: [], shells: [], pending: [], nextId: 1, flash: 0, thunder: 0 };
+// owns(k): この端末が動かす車か（対戦。SOLO は全部）。idFor(k): 車 k の新しい出来事の番号（対戦。null なら数の番号）
+// hidden(k): 見えない車か（対戦の QUIT・切れた車。当たりを見ない。SOLO はなし）
+export function createItemWorld(track, { owns = () => true, idFor = null, hidden = () => false } = {}) {
+  return { track, boxes: createBoxes(track), bananas: [], shells: [], pending: [], nextId: 1, flash: 0, thunder: 0, owns, idFor, hidden };
+}
+
+// その番号の甲羅・バナナを消す（対戦の「当たった」。なければ何もしない）
+export function removeItem(world, id) {
+  world.shells = world.shells.filter((s) => s.id !== id);
+  world.bananas = world.bananas.filter((b) => b.id !== id);
+  world.pending = world.pending.filter((q) => q.id !== id);
+}
+
+// 出来事の「出した所」（ほかの端末から届いたとき）。なければその車の今の様子
+function fromKart(kart, from) {
+  return from ? { ...kart, x: from.x, y: from.y, z: from.z, heading: from.h, seg: from.i, airborne: false } : kart;
 }
 
 // 新しいアイテムを取れるか（緑の甲羅を回している・バナナをぶら下げているのは、空として扱う）
@@ -61,7 +75,7 @@ export function swapSteer(kart, time) {
 // 効いた車に稲妻が見える。画面は白く光る。Star の車と自動の区間の車には効かない。すでに小さい車は、10秒をやり直してスピンする
 function strikeLightning(world, karts, k) {
   karts.forEach((o, j) => {
-    if (j === k || o.star > 0 || o.auto) return;
+    if (j === k || !world.owns(j) || o.star > 0 || o.auto) return;
     o.smallTime = ITEM.LIGHTNING_TIME;
     startBlast(o, world.track); // スピン中ならそのまま（false）
     o.zap = ITEM.ZAP_SHOW;
@@ -86,11 +100,11 @@ function stepSmall(kart, dt) {
 }
 
 // バナナを置く（車の 3m 後ろの地面）。コース全体で10個まで
-function dropBanana(world, kart, k) {
+function dropBanana(world, kart, k, id = world.nextId++) {
   const x = kart.x - Math.cos(kart.heading) * ITEM.BANANA_DROP;
   const z = kart.z - Math.sin(kart.heading) * ITEM.BANANA_DROP;
   const loc = locate(world.track, x, z, kart.seg, 40, kart.y ?? null);
-  world.bananas.push({ id: world.nextId++, owner: k, x, z, y: loc.ground ?? kart.y, age: 0, h: kart.heading }); // h: 置いた車の向き（見た目で、道に対して横向きに置く）
+  world.bananas.push({ id, owner: k, x, z, y: loc.ground ?? kart.y, age: 0, h: kart.heading }); // h: 置いた車の向き（見た目で、道に対して横向きに置く）
   if (world.bananas.length > ITEM.BANANA_MAX) world.bananas.shift();
 }
 
@@ -100,22 +114,23 @@ function stepBananas(world, karts, dt, out) {
     b.age += dt;
     for (let j = 0; j < karts.length; j++) {
       const o = karts[j];
-      if (o.auto || o.airborne || o.respawn > 0) continue;
+      if (o.auto || o.airborne || o.respawn > 0 || world.hidden?.(j)) continue;
       if (j === b.owner && b.age < ITEM.BANANA_OWNER_SAFE) continue;
       if (Math.abs((o.y ?? 0) - b.y) > 1.5 || Math.hypot(o.x - b.x, o.z - b.z) > ITEM.BANANA_R + KART_RADIUS) continue;
       world.bananas.splice(world.bananas.indexOf(b), 1);
+      if (!world.owns(j)) break; // ほかの端末の車: 消えるだけ（当たったかはその車の端末が決める）
       if (o.star > 0) {
-        out.push({ type: 'squash', k: j });
+        out.push({ type: 'squash', k: j, id: b.id });
         break;
       }
       const by = guard(o, Math.atan2(b.z - o.z, b.x - o.x), false);
       if (by) {
-        out.push({ type: 'blocked', k: j, by });
+        out.push({ type: 'blocked', k: j, by, id: b.id });
         break;
       }
       swapSteer(o, ITEM.BANANA_SWAP);
       o.bananaHits = (o.bananaHits || 0) + 1;
-      out.push({ type: 'banana', k: j });
+      out.push({ type: 'banana', k: j, id: b.id });
       break;
     }
   }
@@ -141,6 +156,7 @@ export function itemPress(world, karts, k, f) {
   else if (kart.roulette > 0) ev = { type: 'stop', k, t: f.t };
   else if (kart.held === 'mushroom' && kart.mushroom > 0) return null; // キノコの加速が効いている間は、次のキノコを使えない（連打できない。2026-10-22 のユーザー依頼）
   else if (kart.held) ev = { type: 'use', k, t: f.t, item: kart.held, target: kart.held === 'shell' ? targetOf(f.ranks, k, f.finished) : null };
+  if (ev && ev.type !== 'stop' && world.idFor) ev.id = world.idFor(k);
   if (ev) applyItemEvent(world, karts, ev, f);
   return ev;
 }
@@ -152,9 +168,9 @@ function onJump(world, kart) {
 }
 
 // 甲羅を出す。ジャンプ台で投げたときは消さずにとっておき、着地したら出す（2026-10-22 のユーザー依頼）
-function fireShell(world, kart, k, kind, target, topSpeed) {
-  if (onJump(world, kart)) world.pending.push({ k, kind, target, topSpeed });
-  else launchShell(world, kart, k, kind, target, topSpeed);
+function fireShell(world, kart, k, kind, target, topSpeed, id) {
+  if (onJump(world, kart)) world.pending.push({ k, kind, target, topSpeed, id });
+  else launchShell(world, kart, k, kind, target, topSpeed, id);
 }
 
 // とっておいた甲羅: 投げた車が着地したら出す（自動の区間・コースに戻る途中は待つ）
@@ -162,7 +178,7 @@ function firePending(world, karts) {
   world.pending = world.pending.filter((q) => {
     const kart = karts[q.k];
     if (kart.auto || kart.respawn > 0 || onJump(world, kart)) return true;
-    launchShell(world, kart, q.k, q.kind, q.target, q.topSpeed);
+    launchShell(world, kart, q.k, q.kind, q.target, q.topSpeed, q.id);
     return false;
   });
 }
@@ -176,15 +192,32 @@ function takeItem(kart, item) {
 
 // 出来事を効かせる（どの端末でも、同じ出来事から同じように動く）
 export function applyItemEvent(world, karts, ev, f) {
+  if (ev.type === 'hit') return removeItem(world, ev.id);
+  if (ev.type === 'orbit') {
+    const o = karts[ev.o];
+    if (!world.owns(ev.o) || !o?.orbit) return;
+    const n = o.orbit.indexOf(ev.s);
+    if (n >= 0) o.orbit.splice(n, 1);
+    return;
+  }
+  if (ev.type === 'scatter') {
+    const f0 = ev.from;
+    if (!f0) return; // おかしな出来事（届いたものが壊れていても、レースを止めない）
+    scatterBananas(world, { x: f0.x, y: f0.y, z: f0.z, heading: f0.h, seg: f0.i, trailing: ev.c }, ev.k, ev.id);
+    return;
+  }
   const kart = karts[ev.k];
+  if (!kart) return; // ない車の出来事は何もしない
+  const src = fromKart(kart, ev.from); // ほかの端末から届いたときは、出した所から
+  const top = ev.from?.v ?? (f.paramsOf?.(ev.k) ?? f.params).topSpeed;
   if (ev.type === 'drop') {
     kart.trailing = Math.max(0, kart.trailing - 1); // 残りの数（0 になったら、ぶら下げていない）
-    dropBanana(world, kart, ev.k);
+    dropBanana(world, src, ev.k, ev.id ?? world.nextId++);
     return;
   }
   if (ev.type === 'throw') {
     kart.orbit.shift();
-    fireShell(world, kart, ev.k, 'green', null, (f.paramsOf?.(ev.k) ?? f.params).topSpeed);
+    fireShell(world, src, ev.k, 'green', null, top, ev.id ?? world.nextId++);
     kart.thrown = (kart.thrown || 0) + 1;
     return;
   }
@@ -202,7 +235,7 @@ export function applyItemEvent(world, karts, ev, f) {
       kart.orbit = [0, 1, 2];
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'shell') {
-      fireShell(world, kart, ev.k, 'red', ev.target, (f.paramsOf?.(ev.k) ?? f.params).topSpeed);
+      fireShell(world, src, ev.k, 'red', ev.target, top, ev.id ?? world.nextId++);
       kart.thrown = (kart.thrown || 0) + 1;
     } else if (ev.item === 'lightning') strikeLightning(world, karts, ev.k);
   }
@@ -228,7 +261,7 @@ export function stepItems(world, karts, f, dt) {
       }
     }
     if (kart.auto || kart.respawn > 0 || f.finished[k]) return;
-    if (touchBoxes(world.boxes, kart) && canTake(kart)) {
+    if (touchBoxes(world.boxes, kart) && world.owns(k) && canTake(kart)) {
       kart.rouletteItem = rollItem(f.ranks.indexOf(k) + 1, karts.length, k !== f.me, f.rand());
       kart.roulette = ITEM.ROULETTE;
       kart.boxes = (kart.boxes || 0) + 1;
@@ -238,25 +271,28 @@ export function stepItems(world, karts, f, dt) {
   stepBananas(world, karts, dt, out);
   out.push(...stepShells(world, karts, dt));
   // Star の車がほかの車にぶつかったら、相手が吹き飛ぶ（車どうしの押し合いの前に見る）
+  const hidden = world.hidden ?? (() => false); // 見えない車（QUIT・切れた）は、Star・回る甲羅があっても当たらない
   karts.forEach((a, i) => {
-    if (!(a.star > 0) || a.auto) return;
+    if (!(a.star > 0) || a.auto || hidden(i)) return;
     karts.forEach((b, j) => {
-      if (j === i || b.star > 0 || b.auto || b.blast > 0 || b.respawn > 0) return;
+      if (j === i || !world.owns(j) || hidden(j) || b.star > 0 || b.auto || b.blast > 0 || b.respawn > 0) return;
       if (Math.abs((a.y ?? 0) - (b.y ?? 0)) > 1.5 || Math.hypot(a.x - b.x, a.z - b.z) >= KART_RADIUS * 2 + 0.2) return;
       if (startBlast(b, world.track)) out.push({ type: 'blast', k: j, by: i });
     });
   });
   // 回っている緑の甲羅に、ほかの車がふれたら、甲羅に当たったのと同じ（吹き飛ぶ。甲羅は1つ消える。2026-10-22 のユーザー依頼）
   karts.forEach((a, i) => {
-    if (!a.orbit?.length || a.auto || a.respawn > 0) return;
+    if (!a.orbit?.length || a.auto || a.respawn > 0 || hidden(i)) return;
     for (let n = a.orbit.length - 1; n >= 0; n--) {
       const ang = a.orbitAngle + (a.orbit[n] * 2 * Math.PI) / 3;
       const sx = a.x + Math.cos(ang) * ITEM.ORBIT_R;
       const sz = a.z + Math.sin(ang) * ITEM.ORBIT_R;
-      const j = karts.findIndex((b, jj) => jj !== i && !b.auto && !(b.respawn > 0) && !b.swallowed && !(b.blast > 0) && Math.abs((a.y ?? 0) - (b.y ?? 0)) < 2 && Math.hypot(b.x - sx, b.z - sz) < KART_RADIUS + SHELL.R);
+      const j = karts.findIndex((b, jj) => jj !== i && world.owns(jj) && !hidden(jj) && !b.auto && !(b.respawn > 0) && !b.swallowed && !(b.blast > 0) && Math.abs((a.y ?? 0) - (b.y ?? 0)) < 2 && Math.hypot(b.x - sx, b.z - sz) < KART_RADIUS + SHELL.R);
       if (j < 0) continue;
       const b = karts[j];
+      const sIdx = a.orbit[n];
       a.orbit.splice(n, 1);
+      out.push({ type: 'orbitHit', k: j, o: i, s: sIdx });
       if (b.star > 0) {
         out.push({ type: 'starBlock', k: j });
         continue;
@@ -267,6 +303,18 @@ export function stepItems(world, karts, f, dt) {
     }
   });
   return out;
+}
+
+// 対戦: ほかの端末から届いた出来事を、送った順（at）に効かせる。甲羅は lagOf(ev) 秒だけ先へ進める（M4-C2）
+// 進める間に、この端末の車に当たったもの（stepItems の当たりと同じ形・番号付き）を返す。itemFrame の hits に足して送る
+export function applyRemoteItems(world, karts, queue, f, lagOf) {
+  const hits = [];
+  for (const ev of [...queue].sort((a, b) => a.at - b.at)) {
+    applyItemEvent(world, karts, { ...ev, t: f.t }, f);
+    const s = world.shells.find((sh) => sh.id === ev.id);
+    if (s) hits.push(...advanceShell(world, s, karts, lagOf(ev)));
+  }
+  return hits;
 }
 
 // 1フレームのアイテム: ボタン（自分は f.press、CPU は f.cpuPress(k)）→ 箱・ルーレット・当たり
@@ -297,13 +345,13 @@ export function starRestore(karts, saved) {
 }
 
 // 今ぶつかっている組（pushApart が返す 'a-b'）のうち、小さい車が大きい車にぶつかったものをぺしゃんこにする。つぶれた車の番号を返す
-export function squashContacts(karts, contacts) {
+export function squashContacts(karts, contacts, owns = () => true) {
   const out = [];
   const big = (k) => !(karts[k].smallTime > 0);
   for (const key of contacts) {
     const [a, b] = key.split('-').map(Number);
-    if (big(a) && squashKart(karts[b])) out.push(b);
-    else if (big(b) && squashKart(karts[a])) out.push(a);
+    if (big(a) && owns(b) && squashKart(karts[b])) out.push(b);
+    else if (big(b) && owns(a) && squashKart(karts[a])) out.push(a);
   }
   return out;
 }

@@ -1,6 +1,6 @@
 // コースの内側の左半分は水（Westlake の湖。2026-10-15 のユーザー依頼）。道と建物のまわりはあけて、岸を残す
-import * as THREE from '../../../vendor/three.module.min.js?v=669b1ac';
-import { insideLoop } from './jungle.js?v=669b1ac';
+import * as THREE from '../../../vendor/three.module.min.js?v=bb0e8ec';
+import { insideLoop } from './jungle.js?v=bb0e8ec';
 
 export const WATER_CELL = 6; // 水のマスの大きさ（m）
 const SHORE = 4; // 道のふち（柵）から、岸としてあける幅（m）

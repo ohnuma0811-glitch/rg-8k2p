@@ -1,8 +1,8 @@
 // 飛んでいる甲羅（設計書 docs/superpowers/specs/2026-10-22-items-design.md の 4.3・4.4・8・9章）と守り
 // 赤: 道にそって相手を追いかける。緑: まっすぐ飛び、柵ではね返る。障害物はすり抜け、ジャンプ台・地面のない所・自動の区間・無い道で消える
-import { locate, ahead } from './track.js?v=669b1ac';
-import { KART_RADIUS } from './collide.js?v=669b1ac';
-import { startBlast } from './kart.js?v=669b1ac';
+import { locate, ahead } from './track.js?v=bb0e8ec';
+import { KART_RADIUS } from './collide.js?v=bb0e8ec';
+import { startBlast } from './kart.js?v=bb0e8ec';
 
 export const SHELL = {
   SPEED: 2, // 使ったキャラの最高速の何倍
@@ -40,11 +40,11 @@ export function guard(kart, ang, shell) {
 }
 
 // 甲羅を出す（車の少し前から）。target は赤がねらう車の番号（いなければ null）
-export function launchShell(world, kart, k, kind, target, topSpeed) {
+export function launchShell(world, kart, k, kind, target, topSpeed, id = world.nextId++) {
   const d = KART_RADIUS + SHELL.R + 0.6;
   const p = world.track.samples[kart.seg];
   const lat = -(kart.x - p.x) * Math.sin(p.h) + (kart.z - p.z) * Math.cos(p.h);
-  const s = { id: world.nextId++, kind, owner: k, target, x: kart.x + Math.cos(kart.heading) * d, z: kart.z + Math.sin(kart.heading) * d, y: kart.y ?? 0, heading: kart.heading, speed: topSpeed * SHELL.SPEED, seg: kart.seg, lat, carry: 0, age: 0, bounces: 0, done: false, tested: new Set() };
+  const s = { id, kind, owner: k, target, x: kart.x + Math.cos(kart.heading) * d, z: kart.z + Math.sin(kart.heading) * d, y: kart.y ?? 0, heading: kart.heading, speed: topSpeed * SHELL.SPEED, seg: kart.seg, lat, carry: 0, age: 0, bounces: 0, done: false, tested: new Set() };
   world.shells.push(s);
   return s;
 }
@@ -127,7 +127,7 @@ function stepStraight(world, s, dt) {
 
 // ぶら下げていたバナナ（kart.trailing 個）を、ぶら下げていた所のまわりに散らばらせる。乱数は使わない（どの端末でも同じ所に）
 // 柵の外に出たものは、道の中へもどす
-function scatterBananas(world, kart, k) {
+export function scatterBananas(world, kart, k, id = null) {
   const n = kart.trailing;
   kart.trailing = 0;
   const cx = kart.x - Math.cos(kart.heading) * TRAIL_BACK;
@@ -143,13 +143,17 @@ function scatterBananas(world, kart, k) {
       x -= -Math.sin(loc.heading) * ex;
       z -= Math.cos(loc.heading) * ex;
     }
-    world.bananas.push({ id: world.nextId++, owner: k, x, z, y: loc.ground ?? kart.y ?? 0, age: 0, h: a });
+    world.bananas.push({ id: id ? `${id}-${m}` : world.nextId++, owner: k, x, z, y: loc.ground ?? kart.y ?? 0, age: 0, h: a });
     if (world.bananas.length > BANANA_MAX) world.bananas.shift();
   }
 }
 
 // 車・置かれたバナナとの当たり。回る甲羅・ぶら下げたバナナのある車は、その所で1回だけ守りを見る
-function hitShell(world, s, karts, out) {
+// 自分の車を先に見る（同じフレームでほかの端末の車にもふれていたら、自分の車に当たる）。見えない車（QUIT・切れた。world.hidden）は見ない
+// mineOnly: 遅れて届いた甲羅を先へ進めている間（advanceShell）。ほかの端末の車では消えない
+function hitShell(world, s, karts, out, mineOnly = false) {
+  const owns = world.owns ?? (() => true);
+  const hidden = world.hidden ?? (() => false);
   for (const b of world.bananas) {
     if (Math.abs(b.y - s.y) < 2 && Math.hypot(b.x - s.x, b.z - s.z) < BANANA_R + SHELL.R) {
       world.bananas.splice(world.bananas.indexOf(b), 1);
@@ -157,27 +161,60 @@ function hitShell(world, s, karts, out) {
       return;
     }
   }
-  for (let j = 0; j < karts.length; j++) {
+  const order = karts.map((o, j) => j).sort((a, b) => owns(b) - owns(a)); // 自分の車が先（SOLO は今の順のまま）
+  for (const j of order) {
     const o = karts[j];
+    if (hidden(j) || (mineOnly && !owns(j))) continue;
     if (j === s.owner && s.age < SHELL.OWNER_SAFE) continue;
     if (o.auto || o.respawn > 0 || o.swallowed || Math.abs((o.y ?? 0) - s.y) > 2) continue;
     const d = Math.hypot(o.x - s.x, o.z - s.z);
+    if (!owns(j)) {
+      // ほかの端末の車: ふれたら、この画面では消すだけ（当たったかはその車の端末が決める。設計書 2.4）
+      if (d < KART_RADIUS + SHELL.R) {
+        s.done = true;
+        return;
+      }
+      continue;
+    }
     if (d < ORBIT_R + SHELL.R && ((o.orbit?.length ?? 0) > 0 || o.trailing) && !s.tested.has(j)) {
       s.tested.add(j);
       const by = guard(o, Math.atan2(s.z - o.z, s.x - o.x), true);
       if (by) {
         s.done = true;
-        if (by === 'trail') scatterBananas(world, o, j); // スピンしない。残りのバナナはその場に散らばる
-        out.push({ type: 'blocked', k: j, by });
+        const ev = { type: 'blocked', k: j, by, id: s.id };
+        if (by === 'trail') {
+          // スピンしない。残りのバナナはその場に散らばる
+          const sid = world.idFor ? world.idFor(j) : null;
+          const c = o.trailing;
+          ev.scatter = { id: sid, c, from: { x: o.x, y: o.y ?? 0, z: o.z, h: o.heading, i: o.seg } };
+          scatterBananas(world, o, j, sid);
+        }
+        out.push(ev);
         return;
       }
     }
     if (d >= KART_RADIUS + SHELL.R) continue;
     s.done = true;
-    if (o.star > 0) out.push({ type: 'starBlock', k: j });
-    else if (startBlast(o, world.track)) out.push({ type: 'blast', k: j, by: s.owner });
+    if (o.star > 0) out.push({ type: 'starBlock', k: j, id: s.id });
+    else if (startBlast(o, world.track)) out.push({ type: 'blast', k: j, by: s.owner, id: s.id });
     return;
   }
+}
+
+// 甲羅を sec 秒だけ進める（対戦で、遅れて届いた甲羅を、本当にいる所まで）
+// 進める間も、この端末の車との当たりは見る（近くの車を飛びこえない）。当たり（stepShells と同じ形・番号付き）を返す
+export function advanceShell(world, s, karts, sec) {
+  const out = [];
+  const step = 1 / 60;
+  for (let left = sec; left > 1e-9 && !s.done; left -= step) {
+    const dt = Math.min(step, left);
+    s.age += dt;
+    const tgt = s.kind === 'red' && s.target !== null ? karts[s.target] : null;
+    if (tgt) stepRed(world, s, karts, dt);
+    else stepStraight(world, s, dt);
+    if (!s.done) hitShell(world, s, karts, out, true);
+  }
+  return out;
 }
 
 // 毎フレーム: 動かす → 当たり → 消えた甲羅をのぞく。起きたことを返す

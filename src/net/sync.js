@@ -28,6 +28,16 @@ export function packKart(kart, entry, prog, at, serverTime) {
     sw: kart.swallowed ? 1 : 0,
     bo: kart.boost > 0 ? 1 : 0,
     ai: kart.airborne ? 1 : 0,
+    bl: round(kart.blast || 0, 2),
+    sm: kart.small != null && kart.small !== 1 ? round(kart.small, 2) : 0,
+    st: round(kart.smallTime || 0, 1),
+    sq: round(kart.squash || 0, 2),
+    sr: round(kart.star || 0, 1),
+    ob: (kart.orbit ?? []).reduce((bits, slot) => bits | (1 << slot), 0),
+    oa: kart.orbit?.length ? round(kart.orbitAngle || 0, 2) : 0,
+    tr: kart.trailing || 0,
+    mu: kart.swapItem ? round(kart.muddy || 0, 1) : 0,
+    zp: round(kart.zap || 0, 2),
   };
   for (const [key, val] of Object.entries(extra)) if (val) msg[key] = val;
   msg.at = Math.round(at);
@@ -43,6 +53,9 @@ export function unpackKart(msg) {
     drift: { active: dd !== 0, dir: dd, stage: msg.ds ?? 0, counter: false, flicks: 0, time: 0 },
     hop: msg.hp ?? 0, hump: msg.hu ?? 0, tumble: msg.tb ?? 0, spin: msg.sp ?? 0,
     swallowed: !!msg.sw, boost: msg.bo ? 1 : 0, airborne: !!msg.ai,
+    blast: msg.bl ?? 0, small: msg.sm ?? 1, smallTime: msg.st ?? 0, squash: msg.sq ?? 0, star: msg.sr ?? 0,
+    orbit: [0, 1, 2].filter((slot) => (msg.ob ?? 0) & (1 << slot)), orbitAngle: msg.oa ?? 0,
+    trailing: msg.tr ?? 0, muddy: msg.mu ?? 0, swapItem: !!msg.mu, zap: msg.zp ?? 0,
   };
 }
 
