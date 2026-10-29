@@ -1,8 +1,8 @@
 // メニューの画面（タイトル、名前、キャラ選び、お知らせ、結果）。どれも、選ばれたものを Promise で返す
-import { typeLetter, isValidName } from './names.js?v=5995320';
-import { TITLE_ART, faceSvg } from './titleArt.js?v=5995320';
-import { colorOf } from './data/characters.js?v=5995320';
-import { canFullscreen, toggleFullscreen } from './fullscreen.js?v=5995320';
+import { typeLetter, isValidName } from './names.js?v=a44eecd';
+import { TITLE_ART, faceSvg } from './titleArt.js?v=a44eecd';
+import { colorOf } from './data/characters.js?v=a44eecd';
+import { canFullscreen, toggleFullscreen } from './fullscreen.js?v=a44eecd';
 
 const ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -320,6 +320,41 @@ export async function message(root, heading, text, buttons) {
   const pick = await waitPick(root);
   hide(root);
   return pick;
+}
+
+// 対戦の待合室に入る前: 通話（LINE・WhatsApp など）しながら遊ぶかを選ぶ（2026-10-29 のユーザー依頼）。
+// スピーカーのゲームの音を通話のマイクが拾って、ハウリングしたり、ほかの人の声が聞こえにくくなったりするため
+export const CALL_CHOICES = [
+  { id: 'nocall', ja: '通話しない', en: 'No call' },
+  { id: 'earphone', ja: 'イヤフォンを用意した。通話プレイをする。', en: 'I have earphones. Play on a call.' },
+  { id: 'speaker', ja: 'イヤフォンなしで通話プレイをする', en: 'Play on a call without earphones (no sound)' },
+];
+
+const CALL_HEADING = { ja: '📞 通話しながら遊ぶ？', en: '📞 Playing on a call?' };
+const CALL_TEXT = {
+  ja: 'LINEやワッツアップで通話しながらプレイする場合は、ハウリングするので必ずイヤフォンをつけるようにしてください。イヤフォンをつけない場合、BGMと効果音がオフになります。',
+  en: 'Playing on a LINE or WhatsApp call? Please wear earphones — the game sound causes echo in the call. Without earphones, music and sound effects are turned off.',
+};
+
+// 選んだものの音: イヤフォンなしの通話だけ、BGM も効果音も消す（あとで 🔊 のボタンで戻せる）
+export function callSound(pick) {
+  return pick !== 'speaker';
+}
+
+// 端末の言語（lang = 'ja' | 'en'）を大きく、もう一方を小さく下に（2026-10-29 のユーザー依頼）
+export function callTexts(lang) {
+  const main = lang === 'ja' ? 'ja' : 'en';
+  const sub = main === 'ja' ? 'en' : 'ja';
+  return {
+    heading: CALL_HEADING[main],
+    text: `${CALL_TEXT[main]}<small class="call-sub">${CALL_TEXT[sub]}</small>`,
+    buttons: CALL_CHOICES.map((c) => ({ id: c.id, label: `${c[main]}<small>${c[sub]}</small>` })),
+  };
+}
+
+export function callChoice(root, lang) {
+  const t = callTexts(lang);
+  return message(root, t.heading, t.text, t.buttons);
 }
 
 const ROW_STEP = 0.35; // 結果の行を1行ずつ出す間かく（秒）

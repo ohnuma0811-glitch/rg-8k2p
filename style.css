@@ -1034,3 +1034,11 @@ body.spectating #lap-box {
   #menu .lb-ready-btn { padding: 8px 16px !important; font-size: 17px !important; }
   #menu .vote-course { min-height: 64px; }
 }
+
+/* 待合室の前の、通話して遊ぶかの画面（2026-10-29 のユーザー依頼） */
+#menu .call-sub {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.8em;
+  opacity: 0.85;
+}

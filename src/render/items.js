@@ -1,8 +1,8 @@
 // アイテムの見た目: 「?」の箱、バナナ、甲羅（飛ぶ・回る）、Star の虹色、稲妻
 // 箱・バナナ・甲羅は、種類ごとに1回で描く（InstancedMesh。タブレットで描く回数を増やさない）
-import * as THREE from '../../vendor/three.module.min.js?v=5995320';
-import { BOX_SIZE } from '../game/itemBoxes.js?v=5995320';
-import { ITEM } from '../game/items.js?v=5995320';
+import * as THREE from '../../vendor/three.module.min.js?v=a44eecd';
+import { BOX_SIZE } from '../game/itemBoxes.js?v=a44eecd';
+import { ITEM } from '../game/items.js?v=a44eecd';
 
 const MAX_BOX = 40;
 const MAX_BANANA = 64; // 置いたバナナ 20 個と、ぶら下げたバナナ（5個 × 8台）

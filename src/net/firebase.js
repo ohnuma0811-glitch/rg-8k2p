@@ -1,6 +1,6 @@
 // Firebase を読み込んでつなぐ（対戦か GM 画面を開いたときだけ。SOLO では読み込まない）
 // 読み書きは storeOf(f) の形にまとめる（src/net/gamecode.js などは、この形だけを使う）
-import { FIREBASE } from '../config.js?v=5995320';
+import { FIREBASE } from '../config.js?v=a44eecd';
 
 const VER = '10.14.1';
 const BASE = `https://www.gstatic.com/firebasejs/${VER}`;

@@ -1,8 +1,8 @@
 // 川と滝（Soki Forest。2026-10-16 のユーザー依頼「川をジャンプで2回飛び越える」「ジャンプ②の手前に滝、川に合流」）
-import * as THREE from '../../../vendor/three.module.min.js?v=5995320';
-import { createBuilder } from '../town/builder.js?v=5995320';
-import { markS } from '../../game/track.js?v=5995320';
-import { terrainHeight } from '../terrain.js?v=5995320';
+import * as THREE from '../../../vendor/three.module.min.js?v=a44eecd';
+import { createBuilder } from '../town/builder.js?v=a44eecd';
+import { markS } from '../../game/track.js?v=a44eecd';
+import { terrainHeight } from '../terrain.js?v=a44eecd';
 
 const WATER = 0x4f9fd6;
 const FALLS = 0xbfe6ff; // 滝の水（白っぽい水色）

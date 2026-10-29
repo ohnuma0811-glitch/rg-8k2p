@@ -1,11 +1,11 @@
 // 待合室とコースの投票の画面（設計書 docs/superpowers/specs/2026-10-22-lobby-design.md の 2.1・4章）
-import { faceSvg } from './titleArt.js?v=5995320';
-import { charOf } from './data/characters.js?v=5995320';
-import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=5995320';
-import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=5995320';
-import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=5995320';
-import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=5995320';
-import { startPerf } from './net/perf.js?v=5995320';
+import { faceSvg } from './titleArt.js?v=a44eecd';
+import { charOf } from './data/characters.js?v=a44eecd';
+import { PHRASES, phrase, pickedText } from './chatPhrases.js?v=a44eecd';
+import { CHAT_MAX, CHAT_SHOW, cleanText, canSend, samePreset, sendChat, lastMessages, displayText, nextChime } from './net/chat.js?v=a44eecd';
+import { enterLobby, rejoinLobby, leaveLobby, setReady, playersOf } from './net/lobby.js?v=a44eecd';
+import { allReady, startVote, castVote, decideVote, resetRoom, roomStale, racingStale, racersLeft } from './net/room.js?v=a44eecd';
+import { startPerf } from './net/perf.js?v=a44eecd';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const face = (char) => `<span class="lb-face" style="background:#${charOf(char).body.toString(16).padStart(6, '0')}">${faceSvg(char)}</span>`;
@@ -32,12 +32,13 @@ export function voteRows(courses, votes, voteId, players) {
 
 // レース中に来た人（と QUIT した人）への知らせ（M4-C1）。英語だけ
 export function racingText(courseName, names) {
-  return `Racing now: ${courseName}${names.length ? ` — ${names.join(', ')}` : ''}. Press READY after the race.`;
+  return `Racing now: ${courseName}${names.length ? ` — ${names.join(', ')}` : ''}. Press READY for the next race.`;
 }
 
-// READY を押せるのは、部屋がないか lobby のときだけ（投票中・決まった・レース中は押せない）
+// READY を押せるのは、部屋がないか lobby・レース中のとき（投票中・決まったときは押せない）。
+// レース中の READY は次のレースの予約（QUIT で戻った人に、ほかの人が走り終わるまで READY が出なかった。2026-10-29 のユーザー依頼）
 export function canReady(room) {
-  return !room || room.phase === 'lobby';
+  return !room || room.phase === 'lobby' || room.phase === 'racing';
 }
 
 // 待合室。戻り値: 'back'（タイトルへ）/ 'chars'（キャラを選び直す）/ 'recode'（コードが変わった）
@@ -136,7 +137,7 @@ export function runLobby(root, ctx) {
       const r = state.room;
       const voting = r?.phase === 'voting' || r?.phase === 'decided';
       $('.lb-vote').classList.toggle('hidden', !voting);
-      $('.lb-ready-btn').classList.toggle('off', voting || r?.phase === 'racing'); // 投票中・レース中は READY を出さない
+      $('.lb-ready-btn').classList.toggle('off', !canReady(r)); // 投票中・決まったときは READY を出さない
       drawRacing();
       if (!voting) return;
       $('.vote-list').innerHTML = voteRows(ctx.courses, state.votes, r.voteId, state.players);
@@ -180,7 +181,7 @@ export function runLobby(root, ctx) {
       }
       if (act === 'sound' || act === 'lang') return drawGear();
       if (act === 'ready') {
-        if (!canReady(state.room)) return; // 投票中・レース中は READY を押せない（レース中に来た人は、レースが終わってから）
+        if (!canReady(state.room)) return; // 投票中・決まったときは READY を押せない
         const mine = state.players.find((p) => p.uid === me.uid);
         return setReady(db, me.uid, !mine?.ready).catch(() => {});
       }

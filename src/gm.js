@@ -1,9 +1,9 @@
 // ゲームマスター（KENTA）の画面（URL の後ろに #gm。設計書 docs/superpowers/specs/2026-10-22-gamecode-design.md の 5章）
 // 縦に並べる: Code（数字ボタンで4けた → Set、Stop）、Players、Locked（Unlock）、Play time（Reset）、Daily limit
-import { connect, signInGoogle, gmRedirectResult, signOut, storeOf, firebaseReady } from './net/firebase.js?v=5995320';
-import { dayKey, LIMITED_NAMES, DEFAULT_LIMIT_MIN } from './playtime.js?v=5995320';
-import { lastMessages, displayText } from './net/chat.js?v=5995320';
-import { playersOf as lobbyPlayersOf } from './net/lobby.js?v=5995320';
+import { connect, signInGoogle, gmRedirectResult, signOut, storeOf, firebaseReady } from './net/firebase.js?v=a44eecd';
+import { dayKey, LIMITED_NAMES, DEFAULT_LIMIT_MIN } from './playtime.js?v=a44eecd';
+import { lastMessages, displayText } from './net/chat.js?v=a44eecd';
+import { playersOf as lobbyPlayersOf } from './net/lobby.js?v=a44eecd';
 
 export function newCodeId(now, rand = Math.random) {
   return `${now.toString(36)}${Math.floor(rand() * 1e8).toString(36)}`;
